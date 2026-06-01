@@ -9,8 +9,9 @@ export function useApi() {
     const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
     
     // Safeguard against misconfigured environment variables
-    if (envBase.startsWith("mongodb")) {
-      console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI instead of an HTTP URL. Check your environment variables.");
+    if (envBase.startsWith("mongodb") && !window._api_url_error_logged) {
+      console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI instead of an HTTP URL. Check your environment variables in Vercel/Render.");
+      window._api_url_error_logged = true;
     }
 
     // Ensure baseURL always ends with /api and remove trailing slash
