@@ -28,11 +28,13 @@ export default function AdminPhoneUsers() {
   const approve = async (u) => {
     setUpdatingId(u._id);
     try {
-      await api.patch(`/admin/phone-users/${u._id}/status`, { status: "approved" });
+      console.log(`[Admin] Approving phone user: ${u._id}`);
+      await api.patch(`admin/phone-users/${u._id}/status`, { status: "approved" });
       // Update local state immediately
       setItems(prev => prev.map(item => item._id === u._id ? { ...item, phoneTrialStatus: "Approved" } : item));
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { type: "success", message: "تم تفعيل المستخدم بنجاح" } }));
-    } catch {
+    } catch (err) {
+      console.error("[Admin] Error approving user:", err);
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { type: "error", message: "فشل تفعيل المستخدم" } }));
     } finally {
       setUpdatingId(null);
@@ -42,11 +44,13 @@ export default function AdminPhoneUsers() {
   const reject = async (u) => {
     setUpdatingId(u._id);
     try {
-      await api.patch(`/admin/phone-users/${u._id}/status`, { status: "rejected" });
+      console.log(`[Admin] Rejecting phone user: ${u._id}`);
+      await api.patch(`admin/phone-users/${u._id}/status`, { status: "rejected" });
       // Update local state immediately
       setItems(prev => prev.map(item => item._id === u._id ? { ...item, phoneTrialStatus: "Rejected" } : item));
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { type: "success", message: "تم رفض الطلب بنجاح" } }));
-    } catch {
+    } catch (err) {
+      console.error("[Admin] Error rejecting user:", err);
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { type: "error", message: "فشل رفض المستخدم" } }));
     } finally {
       setUpdatingId(null);

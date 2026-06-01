@@ -39,11 +39,13 @@ export default function AdminVerificationRequests() {
     if (!window.confirm("هل أنت متأكد من الموافقة على طلب التوثيق؟")) return;
     setLoading(true);
     try {
+      console.log(`[Admin] Approving verification request: ${id}`);
       await api.patch(`/verification-requests/admin/${id}/approve`);
       setOpenId(null);
       load();
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم قبول التوثيق بنجاح", type: "success" } }));
-    } catch {
+    } catch (err) {
+      console.error("[Admin] Error approving verification request:", err);
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "فشل في قبول التوثيق", type: "error" } }));
     } finally {
       setLoading(false);
@@ -57,12 +59,14 @@ export default function AdminVerificationRequests() {
     }
     setRejectingId(id);
     try {
-      await api.patch(`/verification-requests/admin/${id}/reject`, { rejectionReason: rejectReason });
+      console.log(`[Admin] Rejecting verification request: ${id} with reason: ${rejectReason}`);
+      await api.patch(`verification-requests/admin/${id}/reject`, { rejectionReason: rejectReason });
       setOpenId(null);
       setRejectReason("");
       load();
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم رفض الطلب بنجاح", type: "success" } }));
-    } catch {
+    } catch (err) {
+      console.error("[Admin] Error rejecting verification request:", err);
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "فشل في رفض الطلب", type: "error" } }));
     } finally {
       setRejectingId(null);

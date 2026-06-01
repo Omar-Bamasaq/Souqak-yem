@@ -107,7 +107,8 @@ export default function Register() {
     setOk("");
     setLoading(true);
     try {
-      const res = await api.post("/auth/phone-register", { name: name.trim(), phone: phone.trim() });
+      console.log(`[Register] Sending registration request for: ${name.trim()} / ${phone.trim()}`);
+      const res = await api.post("auth/phone-register", { name: name.trim(), phone: phone.trim() });
       if (res.data.token) {
         if (res.data.requiresActivation) {
           setRegData(res.data);
@@ -138,7 +139,8 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/auth/register-email", {
+      console.log(`[Register] Sending email registration request for: ${emailReg.trim()}`);
+      await api.post("auth/register-email", {
         name: name.trim(),
         email: emailReg.trim(),
         password: passwordReg
