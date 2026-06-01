@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
-const API_BASE_URL = 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000";
 
 export default function AdminNotificationBell() {
   const api = useApi();
@@ -38,7 +38,7 @@ export default function AdminNotificationBell() {
     fetchUnreadCount();
 
     // Setup Socket.IO
-    socketRef.current = io(API_BASE_URL, {
+    socketRef.current = io(SOCKET_URL, {
       withCredentials: true,
     });
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useCategoryApi } from "../api/categories.js";
 
-const API_BASE_URL = "http://localhost:5000";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
@@ -55,7 +55,7 @@ export default function Categories() {
               <div className="absolute inset-0 bg-blue-500/5 rounded-3xl scale-0 group-hover:scale-150 transition-transform duration-700"></div>
               {category.image ? (
                 <img
-                  src={`${API_BASE_URL}${category.image}`}
+                  src={uploadsUrl(category.image)}
                   alt={category.name}
                   loading="lazy"
                   className="relative z-10 w-20 h-20 object-contain rounded-2xl transition-transform duration-500 group-hover:scale-110"

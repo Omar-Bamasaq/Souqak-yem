@@ -1,5 +1,9 @@
 export function uploadsBase() {
-  const envUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:5000/uploads";
+  let envUrl = import.meta.env.VITE_UPLOADS_URL;
+  if (!envUrl) {
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
+  }
   // Ensure we don't have double /uploads
   if (envUrl.endsWith("/uploads")) return envUrl;
   return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;

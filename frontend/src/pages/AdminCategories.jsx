@@ -4,8 +4,7 @@ import { useCategoryApi } from "../api/categories.js";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import { uploadsUrl } from "../lib/uploads.js";
 
-const API_BASE_URL = "http://localhost:5000";
-
+// Removed hardcoded API_BASE_URL as we use uploadsUrl helper
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -406,7 +405,7 @@ export default function AdminCategories() {
                               <div className="h-10 w-10 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
                                 {category.image ? (
                                   <img
-                                    src={`${API_BASE_URL}${category.image}`}
+                                    src={uploadsUrl(category.image)}
                                     alt=""
                                     className="h-full w-full object-cover"
                                   />
@@ -486,7 +485,7 @@ export default function AdminCategories() {
                                 <div className="h-10 w-10 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0">
                                   {category.image ? (
                                     <img
-                                      src={`${API_BASE_URL}${category.image}`}
+                                      src={uploadsUrl(category.image)}
                                       alt=""
                                       className="h-full w-full object-cover"
                                     />

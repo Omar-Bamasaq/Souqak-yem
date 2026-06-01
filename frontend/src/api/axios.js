@@ -18,6 +18,10 @@ export function useApi() {
     });
     
     instance.interceptors.request.use((config) => {
+      // Ensure the URL is relative to the baseURL path by stripping leading slash
+      if (config.url && config.url.startsWith("/")) {
+        config.url = config.url.substring(1);
+      }
       if (token) config.headers.Authorization = `Bearer ${token}`;
       return config;
     });
