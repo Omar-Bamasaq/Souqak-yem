@@ -105,29 +105,19 @@ router.post("/register-email", async (req, res) => {
       expiresAt
     });
 
-    console.log(`[LOG] OTP requested for: ${inputEmail}`);
+    console.log(`[AUTH] OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
 
-    // Send email
-    try {
-      console.log(`[AUTH] Sending verification email to: ${inputEmail}`);
-      await sendVerificationEmail(inputEmail, code);
-      console.log(`[AUTH] Verification email sent successfully to: ${inputEmail}`);
-      res.status(201).json({
-        message: "Verification code sent to your email",
-        email: inputEmail
-      });
-    } catch (err) {
-      console.error("[LOG] Email sending failed during registration:", err.message);
-      
-      // Clean up OTP record if email sending fails
-      await OtpCode.deleteMany({ email: inputEmail });
-      
-      return res.status(500).json({ 
-        error: "فشل إرسال رمز التحقق إلى بريدك الإلكتروني.", 
-        details: err.message || "Unknown SMTP error",
-        suggestion: "يرجى التأكد من صحة البريد أو المحاولة باستخدام رقم الهاتف."
-      });
-    }
+    // ASYNCHRONOUS BACKGROUND EMAIL SENDING
+    // We respond to the user immediately to prevent HTTP timeouts
+    sendVerificationEmail(inputEmail, code).catch(err => {
+      console.error(`[BACKGROUND EMAIL ERROR] Failed to send to ${inputEmail}:`, err.message);
+    });
+
+    return res.status(201).json({
+      message: "تم إنشاء طلبك. ستصلك رسالة التحقق على بريدك الإلكتروني خلال لحظات.",
+      email: inputEmail,
+      note: "إذا لم تصلك الرسالة خلال دقيقة، يمكنك طلب إعادة الإرسال."
+    });
 
   } catch (err) {
     console.error("Register email error:", err);
@@ -355,20 +345,16 @@ router.post("/resend-otp", async (req, res) => {
       expiresAt
     });
 
-    console.log(`[LOG] OTP resend requested for: ${inputEmail}`);
+    console.log(`[AUTH] Resend OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
 
-    // Send email
-    try {
-      await sendVerificationEmail(inputEmail, code);
-      res.json({ message: "New verification code sent" });
-    } catch (emailErr) {
-      console.error("[LOG] Resend OTP Email Error:", emailErr.message);
-      return res.status(500).json({ 
-        error: "فشل إرسال رمز التحقق الجديد.",
-        details: emailErr.message,
-        suggestion: "يرجى المحاولة مرة أخرى لاحقاً أو التواصل مع الدعم."
-      });
-    }
+    // ASYNCHRONOUS BACKGROUND EMAIL SENDING
+    sendVerificationEmail(inputEmail, code).catch(err => {
+      console.error(`[BACKGROUND EMAIL ERROR] Failed to resend to ${inputEmail}:`, err.message);
+    });
+
+    return res.json({ 
+      message: "تم إرسال رمز جديد. يرجى التحقق من بريدك الإلكتروني." 
+    });
 
   } catch (err) {
     console.error("Resend OTP error:", err);
@@ -425,19 +411,16 @@ router.post("/forgot-password", async (req, res) => {
       expiresAt
     });
 
-    try {
-      await sendPasswordResetEmail(inputEmail, code);
-      res.json({ message: "تم إرسال رمز التحقق إلى بريدك الإلكتروني." });
-    } catch (emailErr) {
-      console.error("[LOG] Forgot password Email Error:", emailErr.message);
-      // Clean up the OTP record if email sending fails
-      await OtpCode.deleteMany({ email: inputEmail });
-      return res.status(500).json({ 
-        error: "فشل إرسال رمز استعادة كلمة المرور.", 
-        details: emailErr.message,
-        suggestion: "يرجى المحاولة مرة أخرى لاحقاً."
-      });
-    }
+    console.log(`[AUTH] Reset OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
+
+    // ASYNCHRONOUS BACKGROUND EMAIL SENDING
+    sendPasswordResetEmail(inputEmail, code).catch(err => {
+      console.error(`[BACKGROUND EMAIL ERROR] Failed to send reset to ${inputEmail}:`, err.message);
+    });
+
+    return res.json({ 
+      message: "تم إرسال رمز إعادة التعيين إلى بريدك الإلكتروني." 
+    });
   } catch (err) {
     console.error("Forgot password error:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم." });
