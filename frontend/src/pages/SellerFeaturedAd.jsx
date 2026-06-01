@@ -4,8 +4,6 @@ import { useApi } from "../api/axios.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 
-const API = (import.meta.env?.VITE_API_URL) || "http://localhost:5000/api";
-
 export default function SellerFeaturedAd() {
   const api = useApi();
   const navigate = useNavigate();
@@ -49,17 +47,14 @@ export default function SellerFeaturedAd() {
       fd.append("planId", selectedPlanId);
       fd.append("productId", selectedAd);
       if (receiptFile) fd.append("paymentReceipt", receiptFile);
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API}/purchase-requests`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd
+      
+      const res = await api.post("/purchase-requests", fd, {
+        headers: { "Content-Type": "multipart/form-data" }
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "فشل إرسال الطلب");
+      
       setSuccess(true);
     } catch (e) {
-      setError(e.message || "فشل إرسال الطلب");
+      setError(e.response?.data?.error || e.message || "فشل إرسال الطلب");
     } finally {
       setLoading(false);
     }

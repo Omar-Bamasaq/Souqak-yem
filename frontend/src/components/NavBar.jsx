@@ -4,7 +4,6 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
 import Logo from "./Logo.jsx";
 import { useChat } from "../store/ChatContext.jsx";
-import axios from "axios";
 import { useApi } from "../api/axios.js";
 import AdvancedSearchModal from "./AdvancedSearchModal.jsx";
 import MobileSelect from "./MobileSelect.jsx";

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { uploadsUrl } from "../lib/uploads.js";
 
 const CURRENCY_INFO = {
   YER_ADEN: { label: "يمني (عدن)", flag: "🇾🇪" },
@@ -10,7 +11,6 @@ const CURRENCY_INFO = {
 
 export default function BankAccountsDisplay({ banks }) {
   const [openIndex, setOpenIndex] = useState(-1);
-  const apiBase = (import.meta.env && import.meta.env.VITE_API_URL)?.replace("/api", "") || "http://localhost:5000";
 
   const handleCopy = (number, e) => {
     e.stopPropagation();
@@ -56,7 +56,7 @@ export default function BankAccountsDisplay({ banks }) {
                   isOpen ? "bg-white border-blue-100 shadow-sm" : "bg-white border-gray-100"
                 }`}>
                   {bank.logo ? (
-                    <img src={`${apiBase}${bank.logo}`} alt={bank.bankName} className="w-full h-full object-contain" />
+                    <img src={bank.logo.startsWith("http") ? bank.logo : uploadsUrl(bank.logo)} alt={bank.bankName} className="w-full h-full object-contain" />
                   ) : (
                     <svg className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${isOpen ? "text-blue-500" : "text-gray-300"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />

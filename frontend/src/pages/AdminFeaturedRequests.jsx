@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 
-const API = (import.meta.env?.VITE_API_URL) || "http://localhost:5000/api";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function AdminFeaturedRequests() {
   const api = useApi();
@@ -10,12 +10,6 @@ export default function AdminFeaturedRequests() {
   const [openId, setOpenId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectingId, setRejectingId] = useState(null);
-
-  const uploadsUrl = (path) => {
-    if (!path) return "";
-    const base = (import.meta.env?.VITE_API_URL || "http://localhost:5000/api").replace("/api", "");
-    return `${base}/uploads/${path}`;
-  };
 
   const remainingDays = (d) => {
     if (!d) return 0;

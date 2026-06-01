@@ -28,8 +28,6 @@ export default function SellerVerification() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  const API_BASE = (import.meta.env?.VITE_API_URL) || "http://localhost:5000/api";
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -54,19 +52,15 @@ export default function SellerVerification() {
       if (address) fd.append("address", address);
       if (occupation) fd.append("occupation", occupation);
 
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/verification-requests`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd
+      const res = await api.post("/verification-requests", fd, {
+        headers: { "Content-Type": "multipart/form-data" }
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "فشل إرسال الطلب");
-      
-      setSuccess(true);
+      if (res.data?.success || res.status === 201 || res.status === 200) {
+        setSuccess(true);
+      }
     } catch (e) {
-      setError(e.message || "فشل إرسال الطلب");
+      setError(e.response?.data?.error || e.message || "فشل إرسال الطلب");
     } finally {
       setLoading(false);
     }

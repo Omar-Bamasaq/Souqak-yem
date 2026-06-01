@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
-
-const API_BASE = (import.meta.env?.VITE_API_URL)?.replace("/api", "") || "http://localhost:5000";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function AdminVerificationRequests() {
   const api = useApi();
@@ -289,8 +288,8 @@ export default function AdminVerificationRequests() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 sm:gap-6">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">الهوية (الوجه الأمامي)</p>
-                    <a href={`${API_BASE}/uploads/${req.idFrontImage}`} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
-                      <img src={`${API_BASE}/uploads/${req.idFrontImage}`} alt="ID Front" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
+                    <a href={uploadsUrl(req.idFrontImage)} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
+                      <img src={uploadsUrl(req.idFrontImage)} alt="ID Front" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
                     </a>
                   </div>
@@ -298,8 +297,8 @@ export default function AdminVerificationRequests() {
                   {req.idBackImage && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">الهوية (الوجه الخلفي)</p>
-                      <a href={`${API_BASE}/uploads/${req.idBackImage}`} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
-                        <img src={`${API_BASE}/uploads/${req.idBackImage}`} alt="ID Back" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
+                      <a href={uploadsUrl(req.idBackImage)} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
+                        <img src={uploadsUrl(req.idBackImage)} alt="ID Back" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
                       </a>
                     </div>
@@ -308,8 +307,8 @@ export default function AdminVerificationRequests() {
                   {req.selfieImage && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">صورة سيلفي مع الهوية</p>
-                      <a href={`${API_BASE}/uploads/${req.selfieImage}`} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
-                        <img src={`${API_BASE}/uploads/${req.selfieImage}`} alt="Selfie" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
+                      <a href={uploadsUrl(req.selfieImage)} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
+                        <img src={uploadsUrl(req.selfieImage)} alt="Selfie" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
                       </a>
                     </div>

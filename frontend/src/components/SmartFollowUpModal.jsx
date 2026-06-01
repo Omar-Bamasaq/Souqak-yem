@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link, useNavigate } from "react-router-dom";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function SmartFollowUpModal() {
   const api = useApi();
@@ -9,8 +10,6 @@ export default function SmartFollowUpModal() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [show, setShow] = useState(false);
-
-  const API_BASE = (import.meta.env?.VITE_API_URL)?.replace("/api", "") || "http://localhost:5000";
 
   useEffect(() => {
     const fetchFollowUps = async () => {
@@ -77,7 +76,7 @@ export default function SmartFollowUpModal() {
         {currentAd.images && currentAd.images[0] && (
           <div className="mt-6 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 aspect-video relative group">
             <img 
-              src={`${API_BASE}/uploads/${currentAd.images[0]}`} 
+              src={uploadsUrl(currentAd.images[0], "thumb")} 
               alt={currentAd.title} 
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             />

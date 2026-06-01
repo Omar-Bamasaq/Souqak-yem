@@ -1,21 +1,20 @@
 
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-
-const API = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
+import { useApi } from "../api/axios.js";
 
 export function useAdsQuery() {
   const queryClient = useQueryClient();
+  const api = useApi();
 
   const fetchAds = async (params) => {
-    const res = await axios.get(`${API}/ads`, { params });
+    const res = await api.get("/ads", { params });
     // Normalize response to { items, total, page, pages }
     return res.data && res.data.items ? res.data : { items: res.data, page: 1, pages: 1 };
   };
 
   const fetchAdDetails = async (id) => {
-    const res = await axios.get(`${API}/ads/${id}`);
+    const res = await api.get(`/ads/${id}`);
     return res.data;
   };
 
@@ -47,7 +46,7 @@ export function useAdsQuery() {
       queryClient.prefetchQuery({
         queryKey: ["similar-ads", adId],
         queryFn: async () => {
-          const res = await axios.get(`${API}/ads/${adId}/similar?limit=8`);
+          const res = await api.get(`/ads/${adId}/similar?limit=8`);
           return res.data;
         },
       });
@@ -59,7 +58,7 @@ export function useAdsQuery() {
         queryKey: ["similar-ads", adId],
         queryFn: async () => {
           if (!adId || adId === "undefined") return [];
-          const res = await axios.get(`${API}/ads/${adId}/similar?limit=8`);
+          const res = await api.get(`/ads/${adId}/similar?limit=8`);
           return res.data;
         },
         enabled: !!adId && adId !== "undefined",
@@ -77,5 +76,5 @@ export function useAdsQuery() {
         });
       }
     }
-  }), [queryClient]);
+  }), [queryClient, api]);
 }

@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import axios from "axios";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -13,7 +12,6 @@ import MobileSelect from "../components/MobileSelect.jsx";
 export default function Home() {
   const { user } = useAuth();
   const api = useApi();
-  const queryClient = useQueryClient();
   const { prefetchCategoryAds, prefetchNextPage } = useAdsQuery();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -105,7 +103,7 @@ export default function Home() {
         sort
       };
 
-      const res = await axios.get(`${API}/ads`, { params });
+      const res = await api.get("/ads", { params });
       const data = res.data && res.data.items ? res.data : { items: res.data, page: 1, pages: 1 };
       
       if (page === 1 || isInitialRestore) {
@@ -128,7 +126,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [q, governorateId, minPrice, maxPrice, page, sort, API]);
+  }, [q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
     load();
@@ -137,7 +135,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await axios.get(`${API}/governorates?active=true`);
+        const res = await api.get("/governorates", { params: { active: true } });
         setGovernorates(res.data || []);
       } catch {
         setGovernorates([]);
@@ -152,7 +150,7 @@ export default function Home() {
     }
     (async () => {
       try {
-        const res = await axios.get(`${API}/cities`, { params: { governorateId, active: true } });
+        const res = await api.get("/cities", { params: { governorateId, active: true } });
         setCities(res.data || []);
       } catch {
         setCities([]);
@@ -163,7 +161,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await axios.get(`${API}/tags`, { params: { popular: true } });
+        const res = await api.get("/tags", { params: { popular: true } });
         setPopularTags(res.data || []);
       } catch {
         setPopularTags([]);

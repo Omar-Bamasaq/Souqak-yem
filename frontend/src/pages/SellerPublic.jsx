@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
-import axios from "axios";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
@@ -190,7 +189,7 @@ export default function SellerPublic() {
                   const r = await api.post(`/follows/${id}`);
                   const f = !!r.data?.following;
                   setFollowing(f);
-                  const c = await axios.get(`${API}/follows/count/${id}`);
+                  const c = await api.get(`/follows/count/${id}`);
                   setFollowers(Number(c.data?.count || 0));
                 } catch (e) {
                   if (e?.response?.data?.error) {

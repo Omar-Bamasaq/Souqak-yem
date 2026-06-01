@@ -1,5 +1,4 @@
 import React, { useEffect, useState, Fragment } from "react";
-import axios from "axios";
 import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
 import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
@@ -505,7 +504,7 @@ export default function ProductDetail() {
       
       setCommentsLoading(true);
       try {
-        const res = await axios.get(`${API}/ads/${id}/comments`, { params: { page: cPage, limit: 10 } });
+        const res = await api.get(`/ads/${id}/comments`, { params: { page: cPage, limit: 10 } });
         const data = res.data && res.data.items ? res.data : { items: res.data, page: 1, pages: 1 };
         if (cPage === 1) setComments(data.items || []);
         else setComments((prev) => [...prev, ...(data.items || [])]);
@@ -516,7 +515,7 @@ export default function ProductDetail() {
         setCommentsLoading(false);
       }
     })();
-  }, [id, cPage, loading, notFound, API]);
+  }, [id, cPage, loading, notFound]);
 
   useEffect(() => {
     if (loading || notFound || !p) return;
@@ -525,7 +524,7 @@ export default function ProductDetail() {
         const sellerId = p.userId?._id || p.userId;
         if (!sellerId) return;
         
-        const res = await axios.get(`${API}/reviews/seller/${sellerId}`);
+        const res = await api.get(`/reviews/seller/${sellerId}`);
         setReviews(res.data.items || []);
         setAverageRating(res.data.stats?.avgRating || 0);
         setTotalReviews(res.data.stats?.count || 0);
@@ -538,7 +537,7 @@ export default function ProductDetail() {
         console.error("Reviews error:", err);
       }
     })();
-  }, [p, loading, notFound, API]);
+  }, [p, loading, notFound]);
 
   const openConversation = async () => {
     if (!user) {

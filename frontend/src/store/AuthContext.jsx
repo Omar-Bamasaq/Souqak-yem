@@ -17,8 +17,13 @@ export function AuthProvider({ children }) {
           return;
         }
         setToken(t);
-        const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        const base = envBase.endsWith("/api") ? envBase : `${envBase}/api`;
+        const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        // Standardize base URL
+        let base = envBase.replace(/\/$/, "");
+        if (!base.endsWith("/api")) {
+          base = `${base}/api`;
+        }
+        
         const res = await axios.get(`${base}/auth/me`, {
           headers: { Authorization: `Bearer ${t}` }
         });
