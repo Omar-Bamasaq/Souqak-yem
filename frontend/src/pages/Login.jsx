@@ -49,8 +49,21 @@ export default function Login() {
   const location = useLocation();
   const { login } = useAuth();
 
-  const [activeBox, setActiveBox] = useState("email"); // Set default to email
+  const [activeBox, setActiveBox] = useState("phone"); // 'phone' | 'email'
   const [showFeatures, setShowFeatures] = useState(false);
+  const [loginName, setLoginName] = useState("");
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginNameErr, setLoginNameErr] = useState("");
+  const [loginPhoneErr, setLoginPhoneErr] = useState("");
+
+  const validateLoginPhone = () => {
+    let ok = true;
+    setLoginNameErr("");
+    setLoginPhoneErr("");
+    if (!loginName.trim()) { setLoginNameErr("الاسم مطلوب"); ok = false; }
+    if (!loginPhone.trim()) { setLoginPhoneErr("رقم الهاتف مطلوب"); ok = false; }
+    return ok;
+  };
 
   const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -59,6 +72,23 @@ export default function Login() {
     if (/Windows/i.test(ua)) return "windows";
     if (/Macintosh/i.test(ua)) return "macos";
     return null;
+  };
+
+  const phoneLogin = async (e) => {
+    e.preventDefault();
+    if (!validateLoginPhone()) return;
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/phone-login", { name: loginName.trim(), phone: loginPhone.trim(), deviceType: getDeviceType() });
+      login(res.data.token, res.data.user);
+      const from = location.state?.from?.pathname || (res.data.user?.role === "admin" ? "/admin" : "/");
+      navigate(from, { replace: true });
+    } catch (e2) {
+      setError(e2?.response?.data?.error || "حدث خطأ أثناء تسجيل الدخول.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const emailLogin = async (e) => {
@@ -127,6 +157,29 @@ export default function Login() {
 
             <div className="custom-scrollbar pr-1 lg:overflow-y-auto lg:max-h-[500px]">
               {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 sm:py-3 text-xs sm:text-sm text-red-700 mb-4 font-medium text-center">{error}</div>}
+
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                <button onClick={() => setActiveBox("phone")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-center transition-all ${activeBox === "phone" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>رقم الهاتف</button>
+                <button onClick={() => setActiveBox("email")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-center transition-all ${activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>البريد الإلكتروني</button>
+              </div>
+
+              {activeBox === "phone" && (
+                <form onSubmit={phoneLogin} className="space-y-3 sm:space-y-5">
+                  <div>
+                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold text-right">اسم المستخدم</label>
+                    <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="اسم المستخدم" value={loginName} onChange={(e) => setLoginName(e.target.value)} required />
+                    {loginNameErr && <div className="mt-1 text-[10px] text-red-600 font-medium text-right">{loginNameErr}</div>}
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold text-right">رقم الهاتف</label>
+                    <input type="tel" className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-left dir-ltr" placeholder="7xxxxxxx" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} required />
+                    {loginPhoneErr && <div className="mt-1 text-[10px] text-red-600 font-medium text-right">{loginPhoneErr}</div>}
+                  </div>
+                  <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
+                    {loading ? "جاري التحقق..." : "دخول"}
+                  </button>
+                </form>
+              )}
 
               {activeBox === "email" && (
                 <form onSubmit={emailLogin} className="space-y-3 sm:space-y-5">

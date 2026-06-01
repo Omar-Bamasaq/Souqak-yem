@@ -42,7 +42,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [showFeatures, setShowFeatures] = useState(false);
-  const [activeBox, setActiveBox] = useState("email"); // Set default to email
+  const [activeBox, setActiveBox] = useState("phone"); // 'phone' | 'email'
   const [emailReg, setEmailReg] = useState("");
   const [passwordReg, setPasswordReg] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -203,6 +203,84 @@ export default function Register() {
             <div className="custom-scrollbar pr-1 lg:overflow-y-auto lg:max-h-[500px]">
               {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 sm:py-3 text-xs sm:text-sm text-red-700 mb-4 font-medium">{error}</div>}
               {ok && <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-2 sm:py-3 text-xs sm:text-sm text-green-700 mb-4 font-medium">{ok}</div>}
+
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                <button onClick={() => setActiveBox("phone")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-right transition-all ${activeBox === "phone" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>رقم الهاتف</button>
+                <button onClick={() => setActiveBox("email")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-right transition-all ${activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>البريد الإلكتروني</button>
+              </div>
+
+              {activeBox === "phone" && (
+                <>
+                  {!isSuccess ? (
+                    <form onSubmit={submitPhone} className="space-y-3 sm:space-y-5">
+                      <div>
+                        <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">اسم المستخدم</label>
+                        <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="مثال: أحمد علي" value={name} onChange={(e) => setName(e.target.value)} required />
+                      </div>
+                      <div>
+                        <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">رقم الهاتف</label>
+                        <input type="tel" className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-left dir-ltr" placeholder="7xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                      </div>
+                      <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
+                        {loading ? "جاري المعالجة..." : "إنشاء حساب مجاني"}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="space-y-6 text-center animate-in fade-in zoom-in duration-300 py-4">
+                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-2 shadow-inner ${pollStatus === "Approved" ? "bg-green-100 text-green-600" : pollStatus === "Rejected" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}>
+                        {pollStatus === "Approved" ? <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : pollStatus === "Rejected" ? <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> : <svg className="w-10 h-10 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" strokeWidth={2} /></svg>}
+                      </div>
+                      {!tgSent ? (
+                        <>
+                          <div className="space-y-2">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">خطوة واحدة متبقية!</h2>
+                            <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">لقد قمنا بإنشاء حسابك. الآن، يرجى الضغط على الزر أدناه لإرسال طلب التفعيل عبر تليجرام.</p>
+                          </div>
+                          <div className="px-4 pt-2">
+                            <a href={tgLink} target="_blank" rel="noreferrer" onClick={() => setTgSent(true)} className="flex items-center justify-center gap-3 w-full bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98]">
+                              <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.52-1.4.51-.46-.01-1.35-.26-2.01-.48-.81-.27-1.46-.42-1.4-.88.03-.24.38-.49 1.07-.75 4.19-1.82 6.98-3.02 8.37-3.6 3.95-1.63 4.77-1.91 5.31-1.92.12 0 .38.03.55.17.14.12.18.28.2.4.02.08.02.24.01.3z"/>
+                              </svg>
+                              تفعيل الحساب عبر Telegram
+                            </a>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <h2 className={`text-xl font-bold ${pollStatus === "Approved" ? "text-green-600" : pollStatus === "Rejected" ? "text-red-600" : "text-gray-900 dark:text-slate-100"}`}>{pollStatus === "Approved" ? "تم التفعيل بنجاح!" : pollStatus === "Rejected" ? "تم رفض الطلب" : "جاري الانتظار..."}</h2>
+                            <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">{pollStatus === "Approved" ? "شكراً لصبرك، تم تفعيل حسابك. جاري تحويلك للملف الشخصي..." : pollStatus === "Rejected" ? "نعتذر، لم يتم تفعيل حسابك. يرجى التواصل مع الدعم الفني للمساعدة." : "لقد استلمنا طلبك وأرسلت رسالة التفعيل. يرجى البقاء هنا، سنقوم بتحديث الصفحة فور التفعيل."}</p>
+                          </div>
+                          <div className="pt-4 space-y-3">
+                            {pollStatus === "Pending" ? (
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-xs font-medium animate-pulse">
+                                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                  <span>بانتظار موافقة الإدارة...</span>
+                                </div>
+                                <button onClick={checkStatus} disabled={checkingNow} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50">
+                                  <svg className={`w-3.5 h-3.5 ${checkingNow ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                  {checkingNow ? "جاري التحقق..." : "تحديث الحالة يدوياً"}
+                                </button>
+                                <button onClick={() => setTgSent(false)} className="mt-4 text-xs text-gray-400 hover:text-blue-600 underline block w-full text-center">لم ترسل الرسالة؟ اضغط هنا للرجوع</button>
+                              </div>
+                            ) : pollStatus === "Approved" ? (
+                              <div className="flex items-center justify-center space-x-2 space-x-reverse bg-green-50 text-green-700 px-4 py-2 rounded-full text-xs font-medium"><span className="w-2 h-2 bg-green-500 rounded-full"></span><span>تم الموافقة، جاري الدخول...</span></div>
+                            ) : (
+                              <div className="flex items-center justify-center space-x-2 space-x-reverse bg-red-50 text-red-700 px-4 py-2 rounded-full text-xs font-medium"><span className="w-2 h-2 bg-red-500 rounded-full"></span><span>تم الرفض، يرجى مراجعة الإدارة</span></div>
+                            )}
+                          </div>
+                          {pollStatus === "Rejected" && (
+                            <div className="px-4 pt-4">
+                              <button onClick={() => { setIsSuccess(false); setTgSent(false); setPollStatus("Pending"); setError(""); }} className="w-full bg-gray-900 text-white font-bold py-4 rounded-2xl hover:bg-black transition-all active:scale-95">الرجوع لتعديل البيانات</button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
 
               {activeBox === "email" && (
                 <form onSubmit={submitEmail} className="space-y-3 sm:space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300 mb-4 sm:mb-8">
