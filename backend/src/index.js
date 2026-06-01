@@ -87,20 +87,29 @@ const allowedOrigins = [
   "http://localhost:5174"
 ];
 
-app.use(cors({
+// Enhanced CORS Configuration
+const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    // Allow main domain and any Vercel preview/deployment of this project
-    if (allowedOrigins.includes(origin) || origin.includes("vercel.app")) {
+    const isVercel = origin.includes("vercel.app");
+    const isLocal = origin.includes("localhost");
+    if (allowedOrigins.includes(origin) || isVercel || isLocal) {
       return callback(null, true);
     }
-    return callback(null, true);
+    return callback(null, true); // Fallback to allow during debug
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-  exposedHeaders: ["set-cookie"]
-}));
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  exposedHeaders: ["Set-Cookie"]
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Handle preflight globally
+
+app.get("/api/version", (req, res) => {
+  res.json({ version: "1.0.1", patch_fix: true, timestamp: new Date().toISOString() });
+});
 
 // Swagger Configuration
 const swaggerOptions = {
@@ -332,10 +341,7 @@ setInterval(async () => {
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: ALLOWED_ORIGINS,
-    credentials: true
-  }
+  cors: corsOptions
 });
 io.on("connection", (socket) => {
   socket.on("join", ({ productId }) => {
