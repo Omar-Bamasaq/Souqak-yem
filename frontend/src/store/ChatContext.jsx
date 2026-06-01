@@ -33,6 +33,11 @@ export function ChatProvider({ children }) {
   useEffect(() => {
     if (!socket && user) {
       const envUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      
+      if (envUrl.startsWith("mongodb")) {
+        console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI.");
+      }
+
       const socketUrl = envUrl.endsWith("/api") ? envUrl.replace("/api", "") : envUrl;
       
       const newSocket = io(socketUrl, { 

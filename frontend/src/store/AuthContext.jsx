@@ -18,6 +18,11 @@ export function AuthProvider({ children }) {
         }
         setToken(t);
         const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        
+        if (envBase.startsWith("mongodb")) {
+          console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI. Check environment variables.");
+        }
+
         // Standardize base URL
         let base = envBase.replace(/\/$/, "");
         if (!base.endsWith("/api")) {

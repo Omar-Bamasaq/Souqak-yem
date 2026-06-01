@@ -7,6 +7,12 @@ export function useApi() {
   
   return useMemo(() => {
     const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    
+    // Safeguard against misconfigured environment variables
+    if (envBase.startsWith("mongodb")) {
+      console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI instead of an HTTP URL. Check your environment variables.");
+    }
+
     // Ensure baseURL always ends with /api and remove trailing slash
     let base = envBase.replace(/\/$/, "");
     if (!base.endsWith("/api")) {
