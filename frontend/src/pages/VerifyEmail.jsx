@@ -110,6 +110,10 @@ const VerifyEmail = () => {
   };
 
   const verifyOtp = async (code) => {
+    if (!code || code.length < 6) {
+      setError("يرجى إدخال الرمز كاملاً.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -118,18 +122,26 @@ const VerifyEmail = () => {
         email,
         code
       });
+      
+      console.log("[Auth] Verification response:", res.data);
+      
       if (res.data.token) {
         setSuccessMsg(res.data.message || "تم تفعيل حسابك بنجاح، مرحبًا بك في سوقك.");
+        localStorage.setItem("token", res.data.token);
         localStorage.setItem("isNewUserRegistration", "true");
         setTimeout(() => {
           login(res.data.token, res.data.user);
-          navigate("/");
+          navigate("/", { replace: true });
         }, 2000);
+      } else {
+        throw new Error("لم يتم استلام توكن المصادقة.");
       }
     } catch (err) {
-      setError(err.response?.data?.error || "الرمز غير صحيح أو منتهي الصلاحية.");
+      console.error("[Auth] Verification error:", err);
+      const serverError = err.response?.data?.error;
+      setError(serverError || "الرمز غير صحيح أو منتهي الصلاحية.");
       setOtp(["", "", "", "", "", ""]);
-      inputRefs[0].current.focus();
+      if (inputRefs[0].current) inputRefs[0].current.focus();
     } finally {
       setLoading(false);
     }

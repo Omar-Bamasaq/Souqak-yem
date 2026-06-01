@@ -132,22 +132,50 @@ export default function Register() {
 
   const submitEmail = async (e) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!name.trim()) {
+      setError("يرجى إدخال اسم المستخدم.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailReg.trim())) {
+      setError("صيغة البريد الإلكتروني غير صحيحة.");
+      return;
+    }
+
     if (passwordReg.length < 8) {
       setPasswordError("يجب أن تكون كلمة المرور 8 أحرف على الأقل");
       return;
     }
+    
     setError("");
     setLoading(true);
     try {
       console.log(`[Register] Sending email registration request for: ${emailReg.trim()}`);
-      await api.post("auth/register-email", {
+      const response = await api.post("auth/register-email", {
         name: name.trim(),
         email: emailReg.trim(),
         password: passwordReg
       });
-      navigate("/verify-email", { state: { email: emailReg.trim() } });
+      
+      console.log("[Register] Registration request successful:", response.data);
+      
+      // Navigate only if we got a successful response
+      if (response.status === 201 || response.status === 200) {
+        navigate("/verify-email", { 
+          state: { email: emailReg.trim() },
+          replace: true // Use replace to prevent going back to register page
+        });
+      } else {
+        throw new Error("استجابة غير متوقعة من الخادم.");
+      }
     } catch (err) {
-      setError(err.response?.data?.error || "تعذر إنشاء الحساب بالبريد الإلكتروني.");
+      console.error("[Register] Email registration error:", err);
+      const serverError = err.response?.data?.error;
+      const details = err.response?.data?.details;
+      setError(serverError || details || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.");
     } finally {
       setLoading(false);
     }

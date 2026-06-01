@@ -93,16 +93,36 @@ export default function Login() {
 
   const emailLogin = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) { setError("يرجى إدخال البيانات كاملة."); return; }
+    if (!email.trim() || !password.trim()) { 
+      setError("يرجى إدخال البريد الإلكتروني وكلمة المرور."); 
+      return; 
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("صيغة البريد الإلكتروني غير صحيحة.");
+      return;
+    }
+
     setError("");
     setLoading(true);
     try {
-      const res = await api.post("/auth/login", { email: email.trim(), password, deviceType: getDeviceType() });
+      console.log(`[Login] Attempting email login for: ${email.trim()}`);
+      const res = await api.post("/auth/login", { 
+        email: email.trim(), 
+        password, 
+        deviceType: getDeviceType() 
+      });
+      
+      console.log("[Login] Login successful:", res.data.user?.email);
       login(res.data.token, res.data.user);
+      
       const from = location.state?.from?.pathname || (res.data.user?.role === "admin" ? "/admin" : "/");
       navigate(from, { replace: true });
-    } catch (e2) {
-      setError(e2?.response?.data?.error || "البيانات غير صحيحة.");
+    } catch (err) {
+      console.error("[Login] Email login error:", err);
+      const serverError = err.response?.data?.error;
+      setError(serverError || "البيانات غير صحيحة أو حدث خطأ في الخادم.");
     } finally {
       setLoading(false);
     }

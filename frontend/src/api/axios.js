@@ -26,7 +26,8 @@ export function useApi() {
     console.log(`[API] Initializing with baseURL: ${base}`);
     
     const instance = axios.create({
-      baseURL: base
+      baseURL: base,
+      timeout: 30000 // 30 seconds timeout
     });
     
     instance.interceptors.request.use((config) => {

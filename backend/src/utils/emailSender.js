@@ -42,7 +42,11 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
         auth: {
           user: account.user,
           pass: account.pass
-        }
+        },
+        // Add timeouts to prevent hanging
+        connectionTimeout: 5000, // 5 seconds
+        greetingTimeout: 5000,
+        socketTimeout: 10000
       });
 
       const finalMailOptions = {

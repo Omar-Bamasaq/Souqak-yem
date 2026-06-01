@@ -79,15 +79,24 @@ export default function ForgotPassword() {
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("صيغة البريد الإلكتروني غير صحيحة.");
+      return;
+    }
+
     setError("");
     setMessage("");
     setLoading(true);
     try {
+      console.log(`[ForgotPassword] Sending reset OTP to: ${email.trim()}`);
       await api.post("/auth/forgot-password", { email: email.trim() });
       setMessage("تم إرسال رمز التحقق إلى بريدك الإلكتروني.");
       setStep(2);
       setTimer(600); // Reset timer to 10 minutes
     } catch (err) {
+      console.error("[ForgotPassword] Send OTP error:", err);
       setError(err?.response?.data?.error || "حدث خطأ ما. حاول مرة أخرى.");
     } finally {
       setLoading(false);

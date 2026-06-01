@@ -59,6 +59,12 @@ router.post("/register-email", async (req, res) => {
 
     const inputEmail = String(email).trim().toLowerCase();
     
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inputEmail)) {
+      return res.status(400).json({ error: "صيغة البريد الإلكتروني غير صحيحة." });
+    }
+    
     // Check if user already exists
     const existingUser = await User.findOne({ email: inputEmail });
     if (existingUser) {
@@ -103,7 +109,9 @@ router.post("/register-email", async (req, res) => {
 
     // Send email
     try {
+      console.log(`[AUTH] Sending verification email to: ${inputEmail}`);
       await sendVerificationEmail(inputEmail, code);
+      console.log(`[AUTH] Verification email sent successfully to: ${inputEmail}`);
       res.status(201).json({
         message: "Verification code sent to your email",
         email: inputEmail
@@ -294,6 +302,12 @@ router.post("/resend-otp", async (req, res) => {
 
     const inputEmail = String(email).trim().toLowerCase();
 
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inputEmail)) {
+      return res.status(400).json({ error: "صيغة البريد الإلكتروني غير صحيحة." });
+    }
+
     // Check if user already exists
     const user = await User.findOne({ email: inputEmail });
     if (user && user.isEmailVerified) return res.status(400).json({ error: "البريد الإلكتروني مفعّل بالفعل." });
@@ -364,6 +378,13 @@ router.post("/forgot-password", async (req, res) => {
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب." });
 
     const inputEmail = String(email).trim().toLowerCase();
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inputEmail)) {
+      return res.status(400).json({ error: "صيغة البريد الإلكتروني غير صحيحة." });
+    }
+
     const user = await User.findOne({ email: inputEmail });
 
     if (!user) {
