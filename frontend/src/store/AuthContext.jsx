@@ -29,9 +29,9 @@ export function AuthProvider({ children }) {
         if (!base.endsWith("/api")) {
           base = `${base}/api`;
         }
-        if (!base.endsWith("/")) {
-          base = `${base}/`;
-        }
+        base = `${base}/`;
+        
+        console.log(`[Auth] Checking session at: ${base}auth/me`);
         
         const res = await axios.get(`${base}auth/me`, {
           headers: { Authorization: `Bearer ${t}` }

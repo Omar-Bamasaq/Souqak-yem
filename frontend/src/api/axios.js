@@ -20,9 +20,10 @@ export function useApi() {
       base = `${base}/api`;
     }
     // ALWAYS ensure baseURL ends with a trailing slash for Axios to correctly join relative paths
-    if (!base.endsWith("/")) {
-      base = `${base}/`;
-    }
+    base = `${base}/`;
+    
+    // DEBUG LOG - Remove in production if desired
+    console.log(`[API] Initializing with baseURL: ${base}`);
     
     const instance = axios.create({
       baseURL: base
@@ -35,14 +36,18 @@ export function useApi() {
       }
       if (token) config.headers.Authorization = `Bearer ${token}`;
       return config;
-    });
+    }, (error) => Promise.reject(error));
 
+    // Response interceptor for better error logging and auth handling
     instance.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response && error.response.status === 401) {
+        if (error.response?.status === 401) {
           logout();
           window.location.href = "/login";
+        }
+        if (error.response?.status === 404) {
+          console.error(`[API 404] Failed request to: ${error.config.baseURL}${error.config.url}`);
         }
         return Promise.reject(error);
       }
