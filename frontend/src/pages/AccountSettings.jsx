@@ -23,7 +23,6 @@ export default function AccountSettings() {
 
   // Edit Profile States
   const [editName, setEditName] = useState(user?.name || "");
-  const [editPhone, setEditPhone] = useState(user?.phone || "");
   const [editAvatar, setEditAvatar] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar ? uploadsUrl(user.avatar, "thumb") : null);
   const [editLoading, setEditLoading] = useState(false);
@@ -117,7 +116,7 @@ export default function AccountSettings() {
     setEditError("");
     try {
       // 1. Update text fields
-      const res = await api.patch("/auth/update-profile", { name: editName, phone: editPhone });
+      const res = await api.patch("/auth/update-profile", { name: editName });
       let updatedUser = res.data.user;
 
       // 2. Update avatar if changed
@@ -501,17 +500,6 @@ export default function AccountSettings() {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   className="w-full bg-gray-50 dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 transition-all text-sm font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">رقم الهاتف</label>
-                <input
-                  type="text"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 transition-all text-sm font-bold"
-                  placeholder="7XXXXXXXX"
                 />
               </div>
 
