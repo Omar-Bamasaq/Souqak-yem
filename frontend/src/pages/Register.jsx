@@ -177,7 +177,7 @@ export default function Register() {
       let finalError = "";
       
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-        finalError = "استغرق الطلب وقتاً طويلاً جداً. قد تكون هناك مشكلة في خادم البريد، يرجى المحاولة مرة أخرى أو استخدام رقم الهاتف.";
+        finalError = "استغرق الطلب وقتاً طويلاً جداً. يرجى المحاولة مرة أخرى أو استخدام رقم الهاتف.";
       } else {
         const serverError = err.response?.data?.error;
         const details = err.response?.data?.details;
@@ -185,7 +185,7 @@ export default function Register() {
         
         finalError = serverError || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.";
         if (suggestion) finalError += ` ${suggestion}`;
-        else if (details) finalError += ` (${details})`;
+        if (details) finalError += ` [السبب: ${details}]`;
       }
       
       setError(finalError);

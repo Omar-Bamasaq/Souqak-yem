@@ -122,11 +122,9 @@ router.post("/register-email", async (req, res) => {
       // Clean up OTP record if email sending fails
       await OtpCode.deleteMany({ email: inputEmail });
       
-      // Return 500 instead of 503 to avoid generic "Service Unavailable" pages
-      // and provide more diagnostic info
       return res.status(500).json({ 
         error: "فشل إرسال رمز التحقق إلى بريدك الإلكتروني.", 
-        details: err.message,
+        details: err.message || "Unknown SMTP error",
         suggestion: "يرجى التأكد من صحة البريد أو المحاولة باستخدام رقم الهاتف."
       });
     }
