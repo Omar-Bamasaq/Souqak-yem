@@ -175,7 +175,13 @@ export default function Register() {
       console.error("[Register] Email registration error:", err);
       const serverError = err.response?.data?.error;
       const details = err.response?.data?.details;
-      setError(serverError || details || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.");
+      const suggestion = err.response?.data?.suggestion;
+      
+      let finalError = serverError || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.";
+      if (suggestion) finalError += ` ${suggestion}`;
+      else if (details) finalError += ` (${details})`;
+      
+      setError(finalError);
     } finally {
       setLoading(false);
     }

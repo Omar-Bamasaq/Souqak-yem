@@ -118,10 +118,17 @@ router.post("/register-email", async (req, res) => {
       });
     } catch (err) {
       console.error("[LOG] Email sending failed during registration:", err.message);
-      // In case of email failure, we should not proceed as if it was sent successfully
-      // But the OTP was created in the DB. We should delete it if we return an error.
+      
+      // Clean up OTP record if email sending fails
       await OtpCode.deleteMany({ email: inputEmail });
-      return res.status(503).json({ error: "فشل إرسال البريد الإلكتروني. يرجى المحاولة مرة أخرى لاحقاً.", details: err.message });
+      
+      // Return 500 instead of 503 to avoid generic "Service Unavailable" pages
+      // and provide more diagnostic info
+      return res.status(500).json({ 
+        error: "فشل إرسال رمز التحقق إلى بريدك الإلكتروني.", 
+        details: err.message,
+        suggestion: "يرجى التأكد من صحة البريد أو المحاولة باستخدام رقم الهاتف."
+      });
     }
 
   } catch (err) {
@@ -358,11 +365,10 @@ router.post("/resend-otp", async (req, res) => {
       res.json({ message: "New verification code sent" });
     } catch (emailErr) {
       console.error("[LOG] Resend OTP Email Error:", emailErr.message);
-      // Even if email fails, we might want to tell the user there was a problem sending the email
-      // instead of a generic 500.
-      return res.status(503).json({ 
-        error: "فشل إرسال البريد الإلكتروني. يرجى المحاولة مرة أخرى لاحقاً.",
-        details: emailErr.message 
+      return res.status(500).json({ 
+        error: "فشل إرسال رمز التحقق الجديد.",
+        details: emailErr.message,
+        suggestion: "يرجى المحاولة مرة أخرى لاحقاً أو التواصل مع الدعم."
       });
     }
 
@@ -428,7 +434,11 @@ router.post("/forgot-password", async (req, res) => {
       console.error("[LOG] Forgot password Email Error:", emailErr.message);
       // Clean up the OTP record if email sending fails
       await OtpCode.deleteMany({ email: inputEmail });
-      return res.status(503).json({ error: "فشل إرسال البريد الإلكتروني. يرجى المحاولة مرة أخرى لاحقاً.", details: emailErr.message });
+      return res.status(500).json({ 
+        error: "فشل إرسال رمز استعادة كلمة المرور.", 
+        details: emailErr.message,
+        suggestion: "يرجى المحاولة مرة أخرى لاحقاً."
+      });
     }
   } catch (err) {
     console.error("Forgot password error:", err);

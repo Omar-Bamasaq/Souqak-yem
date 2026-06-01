@@ -37,16 +37,20 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
     if (!account) break;
 
     try {
+      // Use direct SMTP configuration instead of 'service: gmail' for more control
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true, // Use SSL
         auth: {
           user: account.user,
           pass: account.pass
         },
-        // Add timeouts to prevent hanging
-        connectionTimeout: 5000, // 5 seconds
-        greetingTimeout: 5000,
-        socketTimeout: 10000
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+        debug: true, // Enable debug output
+        logger: true  // Log to console
       });
 
       const finalMailOptions = {
@@ -54,11 +58,15 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
         from: `"سوقك" <${account.user}>`
       };
 
+      console.log(`[EMAIL ATTEMPT] Trying to send via: ${account.user}`);
       await transporter.sendMail(finalMailOptions);
       console.log(`[EMAIL SUCCESS] ${type} sent successfully using:`, account.user);
       return { success: true, account: account.user };
     } catch (error) {
       console.error(`[EMAIL ERROR] Failed to send using ${account.user}:`, error.message);
+      if (error.code === 'EAUTH') {
+        console.error(`[EMAIL AUTH ERROR] Invalid credentials for ${account.user}. Check App Password.`);
+      }
       lastError = error;
       attempts++;
     }
