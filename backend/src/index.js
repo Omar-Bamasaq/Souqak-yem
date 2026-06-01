@@ -75,11 +75,26 @@ import swaggerUi from "swagger-ui-express";
 
 const app = express();
 app.set("trust proxy", 1);
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173,http://localhost:5174";
+
+const allowedOrigins = [
+  "https://souqak-beta.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174"
+];
+
 app.use(cors({
-  origin: "https://souqak-beta.vercel.app",
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // مهم للتجربة (يسمح مؤقتاً)
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
 // Swagger Configuration
 const swaggerOptions = {
   definition: {
@@ -119,22 +134,11 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-const ALLOWED_ORIGINS = FRONTEND_ORIGIN.split(",").map((s) => s.trim());
+const ALLOWED_ORIGINS = allowedOrigins;
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
   app.use(Sentry.Handlers.requestHandler());
 }
-app.use(
-  cors({
-    origin(origin, cb) {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-      return cb(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "user-id"]
-  })
-);
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
 const WS_URL = BACKEND_URL.replace(/^http/, "ws");
 
