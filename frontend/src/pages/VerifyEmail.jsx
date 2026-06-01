@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-import useApi from "../api/axios";
+import { useApi } from "../api/axios";
 
 // Simple SVG Icons to avoid external dependency issues
 const Icons = {
