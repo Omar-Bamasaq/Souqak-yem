@@ -6,7 +6,13 @@ export function useApi() {
   const { token, logout } = useAuth();
   
   return useMemo(() => {
-    const base = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
+    const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    // Ensure baseURL always ends with /api and remove trailing slash
+    let base = envBase.replace(/\/$/, "");
+    if (!base.endsWith("/api")) {
+      base = `${base}/api`;
+    }
+    
     const instance = axios.create({
       baseURL: base
     });

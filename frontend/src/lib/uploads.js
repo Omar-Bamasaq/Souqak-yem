@@ -1,5 +1,8 @@
 export function uploadsBase() {
-  return (import.meta.env && import.meta.env.VITE_UPLOADS_URL) || "http://localhost:5000/uploads";
+  const envUrl = import.meta.env.VITE_UPLOADS_URL || "http://localhost:5000/uploads";
+  // Ensure we don't have double /uploads
+  if (envUrl.endsWith("/uploads")) return envUrl;
+  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
 }
 
 export function uploadsUrl(filename, size = "full") {

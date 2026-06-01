@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useCategoryApi } from "../api/categories.js";
-import axios from "axios";
+import { useApi } from "../api/axios.js";
 import MobileSelect from "./MobileSelect.jsx";
-
-const API = "http://localhost:5000/api";
 
 function buildFilters(initialFilters = {}, preSelectedCategory = null) {
   const safeFilters = initialFilters || {};
@@ -37,6 +35,7 @@ function buildFilters(initialFilters = {}, preSelectedCategory = null) {
 export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCategory = null, initialFilters = null }) {
   const navigate = useNavigate();
   const categoryApi = useCategoryApi();
+  const api = useApi();
   
   const [filters, setFilters] = useState(buildFilters(initialFilters, preSelectedCategory));
 
@@ -79,7 +78,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
   const loadCategories = async () => {
     try {
       // Use dedicated main-categories endpoint so we don't include subcategories
-      const res = await axios.get(`${API}/categories/main`);
+      const res = await api.get("/categories/main");
       setCategories(res.data || []);
     } catch (error) {
       console.error("Error loading categories:", error);
@@ -97,7 +96,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
         return;
       }
 
-      const res = await axios.get(`${API}/categories`, { params: { flat: true, parent: parentId } });
+      const res = await api.get("/categories", { params: { flat: true, parent: parentId } });
       setSubCategories(res.data || []);
     } catch (error) {
       console.error("Error loading subcategories:", error);
@@ -106,30 +105,28 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
 
   const loadGovernorates = async () => {
     try {
-      const res = await axios.get(`${API}/governorates?active=true`);
+      const res = await api.get("/governorates", { params: { active: true } });
       setGovernorates(res.data || []);
     } catch (error) {
       console.error("Error loading governorates:", error);
     }
   };
 
-  const loadCities = async (governorateId) => {
+  const loadCities = async (govId) => {
     try {
-      const res = await axios.get(`${API}/cities?governorateId=${governorateId}`);
+      const res = await api.get("/cities", { params: { governorateId: govId, active: true } });
       setCities(res.data || []);
     } catch (error) {
       console.error("Error loading cities:", error);
     }
   };
 
-  const loadCategoryAttributes = async (categoryId) => {
+  const loadCategoryAttributes = async (catId) => {
     try {
-      const res = await axios.get(`${API}/categories/${categoryId}/attributes`, {
-        params: { includeAncestors: true }
-      });
+      const res = await api.get(`/category-attributes/category/${catId}`);
       setCategoryAttributes(res.data || []);
     } catch (error) {
-      console.error("Error loading attributes:", error);
+      console.error("Error loading category attributes:", error);
     }
   };
 

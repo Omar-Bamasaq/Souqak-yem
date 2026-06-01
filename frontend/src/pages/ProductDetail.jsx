@@ -306,9 +306,9 @@ export default function ProductDetail() {
     if (!refId) return;
     try {
       // Find resellAdId for this refId (resellerId) and current ad id
-      const res = await axios.get(`${API}/resell/find-by-ref?adId=${id}&refId=${refId}`);
+      const res = await api.get(`/resell/find-by-ref?adId=${id}&refId=${refId}`);
       if (res.data.resellAdId) {
-        await axios.post(`${API}/resell/track-click/${res.data.resellAdId}`);
+        await api.post(`/resell/track-click/${res.data.resellAdId}`);
       }
     } catch (err) {
       console.error("Referral tracking error:", err);
@@ -329,7 +329,7 @@ export default function ProductDetail() {
     if (localStorage.getItem(contactKey)) return;
 
     try {
-      const res = await axios.post(`${API}/ads/${id}/contact`);
+      const res = await api.post(`/ads/${id}/contact`);
       if (res.data?.success) {
         setP(prev => ({ ...prev, contactsCount: res.data.contactsCount }));
         localStorage.setItem(contactKey, "1");
@@ -341,7 +341,6 @@ export default function ProductDetail() {
 
   const { data: similarAds = [] } = useSimilarAds(id);
 
-  const API = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
   const [cPage, setCPage] = useState(1);
   const [cPages, setCPages] = useState(1);
 
@@ -382,14 +381,8 @@ export default function ProductDetail() {
     try {
       setLoading(true);
       setNotFound(false);
-      // Use useApi if user is logged in to send authentication headers
-      // This allows admins to see 'sold' or 'pending' ads
-      let res;
-      if (user) {
-        res = await api.get(`/ads/${id}`);
-      } else {
-        res = await axios.get(`${API}/ads/${id}`);
-      }
+      // Use useApi instance for all requests to ensure baseURL and prefix
+      const res = await api.get(`/ads/${id}`);
       setP(res.data);
       setLoading(false);
 
@@ -418,8 +411,8 @@ export default function ProductDetail() {
         const sellerId = res.data?.userId?._id || res.data?.userId;
         if (sellerId) {
           const [fc, sc] = await Promise.all([
-            axios.get(`${API}/follows/count/${sellerId}`),
-            axios.get(`${API}/sellers/${sellerId}`)
+            api.get(`/follows/count/${sellerId}`),
+            api.get(`/sellers/${sellerId}`)
           ]);
           setFollowersCount(Number(fc.data?.count || 0));
           setSellerAdsCount(Number(sc.data?.total || 0));
@@ -441,7 +434,7 @@ export default function ProductDetail() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await axios.get(`${API.replace(/\/api$/, "")}/api/governorates`, { params: { active: true } });
+        const res = await api.get("/governorates", { params: { active: true } });
         setGovernorates(res.data || []);
       } catch {
         setGovernorates([]);
@@ -455,7 +448,7 @@ export default function ProductDetail() {
     }
     (async () => {
       try {
-        const res = await axios.get(`${API.replace(/\/api$/, "")}/api/cities`, { params: { governorateId: p.governorateId, active: true } });
+        const res = await api.get("/cities", { params: { governorateId: p.governorateId, active: true } });
         setCities(res.data || []);
       } catch {
         setCities([]);

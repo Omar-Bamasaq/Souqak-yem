@@ -5,6 +5,8 @@ import StatusBadge from "../components/StatusBadge.jsx";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 
+import { uploadsUrl } from "../lib/uploads.js";
+
 export default function AdminArchivedAds() {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export default function AdminArchivedAds() {
 
   const tableData = ads.map((ad) => [
     <img
-      src={ad.images && ad.images[0] ? `${import.meta.env.VITE_API_URL}/uploads/${ad.images[0]}` : "/placeholder.png"}
+      src={uploadsUrl(ad.images && ad.images[0], "thumb")}
       alt=""
       className="h-10 w-10 md:h-12 md:w-12 rounded-lg object-cover bg-gray-100"
     />,

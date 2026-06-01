@@ -39,10 +39,9 @@ export default function NavBar() {
   }, []);
 
   useEffect(() => {
-    const base = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
     (async () => {
       try {
-        const res = await axios.get(`${base}/governorates`, { params: { active: true } });
+        const res = await api.get("/governorates", { params: { active: true } });
         setGovernorates(res.data || []);
       } catch {
         setGovernorates([]);

@@ -21,7 +21,6 @@ export default function SellerPublic() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") === "reviews" ? "reviews" : "ads";
   
-  const API = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
   const [seller, setSeller] = useState(null);
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -48,7 +47,7 @@ export default function SellerPublic() {
 
   const loadReviews = async () => {
     try {
-      const res = await axios.get(`${API}/reviews/seller/${id}`);
+      const res = await api.get(`/reviews/seller/${id}`);
       setReviews(res.data?.items || []);
       setReviewsStats(res.data?.stats || null);
     } catch (err) {
@@ -59,7 +58,7 @@ export default function SellerPublic() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/sellers/${id}`, { params: { page, limit: 12 } });
+      const res = await api.get(`/sellers/${id}`, { params: { page, limit: 12 } });
       setSeller(res.data?.seller || null);
       setItems(res.data?.items || []);
       setPages(res.data?.pages || 1);
@@ -79,7 +78,7 @@ export default function SellerPublic() {
     (async () => {
       // احسب عدد المتابعين دائمًا
       try {
-        const c = await axios.get(`${API}/follows/count/${id}`);
+        const c = await api.get(`/follows/count/${id}`);
         setFollowers(Number(c.data?.count || 0));
       } catch {
         setFollowers(0);

@@ -32,8 +32,8 @@ export function ChatProvider({ children }) {
 
   useEffect(() => {
     if (!socket && user) {
-      const baseUrl = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
-      const socketUrl = baseUrl.replace("/api", "");
+      const envUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const socketUrl = envUrl.endsWith("/api") ? envUrl.replace("/api", "") : envUrl;
       
       const newSocket = io(socketUrl, { 
         withCredentials: true

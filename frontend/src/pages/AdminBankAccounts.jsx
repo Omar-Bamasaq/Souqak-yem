@@ -145,7 +145,7 @@ export default function AdminBankAccounts() {
       accounts: bank.accounts.length > 0 ? bank.accounts : [{ number: "", currency: "YER_ADEN" }],
       logo: bank.logo
     });
-    setLogoPreview(bank.logo ? `${apiBase}${bank.logo}` : null);
+    setLogoPreview(bank.logo ? (bank.logo.startsWith("http") ? bank.logo : `${apiBase}${bank.logo}`) : null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -343,7 +343,7 @@ export default function AdminBankAccounts() {
                       <div className="flex items-center gap-2 md:gap-3">
                         <div className="w-8 h-8 md:w-10 md:h-10 shrink-0 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center p-1 overflow-hidden">
                           {bank.logo ? (
-                            <img src={`${apiBase}${bank.logo}`} alt={bank.bankName} className="w-full h-full object-contain" />
+                            <img src={bank.logo.startsWith("http") ? bank.logo : `${apiBase}${bank.logo}`} alt={bank.bankName} className="w-full h-full object-contain" />
                           ) : (
                             <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -415,7 +415,7 @@ export default function AdminBankAccounts() {
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 shrink-0 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center p-1 overflow-hidden">
                   {bank.logo ? (
-                    <img src={`${apiBase}${bank.logo}`} alt={bank.bankName} className="w-full h-full object-contain" />
+                    <img src={bank.logo.startsWith("http") ? bank.logo : `${apiBase}${bank.logo}`} alt={bank.bankName} className="w-full h-full object-contain" />
                   ) : (
                     <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />

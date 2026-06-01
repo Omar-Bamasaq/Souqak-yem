@@ -31,7 +31,6 @@ export default function Home() {
   const [cities, setCities] = useState([]);
   const [popularTags, setPopularTags] = useState([]);
   const [loading, setLoading] = useState(false);
-  const API = (import.meta.env && import.meta.env.VITE_API_URL) || "http://localhost:5000/api";
   const [pages, setPages] = useState(1);
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
@@ -60,7 +59,7 @@ export default function Home() {
     // Fetch platform stats
     (async () => {
       try {
-        const res = await axios.get(`${API}/platform-reviews/stats`);
+        const res = await api.get("/platform-reviews/stats");
         setPlatformStats(res.data);
       } catch (err) {
         console.error("Error fetching platform stats:", err);
