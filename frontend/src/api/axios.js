@@ -14,10 +14,14 @@ export function useApi() {
       window._api_url_error_logged = true;
     }
 
-    // Ensure baseURL always ends with /api and remove trailing slash
+    // Standardize base URL: ensure it ends with /api/
     let base = envBase.replace(/\/$/, "");
     if (!base.endsWith("/api")) {
       base = `${base}/api`;
+    }
+    // ALWAYS ensure baseURL ends with a trailing slash for Axios to correctly join relative paths
+    if (!base.endsWith("/")) {
+      base = `${base}/`;
     }
     
     const instance = axios.create({

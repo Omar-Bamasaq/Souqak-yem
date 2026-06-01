@@ -24,13 +24,16 @@ export function AuthProvider({ children }) {
             window._api_url_error_logged = true;
           }
 
-        // Standardize base URL
+        // Standardize base URL: ensure it ends with /api/
         let base = envBase.replace(/\/$/, "");
         if (!base.endsWith("/api")) {
           base = `${base}/api`;
         }
+        if (!base.endsWith("/")) {
+          base = `${base}/`;
+        }
         
-        const res = await axios.get(`${base}/auth/me`, {
+        const res = await axios.get(`${base}auth/me`, {
           headers: { Authorization: `Bearer ${t}` }
         });
         if (res.data) {
