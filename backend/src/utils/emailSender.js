@@ -39,16 +39,22 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
     if (!account) break;
 
     try {
-      console.log(`[EMAIL ATTEMPT] Trying ${account.user} on port 465...`);
+      console.log(`[EMAIL ATTEMPT] Trying ${account.user} on port 587 (STARTTLS)...`);
       const transporter = nodemailer.createTransport({
-        service: 'gmail', // Let nodemailer handle the host/port/secure defaults
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false, // Use STARTTLS
         auth: {
           user: account.user,
           pass: account.pass
         },
         connectionTimeout: 10000,
         greetingTimeout: 10000,
-        socketTimeout: 20000
+        socketTimeout: 20000,
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: "TLSv1.2"
+        }
       });
 
       const finalMailOptions = {
@@ -60,15 +66,15 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
       console.log(`[EMAIL SUCCESS] Sent via ${account.user}`);
       return { success: true, account: account.user };
     } catch (error) {
-      console.error(`[EMAIL ERROR] ${account.user} failed:`, error.message);
+      console.error(`[EMAIL ERROR] ${account.user} (Port 587) failed:`, error.message);
       
-      // Immediate fallback to port 587 for the same account
+      // Secondary fallback to port 465 for the same account
       try {
-        console.log(`[EMAIL RETRY] Trying ${account.user} on port 587...`);
-        const transporter587 = nodemailer.createTransport({
+        console.log(`[EMAIL RETRY] Trying ${account.user} on port 465 (SSL)...`);
+        const transporter465 = nodemailer.createTransport({
           host: "smtp.gmail.com",
-          port: 587,
-          secure: false,
+          port: 465,
+          secure: true,
           auth: {
             user: account.user,
             pass: account.pass
@@ -76,12 +82,12 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
           connectionTimeout: 10000,
           tls: { rejectUnauthorized: false }
         });
-        await transporter587.sendMail({ ...mailOptions, from: `"سوقك" <${account.user}>` });
-        console.log(`[EMAIL SUCCESS] Sent via ${account.user} (Port 587)`);
+        await transporter465.sendMail({ ...mailOptions, from: `"سوقك" <${account.user}>` });
+        console.log(`[EMAIL SUCCESS] Sent via ${account.user} (Port 465)`);
         return { success: true, account: account.user };
       } catch (err2) {
-        console.error(`[EMAIL ERROR] ${account.user} (Port 587) failed:`, err2.message);
-        lastError = new Error(`${account.user}: ${error.message} | 587: ${err2.message}`);
+        console.error(`[EMAIL ERROR] ${account.user} (Port 465) failed:`, err2.message);
+        lastError = new Error(`${account.user}: 587->${error.message} | 465->${err2.message}`);
         attempts++;
       }
     }
