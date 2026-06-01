@@ -10,10 +10,14 @@ import City from "./src/models/City.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendEnv = join(__dirname, ".env.local");
 const rootEnv = join(__dirname, "..", ".env.local");
+const defaultEnv = join(__dirname, ".env");
 
 if (fs.existsSync(backendEnv)) {
   dotenv.config({ path: backendEnv, override: true });
+} else if (fs.existsSync(defaultEnv)) {
+  dotenv.config({ path: defaultEnv, override: true });
 }
+
 if (fs.existsSync(rootEnv)) {
   dotenv.config({ path: rootEnv });
 }

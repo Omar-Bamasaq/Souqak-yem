@@ -3,17 +3,26 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import fs from "fs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: join(__dirname, ".env") });
+
 import mongoose from "mongoose";
 import Category from "./src/models/Category.js";
 import CategoryAttribute from "./src/models/CategoryAttribute.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+console.log("DEBUG: MONGODB_URI after explicit load:", process.env.MONGODB_URI ? "EXISTS" : "MISSING");
+if (process.env.MONGODB_URI) console.log("DEBUG: URI starts with:", process.env.MONGODB_URI.substring(0, 20));
 const backendEnv = join(__dirname, ".env.local");
 const rootEnv = join(__dirname, "..", ".env.local");
+const defaultEnv = join(__dirname, ".env");
 
 if (fs.existsSync(backendEnv)) {
   dotenv.config({ path: backendEnv, override: true });
+} else if (fs.existsSync(defaultEnv)) {
+  dotenv.config({ path: defaultEnv, override: true });
 }
+
 if (fs.existsSync(rootEnv)) {
   dotenv.config({ path: rootEnv });
 }
@@ -601,6 +610,8 @@ const categoriesData = [
 async function run() {
   const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/yemen_market";
   await mongoose.connect(mongoUri, { family: 4 });
+  console.log("Connected to DB:", mongoose.connection.name);
+  console.log("URI Masked:", mongoUri.substring(0, 30) + "...");
 
   console.log("Starting seeding of Yemen categories and attributes (Ensuring 'Other' is last)...");
 
