@@ -1139,7 +1139,7 @@ export default function ProductDetail() {
                       try {
                         const r = await api.post(`/follows/${sellerId}`);
                         setFollowingSeller(!!r.data?.following);
-                        const c = await axios.get(`${API}/follows/count/${sellerId}`);
+                        const c = await api.get(`/follows/count/${sellerId}`);
                         setFollowersCount(Number(c.data?.count || 0));
                       } catch {}
                     }}

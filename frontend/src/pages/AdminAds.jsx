@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function AdminAds() {
   const api = useApi();
@@ -349,7 +350,7 @@ export default function AdminAds() {
                     <div className="h-12 w-16 overflow-hidden rounded-xl bg-gray-50 border border-gray-100 shadow-sm group-hover:scale-105 transition-transform">
                       {a.images?.[0] ? (
                         <img
-                          src={`http://localhost:5000/uploads/${a.images[0]}`}
+                          src={uploadsUrl(a.images[0], "thumb")}
                           alt=""
                           className="h-full w-full object-cover"
                         />
@@ -458,7 +459,7 @@ export default function AdminAds() {
             <div className="flex gap-4">
               <div className="h-20 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-gray-50 border border-gray-100 relative shadow-sm">
                 {a.images?.[0] ? (
-                  <img src={`http://localhost:5000/uploads/${a.images[0]}`} alt="" className="h-full w-full object-cover" />
+                  <img src={uploadsUrl(a.images[0], "thumb")} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center text-gray-300">
                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>

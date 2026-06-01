@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function AdminSoldAds() {
   const api = useApi();
@@ -347,7 +348,7 @@ export default function AdminSoldAds() {
                 <div className="flex justify-between border-b pb-2 items-center">
                   <span className="text-gray-500 font-bold">صورة السند:</span>
                   <a 
-                    href={`http://localhost:5000/uploads/${selectedItem.paymentReceipt}`} 
+                    href={uploadsUrl(selectedItem.paymentReceipt)} 
                     target="_blank" 
                     rel="noreferrer" 
                     className="text-blue-600 hover:underline font-black"
@@ -361,7 +362,7 @@ export default function AdminSoldAds() {
                 <div className="flex justify-between border-b pb-2 items-center">
                   <span className="text-gray-500 font-bold">صورة الإعلان:</span>
                   <a 
-                    href={`http://localhost:5000/uploads/${selectedItem.adImage}`} 
+                    href={uploadsUrl(selectedItem.adImage)} 
                     target="_blank" 
                     rel="noreferrer" 
                     className="text-blue-600 hover:underline font-black"

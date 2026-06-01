@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { uploadsUrl } from "../lib/uploads.js";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { t } from "../i18n/index.js";
 import CategorySelect from "../components/CategorySelect.jsx";
@@ -665,7 +666,7 @@ export default function EditAd() {
           <div className="mt-2 flex flex-wrap gap-3">
             {currentImages.map((fn) => (
               <div key={fn} className="relative">
-                <img src={`http://localhost:5000/uploads/${fn}`} alt="" className="h-24 w-32 rounded-md object-cover" />
+                <img src={uploadsUrl(fn, "thumb")} alt="" className="h-24 w-32 rounded-md object-cover" />
                 <button
                   type="button"
                   className="absolute right-1 top-1 rounded-md bg-white/80 px-2 py-1 text-[11px] hover:bg-white"

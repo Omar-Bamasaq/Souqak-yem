@@ -4,8 +4,6 @@ import { Link } from "react-router-dom";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { uploadsUrl } from "../lib/uploads.js";
 
-const API_BASE_URL = "http://localhost:5000";
-
 export default function CategoryGrid({ isHome = false }) {
   const { prefetchCategoryAds } = useAdsQuery();
   const [categories, setCategories] = useState([]);

@@ -3,11 +3,10 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useCategoryApi } from "../api/categories.js";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import { useApi } from "../api/axios.js";
+import { uploadsUrl } from "../lib/uploads.js";
 import ProductCard from "../components/ProductCard.jsx";
 import CategoryTree from "../components/CategoryTree.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
-
-const API_BASE_URL = "http://localhost:5000";
 
 export default function CategoryPage() {
   const { slug } = useParams();
@@ -541,7 +540,7 @@ export default function CategoryPage() {
           {category.image && (
             <div className="h-32 w-32 md:h-48 md:w-48 rounded-2xl bg-white/10 backdrop-blur-md p-2 flex-shrink-0">
               <img
-                src={`${API_BASE_URL}${category.image}`}
+                src={uploadsUrl(category.image, "thumb")}
                 alt={category.name}
                 className="h-full w-full rounded-xl object-cover"
               />
