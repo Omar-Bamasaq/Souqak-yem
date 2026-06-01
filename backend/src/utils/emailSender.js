@@ -27,30 +27,32 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
   const emailAccounts = getEmailAccounts();
   let attempts = 0;
   let lastError = null;
+  
+  // Limit max attempts to 3 to prevent request timeouts
+  const maxAttempts = Math.min(emailAccounts.length, 3);
 
   if (emailAccounts.length === 0) {
     throw new Error("[EMAIL_CONFIG_ERROR] No valid email accounts found in .env");
   }
 
-  while (attempts < emailAccounts.length) {
+  while (attempts < maxAttempts) {
     const account = getNextEmailAccount(emailAccounts);
     if (!account) break;
 
     try {
-      // Use direct SMTP configuration instead of 'service: gmail' for more control
       const transporter = nodemailer.createTransport({
         host: "smtp.gmail.com",
         port: 465,
-        secure: true, // Use SSL
+        secure: true,
         auth: {
           user: account.user,
           pass: account.pass
         },
-        connectionTimeout: 10000, // 10 seconds
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-        debug: true, // Enable debug output
-        logger: true  // Log to console
+        connectionTimeout: 5000, // 5 seconds
+        greetingTimeout: 5000,
+        socketTimeout: 7000, // 7 seconds
+        debug: false, 
+        logger: false 
       });
 
       const finalMailOptions = {
@@ -58,21 +60,18 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
         from: `"سوقك" <${account.user}>`
       };
 
-      console.log(`[EMAIL ATTEMPT] Trying to send via: ${account.user}`);
+      console.log(`[EMAIL ATTEMPT] Trying to send via: ${account.user} (Attempt ${attempts + 1}/${maxAttempts})`);
       await transporter.sendMail(finalMailOptions);
       console.log(`[EMAIL SUCCESS] ${type} sent successfully using:`, account.user);
       return { success: true, account: account.user };
     } catch (error) {
       console.error(`[EMAIL ERROR] Failed to send using ${account.user}:`, error.message);
-      if (error.code === 'EAUTH') {
-        console.error(`[EMAIL AUTH ERROR] Invalid credentials for ${account.user}. Check App Password.`);
-      }
       lastError = error;
       attempts++;
     }
   }
 
-  const errorMessage = lastError ? lastError.message : "All email accounts failed.";
+  const errorMessage = lastError ? lastError.message : "All attempted email accounts failed.";
   throw new Error(`[EMAIL_ALL_FAILED] ${errorMessage}`);
 }
 

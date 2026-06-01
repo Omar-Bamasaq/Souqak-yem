@@ -27,7 +27,7 @@ export function useApi() {
     
     const instance = axios.create({
       baseURL: base,
-      timeout: 30000 // 30 seconds timeout
+      timeout: 60000 // Increased to 60 seconds for slow operations like email sending
     });
     
     instance.interceptors.request.use((config) => {

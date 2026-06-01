@@ -173,13 +173,20 @@ export default function Register() {
       }
     } catch (err) {
       console.error("[Register] Email registration error:", err);
-      const serverError = err.response?.data?.error;
-      const details = err.response?.data?.details;
-      const suggestion = err.response?.data?.suggestion;
       
-      let finalError = serverError || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.";
-      if (suggestion) finalError += ` ${suggestion}`;
-      else if (details) finalError += ` (${details})`;
+      let finalError = "";
+      
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        finalError = "استغرق الطلب وقتاً طويلاً جداً. قد تكون هناك مشكلة في خادم البريد، يرجى المحاولة مرة أخرى أو استخدام رقم الهاتف.";
+      } else {
+        const serverError = err.response?.data?.error;
+        const details = err.response?.data?.details;
+        const suggestion = err.response?.data?.suggestion;
+        
+        finalError = serverError || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.";
+        if (suggestion) finalError += ` ${suggestion}`;
+        else if (details) finalError += ` (${details})`;
+      }
       
       setError(finalError);
     } finally {

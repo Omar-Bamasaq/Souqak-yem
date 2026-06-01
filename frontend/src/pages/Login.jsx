@@ -121,8 +121,14 @@ export default function Login() {
       navigate(from, { replace: true });
     } catch (err) {
       console.error("[Login] Email login error:", err);
-      const serverError = err.response?.data?.error;
-      setError(serverError || "البيانات غير صحيحة أو حدث خطأ في الخادم.");
+      
+      let finalError = "";
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        finalError = "استغرق الاتصال وقتاً طويلاً، يرجى التحقق من جودة الإنترنت والمحاولة مرة أخرى.";
+      } else {
+        finalError = err.response?.data?.error || "البيانات غير صحيحة أو حدث خطأ في الخادم.";
+      }
+      setError(finalError);
     } finally {
       setLoading(false);
     }
