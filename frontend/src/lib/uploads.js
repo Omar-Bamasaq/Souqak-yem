@@ -23,7 +23,7 @@ export function uploadsUrl(filename, size = "full") {
   
   let finalFilename = cleanFilename;
   // Only apply thumb/med if not already there and not for categories
-  if (!cleanFilename.includes("categories/")) {
+  if (!cleanFilename.includes("categories/") && !cleanFilename.includes("category-")) {
     if (size === "thumb" && !cleanFilename.includes(".thumb.")) {
       finalFilename = cleanFilename.replace(/\.(webp|jpg|jpeg|png)$/i, ".thumb.webp");
     } else if (size === "med" && !cleanFilename.includes(".med.")) {
