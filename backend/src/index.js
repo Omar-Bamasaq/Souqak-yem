@@ -76,7 +76,10 @@ import swaggerUi from "swagger-ui-express";
 const app = express();
 app.set("trust proxy", 1);
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173,http://localhost:5174";
-
+app.use(cors({
+  origin: "https://souqak-beta.vercel.app",
+  credentials: true
+}));
 // Swagger Configuration
 const swaggerOptions = {
   definition: {
