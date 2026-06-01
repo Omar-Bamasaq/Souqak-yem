@@ -1,0 +1,18 @@
+{
+  "name": "سوقك - اليمن",
+  "short_name": "سوقك",
+  "description": "منصة سوقك للتجارة الإلكترونية في اليمن",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0284c7",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
