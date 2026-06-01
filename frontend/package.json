@@ -19,6 +19,7 @@
     "react-helmet-async": "^3.0.0",
     "react-router-dom": "^6.22.3",
     "recharts": "^3.8.1",
+    "lucide-react": "^0.344.0",
     "service-worker-loader": "^4.0.2",
     "socket.io-client": "^4.8.3"
   },
