@@ -23,6 +23,8 @@ npm-debug.log*
 # User Uploads (Local media)
 backend/uploads/
 !backend/uploads/.gitkeep
+!backend/uploads/categories/
+!backend/uploads/categories/*
 
 # IDE files
 .vscode/

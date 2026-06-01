@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const backendEnv = path.join(process.cwd(), ".env.local");
 const rootEnv = path.join(process.cwd(), "..", ".env.local");
 
@@ -194,7 +199,7 @@ connectLocal()
     });
   });
 
-const uploadDir = path.join(process.cwd(), "uploads");
+const uploadDir = path.resolve(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

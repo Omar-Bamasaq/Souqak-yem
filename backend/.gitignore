@@ -5,3 +5,5 @@ logs/*.log
 mongodb_data/
 uploads/
 !uploads/.gitkeep
+!uploads/categories/
+!uploads/categories/*
