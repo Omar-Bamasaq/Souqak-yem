@@ -28,33 +28,30 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
   let attempts = 0;
   let lastError = null;
   
-  const maxAttempts = Math.min(emailAccounts.length, 3);
+  // Limit max attempts to 4 since user updated the first 4 accounts
+  const maxAttempts = Math.min(emailAccounts.length, 4);
 
   if (emailAccounts.length === 0) {
     throw new Error("[EMAIL_CONFIG_ERROR] No valid email accounts found in .env");
   }
 
   while (attempts < maxAttempts) {
-    const account = getNextEmailAccount(emailAccounts);
+    const account = emailAccounts[attempts]; // Try accounts in order (1, 2, 3, 4)
     if (!account) break;
 
     try {
-      console.log(`[EMAIL ATTEMPT] Trying ${account.user} on port 587 (STARTTLS)...`);
+      console.log(`[EMAIL ATTEMPT] Trying ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
+      
       const transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
-        secure: false, // Use STARTTLS
+        service: 'gmail',
         auth: {
           user: account.user,
           pass: account.pass
         },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
         socketTimeout: 20000,
-        tls: {
-          rejectUnauthorized: false,
-          minVersion: "TLSv1.2"
-        }
+        pool: true // Use connection pooling
       });
 
       const finalMailOptions = {
@@ -66,35 +63,13 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
       console.log(`[EMAIL SUCCESS] Sent via ${account.user}`);
       return { success: true, account: account.user };
     } catch (error) {
-      console.error(`[EMAIL ERROR] ${account.user} (Port 587) failed:`, error.message);
-      
-      // Secondary fallback to port 465 for the same account
-      try {
-        console.log(`[EMAIL RETRY] Trying ${account.user} on port 465 (SSL)...`);
-        const transporter465 = nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
-          auth: {
-            user: account.user,
-            pass: account.pass
-          },
-          connectionTimeout: 10000,
-          tls: { rejectUnauthorized: false }
-        });
-        await transporter465.sendMail({ ...mailOptions, from: `"سوقك" <${account.user}>` });
-        console.log(`[EMAIL SUCCESS] Sent via ${account.user} (Port 465)`);
-        return { success: true, account: account.user };
-      } catch (err2) {
-        console.error(`[EMAIL ERROR] ${account.user} (Port 465) failed:`, err2.message);
-        lastError = new Error(`${account.user}: 587->${error.message} | 465->${err2.message}`);
-        attempts++;
-      }
+      console.error(`[EMAIL ERROR] ${account.user} failed:`, error.message);
+      lastError = error;
+      attempts++;
     }
   }
 
-  const errorMessage = lastError ? lastError.message : "All attempted email accounts failed.";
-  throw new Error(`[EMAIL_ALL_FAILED] ${errorMessage}`);
+  throw new Error(lastError ? lastError.message : "All attempted accounts failed.");
 }
 
 export async function sendVerificationEmail(to, code) {

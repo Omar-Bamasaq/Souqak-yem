@@ -105,19 +105,29 @@ router.post("/register-email", async (req, res) => {
       expiresAt
     });
 
-    console.log(`[AUTH] OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
+    console.log(`[AUTH] OTP created in DB for: ${inputEmail}. Code: ${code} (sending)`);
 
-    // ASYNCHRONOUS BACKGROUND EMAIL SENDING
-    // We respond to the user immediately to prevent HTTP timeouts
-    sendVerificationEmail(inputEmail, code).catch(err => {
-      console.error(`[BACKGROUND EMAIL ERROR] Failed to send to ${inputEmail}:`, err.message);
-    });
-
-    return res.status(201).json({
-      message: "تم إنشاء طلبك. ستصلك رسالة التحقق على بريدك الإلكتروني خلال لحظات.",
-      email: inputEmail,
-      note: "إذا لم تصلك الرسالة خلال دقيقة، يمكنك طلب إعادة الإرسال."
-    });
+    // Wait for email sending to complete before responding
+    try {
+      await sendVerificationEmail(inputEmail, code);
+      console.log(`[AUTH] Verification email sent successfully to: ${inputEmail}`);
+      return res.status(201).json({
+        message: "تم إرسال رمز التحقق إلى بريدك الإلكتروني.",
+        email: inputEmail
+      });
+    } catch (err) {
+      console.error(`[AUTH EMAIL ERROR] Failed to send to ${inputEmail}:`, err.message);
+      
+      // Even if email fails, we return a 201 because the OTP is in the DB
+      // but we add a specific warning so the UI can show the Telegram/Phone option
+      return res.status(201).json({
+        message: "تم إنشاء طلبك، ولكن واجهنا مشكلة في إرسال البريد الإلكتروني حالياً.",
+        email: inputEmail,
+        error: "EMAIL_SEND_FAILED",
+        details: err.message,
+        suggestion: "يمكنك محاولة استخدام رقم الهاتف للتسجيل الفوري."
+      });
+    }
 
   } catch (err) {
     console.error("Register email error:", err);
