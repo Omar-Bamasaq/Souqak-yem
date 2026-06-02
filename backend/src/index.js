@@ -270,30 +270,39 @@ app.use("/api/cities", cityRoutes);
 // Debug SMTP Connectivity
 app.get("/api/debug/smtp", async (req, res) => {
   const targetHost = "74.125.69.108";
-  const targetPort = 465;
-  console.log(`[DEBUG SMTP] Starting TCP check to ${targetHost}:${targetPort}`);
+  const ports = [465, 587];
+  const results = [];
   
   const net = await import("net");
-  const socket = new net.Socket();
-  let status = "Testing...";
+  
+  for (const port of ports) {
+    const socket = new net.Socket();
+    const promise = new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        socket.destroy();
+        resolve({ port, status: "TIMEOUT", error: "5s timeout exceeded" });
+      }, 5000);
 
-  const timeout = setTimeout(() => {
-    socket.destroy();
-    console.error("[DEBUG SMTP] TCP Connection Timeout");
-    if (!res.headersSent) res.status(504).json({ error: "TCP Timeout", host: targetHost, port: targetPort });
-  }, 5000);
+      socket.connect(port, targetHost, () => {
+        clearTimeout(timeout);
+        socket.destroy();
+        resolve({ port, status: "OPEN" });
+      });
 
-  socket.connect(targetPort, targetHost, () => {
-    clearTimeout(timeout);
-    console.log("[DEBUG SMTP] TCP Connection SUCCESS");
-    socket.destroy();
-    if (!res.headersSent) res.json({ status: "Success", message: `TCP Port ${targetPort} is OPEN on ${targetHost}`, host: targetHost });
-  });
+      socket.on("error", (err) => {
+        clearTimeout(timeout);
+        resolve({ port, status: "CLOSED", error: err.message });
+      });
+    });
+    results.push(await promise);
+  }
 
-  socket.on("error", (err) => {
-    clearTimeout(timeout);
-    console.error("[DEBUG SMTP] TCP Connection FAILED:", err.message);
-    if (!res.headersSent) res.status(500).json({ error: "TCP Failed", message: err.message, host: targetHost });
+  res.json({
+    host: targetHost,
+    results,
+    advice: results.find(r => r.status === "OPEN") 
+      ? `Port ${results.find(r => r.status === "OPEN").port} is available. Use it.`
+      : "All ports are blocked by Render. You must use a specialized service like Resend or SendGrid."
   });
 });
 

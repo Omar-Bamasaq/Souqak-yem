@@ -24,19 +24,16 @@ function getEmailAccounts() {
 /**
  * Creates a standard transporter with DIRECT IPv4 IP to bypass DNS/IPv6 issues
  */
-function createTransporter(account, useRelay = false) {
-  // Direct Google SMTP IP (smtp.gmail.com typically resolves to this range)
-  // Using direct IP to bypass any IPv6 fallback in Nodemailer/Environment
-  const host = "74.125.69.108"; 
-  const port = 465;
+function createTransporter(account, port = 465) {
+  const host = "smtp.gmail.com";
+  const secure = port === 465;
   
-  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user}`);
-  console.log(`[DIAGNOSTIC] Host: ${host}, Port: ${port}, Secure: true, Family: 4`);
+  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user} on port ${port}`);
   
   const transporter = nodemailer.createTransport({
     host: host,
     port: port,
-    secure: true,
+    secure: secure, // true for 465, false for 587
     auth: {
       user: account.user,
       pass: account.pass
@@ -45,18 +42,16 @@ function createTransporter(account, useRelay = false) {
     greetingTimeout: 10000,
     socketTimeout: 20000,
     pool: true,
-    // Disable DNS lookup by forcing family and using IP
-    family: 4,
-    // TLS settings for direct IP connection
+    family: 4, // Force IPv4
+    lookup: ipv4Lookup,
     tls: {
-      servername: 'smtp.gmail.com', // Required when connecting via IP to match cert
-      rejectUnauthorized: false     // Be careful, but useful for debugging connectivity
+      rejectUnauthorized: false
     },
     debug: true,
     logger: true
   });
 
-  console.log(`[TRANSPORTER CREATED] for ${account.user} using IP ${host}`);
+  console.log(`[TRANSPORTER CREATED] for ${account.user} on port ${port}`);
   return transporter;
 }
 
@@ -68,23 +63,21 @@ export async function verifyEmailAccounts() {
   console.log(`[EMAIL SYSTEM] Starting verification for ${accounts.length} accounts...`);
   
   for (const acc of accounts) {
-    let transporter = createTransporter(acc);
     try {
-      console.log(`[VERIFY START] Verifying account: ${acc.user} (Main Host)`);
-      await transporter.verify();
-      console.log(`[VERIFY SUCCESS] Account: ${acc.user}`);
-    } catch (err) {
-      console.error(`[VERIFY FAILED] Main host failed for ${acc.user}: ${err.message}`);
+      console.log(`[VERIFY START] Testing Port 465 for: ${acc.user}`);
+      const transporter465 = createTransporter(acc, 465);
+      await transporter465.verify();
+      console.log(`[VERIFY SUCCESS] Account: ${acc.user} on Port 465`);
+    } catch (err465) {
+      console.warn(`[VERIFY FAILED] Port 465 failed for ${acc.user}: ${err465.message}`);
       
-      // Fallback to smtp-relay.gmail.com
-      console.log(`[RETRY RELAY] Attempting fallback to smtp-relay.gmail.com for ${acc.user}`);
-      transporter = createTransporter(acc, true);
       try {
-        console.log(`[VERIFY START] Verifying account: ${acc.user} (Relay Host)`);
-        await transporter.verify();
-        console.log(`[VERIFY SUCCESS] Account: ${acc.user} via Relay`);
-      } catch (relayErr) {
-        console.error(`[VERIFY FAILED] Relay host also failed for ${acc.user}: ${relayErr.message}`);
+        console.log(`[VERIFY START] Testing Port 587 (STARTTLS) for: ${acc.user}`);
+        const transporter587 = createTransporter(acc, 587);
+        await transporter587.verify();
+        console.log(`[VERIFY SUCCESS] Account: ${acc.user} on Port 587`);
+      } catch (err587) {
+        console.error(`[VERIFY FATAL] Both ports failed for ${acc.user}. 465: ${err465.message}, 587: ${err587.message}`);
       }
     }
   }
@@ -105,40 +98,32 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
     const account = emailAccounts[attempts];
     if (!account) break;
 
-    try {
-      console.log(`[EMAIL ATTEMPT START] Sending ${type} via ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
-      
-      let transporter = createTransporter(account);
-
-      const finalMailOptions = {
-        ...mailOptions,
-        from: `"سوقك" <${account.user}>`
-      };
-
-      console.log("[EMAIL SENDMAIL START] Calling transporter.sendMail()...");
+    // Try Port 465 first, then 587
+    for (const port of [465, 587]) {
       try {
+        console.log(`[EMAIL ATTEMPT START] Sending ${type} via ${account.user} (Port ${port}, Account ${attempts + 1}/${maxAttempts})`);
+        
+        const transporter = createTransporter(account, port);
+
+        const finalMailOptions = {
+          ...mailOptions,
+          from: `"سوقك" <${account.user}>`
+        };
+
+        console.log(`[EMAIL SENDMAIL START] Calling transporter.sendMail() on port ${port}...`);
         const info = await transporter.sendMail(finalMailOptions);
         console.log("[EMAIL SUCCESS] Mail sent successfully:", info);
         return { success: true, account: account.user };
-      } catch (sendErr) {
-        if (sendErr.code === 'ENETUNREACH' || sendErr.message.includes('ENETUNREACH')) {
-          console.log(`[RETRY RELAY] ENETUNREACH detected. Trying Relay for ${account.user}...`);
-          transporter = createTransporter(account, true);
-          const info = await transporter.sendMail(finalMailOptions);
-          console.log("[EMAIL SUCCESS] Mail sent successfully via Relay:", info);
-          return { success: true, account: account.user };
-        }
-        throw sendErr;
+      } catch (error) {
+        console.error(`[EMAIL ERROR] Port ${port} failed for ${account.user}:`, error.message);
+        lastError = error;
       }
-    } catch (error) {
-      console.error("[EMAIL ERROR] Caught error during sendMail:", error);
-      if (error.stack) console.error("[EMAIL ERROR STACK]", error.stack);
-      lastError = error;
-      attempts++;
     }
+    
+    attempts++;
   }
 
-  console.error(`[EMAIL FATAL] All ${maxAttempts} attempted accounts failed to send ${type} to ${mailOptions.to}`);
+  console.error(`[EMAIL FATAL] All accounts and ports failed to send ${type} to ${mailOptions.to}`);
   throw new Error(lastError ? lastError.message : "All attempted accounts failed.");
 }
 
