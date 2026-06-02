@@ -1,4 +1,9 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
+
+const ipv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4 }, callback);
+};
 
 let currentEmailIndex = 0;
 
@@ -16,33 +21,33 @@ function getEmailAccounts() {
   ].filter(acc => acc.user && acc.pass && acc.pass.trim() !== "");
 }
 
-function getNextEmailAccount(accounts) {
-  if (accounts.length === 0) return null;
-  const account = accounts[currentEmailIndex % accounts.length];
-  currentEmailIndex = (currentEmailIndex + 1) % accounts.length;
-  return account;
-}
-
 /**
- * Creates a standard transporter with IPv4 forced
+ * Creates a standard transporter with IPv4 forced via custom DNS lookup
  */
-function createTransporter(account) {
-  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user}`);
+function createTransporter(account, useRelay = false) {
+  const host = useRelay ? "smtp-relay.gmail.com" : "smtp.gmail.com";
+  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user} via ${host} (IPv4 Forced)`);
+  
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: host,
+    port: 465,
     secure: true,
     auth: {
       user: account.user,
       pass: account.pass
     },
-    // Adding explicit timeouts to the transporter configuration
-    connectionTimeout: 10000, // 10 seconds
+    connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 20000,
+    pool: true,
+    // CRITICAL: Force IPv4 lookup
+    lookup: ipv4Lookup,
+    family: 4,
     debug: true,
     logger: true
   });
-  console.log(`[EMAIL SYSTEM] Transporter created for: ${account.user}`);
+
+  console.log(`[TRANSPORTER CREATED] for ${account.user} using ${host}`);
   return transporter;
 }
 
@@ -54,15 +59,24 @@ export async function verifyEmailAccounts() {
   console.log(`[EMAIL SYSTEM] Starting verification for ${accounts.length} accounts...`);
   
   for (const acc of accounts) {
-    const transporter = createTransporter(acc);
+    let transporter = createTransporter(acc);
     try {
-      console.log(`[EMAIL VERIFY START] Verifying account: ${acc.user}`);
+      console.log(`[VERIFY START] Verifying account: ${acc.user} (Main Host)`);
       await transporter.verify();
-      console.log(`[EMAIL VERIFY SUCCESS] Account: ${acc.user}`);
+      console.log(`[VERIFY SUCCESS] Account: ${acc.user}`);
     } catch (err) {
-      console.error(`[EMAIL VERIFY FAILED] Account: ${acc.user}`);
-      console.error("[EMAIL ERROR] Details:", err);
-      if (err.stack) console.error("[EMAIL STACK]", err.stack);
+      console.error(`[VERIFY FAILED] Main host failed for ${acc.user}: ${err.message}`);
+      
+      // Fallback to smtp-relay.gmail.com
+      console.log(`[RETRY RELAY] Attempting fallback to smtp-relay.gmail.com for ${acc.user}`);
+      transporter = createTransporter(acc, true);
+      try {
+        console.log(`[VERIFY START] Verifying account: ${acc.user} (Relay Host)`);
+        await transporter.verify();
+        console.log(`[VERIFY SUCCESS] Account: ${acc.user} via Relay`);
+      } catch (relayErr) {
+        console.error(`[VERIFY FAILED] Relay host also failed for ${acc.user}: ${relayErr.message}`);
+      }
     }
   }
 }
@@ -85,7 +99,7 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
     try {
       console.log(`[EMAIL ATTEMPT START] Sending ${type} via ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
       
-      const transporter = createTransporter(account);
+      let transporter = createTransporter(account);
 
       const finalMailOptions = {
         ...mailOptions,
@@ -93,10 +107,20 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
       };
 
       console.log("[EMAIL SENDMAIL START] Calling transporter.sendMail()...");
-      const info = await transporter.sendMail(finalMailOptions);
-      console.log("[EMAIL SUCCESS] Mail sent successfully:", info);
-      console.log(`[EMAIL SUCCESS] ${type} sent to ${mailOptions.to} via ${account.user}. MessageId: ${info.messageId}`);
-      return { success: true, account: account.user };
+      try {
+        const info = await transporter.sendMail(finalMailOptions);
+        console.log("[EMAIL SUCCESS] Mail sent successfully:", info);
+        return { success: true, account: account.user };
+      } catch (sendErr) {
+        if (sendErr.code === 'ENETUNREACH' || sendErr.message.includes('ENETUNREACH')) {
+          console.log(`[RETRY RELAY] ENETUNREACH detected. Trying Relay for ${account.user}...`);
+          transporter = createTransporter(account, true);
+          const info = await transporter.sendMail(finalMailOptions);
+          console.log("[EMAIL SUCCESS] Mail sent successfully via Relay:", info);
+          return { success: true, account: account.user };
+        }
+        throw sendErr;
+      }
     } catch (error) {
       console.error("[EMAIL ERROR] Caught error during sendMail:", error);
       if (error.stack) console.error("[EMAIL ERROR STACK]", error.stack);
@@ -108,6 +132,8 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
   console.error(`[EMAIL FATAL] All ${maxAttempts} attempted accounts failed to send ${type} to ${mailOptions.to}`);
   throw new Error(lastError ? lastError.message : "All attempted accounts failed.");
 }
+
+export default sendMailWithFallback;
 
 export async function sendVerificationEmail(to, code) {
   const mailOptions = {
