@@ -28,19 +28,12 @@ function getNextEmailAccount(accounts) {
  */
 function createTransporter(account) {
   return nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
+    service: "gmail",
     secure: true,
     auth: {
       user: account.user,
       pass: account.pass
-    },
-    connectionTimeout: 5000, // 5 seconds
-    greetingTimeout: 5000,
-    socketTimeout: 10000,
-    pool: true,
-    // CRITICAL: Force IPv4 to prevent ENETUNREACH on environments without IPv6
-    family: 4 
+    }
   });
 }
 
