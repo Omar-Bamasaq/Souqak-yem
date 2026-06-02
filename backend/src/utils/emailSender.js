@@ -35,9 +35,9 @@ function createTransporter(account) {
       user: account.user,
       pass: account.pass
     },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    connectionTimeout: 5000, // 5 seconds
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
     pool: true,
     // CRITICAL: Force IPv4 to prevent ENETUNREACH on environments without IPv6
     family: 4 
