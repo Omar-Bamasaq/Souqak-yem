@@ -49,7 +49,8 @@ export default function Login() {
   const location = useLocation();
   const { login } = useAuth();
 
-  const [activeBox, setActiveBox] = useState("phone"); // 'phone' | 'email'
+  const [activeBox, setActiveBox] = useState("phone"); // Default to phone
+  const [isEmailDisabled] = useState(true); // Toggle for Beta phase
   const [showFeatures, setShowFeatures] = useState(false);
   const [loginName, setLoginName] = useState("");
   const [loginPhone, setLoginPhone] = useState("");
@@ -186,7 +187,24 @@ export default function Login() {
 
               <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
                 <button onClick={() => setActiveBox("phone")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-center transition-all ${activeBox === "phone" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>رقم الهاتف</button>
-                <button onClick={() => setActiveBox("email")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-center transition-all ${activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>البريد الإلكتروني</button>
+                <div className="relative group">
+                  <button 
+                    onClick={() => setActiveBox("email")} 
+                    disabled={isEmailDisabled}
+                    className={`w-full rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-center transition-all ${ 
+                      isEmailDisabled ? "opacity-50 cursor-not-allowed border-gray-200 dark:border-slate-700 text-gray-400" : 
+                      activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : 
+                      "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"
+                    }`}
+                  >
+                    البريد الإلكتروني
+                  </button>
+                  {isEmailDisabled && (
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                      متاح قريباً (مغلق حالياً للفترة التجريبية)
+                    </div>
+                  )}
+                </div>
               </div>
 
               {activeBox === "phone" && (
