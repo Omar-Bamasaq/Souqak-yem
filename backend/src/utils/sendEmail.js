@@ -64,11 +64,15 @@ export const sendAdminEmail = async (options) => {
 
   try {
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: adminSender.user,
         pass: adminSender.pass,
       },
+      // Force IPv4
+      family: 4
     });
 
     const mailOptions = {
@@ -78,11 +82,12 @@ export const sendAdminEmail = async (options) => {
       html: options.html,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`[ADMIN EMAIL SUCCESS] تم إرسال البريد للإدارة عبر: ${adminSender.user}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[ADMIN EMAIL SUCCESS] Sent to Admin via: ${adminSender.user}. MessageId: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error(`[ADMIN EMAIL ERROR] فشل الإرسال للإدارة: ${error.message}`);
+    console.error(`[ADMIN EMAIL ERROR] Failed to send to Admin via ${adminSender.user}: ${error.message}`);
+    if (error.stack) console.error(error.stack);
     return false;
   }
 };
@@ -106,11 +111,15 @@ export const sendEmail = async (options) => {
 
     try {
       const transporter = nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
         auth: {
           user: account.user,
           pass: account.pass,
         },
+        // Force IPv4
+        family: 4
       });
 
       const mailOptions = {
@@ -120,11 +129,12 @@ export const sendEmail = async (options) => {
         html: options.html,
       };
 
-      await transporter.sendMail(mailOptions);
-      console.log(`[EMAIL SUCCESS] تم إرسال البريد بنجاح عبر: ${account.user}`);
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`[EMAIL SUCCESS] Sent to ${mailOptions.to} via: ${account.user}. MessageId: ${info.messageId}`);
       return true;
     } catch (error) {
-      console.error(`[EMAIL ERROR] فشل الإرسال عبر ${account.user}: ${error.message}`);
+      console.error(`[EMAIL ERROR] Failed to send to ${options.to} via ${account.user}: ${error.message}`);
+      if (error.stack) console.error(error.stack);
       attempts++;
     }
   }

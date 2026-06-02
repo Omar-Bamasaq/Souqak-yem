@@ -77,6 +77,7 @@ import * as Sentry from "@sentry/node";
 import logger from "./lib/logger.js";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
+import { verifyEmailAccounts } from "./utils/emailSender.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -340,6 +341,12 @@ setInterval(async () => {
 
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
+
+// Verify Email Accounts on Startup
+verifyEmailAccounts().catch(err => {
+  console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
+});
+
 const io = new Server(server, {
   cors: corsOptions
 });

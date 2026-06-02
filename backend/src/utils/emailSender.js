@@ -23,6 +23,47 @@ function getNextEmailAccount(accounts) {
   return account;
 }
 
+/**
+ * Creates a standard transporter with IPv4 forced
+ */
+function createTransporter(account) {
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: account.user,
+      pass: account.pass
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+    pool: true,
+    // CRITICAL: Force IPv4 to prevent ENETUNREACH on environments without IPv6
+    family: 4 
+  });
+}
+
+/**
+ * Verifies all configured email accounts on startup
+ */
+export async function verifyEmailAccounts() {
+  const accounts = getEmailAccounts();
+  console.log(`[EMAIL SYSTEM] Verifying ${accounts.length} accounts...`);
+  
+  for (const acc of accounts) {
+    const transporter = createTransporter(acc);
+    try {
+      await transporter.verify();
+      console.log(`[EMAIL VERIFY SUCCESS] Account: ${acc.user}`);
+    } catch (err) {
+      console.error(`[EMAIL VERIFY FAILED] Account: ${acc.user}`);
+      console.error(`Reason: ${err.message}`);
+      if (err.stack) console.error(err.stack);
+    }
+  }
+}
+
 async function sendMailWithFallback(mailOptions, type = "OTP") {
   const emailAccounts = getEmailAccounts();
   let attempts = 0;
@@ -40,35 +81,27 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
     if (!account) break;
 
     try {
-      console.log(`[EMAIL ATTEMPT] Trying ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
+      console.log(`[EMAIL ATTEMPT] Sending ${type} via ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
       
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: account.user,
-          pass: account.pass
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-        pool: true // Use connection pooling
-      });
+      const transporter = createTransporter(account);
 
       const finalMailOptions = {
         ...mailOptions,
         from: `"سوقك" <${account.user}>`
       };
 
-      await transporter.sendMail(finalMailOptions);
-      console.log(`[EMAIL SUCCESS] Sent via ${account.user}`);
+      const info = await transporter.sendMail(finalMailOptions);
+      console.log(`[EMAIL SUCCESS] ${type} sent to ${mailOptions.to} via ${account.user}. MessageId: ${info.messageId}`);
       return { success: true, account: account.user };
     } catch (error) {
-      console.error(`[EMAIL ERROR] ${account.user} failed:`, error.message);
+      console.error(`[EMAIL ERROR] Failed using ${account.user} for ${type}:`, error.message);
+      if (error.stack) console.error(error.stack);
       lastError = error;
       attempts++;
     }
   }
 
+  console.error(`[EMAIL FATAL] All ${maxAttempts} attempted accounts failed to send ${type} to ${mailOptions.to}`);
   throw new Error(lastError ? lastError.message : "All attempted accounts failed.");
 }
 
