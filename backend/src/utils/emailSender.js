@@ -27,14 +27,23 @@ function getNextEmailAccount(accounts) {
  * Creates a standard transporter with IPv4 forced
  */
 function createTransporter(account) {
-  return nodemailer.createTransport({
+  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user}`);
+  const transporter = nodemailer.createTransport({
     service: "gmail",
     secure: true,
     auth: {
       user: account.user,
       pass: account.pass
-    }
+    },
+    // Adding explicit timeouts to the transporter configuration
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
+    debug: true,
+    logger: true
   });
+  console.log(`[EMAIL SYSTEM] Transporter created for: ${account.user}`);
+  return transporter;
 }
 
 /**
@@ -42,17 +51,18 @@ function createTransporter(account) {
  */
 export async function verifyEmailAccounts() {
   const accounts = getEmailAccounts();
-  console.log(`[EMAIL SYSTEM] Verifying ${accounts.length} accounts...`);
+  console.log(`[EMAIL SYSTEM] Starting verification for ${accounts.length} accounts...`);
   
   for (const acc of accounts) {
     const transporter = createTransporter(acc);
     try {
+      console.log(`[EMAIL VERIFY START] Verifying account: ${acc.user}`);
       await transporter.verify();
       console.log(`[EMAIL VERIFY SUCCESS] Account: ${acc.user}`);
     } catch (err) {
       console.error(`[EMAIL VERIFY FAILED] Account: ${acc.user}`);
-      console.error(`Reason: ${err.message}`);
-      if (err.stack) console.error(err.stack);
+      console.error("[EMAIL ERROR] Details:", err);
+      if (err.stack) console.error("[EMAIL STACK]", err.stack);
     }
   }
 }
@@ -62,7 +72,6 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
   let attempts = 0;
   let lastError = null;
   
-  // Limit max attempts to 4 since user updated the first 4 accounts
   const maxAttempts = Math.min(emailAccounts.length, 4);
 
   if (emailAccounts.length === 0) {
@@ -70,11 +79,11 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
   }
 
   while (attempts < maxAttempts) {
-    const account = emailAccounts[attempts]; // Try accounts in order (1, 2, 3, 4)
+    const account = emailAccounts[attempts];
     if (!account) break;
 
     try {
-      console.log(`[EMAIL ATTEMPT] Sending ${type} via ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
+      console.log(`[EMAIL ATTEMPT START] Sending ${type} via ${account.user} (Account ${attempts + 1}/${maxAttempts})`);
       
       const transporter = createTransporter(account);
 
@@ -83,12 +92,14 @@ async function sendMailWithFallback(mailOptions, type = "OTP") {
         from: `"سوقك" <${account.user}>`
       };
 
+      console.log("[EMAIL SENDMAIL START] Calling transporter.sendMail()...");
       const info = await transporter.sendMail(finalMailOptions);
+      console.log("[EMAIL SUCCESS] Mail sent successfully:", info);
       console.log(`[EMAIL SUCCESS] ${type} sent to ${mailOptions.to} via ${account.user}. MessageId: ${info.messageId}`);
       return { success: true, account: account.user };
     } catch (error) {
-      console.error(`[EMAIL ERROR] Failed using ${account.user} for ${type}:`, error.message);
-      if (error.stack) console.error(error.stack);
+      console.error("[EMAIL ERROR] Caught error during sendMail:", error);
+      if (error.stack) console.error("[EMAIL ERROR STACK]", error.stack);
       lastError = error;
       attempts++;
     }
