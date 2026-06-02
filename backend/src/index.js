@@ -266,6 +266,37 @@ app.use("/api/favorites", favoritesRoutes);
 app.use("/api/follows", followsRoutes);
 app.use("/api/governorates", governorateRoutes);
 app.use("/api/cities", cityRoutes);
+
+// Debug SMTP Connectivity
+app.get("/api/debug/smtp", async (req, res) => {
+  const targetHost = "74.125.69.108";
+  const targetPort = 465;
+  console.log(`[DEBUG SMTP] Starting TCP check to ${targetHost}:${targetPort}`);
+  
+  const net = await import("net");
+  const socket = new net.Socket();
+  let status = "Testing...";
+
+  const timeout = setTimeout(() => {
+    socket.destroy();
+    console.error("[DEBUG SMTP] TCP Connection Timeout");
+    if (!res.headersSent) res.status(504).json({ error: "TCP Timeout", host: targetHost, port: targetPort });
+  }, 5000);
+
+  socket.connect(targetPort, targetHost, () => {
+    clearTimeout(timeout);
+    console.log("[DEBUG SMTP] TCP Connection SUCCESS");
+    socket.destroy();
+    if (!res.headersSent) res.json({ status: "Success", message: `TCP Port ${targetPort} is OPEN on ${targetHost}`, host: targetHost });
+  });
+
+  socket.on("error", (err) => {
+    clearTimeout(timeout);
+    console.error("[DEBUG SMTP] TCP Connection FAILED:", err.message);
+    if (!res.headersSent) res.status(500).json({ error: "TCP Failed", message: err.message, host: targetHost });
+  });
+});
+
 app.use("/api/sellers", sellersRoutes);
 app.use("/api/tags", tagRoutes);
 app.use("/api/categories", categoryRoutes);

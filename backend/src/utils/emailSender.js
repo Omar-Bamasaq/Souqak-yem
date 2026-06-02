@@ -22,15 +22,20 @@ function getEmailAccounts() {
 }
 
 /**
- * Creates a standard transporter with IPv4 forced via custom DNS lookup
+ * Creates a standard transporter with DIRECT IPv4 IP to bypass DNS/IPv6 issues
  */
 function createTransporter(account, useRelay = false) {
-  const host = useRelay ? "smtp-relay.gmail.com" : "smtp.gmail.com";
-  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user} via ${host} (IPv4 Forced)`);
+  // Direct Google SMTP IP (smtp.gmail.com typically resolves to this range)
+  // Using direct IP to bypass any IPv6 fallback in Nodemailer/Environment
+  const host = "74.125.69.108"; 
+  const port = 465;
+  
+  console.log(`[EMAIL SYSTEM] Creating transporter for: ${account.user}`);
+  console.log(`[DIAGNOSTIC] Host: ${host}, Port: ${port}, Secure: true, Family: 4`);
   
   const transporter = nodemailer.createTransport({
     host: host,
-    port: 465,
+    port: port,
     secure: true,
     auth: {
       user: account.user,
@@ -40,14 +45,18 @@ function createTransporter(account, useRelay = false) {
     greetingTimeout: 10000,
     socketTimeout: 20000,
     pool: true,
-    // CRITICAL: Force IPv4 lookup
-    lookup: ipv4Lookup,
+    // Disable DNS lookup by forcing family and using IP
     family: 4,
+    // TLS settings for direct IP connection
+    tls: {
+      servername: 'smtp.gmail.com', // Required when connecting via IP to match cert
+      rejectUnauthorized: false     // Be careful, but useful for debugging connectivity
+    },
     debug: true,
     logger: true
   });
 
-  console.log(`[TRANSPORTER CREATED] for ${account.user} using ${host}`);
+  console.log(`[TRANSPORTER CREATED] for ${account.user} using IP ${host}`);
   return transporter;
 }
 
