@@ -7,6 +7,7 @@ import SupportChatFAB from "./components/SupportChatFAB.jsx";
 import VideoGuideBottomSheet from "./components/VideoGuideBottomSheet.jsx";
 import OnboardingTour from "./components/OnboardingTour.jsx";
 import LoadingSpinner from "./components/LoadingSpinner.jsx";
+import SplashScreen from "./components/SplashScreen.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
 import AuthLayout from "./layouts/AuthLayout.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
@@ -92,6 +93,19 @@ function RequireRole({ role, children }) {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = React.useState(() => {
+    return !localStorage.getItem("hasSeenSplash");
+  });
+
+  const handleSplashFinish = () => {
+    localStorage.setItem("hasSeenSplash", "true");
+    setShowSplash(false);
+  };
+
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
+
   return (
     <>
       <ScrollToTop />
