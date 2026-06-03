@@ -1,114 +1,155 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const INTRO_KEY = "suqaq_intro_seen";
 
 const categories = [
-  { icon: "🚗", name: "سيارات", color: "bg-blue-500" },
-  { icon: "🏠", name: "عقارات", color: "bg-green-500" },
-  { icon: "📱", name: "إلكترونيات", color: "bg-purple-500" },
-  { icon: "💼", name: "وظائف", color: "bg-orange-500" },
-  { icon: "🔧", name: "خدمات", color: "bg-red-500" },
+  { icon: "🚗", name: "سيارات", color: "from-blue-400 to-blue-600" },
+  { icon: "🏠", name: "عقارات", color: "from-emerald-400 to-emerald-600" },
+  { icon: "📱", name: "إلكترونيات", color: "from-purple-400 to-purple-600" },
+  { icon: "💼", name: "وظائف", color: "from-amber-400 to-amber-600" },
+  { icon: "🔧", name: "خدمات", color: "from-rose-400 to-rose-600" },
 ];
 
 export default function FirstVisitSessionIntro() {
   const [isVisible, setIsVisible] = useState(false);
+  const [startExit, setStartExit] = useState(false);
+
+  const finishIntro = useCallback(() => {
+    setStartExit(true);
+    // Give time for exit animation to play
+    setTimeout(() => {
+      setIsVisible(false);
+      sessionStorage.setItem(INTRO_KEY, "true");
+      document.body.style.overflow = "";
+    }, 600);
+  }, []);
 
   useEffect(() => {
     const hasSeenIntro = sessionStorage.getItem(INTRO_KEY);
     if (!hasSeenIntro) {
       setIsVisible(true);
-      // Disable scrolling
       document.body.style.overflow = "hidden";
+
+      // Auto-dismiss sequence
+      // 0.0s: Start
+      // 0.5s: Logo appears
+      // 0.8s: Slogan appears
+      // 1.2s: Categories appear
+      // 2.8s: Start exit animation
+      const timer = setTimeout(() => {
+        finishIntro();
+      }, 3200);
+
+      return () => {
+        clearTimeout(timer);
+        document.body.style.overflow = "";
+      };
     }
-  }, []);
+  }, [finishIntro]);
 
-  const handleAnimationComplete = () => {
-    setIsVisible(false);
-    sessionStorage.setItem(INTRO_KEY, "true");
-    // Restore scrolling
-    document.body.style.overflow = "";
-  };
-
-  // Total duration logic:
-  // Logo: 0.5s
-  // Text: 0.3s (delay 0.5)
-  // Categories: 1s (delay 0.8)
-  // Exit: 0.4s
-  // Total: ~2.5s - 3s
+  if (!isVisible) return null;
 
   return (
     <AnimatePresence>
-      {isVisible && (
+      {!startExit && (
         <motion.div
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-white overflow-hidden"
-          onAnimationComplete={(definition) => {
-            if (definition === "exit") {
-              handleAnimationComplete();
-            }
-          }}
         >
-          {/* Background Gradient Elements */}
-          <div className="absolute inset-0 z-0">
+          {/* Enhanced Background with mesh-like gradients */}
+          <div className="absolute inset-0 z-0 opacity-40">
             <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1 }}
-              className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-50 rounded-full blur-3xl -mr-64 -mt-64" 
+              animate={{ 
+                scale: [1, 1.2, 1],
+                x: [0, 50, 0],
+                y: [0, 30, 0]
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-100 rounded-full blur-[120px]" 
             />
             <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-50 rounded-full blur-3xl -ml-64 -mb-64" 
+              animate={{ 
+                scale: [1.2, 1, 1.2],
+                x: [0, -40, 0],
+                y: [0, -20, 0]
+              }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-100 rounded-full blur-[120px]" 
             />
           </div>
 
-          <div className="relative z-10 flex flex-col items-center">
+          <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6">
             {/* Logo Section */}
             <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ 
-                duration: 0.5, 
-                ease: [0.34, 1.56, 0.64, 1] // Spring-like effect
+                duration: 0.7, 
+                ease: [0.22, 1, 0.36, 1] 
               }}
-              className="flex items-center gap-4 mb-6"
+              className="flex flex-col items-center gap-4 mb-8"
             >
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-200">
-                <svg className="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
+              <div className="relative">
+                <motion.div 
+                  animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="absolute inset-0 bg-blue-400 blur-2xl rounded-full"
+                />
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[28%] flex items-center justify-center shadow-2xl shadow-blue-500/30">
+                  <svg className="w-12 h-12 sm:w-14 sm:h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                  </svg>
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              
+              <div className="text-center">
+                <motion.h1 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-5xl sm:text-6xl font-black tracking-tight bg-gradient-to-b from-blue-600 to-indigo-700 bg-clip-text text-transparent"
+                >
                   سوقك
-                </span>
-                <span className="text-xs font-bold text-blue-500 uppercase tracking-widest mt-1">
-                  نسخة تجريبية
-                </span>
+                </motion.h1>
+                <motion.span 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-[10px] font-bold text-blue-500/60 uppercase tracking-[0.3em] block mt-1"
+                >
+                  Beta Version
+                </motion.span>
               </div>
             </motion.div>
 
-            {/* Slogan */}
-            <motion.p
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-              className="text-gray-500 text-lg sm:text-xl font-medium text-center"
-            >
-              بيع، اشترِ، واعثر على كل ما تحتاجه
-            </motion.p>
+            {/* Slogan with elegant line */}
+            <div className="relative py-4 w-full flex flex-col items-center">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: 40 }}
+                transition={{ delay: 0.6, duration: 0.8 }}
+                className="h-[2px] bg-blue-200 mb-4"
+              />
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8, duration: 0.6 }}
+                className="text-gray-500 text-lg font-medium text-center leading-relaxed"
+              >
+                بيع، اشترِ، واعثر على <br/>
+                <span className="text-blue-600 font-bold">كل ما تحتاجه</span>
+              </motion.p>
+            </div>
 
-            {/* Floating Categories */}
+            {/* Floating Categories - Improved Circular Motion */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {categories.map((cat, index) => {
-                // Circular layout calculation
-                const angle = (index / categories.length) * Math.PI * 2;
-                const radius = 160; // Distance from center
+                const angle = (index / categories.length) * Math.PI * 2 - Math.PI / 2;
+                const radius = 180;
                 const x = Math.cos(angle) * radius;
                 const y = Math.sin(angle) * radius;
 
@@ -123,32 +164,30 @@ export default function FirstVisitSessionIntro() {
                       y: y,
                     }}
                     transition={{ 
-                      delay: 0.8 + index * 0.1, 
-                      duration: 0.6,
-                      ease: "easeOut"
+                      delay: 1.2 + index * 0.15, 
+                      duration: 0.8,
+                      type: "spring",
+                      stiffness: 100,
+                      damping: 15
                     }}
                     className="absolute"
                   >
                     <motion.div
                       animate={{ 
-                        // Final movement effect towards "natural positions" 
-                        // (simplified as moving further out and fading)
-                        scale: [1, 1.1, 0.5],
-                        opacity: [1, 1, 0],
-                        x: x * 2,
-                        y: y * 2,
+                        y: [0, -10, 0],
                       }}
                       transition={{ 
-                        delay: 2.2, 
-                        duration: 0.8, 
+                        duration: 3, 
+                        repeat: Infinity, 
+                        delay: index * 0.4,
                         ease: "easeInOut" 
                       }}
-                      className="flex flex-col items-center gap-2"
+                      className="flex flex-col items-center gap-3"
                     >
-                      <div className={`w-14 h-14 rounded-full ${cat.color} flex items-center justify-center text-2xl shadow-lg shadow-gray-200 border-4 border-white`}>
+                      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${cat.color} flex items-center justify-center text-3xl shadow-xl shadow-gray-200 border-4 border-white transform rotate-3 hover:rotate-0 transition-transform`}>
                         {cat.icon}
                       </div>
-                      <span className="text-xs font-bold text-gray-700 bg-white/80 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                      <span className="text-[11px] font-bold text-gray-800 bg-white/90 px-3 py-1 rounded-full shadow-sm backdrop-blur-md border border-gray-100">
                         {cat.name}
                       </span>
                     </motion.div>
@@ -156,15 +195,29 @@ export default function FirstVisitSessionIntro() {
                 );
               })}
             </div>
-
-            {/* Progress indicator (optional but adds professional feel) */}
-            <motion.div 
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: 0.5, duration: 2.2, ease: "linear" }}
-              className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 origin-left"
-            />
           </div>
+
+          {/* Bottom Progress/Status */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.5 }}
+            className="absolute bottom-12 flex flex-col items-center gap-3"
+          >
+            <div className="flex gap-1">
+              {[0, 1, 2].map(i => (
+                <motion.div 
+                  key={i}
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                  className="w-1.5 h-1.5 bg-blue-500 rounded-full"
+                />
+              ))}
+            </div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              جاري تجهيز السوق...
+            </span>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
