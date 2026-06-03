@@ -205,30 +205,30 @@ export default function Home() {
         </div>
         
         {/* Content */}
-        <div className="relative container mx-auto px-4 py-8 sm:py-20 md:py-28 lg:py-32">
+        <div className="relative container mx-auto px-4 py-6 sm:py-12 md:py-16 lg:py-20">
           <div className="text-center max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-white/90 text-[10px] sm:text-sm mb-4 sm:mb-8 border border-white/20 shadow-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-white/90 text-[10px] sm:text-xs mb-3 sm:mb-6 border border-white/20 shadow-xl">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>
               أكبر تجمع تجاري في اليمن
             </div>
             
-            <h2 className="text-3xl sm:text-5xl md:text-7xl font-black text-white mb-8 sm:mb-10 leading-[1.4] tracking-tight">
-              بيع، اشترِ، وأعلن <br className="hidden sm:block" />
+            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 sm:mb-6 leading-tight tracking-tight">
+              بيع واشترِ <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">بكل سهولة وأمان</span>
             </h2>
-            <p className="text-[12px] sm:text-xl text-white/70 mb-8 sm:mb-16 px-4 max-w-3xl mx-auto font-medium leading-relaxed">
-              سوقك الموثوق لكل ما تحتاجه - سيارات، عقارات، جوالات وفئات متنوعة تناسب احتياجاتك
+            <p className="text-[11px] sm:text-lg text-white/70 mb-6 sm:mb-10 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
+              سوقك الموثوق لكل ما تحتاجه في اليمن
             </p>
             
-            {/* Hero Stats - Mobile Version */}
-            <div className="lg:hidden flex items-center justify-center gap-3 mb-10 animate-in fade-in zoom-in duration-700 delay-300">
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 shadow-xl flex-1 max-w-[150px]">
-                <div className="text-xl font-black text-white leading-none mb-1">انضم إلينا</div>
-                <div className="text-[9px] font-bold text-blue-100/80 uppercase tracking-wider">انضم الى آلاف المستخدمين</div>
+            {/* Hero Stats - Mobile Version (Optimized) */}
+            <div className="lg:hidden flex items-center justify-center gap-2 mb-8 animate-in fade-in zoom-in duration-700 delay-300">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-2.5 shadow-xl flex-1 max-w-[130px]">
+                <div className="text-base font-black text-white leading-none mb-0.5">انضم إلينا</div>
+                <div className="text-[8px] font-bold text-blue-100/80 uppercase tracking-wider">آلاف المستخدمين</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 shadow-xl flex-1 max-w-[150px]">
-                <div className="text-xl font-black text-white leading-none mb-1">تجدد مستمر</div>
-                <div className="text-[9px] font-bold text-blue-100/80 uppercase tracking-wider">اعلانات جديدة تضاف كل دقيقة</div>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-2.5 shadow-xl flex-1 max-w-[130px]">
+                <div className="text-base font-black text-white leading-none mb-0.5">تجدد مستمر</div>
+                <div className="text-[8px] font-bold text-blue-100/80 uppercase tracking-wider">إعلانات يومية</div>
               </div>
             </div>
             
