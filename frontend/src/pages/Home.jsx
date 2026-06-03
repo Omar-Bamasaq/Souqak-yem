@@ -193,13 +193,13 @@ export default function Home() {
           <div className="hidden lg:block absolute top-12 right-12 animate-float">
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl">
               <div className="text-2xl font-black text-white">انضم إلينا</div>
-              <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">آلاف المستخدمين</div>
+              <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">انضم الى آلاف المستخدمين</div>
             </div>
           </div>
           <div className="hidden lg:block absolute top-12 left-12 animate-float-slow">
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl">
               <div className="text-2xl font-black text-white">تجدد مستمر</div>
-              <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">إعلانات جديدة كل دقيقة</div>
+              <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">اعلانات جديدة تضاف كل دقيقة</div>
             </div>
           </div>
         </div>
@@ -224,11 +224,11 @@ export default function Home() {
             <div className="lg:hidden flex items-center justify-center gap-3 mb-10 animate-in fade-in zoom-in duration-700 delay-300">
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 shadow-xl flex-1 max-w-[150px]">
                 <div className="text-xl font-black text-white leading-none mb-1">انضم إلينا</div>
-                <div className="text-[9px] font-bold text-blue-100/80 uppercase tracking-wider">آلاف المستخدمين</div>
+                <div className="text-[9px] font-bold text-blue-100/80 uppercase tracking-wider">انضم الى آلاف المستخدمين</div>
               </div>
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 shadow-xl flex-1 max-w-[150px]">
                 <div className="text-xl font-black text-white leading-none mb-1">تجدد مستمر</div>
-                <div className="text-[9px] font-bold text-blue-100/80 uppercase tracking-wider">إعلانات جديدة كل دقيقة</div>
+                <div className="text-[9px] font-bold text-blue-100/80 uppercase tracking-wider">اعلانات جديدة تضاف كل دقيقة</div>
               </div>
             </div>
             

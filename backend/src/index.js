@@ -214,6 +214,22 @@ const uploadDir = path.resolve(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+// Fallback for missing images in /uploads
+app.use("/uploads", (req, res, next) => {
+  const filePath = path.join(uploadDir, req.path);
+  if (!fs.existsSync(filePath)) {
+    const isCategory = req.path.includes("categories") || req.path.includes("category-");
+    const isAvatar = req.path.includes("avatars") || req.path.includes("avatar-");
+    
+    if (isCategory) {
+      return res.sendFile(path.join(uploadDir, "category-placeholder.svg"));
+    }
+    return res.sendFile(path.join(uploadDir, "placeholder.svg"));
+  }
+  next();
+});
+
 app.use("/uploads", express.static(uploadDir, { etag: true, maxAge: "30d", immutable: true, cacheControl: true }));
 
 app.get("/api/health", async (req, res) => {

@@ -5,35 +5,59 @@ import { dirname, join } from "path";
 import fs from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, ".env") });
+dotenv.config(); // Loads from .env in the current directory (backend/)
 
 import mongoose from "mongoose";
 import Category from "./src/models/Category.js";
 import CategoryAttribute from "./src/models/CategoryAttribute.js";
 
-console.log("DEBUG: MONGODB_URI after explicit load:", process.env.MONGODB_URI ? "EXISTS" : "MISSING");
-if (process.env.MONGODB_URI) console.log("DEBUG: URI starts with:", process.env.MONGODB_URI.substring(0, 20));
-const backendEnv = join(__dirname, ".env.local");
-const rootEnv = join(__dirname, "..", ".env.local");
-const defaultEnv = join(__dirname, ".env");
+// Common attributes for multiple categories
+const sportsAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
+  { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
+];
 
-if (fs.existsSync(backendEnv)) {
-  dotenv.config({ path: backendEnv, override: true });
-} else if (fs.existsSync(defaultEnv)) {
-  dotenv.config({ path: defaultEnv, override: true });
-}
+const healthBeautyAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
+  { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
+];
 
-if (fs.existsSync(rootEnv)) {
-  dotenv.config({ path: rootEnv });
-}
-dotenv.config();
+const bookAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
+  { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
+  { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
+];
+
+const musicalInstrumentAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
+  { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
+];
+
+const foodAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
+  { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
+  { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
+  { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
+];
+
+const homeApplianceAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
+  { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
+  { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
+  { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
+  { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
+];
 
 const categoriesData = [
   {
     name: "السيارات",
     slug: "cars",
     sortOrder: 1,
-    description: "منصة متكاملة لعرض وشراء وبيع جميع أنواع المركبات في اليمن، بما يشمل السيارات الخاصة، الشاحنات، الدراجات النارية وقطع الغيار، مع خيارات متعددة تناسب جميع الاحتياجات والميزانيات.",
+    description: "منصة متكاملة لعرض وشراء وبيع جميع أنواع المركبات في اليمن، بما يشمل السيارات الخاصة، الشاحنات، الدراجات النارية وقطع الغيار.",
     subcategories: [
       { name: "سيارات للبيع", slug: "cars-for-sale", sortOrder: 1, attributes: [
         { name: "brand", label: "الماركة", type: "select", options: ["تويوتا", "نيسان", "هيونداي", "كيا", "لكزس", "شيفروليه", "فورد", "جيب", "مرسيدس", "BMW", "MG", "جيلي"], required: false, sortOrder: 1 },
@@ -65,7 +89,7 @@ const categoriesData = [
     name: "العقارات",
     slug: "real-estate",
     sortOrder: 2,
-    description: "قسم شامل لعرض جميع أنواع العقارات في اليمن، سواء للبيع أو الإيجار، مثل الشقق، الفلل، الأراضي، والمحلات التجارية، مع تفاصيل دقيقة تساعد في اتخاذ القرار المناسب.",
+    description: "قسم شامل لعرض جميع أنواع العقارات في اليمن، سواء للبيع أو الإيجار.",
     subcategories: [
       { name: "شقق للبيع", slug: "apartments-for-sale", sortOrder: 1, attributes: [
         { name: "property_type", label: "نوع العقار", type: "select", options: ["شقة", "فيلا", "أرض", "محل", "مكتب", "استراحة"], required: false, sortOrder: 1 },
@@ -97,7 +121,7 @@ const categoriesData = [
     name: "الإلكترونيات",
     slug: "electronics",
     sortOrder: 3,
-    description: "قسم مخصص لبيع وشراء الأجهزة الإلكترونية بمختلف أنواعها مثل الجوالات، الكمبيوترات، الشاشات، والأجهزة الذكية، سواء جديدة أو مستعملة، مع إمكانية المقارنة حسب المواصفات.",
+    description: "قسم مخصص لبيع وشراء الأجهزة الإلكترونية بمختلف أنواعها.",
     subcategories: [
       { name: "جوالات", slug: "mobiles", sortOrder: 1, attributes: [
         { name: "brand", label: "الماركة", type: "select", options: ["سامسونج", "آيفون", "شاومي", "هواوي", "أوبو"], required: false, sortOrder: 1 },
@@ -119,7 +143,7 @@ const categoriesData = [
     name: "الأثاث",
     slug: "furniture",
     sortOrder: 4,
-    description: "قسم لعرض وبيع الأثاث المنزلي والمكتبي، سواء جديد أو مستعمل، بما يشمل غرف النوم، المجالس، المطابخ، والمكاتب.",
+    description: "قسم لعرض وبيع الأثاث المنزلي والمكتبي.",
     subcategories: [
       { name: "غرف نوم", slug: "bedrooms", sortOrder: 1, attributes: [
         { name: "type", label: "النوع", type: "text", required: false, sortOrder: 1 },
@@ -138,7 +162,7 @@ const categoriesData = [
     name: "الوظائف",
     slug: "jobs",
     sortOrder: 5,
-    description: "قسم لنشر الوظائف الشاغرة والبحث عن فرص عمل في مختلف المجالات، سواء بدوام كامل أو جزئي.",
+    description: "قسم لنشر الوظائف الشاغرة والبحث عن فرص عمل.",
     subcategories: [
       { name: "وظائف خاصة", slug: "private-jobs", sortOrder: 1, attributes: [
         { name: "job_title", label: "المسمى الوظيفي", type: "text", required: false, sortOrder: 1 },
@@ -158,7 +182,7 @@ const categoriesData = [
     name: "حيوانات",
     slug: "animals",
     sortOrder: 6,
-    description: "قسم مخصص لبيع وشراء الحيوانات مثل الأغنام، الإبل، الأبقار، والطيور، بالإضافة إلى مستلزماتها.",
+    description: "قسم مخصص لبيع وشراء الحيوانات ومستلزماتها.",
     subcategories: [
       { name: "أغنام", slug: "sheep", sortOrder: 1, attributes: [
         { name: "type", label: "النوع", type: "text", required: false, sortOrder: 1 },
@@ -177,7 +201,7 @@ const categoriesData = [
     name: "ملابس وأزياء",
     slug: "fashion",
     sortOrder: 7,
-    description: "قسم لعرض الملابس الرجالية والنسائية والأطفال، بما يشمل الملابس الجديدة والمستعملة والإكسسوارات.",
+    description: "قسم لعرض الملابس الرجالية والنسائية والأطفال والإكسسوارات.",
     subcategories: [
       { name: "رجالي", slug: "mens-wear", sortOrder: 1, attributes: [
         { name: "size", label: "المقاس", type: "select", options: ["S", "M", "L", "XL"], required: false, sortOrder: 1 },
@@ -195,7 +219,7 @@ const categoriesData = [
     name: "ألعاب وترفيه",
     slug: "games-entertainment",
     sortOrder: 8,
-    description: "قسم مخصص للألعاب الإلكترونية، الأجهزة الترفيهية، والهوايات.",
+    description: "قسم مخصص للألعاب الإلكترونية والأجهزة الترفيهية والهوايات.",
     subcategories: [
       { name: "ألعاب فيديو", slug: "video-games", sortOrder: 1, attributes: [
         { name: "type", label: "النوع", type: "text", required: false, sortOrder: 1 },
@@ -211,7 +235,7 @@ const categoriesData = [
     name: "خدمات",
     slug: "services",
     sortOrder: 9,
-    description: "قسم لعرض الخدمات المختلفة مثل الصيانة، النقل، التصميم، والخدمات المنزلية.",
+    description: "قسم لعرض الخدمات المختلفة مثل الصيانة والنقل والتصميم.",
     subcategories: [
       { name: "خدمات منزلية", slug: "home-services", sortOrder: 1, attributes: [
         { name: "service_type", label: "نوع الخدمة", type: "text", required: false, sortOrder: 1 },
@@ -229,7 +253,7 @@ const categoriesData = [
     name: "الأدوات والمعدات",
     slug: "tools-equipment",
     sortOrder: 10,
-    description: "قسم لبيع وشراء الأدوات الكهربائية والميكانيكية والمعدات المنزلية أو الصناعية، مع تفاصيل دقيقة للمستخدم.",
+    description: "قسم لبيع وشراء الأدوات الكهربائية والميكانيكية والمعدات المنزلية أو الصناعية.",
     subcategories: [
       { name: "أدوات كهربائية", slug: "electric-tools", sortOrder: 1, attributes: [
         { name: "type", label: "النوع", type: "select", options: ["مثقاب", "منشار", "كمبروسر", "مولد كهرباء", "مضخة ماء", "ماكينة لحام", "مفكات وأدوات يدوية", "معدات زراعية", "أدوات تنظيف"], required: false, sortOrder: 1 },
@@ -247,7 +271,7 @@ const categoriesData = [
     name: "المركبات الخاصة",
     slug: "special-vehicles",
     sortOrder: 11,
-    description: "قسم خاص للمركبات غير التقليدية مثل الدراجات النارية، القوارب، والمركبات الزراعية.",
+    description: "قسم خاص للمركبات غير التقليدية مثل الدراجات النارية والقوارب.",
     subcategories: [
       { name: "دراجات نارية خاصة", slug: "special-motorcycles", sortOrder: 1, attributes: [
         { name: "type", label: "النوع", type: "select", options: ["دراجة نارية", "قارب", "جرار زراعي", "دباب (ATV)", "سكوتر كهربائي", "دراجة هوائية"], required: false, sortOrder: 1 },
@@ -263,7 +287,7 @@ const categoriesData = [
     name: "السفر والسياحة",
     slug: "travel-tourism",
     sortOrder: 12,
-    description: "قسم يقدم خدمات السفر والسياحة بما يشمل عروض السفر، الفنادق، الرحلات والأنشطة الترفيهية.",
+    description: "قسم يقدم خدمات السفر والسياحة بما يشمل عروض السفر والفنادق.",
     subcategories: [
       { name: "رحلات سياحية", slug: "tourism-trips", sortOrder: 1, attributes: [
         { name: "service_type", label: "نوع الخدمة", type: "select", options: ["رحلة سياحية", "حجز فندق", "تذكرة طيران", "نقل سياحي", "نشاط ترفيهي"], required: false, sortOrder: 1 },
@@ -281,24 +305,7 @@ const categoriesData = [
     name: "الأدوات المكتبية واللوازم المدرسية",
     slug: "stationery-school",
     sortOrder: 13,
-    description: "قسم لبيع الأدوات المكتبية واللوازم المدرسية لجميع الأعمار، مع منتجات جديدة ومميزة.",
-    subcategories: [
-      { name: "أقلام ودفاتر", slug: "pens-notebooks", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أقلام", "دفاتر", "كتب", "أدوات رسم", "آلة حاسبة", "طابعات", "مستلزمات مكتبية", "حقائب مدرسية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Faber-Castell", "Stabilo", "Pilot", "Casio", "HP", "Canon"], required: false, sortOrder: 2 },
-        { name: "target_age", label: "العمر المستهدف", type: "select", options: ["أطفال", "ابتدائي", "إعدادي", "ثانوي", "جامعي"], required: false, sortOrder: 3 }
-      ]},
-      { name: "أدوات مكتبية", slug: "office-supplies", sortOrder: 2 },
-      { name: "لوازم مدرسية", slug: "school-supplies", sortOrder: 3 },
-      { name: "حقائب وشنط", slug: "bags-cases", sortOrder: 4 },
-      { name: "أخرى", slug: "other-stationery", sortOrder: 999 }
-    ]
-  },
-  {
-    name: "الأدوات المكتبية واللوازم المدرسية",
-    slug: "stationery-school",
-    sortOrder: 13,
-    description: "قسم لبيع الأدوات المكتبية واللوازم المدرسية لجميع الأعمار، مع منتجات جديدة ومميزة.",
+    description: "قسم لبيع الأدوات المكتبية واللوازم المدرسية لجميع الأعمار.",
     subcategories: [
       { name: "أقلام ودفاتر", slug: "pens-notebooks", sortOrder: 1, attributes: [
         { name: "type", label: "النوع", type: "select", options: ["أقلام", "دفاتر", "كتب", "أدوات رسم", "آلة حاسبة", "طابعات", "مستلزمات مكتبية", "حقائب مدرسية"], required: false, sortOrder: 1 },
@@ -315,283 +322,94 @@ const categoriesData = [
     name: "المستلزمات الرياضية",
     slug: "sports-equipment",
     sortOrder: 14,
-    description: "قسم مخصص لبيع وشراء الأدوات والمعدات الرياضية والملابس الخاصة بالرياضة، سواء للاستخدام المنزلي أو الاحترافي.",
+    description: "قسم مخصص لبيع وشراء الأدوات والمعدات الرياضية والملابس الخاصة بالرياضة.",
     subcategories: [
-      { name: "أجهزة رياضية", slug: "sports-devices", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
-        { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
-      ]},
-      { name: "معدات رياضية", slug: "sports-gear", sortOrder: 2, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
-        { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
-      ]},
-      { name: "ملابس رياضية", slug: "sports-clothing", sortOrder: 3, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
-        { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
-      ]},
-      { name: "مكملات غذائية", slug: "food-supplements", sortOrder: 4, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
-        { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
-      ]},
-      { name: "مستلزمات كمال أجسام", slug: "bodybuilding-supplies", sortOrder: 5, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
-        { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
-      ]},
-      { name: "أخرى", slug: "other-sports", sortOrder: 999, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
-        { name: "size_weight", label: "الحجم / الوزن", type: "select", options: ["خفيف", "متوسط", "ثقيل"], required: false, sortOrder: 3 }
-      ]}
+      { name: "أجهزة رياضية", slug: "sports-devices", sortOrder: 1, attributes: sportsAttributes },
+      { name: "معدات رياضية", slug: "sports-gear", sortOrder: 2, attributes: sportsAttributes },
+      { name: "ملابس رياضية", slug: "sports-clothing", sortOrder: 3, attributes: sportsAttributes },
+      { name: "مكملات غذائية", slug: "food-supplements", sortOrder: 4, attributes: sportsAttributes },
+      { name: "مستلزمات كمال أجسام", slug: "bodybuilding-supplies", sortOrder: 5, attributes: sportsAttributes },
+      { name: "أخرى", slug: "other-sports", sortOrder: 999, attributes: sportsAttributes }
     ]
   },
   {
     name: "الصحة والجمال",
     slug: "health-beauty",
     sortOrder: 15,
-    description: "قسم شامل لمنتجات العناية الشخصية والتجميل، بالإضافة إلى الخدمات المرتبطة بالصحة والجمال.",
+    description: "قسم شامل لمنتجات العناية الشخصية والتجميل.",
     subcategories: [
-      { name: "مستحضرات تجميل", slug: "cosmetics", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
-        { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
-      ]},
-      { name: "عناية بالبشرة", slug: "skin-care", sortOrder: 2, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
-        { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
-      ]},
-      { name: "عناية بالشعر", slug: "hair-care", sortOrder: 3, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
-        { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
-      ]},
-      { name: "عطور", slug: "perfumes", sortOrder: 4, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
-        { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
-      ]},
-      { name: "أدوات تجميل", slug: "beauty-tools", sortOrder: 5, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
-        { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
-      ]},
-      { name: "أخرى", slug: "other-beauty", sortOrder: 999, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كريم", "عطر", "شامبو", "مكياج", "زيت"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["L'Oréal", "Nivea", "Dove", "Garnier", "Maybelline"], required: false, sortOrder: 2 },
-        { name: "skin_type", label: "نوع البشرة", type: "select", options: ["دهنية", "جافة", "مختلطة"], required: false, sortOrder: 3 }
-      ]}
+      { name: "مستحضرات تجميل", slug: "cosmetics", sortOrder: 1, attributes: healthBeautyAttributes },
+      { name: "عناية بالبشرة", slug: "skin-care", sortOrder: 2, attributes: healthBeautyAttributes },
+      { name: "عناية بالشعر", slug: "hair-care", sortOrder: 3, attributes: healthBeautyAttributes },
+      { name: "عطور", slug: "perfumes", sortOrder: 4, attributes: healthBeautyAttributes },
+      { name: "أدوات تجميل", slug: "beauty-tools", sortOrder: 5, attributes: healthBeautyAttributes },
+      { name: "أخرى", slug: "other-beauty", sortOrder: 999, attributes: healthBeautyAttributes }
     ]
   },
   {
     name: "الكتب والمجلات",
     slug: "books-magazines",
     sortOrder: 16,
-    description: "قسم لبيع وشراء الكتب والمجلات بمختلف أنواعها، سواء التعليمية أو الثقافية أو الدينية.",
+    description: "قسم لبيع وشراء الكتب والمجلات بمختلف أنواعها.",
     subcategories: [
-      { name: "كتب تعليمية", slug: "educational-books", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
-        { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
-        { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
-      ]},
-      { name: "كتب دينية", slug: "religious-books", sortOrder: 2, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
-        { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
-        { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
-      ]},
-      { name: "كتب أدبية", slug: "literary-books", sortOrder: 3, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
-        { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
-        { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
-      ]},
-      { name: "مجلات", slug: "magazines", sortOrder: 4, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
-        { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
-        { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
-      ]},
-      { name: "كتب أطفال", slug: "kids-books", sortOrder: 5, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
-        { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
-        { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
-      ]},
-      { name: "أخرى", slug: "other-books", sortOrder: 999, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["كتاب", "مجلة"], required: false, sortOrder: 1 },
-        { name: "language", label: "اللغة", type: "select", options: ["عربي", "إنجليزي"], required: false, sortOrder: 2 },
-        { name: "cover", label: "الغلاف", type: "select", options: ["ورقي", "إلكتروني"], required: false, sortOrder: 3 }
-      ]}
+      { name: "كتب تعليمية", slug: "educational-books", sortOrder: 1, attributes: bookAttributes },
+      { name: "كتب دينية", slug: "religious-books", sortOrder: 2, attributes: bookAttributes },
+      { name: "كتب أدبية", slug: "literary-books", sortOrder: 3, attributes: bookAttributes },
+      { name: "مجلات", slug: "magazines", sortOrder: 4, attributes: bookAttributes },
+      { name: "كتب أطفال", slug: "kids-books", sortOrder: 5, attributes: bookAttributes },
+      { name: "أخرى", slug: "other-books", sortOrder: 999, attributes: bookAttributes }
     ]
   },
   {
     name: "آلات موسيقية",
     slug: "musical-instruments",
     sortOrder: 17,
-    description: "قسم مخصص لبيع وشراء الآلات الموسيقية ومستلزماتها، سواء للمبتدئين أو المحترفين.",
+    description: "قسم مخصص لبيع وشراء الآلات الموسيقية ومستلزماتها.",
     subcategories: [
-      { name: "آلات وترية", slug: "string-instruments", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
-        { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
-      ]},
-      { name: "آلات نفخ", slug: "wind-instruments", sortOrder: 2, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
-        { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
-      ]},
-      { name: "آلات إيقاعية", slug: "percussion-instruments", sortOrder: 3, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
-        { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
-      ]},
-      { name: "بيانو وأورغ", slug: "piano-keyboard", sortOrder: 4, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
-        { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
-      ]},
-      { name: "ملحقات موسيقية", slug: "musical-accessories", sortOrder: 5, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
-        { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
-      ]},
-      { name: "أخرى", slug: "other-music", sortOrder: 999, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["جيتار", "عود", "بيانو", "أورغ", "طبول", "كمان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["Yamaha", "Fender", "Roland", "Casio"], required: false, sortOrder: 2 },
-        { name: "level", label: "المستوى", type: "select", options: ["مبتدئ", "متوسط", "محترف"], required: false, sortOrder: 3 }
-      ]}
+      { name: "آلات وترية", slug: "string-instruments", sortOrder: 1, attributes: musicalInstrumentAttributes },
+      { name: "آلات نفخ", slug: "wind-instruments", sortOrder: 2, attributes: musicalInstrumentAttributes },
+      { name: "آلات إيقاعية", slug: "percussion-instruments", sortOrder: 3, attributes: musicalInstrumentAttributes },
+      { name: "بيانو وأورغ", slug: "piano-keyboard", sortOrder: 4, attributes: musicalInstrumentAttributes },
+      { name: "ملحقات موسيقية", slug: "musical-accessories", sortOrder: 5, attributes: musicalInstrumentAttributes },
+      { name: "أخرى", slug: "other-music", sortOrder: 999, attributes: musicalInstrumentAttributes }
     ]
   },
   {
     name: "المواد الغذائية",
     slug: "foodstuffs",
     sortOrder: 18,
-    description: "قسم لعرض وبيع المواد الغذائية المختلفة مثل المنتجات المحلية والمستوردة، سواء بالجملة أو التجزئة.",
+    description: "قسم لبيع المواد الغذائية المختلفة.",
     subcategories: [
-      { name: "مواد غذائية جافة", slug: "dry-foods", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
-        { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
-        { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
-        { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
-      ]},
-      { name: "خضروات وفواكه", slug: "vegetables-fruits", sortOrder: 2, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
-        { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
-        { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
-        { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
-      ]},
-      { name: "لحوم ودواجن", slug: "meat-poultry", sortOrder: 3, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
-        { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
-        { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
-        { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
-      ]},
-      { name: "منتجات ألبان", slug: "dairy-products", sortOrder: 4, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
-        { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
-        { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
-        { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
-      ]},
-      { name: "مواد بالجملة", slug: "wholesale-foods", sortOrder: 5, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
-        { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
-        { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
-        { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
-      ]},
-      { name: "أخرى", slug: "other-food", sortOrder: 999, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["أرز", "دقيق", "سكر", "زيت", "خضروات", "فواكه", "لحوم"], required: false, sortOrder: 1 },
-        { name: "condition", label: "الحالة", type: "select", options: ["طازج", "مجمد", "معلب"], required: false, sortOrder: 2 },
-        { name: "origin", label: "بلد المنشأ", type: "select", options: ["اليمن", "السعودية", "الإمارات", "مصر", "الهند"], required: false, sortOrder: 3 },
-        { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
-      ]}
+      { name: "مواد غذائية جافة", slug: "dry-foods", sortOrder: 1, attributes: foodAttributes },
+      { name: "خضروات وفواكه", slug: "vegetables-fruits", sortOrder: 2, attributes: foodAttributes },
+      { name: "لحوم ودواجن", slug: "meat-poultry", sortOrder: 3, attributes: foodAttributes },
+      { name: "منتجات ألبان", slug: "dairy-products", sortOrder: 4, attributes: foodAttributes },
+      { name: "مواد بالجملة", slug: "wholesale-foods", sortOrder: 5, attributes: foodAttributes },
+      { name: "أخرى", slug: "other-food", sortOrder: 999, attributes: foodAttributes }
     ]
   },
   {
     name: "الأجهزة المنزلية",
     slug: "home-appliances",
     sortOrder: 19,
-    description: "قسم مخصص لبيع وشراء الأجهزة المنزلية الجديدة والمستعملة، مثل الثلاجات والغسالات والمكيفات وأجهزة المطبخ، مع إمكانية المقارنة حسب الماركة والحالة والسعر.",
+    description: "قسم مخصص لبيع وشراء الأجهزة المنزلية الجديدة والمستعملة.",
     subcategories: [
-      { name: "ثلاجات", slug: "refrigerators", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "غسالات", slug: "washing-machines", sortOrder: 2, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "مكيفات", slug: "air-conditioners", sortOrder: 3, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "أفران وميكروويف", slug: "ovens-microwaves", sortOrder: 4, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "أجهزة مطبخ", slug: "kitchen-appliances", sortOrder: 5, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "أجهزة كهربائية صغيرة", slug: "small-appliances", sortOrder: 6, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "مكانس كهربائية", slug: "vacuum-cleaners", sortOrder: 7, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "سخانات مياه", slug: "water-heaters", sortOrder: 8, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]},
-      { name: "أخرى", slug: "other-appliances", sortOrder: 999, attributes: [
-        { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-        { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-        { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-        { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-        { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-        { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
-      ]}
+      { name: "ثلاجات", slug: "refrigerators", sortOrder: 1, attributes: homeApplianceAttributes },
+      { name: "غسالات", slug: "washing-machines", sortOrder: 2, attributes: homeApplianceAttributes },
+      { name: "مكيفات", slug: "air-conditioners", sortOrder: 3, attributes: homeApplianceAttributes },
+      { name: "أفران وميكروويف", slug: "ovens-microwaves", sortOrder: 4, attributes: homeApplianceAttributes },
+      { name: "أجهزة مطبخ", slug: "kitchen-appliances", sortOrder: 5, attributes: homeApplianceAttributes },
+      { name: "أجهزة كهربائية صغيرة", slug: "small-appliances", sortOrder: 6, attributes: homeApplianceAttributes },
+      { name: "مكانس كهربائية", slug: "vacuum-cleaners", sortOrder: 7, attributes: homeApplianceAttributes },
+      { name: "سخانات مياه", slug: "water-heaters", sortOrder: 8, attributes: homeApplianceAttributes },
+      { name: "أخرى", slug: "other-appliances", sortOrder: 999, attributes: homeApplianceAttributes }
     ]
   },
   {
     name: "طلبات الشراء",
     slug: "purchase-orders",
     sortOrder: 20,
-    description: "قسم مخصص لطلبات الشراء، حيث يمكن للمستخدمين طلب منتجات معينة يبحثون عنها.",
+    description: "قسم مخصص لطلبات الشراء.",
     subcategories: [
       { name: "طلب منتج", slug: "order-product", sortOrder: 1 }
     ]
@@ -600,7 +418,7 @@ const categoriesData = [
     name: "أخرى",
     slug: "other-main",
     sortOrder: 999,
-    description: "أقسام وأصناف أخرى متنوعة لا تندرج تحت التصنيفات الرئيسية.",
+    description: "أقسام وأصناف أخرى متنوعة.",
     subcategories: [
       { name: "أخرى", slug: "other-other", sortOrder: 999 }
     ]
@@ -611,9 +429,16 @@ async function run() {
   const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/yemen_market";
   await mongoose.connect(mongoUri, { family: 4 });
   console.log("Connected to DB:", mongoose.connection.name);
-  console.log("URI Masked:", mongoUri.substring(0, 30) + "...");
+  console.log("DB Host:", mongoose.connection.host);
+  console.log("DB Port:", mongoose.connection.port);
 
-  console.log("Starting seeding of Yemen categories and attributes (Ensuring 'Other' is last)...");
+  console.log("Starting seeding of categories and attributes...");
+
+  // Clear existing categories and attributes to ensure a fresh start matching the report exactly
+  // This is required to remove old/duplicated categories and reset all attributes.
+  await CategoryAttribute.deleteMany({});
+  await Category.deleteMany({});
+  console.log("Cleared existing categories and attributes.");
 
   for (const catData of categoriesData) {
     let mainCat = await Category.findOne({ slug: catData.slug });
@@ -627,6 +452,7 @@ async function run() {
       });
       console.log(`Created Main Category: ${mainCat.name}`);
     } else {
+      mainCat.name = catData.name;
       mainCat.description = catData.description;
       mainCat.sortOrder = catData.sortOrder || 0;
       await mainCat.save();
@@ -635,11 +461,6 @@ async function run() {
 
     if (catData.subcategories) {
       for (const subCatData of catData.subcategories) {
-        // Ensure "أخرى" subcategory has high sortOrder
-        if (subCatData.name === "أخرى") {
-          subCatData.sortOrder = 999;
-        }
-
         let subCat = await Category.findOne({ slug: subCatData.slug });
         if (!subCat) {
           subCat = await Category.create({
@@ -651,12 +472,16 @@ async function run() {
           });
           console.log(`  - Created Subcategory: ${subCat.name}`);
         } else {
+          subCat.name = subCatData.name;
+          subCat.parentId = mainCat._id;
           subCat.sortOrder = subCatData.sortOrder || 0;
           await subCat.save();
+          console.log(`  - Updated Subcategory: ${subCat.name}`);
         }
 
         const currentAttrNames = (subCatData.attributes || []).map(a => a.name);
 
+        // Delete attributes that are no longer in the definition for this subcategory
         await CategoryAttribute.deleteMany({
           categoryId: subCat._id,
           name: { $nin: currentAttrNames }
@@ -664,12 +489,6 @@ async function run() {
 
         if (subCatData.attributes) {
           for (const attrData of subCatData.attributes) {
-            // Ensure "أخرى" is at the end of options for select/multiselect
-            if ((attrData.type === "select" || attrData.type === "multiselect") && attrData.options) {
-              const filteredOptions = attrData.options.filter(o => o !== "أخرى");
-              attrData.options = [...filteredOptions, "أخرى"];
-            }
-
             let attr = await CategoryAttribute.findOne({ 
               categoryId: subCat._id, 
               name: attrData.name 
@@ -677,12 +496,15 @@ async function run() {
             if (!attr) {
               await CategoryAttribute.create({
                 categoryId: subCat._id,
-                ...attrData
+                ...attrData,
+                required: false // Ensure it's optional
               });
               console.log(`    * Created Attribute: ${attrData.label} for ${subCat.name}`);
             } else {
               Object.assign(attr, attrData);
+              attr.required = false; // Ensure it's optional
               await attr.save();
+              console.log(`    * Updated Attribute: ${attrData.label} for ${subCat.name}`);
             }
           }
         }
@@ -696,7 +518,7 @@ async function run() {
 }
 
 run().catch(async (err) => {
-  console.error("Seeding failed:", err && err.message ? err.message : err);
+  console.error("Seeding failed:", err);
   try {
     await mongoose.disconnect();
   } catch {}
