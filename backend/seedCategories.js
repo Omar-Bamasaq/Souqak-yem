@@ -450,7 +450,7 @@ async function run() {
         sortOrder: catData.sortOrder || 0,
         status: "active"
       });
-      console.log(`Created Main Category: ${mainCat.name}`);
+      console.log(`Created Main Category: ${mainCat.name} (slug: ${mainCat.slug})`);
     } else {
       mainCat.name = catData.name;
       mainCat.description = catData.description;
