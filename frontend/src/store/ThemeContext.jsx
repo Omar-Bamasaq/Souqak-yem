@@ -5,8 +5,8 @@ const ThemeContext = createContext(null);
 function getInitialTheme() {
   const saved = localStorage.getItem("theme");
   if (saved === "dark" || saved === "light") return saved;
-  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return prefersDark ? "dark" : "light";
+  // Default to light for all users regardless of system preferences
+  return "light";
 }
 
 export function ThemeProvider({ children }) {

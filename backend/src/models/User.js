@@ -41,41 +41,47 @@ const userSchema = new mongoose.Schema(
       type: {
         message: {
           type: new mongoose.Schema(
-            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: false } },
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
             { _id: false }
           ),
-          default: undefined
+          default: () => ({ inApp: true, push: true, email: true })
         },
         comment: {
           type: new mongoose.Schema(
-            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: false } },
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
             { _id: false }
           ),
-          default: undefined
+          default: () => ({ inApp: true, push: true, email: true })
         },
         ad_status: {
           type: new mongoose.Schema(
-            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: false } },
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
             { _id: false }
           ),
-          default: undefined
+          default: () => ({ inApp: true, push: true, email: true })
         },
         order: {
           type: new mongoose.Schema(
             { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
             { _id: false }
           ),
-          default: undefined
+          default: () => ({ inApp: true, push: true, email: true })
         },
         wallet: {
           type: new mongoose.Schema(
             { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
             { _id: false }
           ),
-          default: undefined
+          default: () => ({ inApp: true, push: true, email: true })
         }
       },
-      default: {}
+      default: () => ({
+        message: { inApp: true, push: true, email: true },
+        comment: { inApp: true, push: true, email: true },
+        ad_status: { inApp: true, push: true, email: true },
+        order: { inApp: true, push: true, email: true },
+        wallet: { inApp: true, push: true, email: true }
+      })
     },
     isDisabled: { type: Boolean, default: false },
     isDeleted: { type: Boolean, default: false },
@@ -88,7 +94,7 @@ const userSchema = new mongoose.Schema(
     },
     phoneTrial: { type: Boolean, default: false },
     phoneTrialStatus: { type: String, enum: ["Pending", "Approved", "Rejected"], default: "Pending" },
-    hasSeenNotificationPrompt: { type: Boolean, default: false },
+    hasSeenNotificationPrompt: { type: Boolean, default: true },
 
     // Seller specific fields (Cumulative)
     sellerRating: { type: Number, default: 0 },

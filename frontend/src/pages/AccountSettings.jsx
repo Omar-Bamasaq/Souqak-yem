@@ -54,9 +54,11 @@ export default function AccountSettings() {
 
   // Notification States
   const [notifPrefs, setNotifPrefs] = useState(user?.notificationPrefs || {
-    message: { inApp: true, push: true, email: false },
-    comment: { inApp: true, push: true, email: false },
-    ad_status: { inApp: true, push: true, email: false }
+    message: { inApp: true, push: true, email: true },
+    comment: { inApp: true, push: true, email: true },
+    ad_status: { inApp: true, push: true, email: true },
+    order: { inApp: true, push: true, email: true },
+    wallet: { inApp: true, push: true, email: true }
   });
   const [notifLoading, setNotifLoading] = useState(false);
 

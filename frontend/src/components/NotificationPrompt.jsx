@@ -11,12 +11,8 @@ export default function NotificationPrompt() {
 
   useEffect(() => {
     // Show if user is logged in
-    // Conditions:
-    // 1. User must be logged in
-    // 2. Either it's a new registration (from localStorage) OR DB says they haven't seen it
-    const isNewReg = localStorage.getItem("isNewUserRegistration") === "true";
-    
-    if (user && (isNewReg || user.hasSeenNotificationPrompt === false)) {
+    // Condition: DB says they haven't seen it
+    if (user && user.hasSeenNotificationPrompt === false) {
       // Delay slightly for better UX
       const timer = setTimeout(() => setShow(true), 2000);
       return () => {
