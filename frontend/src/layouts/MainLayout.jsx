@@ -4,6 +4,7 @@ import NavBar from "../components/NavBar.jsx";
 import BottomNavBar from "../components/BottomNavBar.jsx";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import NotificationPrompt from "../components/NotificationPrompt.jsx";
+import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import CookieConsent from "../components/CookieConsent.jsx";
 import CommissionReminderBar from "../components/CommissionReminderBar.jsx";
 import PendingReviewModal from "../components/PendingReviewModal.jsx";
@@ -42,6 +43,7 @@ export default function MainLayout() {
       <NavBar />
       <CommissionReminderBar />
       <NotificationPrompt />
+      <PWAInstallPrompt />
       <CookieConsent />
       {user && (
         <>
