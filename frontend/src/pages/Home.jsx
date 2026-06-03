@@ -189,68 +189,52 @@ export default function Home() {
           <div className="absolute -top-28 -right-20 h-96 w-96 rounded-full bg-blue-400/20 blur-[100px] animate-float"></div>
           <div className="absolute -bottom-24 -left-10 h-80 w-80 rounded-full bg-indigo-400/20 blur-[80px] animate-float-slow"></div>
           
-          {/* Hero Floating Stats - Desktop Only */}
-          <div className="hidden lg:block absolute top-12 right-12 animate-float">
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl">
-              <div className="text-2xl font-black text-white">انضم إلينا</div>
-              <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">انضم الى آلاف المستخدمين</div>
-            </div>
-          </div>
-          <div className="hidden lg:block absolute top-12 left-12 animate-float-slow">
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl">
-              <div className="text-2xl font-black text-white">تجدد مستمر</div>
-              <div className="text-xs font-bold text-blue-100/80 uppercase tracking-wider">اعلانات جديدة تضاف كل دقيقة</div>
-            </div>
-          </div>
+          {/* Hero Floating Stats - Removed as requested */}
         </div>
         
         {/* Content */}
-        <div className="relative container mx-auto px-4 py-6 sm:py-12 md:py-16 lg:py-20">
+        <div className="relative container mx-auto px-4 py-4 sm:py-8 md:py-10 lg:py-12">
           <div className="text-center max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-white/90 text-[10px] sm:text-xs mb-3 sm:mb-6 border border-white/20 shadow-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-white/90 text-[10px] sm:text-xs mb-3 sm:mb-4 border border-white/20 shadow-xl">
               <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>
               أكبر تجمع تجاري في اليمن
             </div>
             
-            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 sm:mb-6 leading-tight tracking-tight">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-3 sm:mb-4 leading-tight tracking-tight">
               بيع واشترِ <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">بكل سهولة وأمان</span>
             </h2>
 
-            {/* Compact Platform Rating inside Hero */}
+            {/* Enhanced Compact Platform Rating */}
             <Link 
               to="/platform-reviews"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 mb-6 hover:bg-white/20 transition-all group"
+              className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-6 hover:bg-white/20 transition-all group shadow-xl shadow-black/5"
             >
-              <div className="flex items-center gap-0.5 text-amber-400">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${i < Math.floor(platformStats.avgRating || 0) ? "fill-current" : "text-white/20 fill-current"}`} viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              <div className="flex flex-col items-center sm:items-start leading-none">
+                <div className="flex items-center gap-1 text-amber-400 mb-1">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${i < Math.floor(platformStats.avgRating || 0) ? "fill-current" : "text-white/20 fill-current"}`} viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-black text-white">{platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}</span>
+                  <span className="text-[11px] font-bold text-white/70">رؤية تقييمات المستخدمين</span>
+                  <svg className="w-3.5 h-3.5 text-blue-300 transition-transform group-hover:translate-x-[-3px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
                   </svg>
-                ))}
+                </div>
               </div>
-              <span className="text-xs font-black text-white">{platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}</span>
-              <span className="text-[10px] font-bold text-white/60">({platformStats.totalCount || 0} تقييم)</span>
-              <svg className="w-3 h-3 text-white/40 transition-transform group-hover:translate-x-[-2px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-              </svg>
             </Link>
 
-            <p className="text-[11px] sm:text-lg text-white/70 mb-6 sm:mb-10 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
+            <p className="text-[11px] sm:text-lg text-white/70 mb-5 sm:mb-8 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
               سوقك الموثوق لكل ما تحتاجه في اليمن
             </p>
             
-            {/* Hero Stats - Mobile Version (Optimized) */}
-            <div className="lg:hidden flex items-center justify-center gap-2 mb-8 animate-in fade-in zoom-in duration-700 delay-300">
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-2.5 shadow-xl flex-1 max-w-[130px]">
-                <div className="text-base font-black text-white leading-none mb-0.5">انضم إلينا</div>
-                <div className="text-[8px] font-bold text-blue-100/80 uppercase tracking-wider">آلاف المستخدمين</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-2.5 shadow-xl flex-1 max-w-[130px]">
-                <div className="text-base font-black text-white leading-none mb-0.5">تجدد مستمر</div>
-                <div className="text-[8px] font-bold text-blue-100/80 uppercase tracking-wider">إعلانات يومية</div>
-              </div>
-            </div>
+            {/* Removed Hero Stats Mobile Version */}
+            
+            {/* Search Bar - Optimized for Mobile */}
             
             {/* Search Bar - Optimized for Mobile */}
             <div className="max-w-2xl mx-auto px-1 sm:px-0">
