@@ -216,6 +216,26 @@ export default function Home() {
               بيع واشترِ <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">بكل سهولة وأمان</span>
             </h2>
+
+            {/* Compact Platform Rating inside Hero */}
+            <Link 
+              to="/platform-reviews"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 mb-6 hover:bg-white/20 transition-all group"
+            >
+              <div className="flex items-center gap-0.5 text-amber-400">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${i < Math.floor(platformStats.avgRating || 0) ? "fill-current" : "text-white/20 fill-current"}`} viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <span className="text-xs font-black text-white">{platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}</span>
+              <span className="text-[10px] font-bold text-white/60">({platformStats.totalCount || 0} تقييم)</span>
+              <svg className="w-3 h-3 text-white/40 transition-transform group-hover:translate-x-[-2px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+
             <p className="text-[11px] sm:text-lg text-white/70 mb-6 sm:mb-10 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
               سوقك الموثوق لكل ما تحتاجه في اليمن
             </p>
@@ -291,45 +311,6 @@ export default function Home() {
               <p className="text-[9px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-tight">{item.desc}</p>
             </div>
           ))}
-        </section>
-
-        {/* Platform Rating Section */}
-        <section className="mb-10 sm:mb-16 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-400 fill-mode-both">
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] p-6 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 text-center sm:text-right">
-              <div className="flex flex-col items-center">
-                <div className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white mb-1">
-                  {platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}
-                </div>
-                <div className="flex items-center gap-1 text-amber-400">
-                  {[...Array(5)].map((_, i) => (
-                    <svg 
-                      key={i} 
-                      className={`w-5 h-5 sm:w-6 sm:h-6 ${i < Math.floor(platformStats.avgRating || 0) ? "fill-current" : "text-gray-300 dark:text-gray-700 fill-current"}`} 
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-1">تقييم مستخدمي سوقك</h3>
-                <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-bold">
-                  بناءً على {platformStats.totalCount || 0} تقييم حقيقي من مستخدمينا
-                </p>
-              </div>
-            </div>
-            <Link 
-              to="/platform-reviews" 
-              className="w-full sm:w-auto px-8 py-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl font-black text-center transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40 active:scale-95 flex items-center justify-center gap-2 group"
-            >
-              <span>رؤية التقييمات</span>
-              <svg className="w-5 h-5 transition-transform group-hover:translate-x-[-4px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-          </div>
         </section>
 
         {/* Categories Section */}
