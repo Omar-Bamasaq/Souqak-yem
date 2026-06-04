@@ -200,7 +200,7 @@ export default function Home() {
               أكبر تجمع تجاري في اليمن
             </div>
             
-            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-3 sm:mb-4 leading-tight tracking-tight">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 sm:mb-3 leading-tight tracking-tight">
               بيع واشترِ <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">بكل سهولة وأمان</span>
             </h2>
@@ -208,7 +208,7 @@ export default function Home() {
             {/* Enhanced Compact Platform Rating */}
             <Link 
               to="/platform-reviews"
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-6 hover:bg-white/20 transition-all group shadow-xl shadow-black/5"
+              className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-4 hover:bg-white/20 transition-all group shadow-xl shadow-black/5"
             >
               <div className="flex flex-col items-center sm:items-start leading-none">
                 <div className="flex items-center gap-1 text-amber-400 mb-1">
@@ -228,13 +228,11 @@ export default function Home() {
               </div>
             </Link>
 
-            <p className="text-[11px] sm:text-lg text-white/70 mb-5 sm:mb-8 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
+            <p className="text-[11px] sm:text-lg text-white/70 mb-3 sm:mb-5 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
               سوقك الموثوق لكل ما تحتاجه في اليمن
             </p>
             
             {/* Removed Hero Stats Mobile Version */}
-            
-            {/* Search Bar - Optimized for Mobile */}
             
             {/* Search Bar - Optimized for Mobile */}
             <div className="max-w-2xl mx-auto px-1 sm:px-0">
@@ -262,7 +260,7 @@ export default function Home() {
             </div>
 
             {/* Hero Actions */}
-            <div className="mt-6 sm:mt-10 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-3">
               <Link
                 to="/choose-add-type"
                 className="group relative flex items-center gap-2 rounded-xl sm:rounded-2xl bg-white px-6 sm:px-8 py-2.5 sm:py-3.5 text-[13px] sm:text-base font-black text-blue-700 shadow-xl shadow-black/10 transition-all hover:scale-105 active:scale-95 hover:bg-blue-50 overflow-hidden"
