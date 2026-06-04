@@ -237,6 +237,7 @@ const HowItWorks = () => {
             </motion.div>
           </motion.div>
         </AnimatePresence>
+      </div>
     </div>
   );
 };
