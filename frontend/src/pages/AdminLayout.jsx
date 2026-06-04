@@ -81,7 +81,8 @@ export default function AdminLayout() {
         { to: "/admin/tags", label: "التاجات" },
         { to: "/admin/governorates", label: "المحافظات" },
         { to: "/admin/cities", label: "المدن" },
-        { to: "/admin/reports", label: "البلاغات" }
+        { to: "/admin/reports", label: "البلاغات" },
+        { to: "/resell/requests", label: "طلبات التسويق" }
       ]
     },
     {
@@ -92,7 +93,8 @@ export default function AdminLayout() {
         { to: "/admin/escrow", label: "الوساطة والمالية" },
         { to: "/admin/escrow-monitoring", label: "مراقبة الشراء الآمن" },
         { to: "/admin/bank-accounts", label: "الحسابات البنكية" },
-        { to: "/admin/plans", label: "الباقات" }
+        { to: "/admin/plans", label: "الباقات" },
+        { to: "/seller/commissions", label: "إدارة العمولات" }
       ]
     },
     {

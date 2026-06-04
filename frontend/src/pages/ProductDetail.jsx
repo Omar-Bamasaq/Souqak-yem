@@ -1222,6 +1222,26 @@ export default function ProductDetail() {
                     </svg>
                     شراء آمن (وساطة المنصة)
                   </button>
+
+                  {/* Resell / Affiliate Button */}
+                  {p.isResellEnabled && !isMyAd && (
+                    <button 
+                      onClick={handleResellRequest}
+                      className={`w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-sm font-black transition-all shadow-xl active:scale-95 ring-4 ${
+                        resellStatus === 'active' ? 'bg-purple-50 text-purple-700 ring-purple-100 border-2 border-purple-200' :
+                        resellStatus === 'pending' ? 'bg-amber-50 text-amber-700 ring-amber-100 border-2 border-amber-200' :
+                        'bg-purple-600 text-white hover:bg-purple-700 ring-purple-50'
+                      }`}
+                    >
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {resellStatus === 'active' ? 'أنت تسوق لهذا الإعلان (عرض التفاصيل)' :
+                       resellStatus === 'pending' ? 'طلب التسويق قيد المراجعة' :
+                       resellStatus === 'rejected' ? 'تم رفض طلبك (إعادة المحاولة)' :
+                       'سوق لهذا المنتج واربح عمولة'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1568,6 +1588,111 @@ export default function ProductDetail() {
                 }}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resell Modal */}
+      {resellModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-[2.5rem] bg-white p-8 shadow-2xl animate-in zoom-in duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 to-indigo-600"></div>
+            
+            <button 
+              onClick={() => setResellModalOpen(false)}
+              className="absolute top-6 left-6 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 mb-4 shadow-inner">
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-black text-gray-900">ابدأ الربح من هذا المنتج 💰</h3>
+              <p className="text-gray-500 font-bold mt-2">اختر طريقة التسويق المناسبة لك</p>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setMarketingType('affiliate')}
+                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    marketingType === 'affiliate' ? 'border-purple-600 bg-purple-50 shadow-md' : 'border-gray-100 hover:border-purple-200'
+                  }`}
+                >
+                  <span className="text-2xl">🔗</span>
+                  <span className="text-sm font-black text-gray-900">نفس السعر</span>
+                  <span className="text-[10px] text-gray-500 font-bold">تسويق بالرابط</span>
+                </button>
+                <button 
+                  onClick={() => setMarketingType('resell')}
+                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    marketingType === 'resell' ? 'border-purple-600 bg-purple-50 shadow-md' : 'border-gray-100 hover:border-purple-200'
+                  }`}
+                >
+                  <span className="text-2xl">🏷️</span>
+                  <span className="text-sm font-black text-gray-900">سعر مخصص</span>
+                  <span className="text-[10px] text-gray-500 font-bold">إضافة هامش ربح</span>
+                </button>
+              </div>
+
+              {marketingType === 'resell' && (
+                <div className="space-y-2 animate-in slide-in-from-top-2">
+                  <label className="text-sm font-black text-gray-700 block mr-2">سعرك المقترح للبيع</label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      value={resellPrice}
+                      onChange={(e) => setResellPrice(e.target.value)}
+                      placeholder="أدخل السعر الجديد..."
+                      className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 font-black text-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all"
+                    />
+                    <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">ر.ي</span>
+                  </div>
+                  {p.maxResellPrice && (
+                    <p className="text-[10px] font-bold text-amber-600 mr-2">⚠️ الحد الأقصى المسموح به: {p.maxResellPrice} ر.ي</p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-black text-gray-700 block mr-2">رسالة للبائع (اختياري)</label>
+                <textarea 
+                  value={resellDesc}
+                  onChange={(e) => setResellDesc(e.target.value)}
+                  placeholder="لماذا أنت المسوق المناسب؟"
+                  rows={3}
+                  className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 text-sm font-bold focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all resize-none"
+                />
+              </div>
+
+              <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-bold text-emerald-800">العمولة المقررة من البائع:</span>
+                  <span className="text-sm font-black text-emerald-600">
+                    {p.commissionValue}{p.commissionType === 'percentage' ? '%' : ' ر.ي'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-emerald-700 font-medium">
+                  {marketingType === 'affiliate' 
+                    ? "ستربح هذه العمولة عند إتمام البيع بنفس سعر البائع." 
+                    : "ستربح هذه العمولة + أي مبالغ إضافية تضعها فوق سعر البائع."}
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onClick={submitResellOffer}
+              disabled={resellSubmitting || (marketingType === 'resell' && !resellPrice)}
+              className="w-full rounded-2xl bg-purple-600 py-4 text-lg font-black text-white hover:bg-purple-700 transition-all shadow-xl shadow-purple-100 disabled:opacity-50 active:scale-95"
+            >
+              {resellSubmitting ? 'جارٍ الإرسال...' : 'تأكيد وإرسال العرض'}
+            </button>
           </div>
         </div>
       )}

@@ -43,13 +43,64 @@ const foodAttributes = [
   { name: "sale_method", label: "طريقة البيع", type: "select", options: ["تجزئة", "جملة"], required: false, sortOrder: 4 }
 ];
 
-const homeApplianceAttributes = [
-  { name: "type", label: "النوع", type: "select", options: ["ثلاجة", "غسالة", "مكيف", "فرن", "ميكروويف", "خلاط", "مكنسة", "سخان"], required: false, sortOrder: 1 },
-  { name: "brand", label: "الماركة", type: "select", options: ["LG", "Samsung", "Toshiba", "Panasonic", "Haier", "Sharp", "Whirlpool", "Bosch"], required: false, sortOrder: 2 },
-  { name: "capacity", label: "السعة", type: "select", options: ["صغيرة", "متوسطة", "كبيرة"], required: false, sortOrder: 3 },
-  { name: "loading_type", label: "نوع التحميل", type: "select", options: ["تحميل أمامي", "تحميل علوي"], required: false, sortOrder: 4 },
-  { name: "cooling_type", label: "نوع التبريد", type: "select", options: ["عادي", "انفرتر"], required: false, sortOrder: 5 },
-  { name: "energy_consumption", label: "استهلاك الطاقة", type: "select", options: ["اقتصادي", "متوسط", "عالي"], required: false, sortOrder: 6 }
+const homeApplianceBrands = ["سامسونج", "LG", "هاير", "ميديا", "توشيبا", "باناسونيك", "هيتاشي", "بوش", "أريستون", "نيكاي", "بيسك", "جنرال", "Gree", "Sharp", "أخرى"];
+
+const refrigeratorAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 1 },
+  { name: "capacity_liters", label: "السعة باللتر", type: "number", required: false, sortOrder: 2 },
+  { name: "fridge_type", label: "نوع الثلاجة", type: "select", options: ["باب واحد", "بابين", "بابين متقابلين", "أربعة أبواب", "فريزر علوي", "فريزر سفلي", "أخرى"], required: false, sortOrder: 3 },
+  { name: "doors_count", label: "عدد الأبواب", type: "select", options: ["1", "2", "3", "4", "أكثر"], required: false, sortOrder: 4 },
+  { name: "ice_maker", label: "صانع ثلج", type: "boolean", required: false, sortOrder: 5 },
+  { name: "water_dispenser", label: "موزع مياه", type: "boolean", required: false, sortOrder: 6 },
+  { name: "no_frost", label: "تقنية No Frost", type: "boolean", required: false, sortOrder: 7 }
+];
+
+const washingMachineAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 1 },
+  { name: "capacity_kg", label: "السعة بالكيلو", type: "number", required: false, sortOrder: 2 },
+  { name: "machine_type", label: "نوع الغسالة", type: "select", options: ["أوتوماتيك", "نصف أوتوماتيك", "حوضين", "تعبئة أمامية", "تعبئة علوية", "أخرى"], required: false, sortOrder: 3 },
+  { name: "built_in_dryer", label: "مجفف مدمج", type: "boolean", required: false, sortOrder: 4 },
+  { name: "front_load", label: "تعبئة أمامية", type: "boolean", required: false, sortOrder: 5 }
+];
+
+const airConditionerAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 1 },
+  { name: "ac_type", label: "نوع المكيف", type: "select", options: ["سبليت", "شباك", "دولابي", "متنقل", "مركزي", "أخرى"], required: false, sortOrder: 2 },
+  { name: "capacity_btu", label: "القدرة (BTU)", type: "select", options: ["12000", "18000", "24000", "30000", "36000", "أخرى"], required: false, sortOrder: 3 },
+  { name: "inverter", label: "انفرتر", type: "boolean", required: false, sortOrder: 4 },
+  { name: "cool_only", label: "بارد فقط", type: "boolean", required: false, sortOrder: 5 },
+  { name: "cool_heat", label: "بارد / حار", type: "boolean", required: false, sortOrder: 6 }
+];
+
+const ovenMicrowaveAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["فرن غاز", "فرن كهربائي", "ميكروويف", "فرن مدمج", "أخرى"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 2 },
+  { name: "capacity_liters", label: "السعة باللتر", type: "number", required: false, sortOrder: 3 },
+  { name: "grill", label: "شواية", type: "boolean", required: false, sortOrder: 4 }
+];
+
+const kitchenApplianceAttributes = [
+  { name: "appliance_type", label: "نوع الجهاز", type: "select", options: ["خلاط", "عصارة", "محضرة طعام", "قلاية هوائية", "ماكينة قهوة", "غلاية ماء", "ماكينة خبز", "أخرى"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 2 },
+  { name: "power_watts", label: "القدرة بالواط", type: "number", required: false, sortOrder: 3 }
+];
+
+const smallApplianceAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["مكواة", "مجفف شعر", "مروحة", "ماكينة حلاقة", "ماكينة خياطة", "أخرى"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 2 }
+];
+
+const vacuumCleanerAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 1 },
+  { name: "type", label: "النوع", type: "select", options: ["عادية", "روبوت", "عمودية", "مائية", "أخرى"], required: false, sortOrder: 2 },
+  { name: "cordless", label: "بدون سلك", type: "boolean", required: false, sortOrder: 3 },
+  { name: "tank_capacity", label: "سعة الخزان", type: "number", required: false, sortOrder: 4 }
+];
+
+const waterHeaterAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: homeApplianceBrands, required: false, sortOrder: 1 },
+  { name: "type", label: "النوع", type: "select", options: ["كهربائي", "غاز", "شمسي", "فوري", "أخرى"], required: false, sortOrder: 2 },
+  { name: "capacity_liters", label: "السعة باللتر", type: "number", required: false, sortOrder: 3 }
 ];
 
 const categoriesData = [
@@ -394,15 +445,15 @@ const categoriesData = [
     sortOrder: 19,
     description: "قسم مخصص لبيع وشراء الأجهزة المنزلية الجديدة والمستعملة.",
     subcategories: [
-      { name: "ثلاجات", slug: "refrigerators", sortOrder: 1, attributes: homeApplianceAttributes },
-      { name: "غسالات", slug: "washing-machines", sortOrder: 2, attributes: homeApplianceAttributes },
-      { name: "مكيفات", slug: "air-conditioners", sortOrder: 3, attributes: homeApplianceAttributes },
-      { name: "أفران وميكروويف", slug: "ovens-microwaves", sortOrder: 4, attributes: homeApplianceAttributes },
-      { name: "أجهزة مطبخ", slug: "kitchen-appliances", sortOrder: 5, attributes: homeApplianceAttributes },
-      { name: "أجهزة كهربائية صغيرة", slug: "small-appliances", sortOrder: 6, attributes: homeApplianceAttributes },
-      { name: "مكانس كهربائية", slug: "vacuum-cleaners", sortOrder: 7, attributes: homeApplianceAttributes },
-      { name: "سخانات مياه", slug: "water-heaters", sortOrder: 8, attributes: homeApplianceAttributes },
-      { name: "أخرى", slug: "other-appliances", sortOrder: 999, attributes: homeApplianceAttributes }
+      { name: "ثلاجات", slug: "refrigerators", sortOrder: 1, attributes: refrigeratorAttributes },
+      { name: "غسالات", slug: "washing-machines", sortOrder: 2, attributes: washingMachineAttributes },
+      { name: "مكيفات", slug: "air-conditioners", sortOrder: 3, attributes: airConditionerAttributes },
+      { name: "أفران وميكروويف", slug: "ovens-microwaves", sortOrder: 4, attributes: ovenMicrowaveAttributes },
+      { name: "أجهزة مطبخ", slug: "kitchen-appliances", sortOrder: 5, attributes: kitchenApplianceAttributes },
+      { name: "أجهزة كهربائية صغيرة", slug: "small-appliances", sortOrder: 6, attributes: smallApplianceAttributes },
+      { name: "مكانس كهربائية", slug: "vacuum-cleaners", sortOrder: 7, attributes: vacuumCleanerAttributes },
+      { name: "سخانات مياه", slug: "water-heaters", sortOrder: 8, attributes: waterHeaterAttributes },
+      { name: "أخرى", slug: "other-appliances", sortOrder: 999 }
     ]
   },
   {

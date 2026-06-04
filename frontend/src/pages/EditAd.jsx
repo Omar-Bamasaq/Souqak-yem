@@ -52,6 +52,8 @@ export default function EditAd() {
   const [maxResellPrice, setMaxResellPrice] = useState("");
   const [allowAutoApproval, setAllowAutoApproval] = useState(true);
   const [maxResellers, setMaxResellers] = useState(5);
+  const [commissionType, setCommissionType] = useState("percentage");
+  const [commissionValue, setCommissionValue] = useState(0);
 
   // Dynamic category attributes
   const categoryAttributeApi = useCategoryAttributeApi();
@@ -153,6 +155,8 @@ export default function EditAd() {
         setMaxResellPrice(ad.maxResellPrice || "");
         setAllowAutoApproval(ad.allowAutoApproval !== false);
         setMaxResellers(ad.maxResellers || 5);
+        setCommissionType(ad.commissionType || "percentage");
+        setCommissionValue(ad.commissionValue || 0);
 
         // Store attributes to prefill after we load category attributes metadata
         adAttrRef.current = Array.isArray(ad.attributes) ? ad.attributes : [];
@@ -321,6 +325,8 @@ export default function EditAd() {
         if (maxResellPrice) form.append("maxResellPrice", maxResellPrice);
         form.append("allowAutoApproval", String(allowAutoApproval));
         form.append("maxResellers", String(maxResellers));
+        form.append("commissionType", commissionType);
+        form.append("commissionValue", Number(commissionValue || 0));
       }
 
       // Optional contact info: only send when filled to avoid forcing seller
@@ -729,6 +735,30 @@ export default function EditAd() {
                   value={maxResellers} 
                   onChange={(e) => setMaxResellers(e.target.value)} 
                   className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-purple-900">نوع العمولة للمسوق</label>
+                <select 
+                  value={commissionType} 
+                  onChange={(e) => setCommissionType(e.target.value)} 
+                  className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all"
+                >
+                  <option value="percentage">نسبة مئوية (%)</option>
+                  <option value="fixed">مبلغ ثابت (ر.ي)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-purple-900">قيمة العمولة</label>
+                <input 
+                  type="number" 
+                  value={commissionValue} 
+                  onChange={(e) => setCommissionValue(e.target.value)} 
+                  className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
+                  placeholder={commissionType === 'percentage' ? 'مثال: 5' : 'مثال: 500'}
                 />
               </div>
             </div>

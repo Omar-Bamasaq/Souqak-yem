@@ -337,7 +337,7 @@ export default function AddProduct() {
       if (isResellEnabled) {
         form.append("isResellEnabled", "true");
         form.append("commissionType", commissionType);
-        form.append("commissionValue", "0");
+        form.append("commissionValue", String(commissionValue || 0));
         if (maxResellPrice) form.append("maxResellPrice", maxResellPrice);
         form.append("allowAutoApproval", String(allowAutoApproval));
         form.append("maxResellers", String(maxResellers));
@@ -984,6 +984,94 @@ export default function AddProduct() {
           ))}
         </div>
       )}
+
+      {/* Resell / Affiliate Marketing Section - Only for sell type */}
+      {adType === "sell" && (
+        <div className={`space-y-4 rounded-2xl border-2 p-5 transition-all ${isResellEnabled ? 'border-purple-300 bg-purple-50/50 shadow-sm' : 'border-gray-100 bg-gray-50/30 opacity-70'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${isResellEnabled ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-200 text-gray-500'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.363.242.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.184a4.535 4.535 0 00-1.676.662C6.602 13.234 6 14.009 6 15c0 .99.602 1.765 1.324 2.246A4.535 4.535 0 009 17.908V18a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 16.766 14 15.991 14 15c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 12.092v-1.184a4.535 4.535 0 001.676-.662C13.398 9.766 14 8.991 14 8c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 5.092V5z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className={`text-base font-black ${isResellEnabled ? 'text-purple-900' : 'text-gray-700'}`}>نظام إعادة البيع (التسويق بالعمولة)</h4>
+                <p className={`text-xs font-bold ${isResellEnabled ? 'text-purple-600' : 'text-gray-500'}`}>اسمح للآخرين بتسويق إعلانك مقابل عمولة</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsResellEnabled(!isResellEnabled)}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${isResellEnabled ? 'bg-purple-600' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${isResellEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {isResellEnabled && (
+            <div className="space-y-5 pt-4 border-t border-purple-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-purple-900">أقصى سعر للبيع (اختياري)</label>
+                  <input 
+                    type="number" 
+                    value={maxResellPrice} 
+                    onChange={(e) => setMaxResellPrice(e.target.value)} 
+                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-gray-400/60" 
+                    placeholder="اتركه فارغاً للسعر الحالي" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-purple-900">أقصى عدد للمسوقين</label>
+                  <input 
+                    type="number" 
+                    value={maxResellers} 
+                    onChange={(e) => setMaxResellers(e.target.value)} 
+                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-purple-900">نوع العمولة للمسوق</label>
+                  <select 
+                    value={commissionType} 
+                    onChange={(e) => setCommissionType(e.target.value)} 
+                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all"
+                  >
+                    <option value="percentage">نسبة مئوية (%)</option>
+                    <option value="fixed">مبلغ ثابت (ر.ي)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-purple-900">قيمة العمولة</label>
+                  <input 
+                    type="number" 
+                    value={commissionValue} 
+                    onChange={(e) => setCommissionValue(e.target.value)} 
+                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
+                    placeholder={commissionType === 'percentage' ? 'مثال: 5' : 'مثال: 500'}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center justify-between gap-3 rounded-xl border-2 border-purple-100 bg-white p-3 cursor-pointer hover:bg-purple-50 transition-colors">
+                <span className="text-xs font-black text-purple-900">قبول طلبات التسويق تلقائياً</span>
+                <input 
+                  type="checkbox" 
+                  checked={allowAutoApproval} 
+                  onChange={(e) => setAllowAutoApproval(e.target.checked)} 
+                  className="h-6 w-6 rounded-lg border-2 border-purple-200 text-purple-600 focus:ring-purple-500 transition-all" 
+                />
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Submit Button */}
       <button 
         className="w-full h-16 rounded-[2rem] bg-gray-900 text-white font-black text-lg hover:bg-black disabled:opacity-50 transition-all shadow-2xl active:scale-[0.98]" 

@@ -116,13 +116,13 @@ export default function App() {
         <Route path="/seller/feature-ad" element={<RequireRole role={null}><SellerFeaturedAd /></RequireRole>} />
         <Route path="/seller/verification" element={<RequireRole role={null}><SellerVerification /></RequireRole>} />
         <Route path="/seller/subscriptions" element={<RequireRole role={null}><SellerSubscriptions /></RequireRole>} />
-        {/* <Route path="/seller/commissions" element={<RequireRole role={null}><SellerCommissions /></RequireRole>} />
+        <Route path="/seller/commissions" element={<RequireRole role={null}><SellerCommissions /></RequireRole>} />
         <Route path="/reseller/dashboard" element={<RequireRole role={null}><ResellerDashboard /></RequireRole>} />
         <Route path="/resell/requests" element={<RequireRole role={null}><ResellRequests /></RequireRole>} />
-        <Route path="/how-to-earn" element={<HowToEarn />} /> */}
+        <Route path="/how-to-earn" element={<HowToEarn />} />
         <Route path="/add-product" element={<RequireRole role={null}><AddProduct /></RequireRole>} />
         <Route path="/choose-add-type" element={<RequireRole role={null}><ChooseAddType /></RequireRole>} />
-        {/* <Route path="/commission/pay" element={<RequireRole role={null}><CommissionPay /></RequireRole>} /> */}
+        <Route path="/commission/pay" element={<RequireRole role={null}><CommissionPay /></RequireRole>} />
         <Route path="/admin/*"
           element={
             <RequireRole role="admin">
