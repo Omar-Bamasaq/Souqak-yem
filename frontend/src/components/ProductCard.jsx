@@ -136,7 +136,12 @@ export default function ProductCard({ product, to, featured = false, governorate
 
         {/* Badges */}
         <div className="absolute right-2 top-2 flex flex-col gap-1.5 z-10">
-          {featured && (
+          {product.isWelcomePromoted && (
+            <span className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1 text-[10px] font-black text-white shadow-lg ring-2 ring-white/20">
+              <span className="animate-bounce">🎁</span> هدية ترحيبية
+            </span>
+          )}
+          {featured && !product.isWelcomePromoted && (
             <span className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1 text-[10px] font-black text-white shadow-lg ring-2 ring-white/20">
               <span className="animate-pulse">⭐</span> مميز
             </span>

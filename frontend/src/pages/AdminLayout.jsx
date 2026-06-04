@@ -117,6 +117,7 @@ export default function AdminLayout() {
         { to: "/admin/activity-logs", label: "سجل النشاطات" },
         { to: "/admin/recycle-bin", label: "سلة المهملات" },
         { to: "/admin/system-health", label: "مراقبة النظام" },
+        { to: "/admin/welcome-promotion", label: "التمييز الترحيبي" },
         { to: "/admin/messaging", label: "المراسلة العامة" },
         { to: "/admin/settings", label: "الإعدادات" }
       ]

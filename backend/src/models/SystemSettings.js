@@ -30,6 +30,19 @@ const SystemSettingsSchema = new mongoose.Schema(
       YER: { type: Number, default: 530 }, // سعر تقريبي (صنعاء)
       YER_ADEN: { type: Number, default: 1600 } // سعر تقريبي (عدن)
     },
+    welcomePromotion: {
+      enabled: { type: Boolean, default: true },
+      durationHours: { type: Number, default: 6 },
+      maxBeneficiaries: { type: Number, default: 100 },
+      usedCount: { type: Number, default: 0 },
+      firstAdOnly: { type: Boolean, default: true },
+      endDate: { type: Date, default: null },
+      stats: {
+        summaryShownCount: { type: Number, default: 0 },
+        promoteClickCount: { type: Number, default: 0 },
+        totalConversions: { type: Number, default: 0 }
+      }
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"

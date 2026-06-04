@@ -78,6 +78,7 @@ import logger from "./lib/logger.js";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { verifyEmailAccounts } from "./utils/emailSender.js";
+import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -547,17 +548,20 @@ setInterval(async () => {
     // Remind two days before expiry
     const inTwoDays = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
     const remind = await Ad.find({ status: "approved", expiresAt: { $gt: now, $lte: inTwoDays }, expireReminderSent: { $ne: true } }).lean();
-    for (const a of remind) {
-      try {
-        await createNotification(app, {
-          userId: a.userId,
-          type: "ad_status",
-          title: "تنبيه انتهاء الإعلان",
-          body: `سينتهي إعلانك "${a.title}" بعد يومين.`,
-          data: { adId: a._id, status: "approved" }
-        });
-        await Ad.updateOne({ _id: a._id }, { $set: { expireReminderSent: true } });
-      } catch {}
+    if (remind.length > 0) {
+      const ids = remind.map((a) => a._id);
+      await Ad.updateMany({ _id: { $in: ids } }, { $set: { expireReminderSent: true } });
+      for (const a of remind) {
+        try {
+          await createNotification(app, {
+            userId: a.userId,
+            type: "ad_status",
+            title: "تنبيه بانتهاء إعلانك",
+            body: `سينتهي إعلانك "${a.title}" خلال 48 ساعة. هل تم بيعه؟`,
+            data: { adId: a._id, action: "renew_or_sold" }
+          });
+        } catch {}
+      }
     }
 
     // Auto-confirm orders after 7 days of shipping if not confirmed by buyer
@@ -614,8 +618,15 @@ setInterval(async () => {
         logger.error({ event: "auto_confirm_order_error", orderId: order._id, message: err.message });
       }
     }
+
+    // Expire Welcome Promotions
+    try {
+      await expireWelcomePromotions();
+    } catch (err) {
+      logger.error({ event: "expire_welcome_promotions_error", message: err.message });
+    }
   } catch (e) { logger.error({ event: "cron_error", message: e.message }); if (process.env.SENTRY_DSN) Sentry.captureException(e); }
-}, 60 * 1000); // Changed from 1h to 1m for auto-approval support
+}, 60 * 1000);
 
 app.use((err, req, res, next) => {
   logger.error({ event: "http_error", route: req.originalUrl, method: req.method, message: err.message });

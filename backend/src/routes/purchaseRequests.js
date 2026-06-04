@@ -10,6 +10,7 @@ import { createNotification } from "../services/notificationService.js";
 import AdminNotification from "../models/AdminNotification.js";
 import { uploadReceipt } from "../middleware/upload.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { getFinalPrice } from "../utils/planUtils.js";
 
 const router = Router();
 
@@ -33,6 +34,10 @@ router.post("/", auth, requireRole(["seller"]), uploadReceipt, async (req, res) 
     const receiptFile = req.files?.[0];
     const plan = await Plan.findById(planId).lean();
     if (!plan || !plan.isActive) return res.status(400).json({ error: "خطة غير صالحة" });
+    
+    // Calculate final price on server
+    const priceDetails = getFinalPrice(plan);
+    
     if (plan.type === "featured" && !productId) return res.status(400).json({ error: "يجب اختيار إعلان" });
     if (plan.type === "featured" && !receiptFile) return res.status(400).json({ error: "يجب رفع سند الدفع" });
 
@@ -49,7 +54,10 @@ router.post("/", auth, requireRole(["seller"]), uploadReceipt, async (req, res) 
       plan: plan._id,
       product: productId || undefined,
       paymentReceipt: (plan.type === "featured" || plan.type === "verification") ? paymentReceipt : undefined,
-      status: (plan.type === "featured" || plan.type === "verification") ? "Pending" : "Approved"
+      status: (plan.type === "featured" || plan.type === "verification") ? "Pending" : "Approved",
+      price: priceDetails.finalPrice,
+      originalPrice: priceDetails.originalPrice,
+      currency: plan.currency
     });
 
     if (plan.type === "featured" || plan.type === "verification") {
@@ -135,7 +143,7 @@ router.patch("/:id/approve", auth, requireRole(["admin"]), async (req, res) => {
     } else if (plan.type === "featured" && pr.product) {
       const expires = new Date(Date.now() + plan.durationInDays * 24 * 60 * 60 * 1000);
       // Ensure the ad is updated and the featured status is set correctly
-      await Ad.findByIdAndUpdate(pr.product, { 
+      const ad = await Ad.findByIdAndUpdate(pr.product, { 
         $set: {
           featured: true, 
           featuredUntil: expires, 
@@ -144,6 +152,15 @@ router.patch("/:id/approve", auth, requireRole(["admin"]), async (req, res) => {
           status: "approved" // Force approved status if it was pending
         }
       });
+
+      // Track conversion if this ad had a welcome promotion
+      if (ad && ad.welcomePromotionStartDate) {
+        const settings = await SystemSettings.getSettings();
+        if (settings.welcomePromotion && settings.welcomePromotion.stats) {
+          settings.welcomePromotion.stats.totalConversions += 1;
+          await settings.save();
+        }
+      }
     }
     await createNotification(req.app, {
       userId: pr.user,

@@ -6,6 +6,9 @@ const purchaseRequestSchema = new mongoose.Schema(
     plan: { type: mongoose.Schema.Types.ObjectId, ref: "Plan", required: true },
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Ad" },
     status: { type: String, enum: ["Pending", "Approved", "Rejected"], default: "Pending", index: true },
+    price: { type: Number },
+    originalPrice: { type: Number },
+    currency: { type: String },
     paymentReceipt: { type: String },
     rejectionReason: { type: String },
     createdAt: { type: Date, default: Date.now }

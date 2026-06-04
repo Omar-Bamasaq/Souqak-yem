@@ -3,9 +3,9 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 // Components
 import ScrollToTop from "./components/ScrollToTop.jsx";
+import WelcomePromotionSummary from "./components/WelcomePromotionSummary.jsx";
 import FirstVisitSessionIntro from "./components/FirstVisitSessionIntro.jsx";
 import SupportChatFAB from "./components/SupportChatFAB.jsx";
-import VideoGuideBottomSheet from "./components/VideoGuideBottomSheet.jsx";
 import OnboardingTour from "./components/OnboardingTour.jsx";
 import LoadingSpinner from "./components/LoadingSpinner.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
@@ -73,6 +73,7 @@ const AdminDeletedUsers = lazy(() => import("./pages/AdminDeletedUsers.jsx"));
 const AdminRecycleBin = lazy(() => import("./pages/AdminRecycleBin.jsx"));
 const AdminActivityLogs = lazy(() => import("./pages/AdminActivityLogs.jsx"));
 const AdminSystemHealth = lazy(() => import("./pages/AdminSystemHealth.jsx"));
+const AdminWelcomePromotion = lazy(() => import("./pages/AdminWelcomePromotion.jsx"));
 const AdminDeletedAds = lazy(() => import("./pages/AdminDeletedAds.jsx"));
 const AdminArchivedAds = lazy(() => import("./pages/AdminArchivedAds.jsx"));
 const AdminPlatformReviews = lazy(() => import("./pages/AdminPlatformReviews.jsx"));
@@ -99,7 +100,7 @@ export default function App() {
       <FirstVisitSessionIntro />
       <ScrollToTop />
       <SupportChatFAB />
-      <VideoGuideBottomSheet />
+      <WelcomePromotionSummary />
       <OnboardingTour />
       <Suspense fallback={<LoadingSpinner fullPage />}>
         <Routes>
@@ -159,6 +160,7 @@ export default function App() {
           <Route path="platform-reviews" element={<AdminPlatformReviews />} />
           <Route path="recycle-bin" element={<AdminRecycleBin />} />
           <Route path="system-health" element={<AdminSystemHealth />} />
+          <Route path="welcome-promotion" element={<AdminWelcomePromotion />} />
           <Route path="deleted-ads" element={<AdminDeletedAds />} />
           <Route path="archived-ads" element={<AdminArchivedAds />} />
         </Route>

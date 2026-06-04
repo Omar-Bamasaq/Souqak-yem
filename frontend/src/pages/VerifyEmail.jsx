@@ -128,7 +128,6 @@ const VerifyEmail = () => {
       if (res.data.token) {
         setSuccessMsg(res.data.message || "تم تفعيل حسابك بنجاح، مرحبًا بك في سوقك.");
         localStorage.setItem("token", res.data.token);
-        localStorage.setItem("isNewUserRegistration", "true");
         setTimeout(() => {
           login(res.data.token, res.data.user);
           navigate("/", { replace: true });

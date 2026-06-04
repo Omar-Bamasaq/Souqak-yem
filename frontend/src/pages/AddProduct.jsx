@@ -99,6 +99,20 @@ export default function AddProduct() {
   const [orderSubCategoryId, setOrderSubCategoryId] = useState("");
   const [purchaseOrderCatId, setPurchaseOrderCatId] = useState("");
 
+  // Welcome Promotion
+  const [promoEligibility, setPromoEligibility] = useState({ eligible: false, durationHours: 6 });
+
+  const checkPromo = async () => {
+    try {
+      const res = await api.get("/ads/welcome-promotion/eligibility");
+      setPromoEligibility(res.data);
+    } catch {}
+  };
+
+  useEffect(() => {
+    checkPromo();
+  }, []);
+
   useEffect(() => {
     setSelectedMainCategoryName("");
     setCategoryId("");
@@ -629,29 +643,48 @@ export default function AddProduct() {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-2xl space-y-6 ds-section p-6 sm:p-10 mb-20 sm:mb-0">
-      <h2 className="ds-title">{adType === "order" ? "إضافة طلب شراء منتج" : t("addProduct.formTitle")}</h2>
-      
-      {adType === "order" && (
-        <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
-          <p className="text-sm font-bold text-indigo-800">
-            أنت الآن تقوم بإضافة "طلب شراء". سيظهر طلبك في قسم طلبات الشراء ليتمكن البائعون من التواصل معك وتوفير ما تحتاجه.
-          </p>
-        </div>
-      )}
-      
-      {msg && (
-        <div className="sticky top-20 z-10 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
-          {msg}
-        </div>
-      )}
-      {err && (
-        <div className="sticky top-20 z-10 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
-          ⚠ {err}
+    <div className="mx-auto max-w-2xl ds-section p-6 sm:p-10 mb-20 sm:mb-0">
+      <h2 className="ds-title mb-6">{adType === "order" ? "إضافة طلب شراء منتج" : t("addProduct.formTitle")}</h2>
+
+      {/* Welcome Promotion Banner */}
+      {promoEligibility.eligible && adType !== "order" && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-[2rem] p-6 mb-8 text-white shadow-xl shadow-blue-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex flex-col sm:flex-row items-center gap-6">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm">
+              🎁
+            </div>
+            <div className="flex-1 text-center sm:text-right">
+              <h3 className="text-lg font-black mb-1">هدية ترحيبية من سواق!</h3>
+              <p className="text-blue-50 text-sm font-medium leading-relaxed">
+                سيتم تمييز أول إعلان لك <span className="bg-white/20 px-2 py-0.5 rounded-lg font-black text-white">مجاناً</span> لمدة {promoEligibility.durationHours} ساعات لزيادة فرص البيع.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
-      <div ref={formRefs.title} className="space-y-1">
+      <form onSubmit={submit} className="space-y-6">
+        {adType === "order" && (
+          <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
+            <p className="text-sm font-bold text-indigo-800">
+              أنت الآن تقوم بإضافة "طلب شراء". سيظهر طلبك في قسم طلبات الشراء ليتمكن البائعون من التواصل معك وتوفير ما تحتاجه.
+            </p>
+          </div>
+        )}
+        
+        {msg && (
+          <div className="sticky top-20 z-10 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+            {msg}
+          </div>
+        )}
+        {err && (
+          <div className="sticky top-20 z-10 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+            ⚠ {err}
+          </div>
+        )}
+
+        <div ref={formRefs.title} className="space-y-1">
         <label className="block text-sm font-bold text-gray-700">
           {t("addProduct.labels.title")} <span className="text-red-500 mr-1">*</span>
         </label>
@@ -1124,5 +1157,6 @@ export default function AddProduct() {
         </div>
       )}
     </form>
+    </div>
   );
 }

@@ -78,6 +78,20 @@ const AdSchema = new mongoose.Schema(
     whatsappClicks: { type: Number, default: 0 },
     phoneClicks: { type: Number, default: 0 },
     
+    // Welcome Promotion Fields
+    isWelcomePromoted: { type: Boolean, default: false, index: true },
+    welcomePromotionStartDate: { type: Date, default: null },
+    welcomePromotionEndDate: { type: Date, default: null },
+    freePromotionSummaryShown: { type: Boolean, default: false },
+    promotionStats: {
+      views: { type: Number, default: 0 },
+      profileVisits: { type: Number, default: 0 },
+      messages: { type: Number, default: 0 },
+      phoneClicks: { type: Number, default: 0 },
+      whatsappClicks: { type: Number, default: 0 },
+      favorites: { type: Number, default: 0 }
+    },
+
     // Resell (Affiliate Marketing) Fields
     isResellEnabled: { type: Boolean, default: false },
     commissionType: { type: String, enum: ["fixed", "percentage"], default: "percentage" },

@@ -75,7 +75,6 @@ export default function Register() {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         if (regData) {
           localStorage.setItem("token", regData.token);
-          localStorage.setItem("isNewUserRegistration", "true");
           setUser(regData.user);
           setTimeout(() => navigate("/"), 2000);
         }
@@ -119,7 +118,6 @@ export default function Register() {
           return;
         }
         localStorage.setItem("token", res.data.token);
-        localStorage.setItem("isNewUserRegistration", "true");
         setUser(res.data.user);
         setOk("تم إنشاء الحساب بنجاح! جاري تحويلك...");
         setTimeout(() => navigate("/"), 1500);

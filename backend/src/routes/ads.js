@@ -715,6 +715,97 @@ router.get("/:id/comments", async (req, res) => {
   }
 });
 
+// Get Welcome Promotion Summary for User
+router.get("/welcome-promotion/summary", auth, async (req, res) => {
+  try {
+    const ad = await Ad.findOne({ 
+      userId: req.user.id, 
+      welcomePromotionStartDate: { $ne: null },
+      isWelcomePromoted: false,
+      freePromotionSummaryShown: false
+    }).sort({ welcomePromotionEndDate: -1 });
+
+    if (!ad) return res.json(null);
+
+    res.json(ad);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Mark Welcome Promotion Summary as Shown
+router.post("/welcome-promotion/summary/:id/shown", auth, async (req, res) => {
+  try {
+    await Ad.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { freePromotionSummaryShown: true }
+    );
+    
+    // Increment global stat
+    const settings = await SystemSettings.getSettings();
+    if (settings.welcomePromotion && settings.welcomePromotion.stats) {
+      settings.welcomePromotion.stats.summaryShownCount += 1;
+      await settings.save();
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Track Click on "Promote Now" from Summary
+router.post("/welcome-promotion/summary/:id/promote-click", auth, async (req, res) => {
+  try {
+    const settings = await SystemSettings.getSettings();
+    if (settings.welcomePromotion && settings.welcomePromotion.stats) {
+      settings.welcomePromotion.stats.promoteClickCount += 1;
+      await settings.save();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Check Welcome Promotion Eligibility
+router.get("/welcome-promotion/eligibility", auth, async (req, res) => {
+  try {
+    const settings = await SystemSettings.getSettings();
+    const user = await User.findById(req.user.id);
+    
+    if (!settings.welcomePromotion || !settings.welcomePromotion.enabled) {
+      return res.json({ eligible: false, reason: "disabled" });
+    }
+
+    if (user.hasUsedWelcomePromotion) {
+      return res.json({ eligible: false, reason: "already_used" });
+    }
+
+    if (settings.welcomePromotion.usedCount >= settings.welcomePromotion.maxBeneficiaries) {
+      return res.json({ eligible: false, reason: "quota_full" });
+    }
+
+    const now = new Date();
+    if (settings.welcomePromotion.endDate && now > new Date(settings.welcomePromotion.endDate)) {
+      return res.json({ eligible: false, reason: "expired" });
+    }
+
+    // Check if it's the first ad
+    const adsCount = await Ad.countDocuments({ userId: req.user.id, isDeleted: false });
+    if (adsCount > 0) {
+      return res.json({ eligible: false, reason: "not_first_ad" });
+    }
+
+    res.json({ 
+      eligible: true, 
+      durationHours: settings.welcomePromotion.durationHours 
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post(
   "/:id/comments",
   auth,
@@ -857,9 +948,13 @@ router.post(
           { new: true }
         ).select("viewsCount");
       } else {
+        const updateObj = { $inc: { viewCount: 1 } };
+        if (ad.isWelcomePromoted) {
+          updateObj.$inc["promotionStats.views"] = 1;
+        }
         updatedAd = await Ad.findByIdAndUpdate(
           adId,
-          { $inc: { viewCount: 1 } },
+          updateObj,
           { new: true }
         ).select("viewCount");
       }
@@ -885,8 +980,17 @@ router.post(
       const ad = await Ad.findById(req.params.id);
       if (!ad) return res.status(404).json({ error: "Not found" });
 
-      if (type === "whatsapp") ad.whatsappClicks = (ad.whatsappClicks || 0) + 1;
-      else if (type === "phone") ad.phoneClicks = (ad.phoneClicks || 0) + 1;
+      if (type === "whatsapp") {
+        ad.whatsappClicks = (ad.whatsappClicks || 0) + 1;
+        if (ad.isWelcomePromoted) {
+          ad.promotionStats.whatsappClicks = (ad.promotionStats.whatsappClicks || 0) + 1;
+        }
+      } else if (type === "phone") {
+        ad.phoneClicks = (ad.phoneClicks || 0) + 1;
+        if (ad.isWelcomePromoted) {
+          ad.promotionStats.phoneClicks = (ad.promotionStats.phoneClicks || 0) + 1;
+        }
+      }
       
       await ad.save();
       res.json({ success: true });
@@ -962,6 +1066,40 @@ router.post(
     let scheduledPublishAt = undefined;
     let publishedAt = undefined;
 
+    // Welcome Promotion Logic
+    let isFeatured = false;
+    let isWelcomePromoted = false;
+    let welcomePromotionStartDate = null;
+    let welcomePromotionEndDate = null;
+
+    const wp = settings.welcomePromotion;
+    if (wp && wp.enabled) {
+      const user = await User.findById(req.user.id);
+      const now = new Date();
+      const isTimeValid = !wp.endDate || now < new Date(wp.endDate);
+      const isQuotaValid = wp.usedCount < wp.maxBeneficiaries;
+      
+      if (user && !user.hasUsedWelcomePromotion && isTimeValid && isQuotaValid) {
+        // Double check if it's the first ad
+        const adsCount = await Ad.countDocuments({ userId: req.user.id, isDeleted: false });
+        if (adsCount === 0) {
+          isFeatured = true;
+          isWelcomePromoted = true;
+          welcomePromotionStartDate = now;
+          welcomePromotionEndDate = new Date(now.getTime() + wp.durationHours * 60 * 60 * 1000);
+
+          // Update user
+          user.hasUsedWelcomePromotion = true;
+          user.welcomePromotionUsedAt = now;
+          await user.save();
+
+          // Increment settings usedCount
+          settings.welcomePromotion.usedCount += 1;
+          await settings.save();
+        }
+      }
+    }
+
     // Check for prohibited keywords
     const contentToSearch = `${title} ${description || ""} ${finalTagNames.join(" ")}`.toLowerCase();
     const hasProhibited = settings.prohibitedKeywords.some(keyword => contentToSearch.includes(keyword.toLowerCase()));
@@ -996,7 +1134,10 @@ router.post(
       status,
       scheduledPublishAt,
       publishedAt,
-      featured: false,
+      featured: isFeatured,
+      isWelcomePromoted,
+      welcomePromotionStartDate,
+      welcomePromotionEndDate,
       userId: req.user.id,
       tags: tags || [],
       tagNames: finalTagNames,

@@ -17,8 +17,6 @@ export default function NotificationPrompt() {
       const timer = setTimeout(() => setShow(true), 2000);
       return () => {
         clearTimeout(timer);
-        // We DON'T clear isNewUserRegistration here yet, 
-        // because the user might navigate away before the 2s timer fires.
       };
     }
   }, [user]);
@@ -26,8 +24,6 @@ export default function NotificationPrompt() {
   const markAsSeen = async () => {
     try {
       await api.patch("/notifications/prompt-seen");
-      // Remove the flag so it doesn't trigger on every page load during this session
-      localStorage.removeItem("isNewUserRegistration");
       if (setUser) {
         setUser({ ...user, hasSeenNotificationPrompt: true });
       }

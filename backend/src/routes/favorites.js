@@ -121,6 +121,12 @@ router.post("/:adId", auth, async (req, res) => {
     }
     
     await Favorite.create({ userId: req.user.id, adId });
+
+    // Update promotionStats if applicable
+    if (ad && ad.isWelcomePromoted) {
+      await Ad.findByIdAndUpdate(adId, { $inc: { "promotionStats.favorites": 1 } });
+    }
+
     res.json({ favorited: true });
   } catch (error) {
     console.error("Toggle favorite error:", error);

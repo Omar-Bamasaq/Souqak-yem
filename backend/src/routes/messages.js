@@ -13,6 +13,15 @@ router.post("/", auth, requireRole(["buyer"]), async (req, res) => {
     const p = await Product.findById(productId).lean();
     if (!p || p.status !== "approved") return res.status(400).json({ error: "Invalid product" });
     const m = await Message.create({ product: productId, buyer: req.user.id, message });
+
+    // Update promotionStats in Ad if applicable
+    const AdModel = (await import("../models/Ad.js")).default;
+    const ad = await AdModel.findById(productId);
+    if (ad && ad.isWelcomePromoted) {
+      ad.promotionStats.messages = (ad.promotionStats.messages || 0) + 1;
+      await ad.save();
+    }
+
     res.status(201).json(m);
   } catch {
     res.status(500).json({ error: "Server error" });

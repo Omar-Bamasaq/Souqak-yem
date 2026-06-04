@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import VideoGuideBottomSheet from '../components/VideoGuideBottomSheet.jsx';
 
 const HowItWorks = () => {
   const [activeTab, setActiveTab] = useState('buyer');
-  const [showVideo, setShowVideo] = useState(false);
   const navigate = useNavigate();
 
   const tabs = [
@@ -213,45 +211,6 @@ const HowItWorks = () => {
               </div>
             </div>
 
-            {/* PWA / Add to Home Screen Section */}
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 sm:p-12 border border-gray-100 dark:border-slate-800 shadow-xl overflow-hidden relative group">
-              <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs font-bold">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                    </span>
-                    ميزة جديدة
-                  </div>
-                  <h3 className="text-2xl font-black text-gray-900 dark:text-white leading-tight">
-                    طريقة إضافة "سوقك" للشاشة الرئيسية (تطبيق)
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
-                    تصفح سوقك بسرعة البرق وبدون الحاجة لفتح المتصفح في كل مرة. اجعل المنصة تطبيقاً على هاتفك بخطوات بسيطة.
-                  </p>
-                  <button 
-                    onClick={() => setShowVideo(true)}
-                    className="flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black transition-all group-hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/20"
-                  >
-                    <span className="text-xl">📺</span>
-                    شاهد فيديو الشرح
-                  </button>
-                </div>
-                <div className="w-full md:w-48 flex justify-center">
-                  <div className="relative">
-                    <div className="w-32 h-32 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center text-5xl animate-bounce">
-                      📱
-                    </div>
-                    <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl shadow-lg flex items-center justify-center text-2xl">
-                      ✨
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* CTA - Call to Action */}
             <motion.div 
               whileHover={{ scale: 1.02 }}
@@ -278,12 +237,6 @@ const HowItWorks = () => {
             </motion.div>
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      <VideoGuideBottomSheet 
-        forceShow={showVideo} 
-        onClose={() => setShowVideo(false)} 
-      />
     </div>
   );
 };

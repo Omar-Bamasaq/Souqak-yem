@@ -5,9 +5,48 @@ export default function AdminPlans() {
   const api = useApi();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "featured", durationInDays: 7, price: 0, currency: "YER_ADEN" });
+  const [form, setForm] = useState({ 
+    name: "", 
+    type: "featured", 
+    durationInDays: 7, 
+    price: 0, 
+    currency: "YER_ADEN",
+    discountType: "percentage",
+    discountValue: 0,
+    isSaleActive: false,
+    saleStartDate: "",
+    saleEndDate: "",
+    saleLabel: "",
+    saleType: "special_offer",
+    applyToAllPlans: false,
+    remainingSlots: 0,
+    isPopularOffer: false
+  });
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState("");
+  const [showSaleOptions, setShowSaleOptions] = useState(false);
+
+  const resetForm = () => {
+    setEditId(null);
+    setForm({ 
+      name: "", 
+      type: "featured", 
+      durationInDays: 7, 
+      price: 0, 
+      currency: "YER_ADEN",
+      discountType: "percentage",
+      discountValue: 0,
+      isSaleActive: false,
+      saleStartDate: "",
+      saleEndDate: "",
+      saleLabel: "",
+      saleType: "special_offer",
+      applyToAllPlans: false,
+      remainingSlots: 0,
+      isPopularOffer: false
+    });
+    setShowSaleOptions(false);
+  };
 
   const load = async () => {
     try {
@@ -27,13 +66,17 @@ export default function AdminPlans() {
     setError("");
     setLoading(true);
     try {
+      const payload = { ...form };
+      // Convert dates to ISO or null
+      if (!payload.saleStartDate) payload.saleStartDate = null;
+      if (!payload.saleEndDate) payload.saleEndDate = null;
+
       if (editId) {
-        await api.patch(`/admin/plans/${editId}`, form);
+        await api.patch(`/admin/plans/${editId}`, payload);
       } else {
-        await api.post("/admin/plans", form);
+        await api.post("/admin/plans", payload);
       }
-      setForm({ name: "", type: "featured", durationInDays: 7, price: 0, currency: "YER_ADEN" });
-      setEditId(null);
+      resetForm();
       load();
     } catch (e) {
       setError(e.response?.data?.error || "فشل الحفظ");
@@ -49,8 +92,19 @@ export default function AdminPlans() {
       type: p.type,
       durationInDays: p.durationInDays,
       price: p.price ?? 0,
-      currency: p.currency || "YER_ADEN"
+      currency: p.currency || "YER_ADEN",
+      discountType: p.discountType || "percentage",
+      discountValue: p.discountValue || 0,
+      isSaleActive: p.isSaleActive || false,
+      saleStartDate: p.saleStartDate ? new Date(p.saleStartDate).toISOString().split('T')[0] : "",
+      saleEndDate: p.saleEndDate ? new Date(p.saleEndDate).toISOString().split('T')[0] : "",
+      saleLabel: p.saleLabel || "",
+      saleType: p.saleType || "special_offer",
+      applyToAllPlans: p.applyToAllPlans || false,
+      remainingSlots: p.remainingSlots || 0,
+      isPopularOffer: p.isPopularOffer || false
     });
+    if (p.isSaleActive) setShowSaleOptions(true);
   };
 
   const remove = async (id) => {
@@ -161,6 +215,132 @@ export default function AdminPlans() {
                 </div>
               </div>
 
+              {/* Offers & Discounts Section */}
+              <div className="pt-4 border-t border-gray-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-black text-gray-900 uppercase tracking-wider">إدارة العروض والتخفيضات</h4>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowSaleOptions(!showSaleOptions);
+                      if (!showSaleOptions) setForm(f => ({ ...f, isSaleActive: true }));
+                      else setForm(f => ({ ...f, isSaleActive: false }));
+                    }}
+                    className={`text-[10px] font-black px-2 py-1 rounded-md transition-all ${
+                      showSaleOptions ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"
+                    }`}
+                  >
+                    {showSaleOptions ? "إيقاف العرض" : "تفعيل العرض"}
+                  </button>
+                </div>
+
+                {showSaleOptions && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">نوع الخصم</label>
+                        <select
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          value={form.discountType}
+                          onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value }))}
+                        >
+                          <option value="percentage">نسبة مئوية (%)</option>
+                          <option value="fixed">مبلغ ثابت</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">قيمة الخصم</label>
+                        <input
+                          type="number"
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          value={form.discountValue}
+                          onChange={(e) => setForm((f) => ({ ...f, discountValue: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">تاريخ البداية</label>
+                        <input
+                          type="date"
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          value={form.saleStartDate}
+                          onChange={(e) => setForm((f) => ({ ...f, saleStartDate: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">تاريخ النهاية</label>
+                        <input
+                          type="date"
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          value={form.saleEndDate}
+                          onChange={(e) => setForm((f) => ({ ...f, saleEndDate: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">نص العرض (مثال: عرض رمضان)</label>
+                      <input
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={form.saleLabel}
+                        onChange={(e) => setForm((f) => ({ ...f, saleLabel: e.target.value }))}
+                        placeholder="لفترة محدودة..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">نوع العرض</label>
+                        <select
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          value={form.saleType}
+                          onChange={(e) => setForm((f) => ({ ...f, saleType: e.target.value }))}
+                        >
+                          <option value="flash_sale">عرض خاطف</option>
+                          <option value="ramadan_offer">عرض رمضان</option>
+                          <option value="eid_offer">عرض العيد</option>
+                          <option value="opening_offer">عرض الافتتاح</option>
+                          <option value="special_offer">عرض خاص</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black text-gray-400 mb-1.5 mr-1">الاشتراكات المتاحة</label>
+                        <input
+                          type="number"
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          value={form.remainingSlots}
+                          onChange={(e) => setForm((f) => ({ ...f, remainingSlots: parseInt(e.target.value) || 0 }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={form.isPopularOffer}
+                          onChange={(e) => setForm((f) => ({ ...f, isPopularOffer: e.target.checked }))}
+                        />
+                        <span className="text-xs font-bold text-gray-600 group-hover:text-gray-900 transition-colors">الأكثر شراءً / الأفضل قيمة</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={form.applyToAllPlans}
+                          onChange={(e) => setForm((f) => ({ ...f, applyToAllPlans: e.target.checked }))}
+                        />
+                        <span className="text-xs font-bold text-gray-600 group-hover:text-gray-900 transition-colors">تطبيق على جميع الباقات</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <button 
                   type="submit" 
@@ -179,7 +359,7 @@ export default function AdminPlans() {
                 {editId && (
                   <button 
                     type="button" 
-                    onClick={() => { setEditId(null); setForm({ name: "", type: "featured", durationInDays: 7, price: 0, currency: "YER_ADEN" }); }} 
+                    onClick={resetForm} 
                     className="px-4 bg-gray-50 text-gray-500 rounded-xl text-sm font-bold border border-gray-100 hover:bg-gray-100 active:scale-95 transition-all"
                   >
                     إلغاء
@@ -232,9 +412,16 @@ export default function AdminPlans() {
                           </span>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <span className="text-xs font-black text-blue-600">
-                            {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
-                          </span>
+                          <div className="flex flex-col items-center">
+                            <span className={`text-xs font-black ${p.isSaleRunning ? "text-gray-400 line-through scale-75" : "text-blue-600"}`}>
+                              {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
+                            </span>
+                            {p.isSaleRunning && (
+                              <span className="text-xs font-black text-green-600">
+                                {p.finalPrice} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-4 text-left whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
@@ -291,9 +478,16 @@ export default function AdminPlans() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-sm font-black text-blue-600">
-                      {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي" : "ر.ي"}
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className={`text-sm font-black ${p.isSaleRunning ? "text-gray-400 line-through text-[10px]" : "text-blue-600"}`}>
+                        {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي" : "ر.ي"}
+                      </span>
+                      {p.isSaleRunning && (
+                        <span className="text-sm font-black text-green-600">
+                          {p.finalPrice} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي" : "ر.ي"}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] font-bold text-gray-400">{p.durationInDays} يوم</span>
                   </div>
                 </div>

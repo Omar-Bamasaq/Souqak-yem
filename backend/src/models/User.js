@@ -95,6 +95,10 @@ const userSchema = new mongoose.Schema(
     phoneTrial: { type: Boolean, default: false },
     phoneTrialStatus: { type: String, enum: ["Pending", "Approved", "Rejected"], default: "Pending" },
     hasSeenNotificationPrompt: { type: Boolean, default: true },
+    
+    // Welcome Promotion
+    hasUsedWelcomePromotion: { type: Boolean, default: false },
+    welcomePromotionUsedAt: { type: Date, default: null },
 
     // Seller specific fields (Cumulative)
     sellerRating: { type: Number, default: 0 },

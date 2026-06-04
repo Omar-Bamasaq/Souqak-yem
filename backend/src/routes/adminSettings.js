@@ -49,6 +49,13 @@ router.patch(
         SAR: Joi.number().min(0),
         YER: Joi.number().min(0),
         YER_ADEN: Joi.number().min(0)
+      }).optional(),
+      welcomePromotion: Joi.object({
+        enabled: Joi.boolean(),
+        durationHours: Joi.number().min(1),
+        maxBeneficiaries: Joi.number().min(0),
+        endDate: Joi.date().allow(null),
+        firstAdOnly: Joi.boolean()
       }).optional()
     })
   ),
@@ -59,7 +66,8 @@ router.patch(
         adReviewDelayMinutes, 
         prohibitedKeywords,
         withdrawalIdentityThresholdUsd,
-        exchangeRates
+        exchangeRates,
+        welcomePromotion
       } = req.body;
       let settings = await SystemSettings.getSettings();
       
@@ -68,6 +76,9 @@ router.patch(
       if (prohibitedKeywords) settings.prohibitedKeywords = prohibitedKeywords;
       if (withdrawalIdentityThresholdUsd !== undefined) settings.withdrawalIdentityThresholdUsd = withdrawalIdentityThresholdUsd;
       if (exchangeRates) settings.exchangeRates = { ...settings.exchangeRates, ...exchangeRates };
+      if (welcomePromotion) {
+        settings.welcomePromotion = { ...settings.welcomePromotion, ...welcomePromotion };
+      }
       
       settings.updatedBy = req.user.id;
       await settings.save();
@@ -78,5 +89,54 @@ router.patch(
     }
   }
 );
+
+// Reset Welcome Promotion Counter
+router.post("/welcome-promotion/reset", async (req, res) => {
+  try {
+    let settings = await SystemSettings.getSettings();
+    settings.welcomePromotion.usedCount = 0;
+    await settings.save();
+    res.json({ success: true, usedCount: 0 });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get Welcome Promotion Stats
+router.get("/welcome-promotion/stats", async (req, res) => {
+  try {
+    const Ad = (await import("../models/Ad.js")).default;
+    const settings = await SystemSettings.getSettings();
+    const wp = settings.welcomePromotion || {};
+    const wpStats = wp.stats || {};
+    
+    // Total beneficiaries (historical)
+    const totalBeneficiaries = await Ad.countDocuments({ 
+      $or: [
+        { isWelcomePromoted: true },
+        { welcomePromotionStartDate: { $ne: null } }
+      ]
+    });
+
+    // Currently active
+    const activePromotions = await Ad.countDocuments({ isWelcomePromoted: true });
+
+    // Conversion rate: ads that were welcome promoted AND later purchased a real plan
+    const convertedAds = wpStats.totalConversions || 0;
+
+    res.json({
+      totalBeneficiaries,
+      activePromotions,
+      convertedAds,
+      conversionRate: totalBeneficiaries > 0 ? (convertedAds / totalBeneficiaries * 100).toFixed(2) : 0,
+      summaryShownCount: wpStats.summaryShownCount || 0,
+      promoteClickCount: wpStats.promoteClickCount || 0,
+      clickThroughRate: wpStats.summaryShownCount > 0 ? (wpStats.promoteClickCount / wpStats.summaryShownCount * 100).toFixed(2) : 0
+    });
+  } catch (error) {
+    console.error("Stats error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 export default router;

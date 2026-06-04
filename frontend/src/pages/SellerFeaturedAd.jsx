@@ -38,6 +38,16 @@ export default function SellerFeaturedAd() {
 
   const selectedPlan = plans.find((p) => p._id === selectedPlanId);
 
+  const getSaleIcon = (type) => {
+    switch (type) {
+      case 'flash_sale': return '⚡';
+      case 'ramadan_offer': return '🌙';
+      case 'eid_offer': return '🎉';
+      case 'opening_offer': return '✨';
+      default: return '🔥';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -110,22 +120,58 @@ export default function SellerFeaturedAd() {
                   key={p._id}
                   type="button"
                   onClick={() => setSelectedPlanId(p._id)}
-                  className={`rounded-xl border-2 p-4 text-right transition ${selectedPlanId === p._id ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}
+                  className={`relative rounded-xl border-2 p-4 text-right transition ${
+                    selectedPlanId === p._id ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                  }`}
                 >
+                  {p.isSaleRunning && p.saleLabel && (
+                    <div className="absolute -top-2 -left-2 bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 z-10">
+                      {getSaleIcon(p.saleType)} {p.saleLabel}
+                    </div>
+                  )}
+                  {p.isPopularOffer && (
+                    <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 rounded-lg shadow-sm z-10">
+                      الأكثر طلباً
+                    </div>
+                  )}
                   <div className="font-bold">{p.durationInDays} يوم</div>
-                  <div className="text-sm text-gray-600">
-                    {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : p.currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
+                  <div className="text-sm">
+                    {p.isSaleRunning ? (
+                      <div className="flex flex-col">
+                        <span className="text-gray-400 line-through text-[10px]">{p.originalPrice}</span>
+                        <span className="text-blue-600 font-black">{p.finalPrice} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-600">
+                        {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
             </div>
           </div>
           {selectedPlan && (
-            <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
-              <div className="font-semibold">
-                السعر النهائي: {selectedPlan.price ?? 0}{" "}
-                {selectedPlan.currency === "USD" ? "$" : selectedPlan.currency === "SAR" ? "ر.س" : selectedPlan.currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
+            <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-bold text-gray-600">السعر النهائي:</span>
+                <div className="text-right">
+                  <div className="font-black text-blue-600">
+                    {selectedPlan.isSaleRunning ? selectedPlan.finalPrice : selectedPlan.price ?? 0}{" "}
+                    {selectedPlan.currency === "USD" ? "$" : selectedPlan.currency === "SAR" ? "ر.س" : "ر.ي"}
+                  </div>
+                  {selectedPlan.isSaleRunning && (
+                    <div className="text-[10px] font-black text-orange-600 flex items-center gap-1 justify-end">
+                      {getSaleIcon(selectedPlan.saleType)} {selectedPlan.saleLabel} (وفر {selectedPlan.discountPercent}%)
+                    </div>
+                  )}
+                </div>
               </div>
+              {selectedPlan.isSaleRunning && selectedPlan.remainingSlots > 0 && (
+                <div className="text-[10px] font-bold text-red-600 bg-red-50 p-1.5 rounded-lg border border-red-100 text-center animate-pulse">
+                  ⚠️ بقي {selectedPlan.remainingSlots} اشتراك فقط بهذا السعر
+                </div>
+              )}
             </div>
           )}
           <button
