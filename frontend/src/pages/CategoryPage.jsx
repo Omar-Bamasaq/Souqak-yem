@@ -105,11 +105,18 @@ export default function CategoryPage() {
 
     // Electronics
     if (slug.includes("mobiles") || name.includes("جوالات")) return "📱";
+    if (slug.includes("desktop-computers") || name.includes("كمبيوتر مكتبي")) return "🖥️";
     if (slug.includes("computers") || name.includes("أجهزة كمبيوتر")) return "🖥️";
     if (slug.includes("laptops") || name.includes("لابتوبات")) return "💻";
     if (slug.includes("screens") || name.includes("شاشات")) return "📺";
     if (slug.includes("cameras") || name.includes("كاميرات")) return "📷";
     if (slug.includes("gaming-consoles") || name.includes("أجهزة ألعاب")) return "🎮";
+    if (slug.includes("computer-accessories") || name.includes("ملحقات الكمبيوتر")) return "🖱️";
+    if (slug.includes("networks-communications") || name.includes("الشبكات والاتصالات")) return "🌐";
+    if (slug.includes("audio-devices") || name.includes("الصوتيات")) return "🎧";
+    if (slug.includes("printers-scanners") || name.includes("الطابعات والماسحات")) return "🖨️";
+    if (slug.includes("smart-watches") || name.includes("الساعات الذكية")) return "⌚";
+    if (slug.includes("tablets") || name.includes("تابلت")) return "📟";
     if (slug.includes("electronic") || name.includes("إلكترون")) return "⚡";
 
     // Furniture
