@@ -16,6 +16,10 @@ export default function AccountSettings() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showAdhkar, setShowAdhkar] = useState(() => {
+    const saved = localStorage.getItem("showAdhkar");
+    return saved === null ? true : saved === "true";
+  });
   
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,6 +115,13 @@ export default function AccountSettings() {
     };
     setNotifPrefs(newPrefs);
     handleUpdateNotifications(newPrefs);
+  };
+
+  const toggleAdhkar = () => {
+    const newVal = !showAdhkar;
+    setShowAdhkar(newVal);
+    localStorage.setItem("showAdhkar", String(newVal));
+    window.dispatchEvent(new CustomEvent("adhkar:toggle"));
   };
 
   const handleUpdateProfile = async (e) => {
@@ -306,6 +317,22 @@ export default function AccountSettings() {
                   </div>
                 </div>
                 <svg className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+
+              <button 
+                onClick={toggleAdhkar}
+                className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-xl shadow-sm border border-gray-100 dark:border-slate-700">📿</div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-900 dark:text-white">إظهار الأذكار</p>
+                    <p className="text-[10px] text-gray-500 dark:text-slate-400 font-bold">عرض أذكار قصيرة بشكل دوري أثناء التصفح</p>
+                  </div>
+                </div>
+                <div className={`w-10 h-5 rounded-full transition-all duration-300 relative flex items-center px-1 ${showAdhkar ? 'bg-blue-600' : 'bg-gray-300'}`} style={{ direction: 'ltr' }}>
+                  <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-all duration-300 transform ${showAdhkar ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
               </button>
 
               <button 

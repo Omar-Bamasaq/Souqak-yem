@@ -9,6 +9,7 @@ import CookieConsent from "../components/CookieConsent.jsx";
 import CommissionReminderBar from "../components/CommissionReminderBar.jsx";
 import PendingReviewModal from "../components/PendingReviewModal.jsx";
 import SmartFollowUpModal from "../components/SmartFollowUpModal.jsx";
+import FloatingAdhkar from "../components/FloatingAdhkar.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 
 export default function MainLayout() {
@@ -41,6 +42,7 @@ export default function MainLayout() {
       )}
       
       <NavBar />
+      <FloatingAdhkar />
       <CommissionReminderBar />
       <NotificationPrompt />
       <PWAInstallPrompt />
