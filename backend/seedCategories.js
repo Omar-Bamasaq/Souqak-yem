@@ -12,6 +12,317 @@ import Category from "./src/models/Category.js";
 import CategoryAttribute from "./src/models/CategoryAttribute.js";
 
 // Common attributes for multiple categories
+const carBrands = ["تويوتا", "هيونداي", "كيا", "نيسان", "لكزس", "هوندا", "فورد", "شيفروليه", "جيب", "مرسيدس", "بي إم دبليو", "جي إم سي", "دودج", "ميتسوبيشي", "مازدا", "سوزوكي", "شانجان", "جيلي", "هافال", "شيري", "إم جي", "أخرى"];
+const carColors = ["أبيض", "أسود", "فضي", "رمادي", "أحمر", "أزرق", "أخضر", "بني", "ذهبي", "أصفر", "برتقالي", "أخرى"];
+
+const carBaseAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: carBrands, required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
+  { name: "year", label: "سنة الصنع", type: "number", required: false, sortOrder: 3 },
+  { name: "fuel_type", label: "نوع الوقود", type: "select", options: ["بنزين", "ديزل", "غاز", "هجين", "كهربائي", "أخرى"], required: false, sortOrder: 4 },
+  { name: "transmission", label: "ناقل الحركة", type: "select", options: ["عادي", "أوتوماتيك", "نصف أوتوماتيك", "أخرى"], required: false, sortOrder: 5 },
+  { name: "drive_type", label: "نوع الدفع", type: "select", options: ["أمامي", "خلفي", "رباعي", "أخرى"], required: false, sortOrder: 6 },
+  { name: "cylinders", label: "عدد الأسطوانات", type: "select", options: ["3", "4", "5", "6", "8", "10", "12", "أخرى"], required: false, sortOrder: 7 },
+  { name: "color", label: "لون السيارة", type: "select", options: carColors, required: false, sortOrder: 8 },
+  { name: "doors", label: "عدد الأبواب", type: "select", options: ["2", "3", "4", "5", "أخرى"], required: false, sortOrder: 9 },
+  { name: "seats", label: "عدد المقاعد", type: "select", options: ["2", "4", "5", "7", "8", "أكثر من 8", "أخرى"], required: false, sortOrder: 10 },
+  { name: "origin", label: "بلد المنشأ", type: "select", options: ["خليجي", "أمريكي", "كندي", "أوروبي", "ياباني", "كوري", "صيني", "أخرى"], required: false, sortOrder: 11 },
+  { name: "engine_cc", label: "سعة المحرك (CC)", type: "number", required: false, sortOrder: 12 },
+  { name: "mileage", label: "المسافة المقطوعة (كم)", type: "number", required: false, sortOrder: 13 },
+  { name: "sunroof", label: "فتحة سقف", type: "boolean", required: false, sortOrder: 14 },
+  { name: "rear_camera", label: "كاميرا خلفية", type: "boolean", required: false, sortOrder: 15 },
+  { name: "parking_sensors", label: "حساسات ركن", type: "boolean", required: false, sortOrder: 16 },
+  { name: "push_button_start", label: "تشغيل بصمة", type: "boolean", required: false, sortOrder: 17 },
+  { name: "navigation", label: "نظام ملاحة", type: "boolean", required: false, sortOrder: 18 }
+];
+
+const carForRentAttributes = [
+  ...carBaseAttributes,
+  { name: "rental_type", label: "نوع التأجير", type: "select", options: ["يومي", "أسبوعي", "شهري", "سنوي", "أخرى"], required: false, sortOrder: 19 }
+];
+
+const carTransferAttributes = [
+  ...carBaseAttributes,
+  { name: "financing_entity", label: "جهة التمويل", type: "text", required: false, sortOrder: 19 },
+  { name: "remaining_contract_months", label: "مدة العقد المتبقية بالأشهر", type: "number", required: false, sortOrder: 20 }
+];
+
+const carPartsAttributes = [
+  { name: "part_type", label: "نوع القطعة", type: "select", options: ["محرك", "قير", "مكينة", "كمبيوتر", "رديتر", "بطارية", "جنوط", "إطارات", "مصابيح", "مرايا", "أبواب", "رفارف", "صدامات", "مقاعد", "مكيف", "أخرى"], required: false, sortOrder: 1 },
+  { name: "suitable_brand", label: "الماركة المناسبة", type: "select", options: carBrands, required: false, sortOrder: 2 },
+  { name: "suitable_model", label: "الموديل المناسب", type: "text", required: false, sortOrder: 3 },
+  { name: "compatibility_year", label: "سنة التوافق", type: "text", required: false, sortOrder: 4 },
+  { name: "part_origin", label: "أصل القطعة", type: "select", options: ["أصلي", "تجاري", "مستخدم", "مجدد", "أخرى"], required: false, sortOrder: 5 }
+];
+
+const specialPlatesAttributes = [
+  { name: "plate_number", label: "رقم اللوحة", type: "text", required: false, sortOrder: 1 },
+  { name: "plate_type", label: "نوع اللوحة", type: "select", options: ["خصوصي", "نقل", "أجرة", "مؤقتة", "أخرى"], required: false, sortOrder: 2 }
+];
+
+const motorcycleAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: ["هوندا", "ياماها", "سوزوكي", "كاواساكي", "هارلي ديفيدسون", "باجاج", "دايون", "أخرى"], required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
+  { name: "year", label: "سنة الصنع", type: "number", required: false, sortOrder: 3 },
+  { name: "engine_cc", label: "سعة المحرك CC", type: "number", required: false, sortOrder: 4 },
+  { name: "fuel_type", label: "نوع الوقود", type: "select", options: ["بنزين", "ديزل", "غاز", "هجين", "كهربائي", "أخرى"], required: false, sortOrder: 5 },
+  { name: "transmission", label: "ناقل الحركة", type: "select", options: ["عادي", "أوتوماتيك", "أخرى"], required: false, sortOrder: 6 }
+];
+
+const truckEquipmentAttributes = [
+  { name: "vehicle_type", label: "نوع المركبة", type: "select", options: ["شاحنة", "قلاب", "وايت ماء", "شيول", "حفار", "رافعة", "بلدوزر", "قاطرة", "أخرى"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: carBrands, required: false, sortOrder: 2 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 3 },
+  { name: "year", label: "سنة الصنع", type: "number", required: false, sortOrder: 4 },
+  { name: "fuel_type", label: "نوع الوقود", type: "select", options: ["بنزين", "ديزل", "غاز", "هجين", "كهربائي", "أخرى"], required: false, sortOrder: 5 },
+  { name: "capacity_tons", label: "الحمولة (طن)", type: "number", required: false, sortOrder: 6 },
+  { name: "axles_count", label: "عدد المحاور", type: "number", required: false, sortOrder: 7 }
+];
+
+const otherCarsAttributes = [
+  { name: "vehicle_type", label: "نوع المركبة", type: "text", required: false, sortOrder: 1 }
+];
+
+const apartmentAttributes = [
+  { name: "area", label: "المساحة بالمتر", type: "number", required: false, sortOrder: 1 },
+  { name: "rooms", label: "عدد الغرف", type: "number", required: false, sortOrder: 2 },
+  { name: "halls", label: "عدد الصالات", type: "number", required: false, sortOrder: 3 },
+  { name: "bathrooms", label: "عدد الحمامات", type: "number", required: false, sortOrder: 4 },
+  { name: "floor", label: "الطابق", type: "number", required: false, sortOrder: 5 },
+  { name: "age", label: "عمر العقار", type: "number", required: false, sortOrder: 6 },
+  { name: "furnished", label: "مفروشة", type: "boolean", required: false, sortOrder: 7 },
+  { name: "elevator", label: "مصعد", type: "boolean", required: false, sortOrder: 8 },
+  { name: "parking", label: "موقف سيارة", type: "boolean", required: false, sortOrder: 9 },
+  { name: "water_tank", label: "خزان ماء", type: "boolean", required: false, sortOrder: 10 },
+  { name: "gov_electricity", label: "كهرباء حكومية", type: "boolean", required: false, sortOrder: 11 },
+  { name: "commercial_electricity", label: "كهرباء تجارية", type: "boolean", required: false, sortOrder: 12 },
+  { name: "balcony", label: "بلكونة", type: "boolean", required: false, sortOrder: 13 }
+];
+
+const landAttributes = [
+  { name: "area", label: "مساحة الأرض", type: "number", required: false, sortOrder: 1 },
+  { name: "land_type", label: "نوع الأرض", type: "select", options: ["سكنية", "تجارية", "زراعية", "استثمارية", "صناعية", "أخرى"], required: false, sortOrder: 2 },
+  { name: "through_street", label: "شارع نافذ", type: "boolean", required: false, sortOrder: 3 },
+  { name: "corner", label: "زاوية", type: "boolean", required: false, sortOrder: 4 },
+  { name: "one_face", label: "واجهة واحدة", type: "boolean", required: false, sortOrder: 5 },
+  { name: "two_faces", label: "واجهتان", type: "boolean", required: false, sortOrder: 6 },
+  { name: "three_faces", label: "ثلاث واجهات", type: "boolean", required: false, sortOrder: 7 },
+  { name: "fenced", label: "مسورة", type: "boolean", required: false, sortOrder: 8 }
+];
+
+const villaAttributes = [
+  { name: "area", label: "المساحة", type: "number", required: false, sortOrder: 1 },
+  { name: "floors", label: "عدد الطوابق", type: "number", required: false, sortOrder: 2 },
+  { name: "rooms", label: "عدد الغرف", type: "number", required: false, sortOrder: 3 },
+  { name: "bathrooms", label: "عدد الحمامات", type: "number", required: false, sortOrder: 4 },
+  { name: "halls", label: "عدد الصالات", type: "number", required: false, sortOrder: 5 },
+  { name: "majlis", label: "مجلس", type: "boolean", required: false, sortOrder: 6 },
+  { name: "annex", label: "ملحق", type: "boolean", required: false, sortOrder: 7 },
+  { name: "yard", label: "حوش", type: "boolean", required: false, sortOrder: 8 },
+  { name: "pool", label: "مسبح", type: "boolean", required: false, sortOrder: 9 },
+  { name: "garden", label: "حديقة", type: "boolean", required: false, sortOrder: 10 },
+  { name: "parking", label: "موقف سيارات", type: "boolean", required: false, sortOrder: 11 },
+  { name: "ground_tank", label: "خزان أرضي", type: "boolean", required: false, sortOrder: 12 },
+  { name: "top_tank", label: "خزان علوي", type: "boolean", required: false, sortOrder: 13 }
+];
+
+const shopAttributes = [
+  { name: "area", label: "المساحة", type: "number", required: false, sortOrder: 1 },
+  { name: "faces_count", label: "عدد الواجهات", type: "number", required: false, sortOrder: 2 },
+  { name: "warehouse", label: "مستودع", type: "boolean", required: false, sortOrder: 3 },
+  { name: "toilet", label: "دورة مياه", type: "boolean", required: false, sortOrder: 4 },
+  { name: "main_street", label: "على شارع رئيسي", type: "boolean", required: false, sortOrder: 5 }
+];
+
+const officeAttributes = [
+  { name: "area", label: "المساحة", type: "number", required: false, sortOrder: 1 },
+  { name: "rooms", label: "عدد الغرف", type: "number", required: false, sortOrder: 2 },
+  { name: "bathrooms", label: "عدد الحمامات", type: "number", required: false, sortOrder: 3 },
+  { name: "furnished", label: "مفروش", type: "boolean", required: false, sortOrder: 4 },
+  { name: "elevator", label: "مصعد", type: "boolean", required: false, sortOrder: 5 },
+  { name: "parking", label: "موقف سيارة", type: "boolean", required: false, sortOrder: 6 }
+];
+
+const loungeAttributes = [
+  { name: "area", label: "المساحة", type: "number", required: false, sortOrder: 1 },
+  { name: "rooms", label: "عدد الغرف", type: "number", required: false, sortOrder: 2 },
+  { name: "bathrooms", label: "عدد الحمامات", type: "number", required: false, sortOrder: 3 },
+  { name: "pool", label: "مسبح", type: "boolean", required: false, sortOrder: 4 },
+  { name: "playground", label: "ملعب", type: "boolean", required: false, sortOrder: 5 },
+  { name: "outdoor_seating", label: "جلسات خارجية", type: "boolean", required: false, sortOrder: 6 },
+  { name: "kitchen", label: "مطبخ", type: "boolean", required: false, sortOrder: 7 },
+  { name: "water_well", label: "بئر ماء", type: "boolean", required: false, sortOrder: 8 }
+];
+
+const mobileBrands = ["آبل", "سامسونج", "شاومي", "ريدمي", "بوكو", "أوبو", "فيفو", "هواوي", "هونر", "ريلمي", "نوكيا", "موتورولا", "تكنو", "إنفينيكس", "أخرى"];
+const storageOptions = ["16 جيجابايت", "32 جيجابايت", "64 جيجابايت", "128 جيجابايت", "256 جيجابايت", "512 جيجابايت", "1 تيرابايت", "أخرى"];
+const ramOptions = ["1 جيجابايت", "2 جيجابايت", "3 جيجابايت", "4 جيجابايت", "6 جيجابايت", "8 جيجابايت", "12 جيجابايت", "16 جيجابايت", "أخرى"];
+
+const mobileAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: mobileBrands, required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
+  { name: "storage", label: "سعة التخزين", type: "select", options: storageOptions, required: false, sortOrder: 3 },
+  { name: "ram", label: "حجم الرام", type: "select", options: ramOptions, required: false, sortOrder: 4 },
+  { name: "os", label: "نظام التشغيل", type: "select", options: ["أندرويد", "iOS", "أخرى"], required: false, sortOrder: 5 },
+  { name: "screen_size", label: "حجم الشاشة (بوصة)", type: "number", required: false, sortOrder: 6 },
+  { name: "support_5g", label: "يدعم 5G", type: "boolean", required: false, sortOrder: 7 },
+  { name: "fingerprint", label: "بصمة", type: "boolean", required: false, sortOrder: 8 },
+  { name: "face_id", label: "Face ID / التعرف على الوجه", type: "boolean", required: false, sortOrder: 9 },
+  { name: "dual_sim", label: "شريحتين", type: "boolean", required: false, sortOrder: 10 }
+];
+
+const computerBrands = ["HP", "Dell", "Lenovo", "Asus", "Acer", "MSI", "Apple", "أخرى"];
+const processorOptions = ["Intel Core i3", "Intel Core i5", "Intel Core i7", "Intel Core i9", "AMD Ryzen 3", "AMD Ryzen 5", "AMD Ryzen 7", "AMD Ryzen 9", "Xeon", "أخرى"];
+const storageTypeOptions = ["HDD", "SSD", "NVMe SSD", "أخرى"];
+const osOptions = ["ويندوز 10", "ويندوز 11", "لينكس", "ماك أو إس", "أخرى"];
+
+const computerAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: computerBrands, required: false, sortOrder: 1 },
+  { name: "processor", label: "المعالج", type: "select", options: processorOptions, required: false, sortOrder: 2 },
+  { name: "ram", label: "الرام", type: "select", options: ramOptions, required: false, sortOrder: 3 },
+  { name: "storage", label: "التخزين", type: "select", options: storageOptions, required: false, sortOrder: 4 },
+  { name: "storage_type", label: "نوع التخزين", type: "select", options: storageTypeOptions, required: false, sortOrder: 5 },
+  { name: "gpu", label: "كرت الشاشة", type: "text", required: false, sortOrder: 6 },
+  { name: "os", label: "نظام التشغيل", type: "select", options: osOptions, required: false, sortOrder: 7 }
+];
+
+const laptopAttributes = [
+  ...computerAttributes,
+  { name: "screen_size", label: "حجم الشاشة", type: "number", required: false, sortOrder: 8 },
+  { name: "touch_screen", label: "شاشة لمس", type: "boolean", required: false, sortOrder: 9 },
+  { name: "backlit_keyboard", label: "لوحة مفاتيح مضيئة", type: "boolean", required: false, sortOrder: 10 },
+  { name: "fingerprint", label: "بصمة", type: "boolean", required: false, sortOrder: 11 }
+];
+
+const screenBrands = ["سامسونج", "LG", "سوني", "TCL", "هايسنس", "شاومي", "تورنيدو", "أخرى"];
+const screenTypeOptions = ["LED", "OLED", "QLED", "LCD", "أخرى"];
+const resolutionOptions = ["HD", "Full HD", "2K", "4K", "8K", "أخرى"];
+
+const screenAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: screenBrands, required: false, sortOrder: 1 },
+  { name: "size", label: "حجم الشاشة", type: "number", required: false, sortOrder: 2 },
+  { name: "screen_type", label: "نوع الشاشة", type: "select", options: screenTypeOptions, required: false, sortOrder: 3 },
+  { name: "resolution", label: "الدقة", type: "select", options: resolutionOptions, required: false, sortOrder: 4 },
+  { name: "smart", label: "سمارت", type: "boolean", required: false, sortOrder: 5 },
+  { name: "hdmi", label: "HDMI", type: "boolean", required: false, sortOrder: 6 },
+  { name: "usb", label: "USB", type: "boolean", required: false, sortOrder: 7 }
+];
+
+const cameraBrands = ["كانون", "نيكون", "سوني", "فوجي فيلم", "باناسونيك", "GoPro", "أخرى"];
+const cameraTypeOptions = ["DSLR", "Mirrorless", "كاميرا فيديو", "أكشن كام", "مراقبة", "أخرى"];
+const cameraResolutionOptions = ["12MP", "16MP", "20MP", "24MP", "32MP", "48MP", "أخرى"];
+
+const cameraAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: cameraBrands, required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
+  { name: "camera_type", label: "نوع الكاميرا", type: "select", options: cameraTypeOptions, required: false, sortOrder: 3 },
+  { name: "resolution", label: "دقة التصوير", type: "select", options: cameraResolutionOptions, required: false, sortOrder: 4 },
+  { name: "video_4k", label: "تصوير فيديو 4K", type: "boolean", required: false, sortOrder: 5 },
+  { name: "wifi", label: "واي فاي", type: "boolean", required: false, sortOrder: 6 }
+];
+
+const gamingConsoleCompanies = ["سوني", "مايكروسوفت", "نينتندو", "أخرى"];
+const gamingConsoleModels = ["PlayStation 4", "PlayStation 4 Pro", "PlayStation 5", "PlayStation 5 Slim", "Xbox One", "Xbox Series S", "Xbox Series X", "Nintendo Switch", "Nintendo Switch OLED", "أخرى"];
+
+const gamingConsoleAttributes = [
+  { name: "company", label: "الشركة", type: "select", options: gamingConsoleCompanies, required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "select", options: gamingConsoleModels, required: false, sortOrder: 2 },
+  { name: "storage", label: "سعة التخزين", type: "select", options: storageOptions, required: false, sortOrder: 3 },
+  { name: "controllers_count", label: "عدد وحدات التحكم", type: "number", required: false, sortOrder: 4 },
+  { name: "internet_support", label: "يدعم الإنترنت", type: "boolean", required: false, sortOrder: 5 }
+];
+
+const computerAccessoryBrands = ["Logitech", "Redragon", "Razer", "HyperX", "SteelSeries", "Corsair", "MSI", "Asus", "HP", "Dell", "أخرى"];
+
+const computerAccessoryAttributes = [
+  { name: "accessory_type", label: "نوع الملحق", type: "select", options: ["ماوس", "كيبورد", "سماعات كمبيوتر", "ميكروفون", "ويب كام", "هارد خارجي", "SSD", "RAM", "كرت شاشة", "مزود طاقة", "لوحة أم", "كرسي ألعاب", "أخرى"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: computerAccessoryBrands, required: false, sortOrder: 2 },
+  { name: "wireless", label: "الاتصال لاسلكي", type: "boolean", required: false, sortOrder: 3 },
+  { name: "rgb", label: "RGB", type: "boolean", required: false, sortOrder: 4 }
+];
+
+const networkBrands = ["TP-Link", "Huawei", "ZTE", "D-Link", "MikroTik", "Cisco", "Tenda", "أخرى"];
+
+const networkAttributes = [
+  { name: "device_type", label: "نوع الجهاز", type: "select", options: ["راوتر", "مودم", "مقوي شبكة", "سويتش", "نقطة وصول", "كاميرات مراقبة شبكية"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: networkBrands, required: false, sortOrder: 2 },
+  { name: "support_5g", label: "يدعم 5G", type: "boolean", required: false, sortOrder: 3 },
+  { name: "support_wifi6", label: "يدعم Wi-Fi 6", type: "boolean", required: false, sortOrder: 4 },
+  { name: "ports_count", label: "عدد المنافذ", type: "number", required: false, sortOrder: 5 }
+];
+
+const audioBrands = ["JBL", "Sony", "Bose", "Apple", "Samsung", "Anker", "Xiaomi", "أخرى"];
+
+const audioAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["سماعات رأس", "سماعات أذن", "سماعات بلوتوث", "مكبرات صوت", "ميكروفونات"], required: false, sortOrder: 1 },
+  { name: "brand", label: "الماركة", type: "select", options: audioBrands, required: false, sortOrder: 2 },
+  { name: "bluetooth", label: "بلوتوث", type: "boolean", required: false, sortOrder: 3 },
+  { name: "noise_cancelling", label: "عزل ضوضاء", type: "boolean", required: false, sortOrder: 4 }
+];
+
+const printerBrands = ["HP", "Canon", "Epson", "Brother", "Xerox", "أخرى"];
+
+const printerScannerAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: printerBrands, required: false, sortOrder: 1 },
+  { name: "type", label: "النوع", type: "select", options: ["طابعة", "ماسح ضوئي", "طابعة متعددة الوظائف", "أخرى"], required: false, sortOrder: 2 },
+  { name: "color", label: "ملونة", type: "boolean", required: false, sortOrder: 3 },
+  { name: "wifi", label: "واي فاي", type: "boolean", required: false, sortOrder: 4 }
+];
+
+const tabletBrands = ["Apple iPad", "Samsung Galaxy Tab", "Huawei MatePad", "Xiaomi Pad", "Lenovo Tab", "أخرى"];
+
+const tabletAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: tabletBrands, required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
+  { name: "storage", label: "التخزين", type: "select", options: storageOptions, required: false, sortOrder: 3 },
+  { name: "ram", label: "الرام", type: "select", options: ramOptions, required: false, sortOrder: 4 },
+  { name: "sim_support", label: "يدعم الشريحة", type: "boolean", required: false, sortOrder: 5 }
+];
+
+const smartWatchAttributes = [
+  { name: "brand", label: "الماركة", type: "select", options: ["Apple", "Samsung", "Huawei", "Xiaomi", "Garmin", "أخرى"], required: false, sortOrder: 1 },
+  { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
+  { name: "gps", label: "GPS", type: "boolean", required: false, sortOrder: 3 },
+  { name: "heart_rate", label: "قياس نبضات القلب", type: "boolean", required: false, sortOrder: 4 },
+  { name: "water_resistant", label: "مقاومة للماء", type: "boolean", required: false, sortOrder: 5 }
+];
+
+const bedroomAttributes = [
+  { name: "room_type", label: "نوع الغرفة", type: "select", options: ["غرفة نوم رئيسية", "غرفة أطفال", "غرفة شباب", "أخرى"], required: false, sortOrder: 1 },
+  { name: "material", label: "المادة", type: "select", options: ["خشب طبيعي", "MDF", "خشب مضغوط", "معدن", "أخرى"], required: false, sortOrder: 2 },
+  { name: "pieces_count", label: "عدد القطع", type: "number", required: false, sortOrder: 3 },
+  { name: "wardrobe", label: "دولاب ملابس", type: "boolean", required: false, sortOrder: 4 },
+  { name: "dressing_table", label: "تسريحة", type: "boolean", required: false, sortOrder: 5 },
+  { name: "nightstand", label: "كومودينة", type: "boolean", required: false, sortOrder: 6 }
+];
+
+const majalisAttributes = [
+  { name: "majlis_type", label: "نوع المجلس", type: "select", options: ["مجلس عربي", "مجلس مودرن", "مجلس ملكي", "أخرى"], required: false, sortOrder: 1 },
+  { name: "seats_count", label: "عدد المقاعد", type: "number", required: false, sortOrder: 2 },
+  { name: "arabic", label: "عربي", type: "boolean", required: false, sortOrder: 3 },
+  { name: "floor_seating", label: "أرضي", type: "boolean", required: false, sortOrder: 4 }
+];
+
+const kitchenFurnitureAttributes = [
+  { name: "kitchen_type", label: "نوع المطبخ", type: "select", options: ["ألمنيوم", "خشب", "PVC", "ستيل", "أخرى"], required: false, sortOrder: 1 },
+  { name: "material", label: "المادة", type: "select", options: ["ألمنيوم", "خشب", "PVC", "ستيل", "أخرى"], required: false, sortOrder: 2 },
+  { name: "cabinets_count", label: "عدد الخزائن", type: "number", required: false, sortOrder: 3 }
+];
+
+const tableChairAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["طاولة طعام", "طاولة مكتب", "طاولة قهوة", "كرسي مكتب", "كرسي طعام", "أخرى"], required: false, sortOrder: 1 },
+  { name: "material", label: "المادة", type: "select", options: ["خشب", "معدن", "بلاستيك", "أخرى"], required: false, sortOrder: 2 },
+  { name: "seats_count", label: "عدد المقاعد", type: "number", required: false, sortOrder: 3 },
+  { name: "foldable", label: "قابل للطي", type: "boolean", required: false, sortOrder: 4 }
+];
+
+const officeFurnitureAttributes = [
+  { name: "type", label: "النوع", type: "select", options: ["مكتب", "كرسي مكتبي", "خزانة ملفات", "طاولة اجتماعات", "أخرى"], required: false, sortOrder: 1 },
+  { name: "material", label: "المادة", type: "select", options: ["خشب", "معدن", "بلاستيك", "أخرى"], required: false, sortOrder: 2 },
+  { name: "drawers", label: "أدراج", type: "boolean", required: false, sortOrder: 3 },
+  { name: "adjustable", label: "قابل للتعديل", type: "boolean", required: false, sortOrder: 4 }
+];
+
 const sportsAttributes = [
   { name: "type", label: "النوع", type: "select", options: ["جهاز مشي", "دراجة رياضية", "أوزان حديد", "بساط يوغا", "أدوات لياقة", "مكملات غذائية"], required: false, sortOrder: 1 },
   { name: "brand", label: "الماركة", type: "select", options: ["Nike", "Adidas", "Decathlon", "Optimum Nutrition", "MuscleTech"], required: false, sortOrder: 2 },
@@ -110,30 +421,14 @@ const categoriesData = [
     sortOrder: 1,
     description: "منصة متكاملة لعرض وشراء وبيع جميع أنواع المركبات في اليمن، بما يشمل السيارات الخاصة، الشاحنات، الدراجات النارية وقطع الغيار.",
     subcategories: [
-      { name: "سيارات للبيع", slug: "cars-for-sale", sortOrder: 1, attributes: [
-        { name: "brand", label: "الماركة", type: "select", options: ["تويوتا", "نيسان", "هيونداي", "كيا", "لكزس", "شيفروليه", "فورد", "جيب", "مرسيدس", "BMW", "MG", "جيلي"], required: false, sortOrder: 1 },
-        { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
-        { name: "year", label: "سنة الصنع", type: "number", required: false, sortOrder: 3 },
-        { name: "mileage", label: "العداد (كم)", type: "number", required: false, sortOrder: 4 },
-        { name: "fuel_type", label: "نوع الوقود", type: "select", options: ["بنزين", "ديزل", "هجين", "كهرباء"], required: false, sortOrder: 5 },
-        { name: "transmission", label: "ناقل الحركة", type: "select", options: ["عادي", "أوتوماتيك"], required: false, sortOrder: 6 },
-        { name: "color", label: "اللون", type: "text", required: false, sortOrder: 7 },
-        { name: "doors", label: "عدد الأبواب", type: "number", required: false, sortOrder: 8 },
-        { name: "ac", label: "مكيف", type: "boolean", required: false, sortOrder: 9 },
-        { name: "rear_camera", label: "كاميرا خلفية", type: "boolean", required: false, sortOrder: 10 },
-        { name: "center_lock", label: "سنتر لوك", type: "boolean", required: false, sortOrder: 11 },
-        { name: "bluetooth", label: "بلوتوث", type: "boolean", required: false, sortOrder: 12 },
-        { name: "sunroof", label: "فتحة سقف", type: "boolean", required: false, sortOrder: 13 },
-        { name: "warranty", label: "يوجد ضمان", type: "boolean", required: false, sortOrder: 14 },
-        { name: "negotiable", label: "قابل للتفاوض", type: "boolean", required: false, sortOrder: 15 }
-      ]},
-      { name: "سيارات للإيجار", slug: "cars-for-rent", sortOrder: 2 },
-      { name: "سيارات للتنازل", slug: "cars-transfer", sortOrder: 3 },
-      { name: "قطع غيار", slug: "car-parts", sortOrder: 4 },
-      { name: "لوحات مميزة", slug: "special-plates", sortOrder: 5 },
-      { name: "دراجات نارية", slug: "motorcycles", sortOrder: 6 },
-      { name: "شاحنات ومعدات ثقيلة", slug: "trucks-heavy-equipment", sortOrder: 7 },
-      { name: "أخرى", slug: "other-cars", sortOrder: 999 }
+      { name: "سيارات للبيع", slug: "cars-for-sale", sortOrder: 1, attributes: carBaseAttributes },
+      { name: "سيارات للإيجار", slug: "cars-for-rent", sortOrder: 2, attributes: carForRentAttributes },
+      { name: "سيارات للتنازل", slug: "cars-transfer", sortOrder: 3, attributes: carTransferAttributes },
+      { name: "قطع غيار", slug: "car-parts", sortOrder: 4, attributes: carPartsAttributes },
+      { name: "لوحات مميزة", slug: "special-plates", sortOrder: 5, attributes: specialPlatesAttributes },
+      { name: "دراجات نارية", slug: "motorcycles", sortOrder: 6, attributes: motorcycleAttributes },
+      { name: "شاحنات ومعدات ثقيلة", slug: "trucks-heavy-equipment", sortOrder: 7, attributes: truckEquipmentAttributes },
+      { name: "أخرى", slug: "other-cars", sortOrder: 999, attributes: otherCarsAttributes }
     ]
   },
   {
@@ -142,30 +437,14 @@ const categoriesData = [
     sortOrder: 2,
     description: "قسم شامل لعرض جميع أنواع العقارات في اليمن، سواء للبيع أو الإيجار.",
     subcategories: [
-      { name: "شقق للبيع", slug: "apartments-for-sale", sortOrder: 1, attributes: [
-        { name: "property_type", label: "نوع العقار", type: "select", options: ["شقة", "فيلا", "أرض", "محل", "مكتب", "استراحة"], required: false, sortOrder: 1 },
-        { name: "purpose", label: "الغرض", type: "select", options: ["للبيع", "للإيجار"], required: false, sortOrder: 2 },
-        { name: "area", label: "المساحة (متر)", type: "number", required: false, sortOrder: 3 },
-        { name: "rooms", label: "عدد الغرف", type: "number", required: false, sortOrder: 4 },
-        { name: "bathrooms", label: "عدد الحمامات", type: "number", required: false, sortOrder: 5 },
-        { name: "floor", label: "الدور", type: "number", required: false, sortOrder: 6 },
-        { name: "age", label: "عمر العقار", type: "number", required: false, sortOrder: 7 },
-        { name: "neighborhood", label: "الحي", type: "text", required: false, sortOrder: 8 },
-        { name: "street", label: "الشارع", type: "text", required: false, sortOrder: 9 },
-        { name: "furnished", label: "مفروش", type: "boolean", required: false, sortOrder: 10 },
-        { name: "parking", label: "موقف سيارة", type: "boolean", required: false, sortOrder: 11 },
-        { name: "elevator", label: "مصعد", type: "boolean", required: false, sortOrder: 12 },
-        { name: "security", label: "حارس", type: "boolean", required: false, sortOrder: 13 },
-        { name: "electricity", label: "كهرباء", type: "boolean", required: false, sortOrder: 14 },
-        { name: "water", label: "ماء", type: "boolean", required: false, sortOrder: 15 }
-      ]},
-      { name: "شقق للإيجار", slug: "apartments-for-rent", sortOrder: 2 },
-      { name: "أراضي", slug: "lands", sortOrder: 3 },
-      { name: "فلل", slug: "villas", sortOrder: 4 },
-      { name: "محلات تجارية", slug: "shops", sortOrder: 5 },
-      { name: "مكاتب", slug: "offices", sortOrder: 6 },
-      { name: "استراحات", slug: "lounges", sortOrder: 7 },
-      { name: "أخرى", slug: "other-real-estate", sortOrder: 999 }
+      { name: "شقق للبيع", slug: "apartments-for-sale", sortOrder: 1, attributes: apartmentAttributes },
+      { name: "شقق للإيجار", slug: "apartments-for-rent", sortOrder: 2, attributes: apartmentAttributes },
+      { name: "أراضي", slug: "lands", sortOrder: 3, attributes: landAttributes },
+      { name: "فلل", slug: "villas", sortOrder: 4, attributes: villaAttributes },
+      { name: "محلات تجارية", slug: "shops", sortOrder: 5, attributes: shopAttributes },
+      { name: "مكاتب", slug: "offices", sortOrder: 6, attributes: officeAttributes },
+      { name: "استراحات", slug: "lounges", sortOrder: 7, attributes: loungeAttributes },
+      { name: "أخرى", slug: "other-real-estate", sortOrder: 999, attributes: [{ name: "property_type", label: "نوع العقار", type: "text" }] }
     ]
   },
   {
@@ -174,20 +453,19 @@ const categoriesData = [
     sortOrder: 3,
     description: "قسم مخصص لبيع وشراء الأجهزة الإلكترونية بمختلف أنواعها.",
     subcategories: [
-      { name: "جوالات", slug: "mobiles", sortOrder: 1, attributes: [
-        { name: "brand", label: "الماركة", type: "select", options: ["سامسونج", "آيفون", "شاومي", "هواوي", "أوبو"], required: false, sortOrder: 1 },
-        { name: "model", label: "الموديل", type: "text", required: false, sortOrder: 2 },
-        { name: "storage", label: "سعة التخزين", type: "select", options: ["64GB", "128GB", "256GB", "512GB", "1TB"], required: false, sortOrder: 3 },
-        { name: "ram", label: "الرام", type: "select", options: ["4GB", "6GB", "8GB", "12GB", "16GB"], required: false, sortOrder: 4 },
-        { name: "color", label: "اللون", type: "text", required: false, sortOrder: 5 },
-        { name: "support_5g", label: "يدعم 5G", type: "boolean", required: false, sortOrder: 6 }
-      ]},
-      { name: "أجهزة كمبيوتر", slug: "computers", sortOrder: 2 },
-      { name: "لابتوبات", slug: "laptops", sortOrder: 3 },
-      { name: "شاشات", slug: "screens", sortOrder: 4 },
-      { name: "كاميرات", slug: "cameras", sortOrder: 5 },
-      { name: "أجهزة ألعاب إلكترونية", slug: "gaming-consoles", sortOrder: 6 },
-      { name: "أخرى", slug: "other-electronics", sortOrder: 999 }
+      { name: "جوالات", slug: "mobiles", sortOrder: 1, attributes: mobileAttributes },
+      { name: "أجهزة كمبيوتر مكتبية", slug: "desktop-computers", sortOrder: 2, attributes: computerAttributes },
+      { name: "لابتوبات", slug: "laptops", sortOrder: 3, attributes: laptopAttributes },
+      { name: "شاشات", slug: "screens", sortOrder: 4, attributes: screenAttributes },
+      { name: "كاميرات", slug: "cameras", sortOrder: 5, attributes: cameraAttributes },
+      { name: "أجهزة ألعاب إلكترونية", slug: "gaming-consoles", sortOrder: 6, attributes: gamingConsoleAttributes },
+      { name: "ملحقات الكمبيوتر", slug: "computer-accessories", sortOrder: 7, attributes: computerAccessoryAttributes },
+      { name: "الشبكات والاتصالات", slug: "networks-communications", sortOrder: 8, attributes: networkAttributes },
+      { name: "الصوتيات", slug: "audio-devices", sortOrder: 9, attributes: audioAttributes },
+      { name: "الطابعات والماسحات", slug: "printers-scanners", sortOrder: 10, attributes: printerScannerAttributes },
+      { name: "الساعات الذكية", slug: "smart-watches", sortOrder: 11, attributes: smartWatchAttributes },
+      { name: "الأجهزة اللوحية (تابلت)", slug: "tablets", sortOrder: 12, attributes: tabletAttributes },
+      { name: "أخرى", slug: "other-electronics", sortOrder: 999, attributes: [{ name: "device_type", label: "نوع الجهاز", type: "text" }] }
     ]
   },
   {
@@ -196,17 +474,12 @@ const categoriesData = [
     sortOrder: 4,
     description: "قسم لعرض وبيع الأثاث المنزلي والمكتبي.",
     subcategories: [
-      { name: "غرف نوم", slug: "bedrooms", sortOrder: 1, attributes: [
-        { name: "type", label: "النوع", type: "text", required: false, sortOrder: 1 },
-        { name: "material", label: "المادة", type: "select", options: ["خشب", "معدن", "بلاستيك"], required: false, sortOrder: 2 },
-        { name: "color", label: "اللون", type: "text", required: false, sortOrder: 3 },
-        { name: "negotiable", label: "قابل للتفاوض", type: "boolean", required: false, sortOrder: 4 }
-      ]},
-      { name: "مجالس", slug: "majalis", sortOrder: 2 },
-      { name: "مطابخ", slug: "kitchens", sortOrder: 3 },
-      { name: "طاولات وكراسي", slug: "tables-chairs", sortOrder: 4 },
-      { name: "أثاث مكتبي", slug: "office-furniture", sortOrder: 5 },
-      { name: "أخرى", slug: "other-furniture", sortOrder: 999 }
+      { name: "غرف نوم", slug: "bedrooms", sortOrder: 1, attributes: bedroomAttributes },
+      { name: "مجالس", slug: "majalis", sortOrder: 2, attributes: majalisAttributes },
+      { name: "مطابخ", slug: "kitchens", sortOrder: 3, attributes: kitchenFurnitureAttributes },
+      { name: "طاولات وكراسي", slug: "tables-chairs", sortOrder: 4, attributes: tableChairAttributes },
+      { name: "أثاث مكتبي", slug: "office-furniture", sortOrder: 5, attributes: officeFurnitureAttributes },
+      { name: "أخرى", slug: "other-furniture", sortOrder: 999, attributes: [{ name: "furniture_type", label: "نوع الأثاث", type: "text" }] }
     ]
   },
   {
