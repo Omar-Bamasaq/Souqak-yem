@@ -487,9 +487,9 @@ async function run() {
 
   // Clear existing categories and attributes to ensure a fresh start matching the report exactly
   // This is required to remove old/duplicated categories and reset all attributes.
-  await CategoryAttribute.deleteMany({});
-  await Category.deleteMany({});
-  console.log("Cleared existing categories and attributes.");
+  // await CategoryAttribute.deleteMany({});
+  // await Category.deleteMany({});
+  // console.log("Cleared existing categories and attributes.");
 
   for (const catData of categoriesData) {
     let mainCat = await Category.findOne({ slug: catData.slug });
