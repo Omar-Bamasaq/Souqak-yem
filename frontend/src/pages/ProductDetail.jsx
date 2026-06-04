@@ -1613,50 +1613,43 @@ export default function ProductDetail() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-black text-gray-900">ابدأ الربح من هذا المنتج 💰</h3>
-              <p className="text-gray-500 font-bold mt-2">اختر طريقة التسويق المناسبة لك</p>
+              <h3 className="text-2xl font-black text-gray-900">ابدأ التسويق لهذا المنتج 💰</h3>
+              <p className="text-gray-500 font-bold mt-2">حدد السعر الذي ترغب بالبيع به واكسب الفرق كربح</p>
             </div>
 
             <div className="space-y-4 mb-8">
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => setMarketingType('affiliate')}
-                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    marketingType === 'affiliate' ? 'border-purple-600 bg-purple-50 shadow-md' : 'border-gray-100 hover:border-purple-200'
-                  }`}
-                >
-                  <span className="text-2xl">🔗</span>
-                  <span className="text-sm font-black text-gray-900">نفس السعر</span>
-                  <span className="text-[10px] text-gray-500 font-bold">تسويق بالرابط</span>
-                </button>
-                <button 
-                  onClick={() => setMarketingType('resell')}
-                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    marketingType === 'resell' ? 'border-purple-600 bg-purple-50 shadow-md' : 'border-gray-100 hover:border-purple-200'
-                  }`}
-                >
-                  <span className="text-2xl">🏷️</span>
-                  <span className="text-sm font-black text-gray-900">سعر مخصص</span>
-                  <span className="text-[10px] text-gray-500 font-bold">إضافة هامش ربح</span>
-                </button>
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-500">سعر البائع الأصلي:</span>
+                <span className="text-sm font-black text-gray-900">{p.price?.toLocaleString()} {formatCurrency(p.currency)}</span>
               </div>
 
-              {marketingType === 'resell' && (
-                <div className="space-y-2 animate-in slide-in-from-top-2">
-                  <label className="text-sm font-black text-gray-700 block mr-2">سعرك المقترح للبيع</label>
-                  <div className="relative">
-                    <input 
-                      type="number" 
-                      value={resellPrice}
-                      onChange={(e) => setResellPrice(e.target.value)}
-                      placeholder="أدخل السعر الجديد..."
-                      className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 font-black text-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all"
-                    />
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">ر.ي</span>
+              <div className="space-y-2 animate-in slide-in-from-top-2">
+                <label className="text-sm font-black text-gray-700 block mr-2">سعر البيع الخاص بك</label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    value={resellPrice}
+                    onChange={(e) => setResellPrice(e.target.value)}
+                    placeholder="أدخل السعر الذي ستعرضه للزبائن..."
+                    className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 font-black text-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all"
+                  />
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">{formatCurrency(p.currency)}</span>
+                </div>
+                {p.maxResellPrice ? (
+                  <p className="text-[10px] font-bold text-amber-600 mr-2">⚠️ الحد الأقصى المسموح به: {p.maxResellPrice} {formatCurrency(p.currency)}</p>
+                ) : (
+                  <p className="text-[10px] font-bold text-blue-600 mr-2">✨ لك الحرية في وضع السعر المناسب لك</p>
+                )}
+              </div>
+
+              {resellPrice && Number(resellPrice) > (p.price || 0) && (
+                <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 animate-in zoom-in duration-300">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-emerald-800">ربحك المتوقع من هذه البيعة:</span>
+                    <span className="text-sm font-black text-emerald-600">
+                      {(Number(resellPrice) - (p.price || 0)).toLocaleString()} {formatCurrency(p.currency)}
+                    </span>
                   </div>
-                  {p.maxResellPrice && (
-                    <p className="text-[10px] font-bold text-amber-600 mr-2">⚠️ الحد الأقصى المسموح به: {p.maxResellPrice} ر.ي</p>
-                  )}
                 </div>
               )}
 
@@ -1670,28 +1663,14 @@ export default function ProductDetail() {
                   className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 text-sm font-bold focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all resize-none"
                 />
               </div>
-
-              <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-bold text-emerald-800">العمولة المقررة من البائع:</span>
-                  <span className="text-sm font-black text-emerald-600">
-                    {p.commissionValue}{p.commissionType === 'percentage' ? '%' : ' ر.ي'}
-                  </span>
-                </div>
-                <p className="text-[10px] text-emerald-700 font-medium">
-                  {marketingType === 'affiliate' 
-                    ? "ستربح هذه العمولة عند إتمام البيع بنفس سعر البائع." 
-                    : "ستربح هذه العمولة + أي مبالغ إضافية تضعها فوق سعر البائع."}
-                </p>
-              </div>
             </div>
 
             <button 
               onClick={submitResellOffer}
-              disabled={resellSubmitting || (marketingType === 'resell' && !resellPrice)}
+              disabled={resellSubmitting || !resellPrice}
               className="w-full rounded-2xl bg-purple-600 py-4 text-lg font-black text-white hover:bg-purple-700 transition-all shadow-xl shadow-purple-100 disabled:opacity-50 active:scale-95"
             >
-              {resellSubmitting ? 'جارٍ الإرسال...' : 'تأكيد وإرسال العرض'}
+              {resellSubmitting ? 'جارٍ الإرسال...' : 'تأكيد وإرسال طلب التسويق'}
             </button>
           </div>
         </div>

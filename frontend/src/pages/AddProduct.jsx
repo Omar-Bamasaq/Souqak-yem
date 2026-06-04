@@ -86,8 +86,6 @@ export default function AddProduct() {
 
   // Resell System
   const [isResellEnabled, setIsResellEnabled] = useState(false);
-  const [commissionType, setCommissionType] = useState("percentage");
-  const [commissionValue, setCommissionValue] = useState("");
   const [maxResellPrice, setMaxResellPrice] = useState("");
   const [allowAutoApproval, setAllowAutoApproval] = useState(true);
   const [maxResellers, setMaxResellers] = useState(5);
@@ -350,8 +348,6 @@ export default function AddProduct() {
       // Resell fields
       if (isResellEnabled) {
         form.append("isResellEnabled", "true");
-        form.append("commissionType", commissionType);
-        form.append("commissionValue", String(commissionValue || 0));
         if (maxResellPrice) form.append("maxResellPrice", maxResellPrice);
         form.append("allowAutoApproval", String(allowAutoApproval));
         form.append("maxResellers", String(maxResellers));
@@ -1046,63 +1042,39 @@ export default function AddProduct() {
           {isResellEnabled && (
             <div className="space-y-5 pt-4 border-t border-purple-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-purple-900">أقصى سعر للبيع (اختياري)</label>
-                  <input 
-                    type="number" 
-                    value={maxResellPrice} 
-                    onChange={(e) => setMaxResellPrice(e.target.value)} 
-                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-gray-400/60" 
-                    placeholder="اتركه فارغاً للسعر الحالي" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-purple-900">أقصى عدد للمسوقين</label>
-                  <input 
-                    type="number" 
-                    value={maxResellers} 
-                    onChange={(e) => setMaxResellers(e.target.value)} 
-                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-purple-900">نوع العمولة للمسوق</label>
-                  <select 
-                    value={commissionType} 
-                    onChange={(e) => setCommissionType(e.target.value)} 
-                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all"
-                  >
-                    <option value="percentage">نسبة مئوية (%)</option>
-                    <option value="fixed">مبلغ ثابت (ر.ي)</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-purple-900">قيمة العمولة</label>
-                  <input 
-                    type="number" 
-                    value={commissionValue} 
-                    onChange={(e) => setCommissionValue(e.target.value)} 
-                    className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
-                    placeholder={commissionType === 'percentage' ? 'مثال: 5' : 'مثال: 500'}
-                  />
-                </div>
-              </div>
-
-              <label className="flex items-center justify-between gap-3 rounded-xl border-2 border-purple-100 bg-white p-3 cursor-pointer hover:bg-purple-50 transition-colors">
-                <span className="text-xs font-black text-purple-900">قبول طلبات التسويق تلقائياً</span>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-purple-900">أقصى سعر للبيع (اختياري)</label>
                 <input 
-                  type="checkbox" 
-                  checked={allowAutoApproval} 
-                  onChange={(e) => setAllowAutoApproval(e.target.checked)} 
-                  className="h-6 w-6 rounded-lg border-2 border-purple-200 text-purple-600 focus:ring-purple-500 transition-all" 
+                  type="number" 
+                  value={maxResellPrice} 
+                  onChange={(e) => setMaxResellPrice(e.target.value)} 
+                  className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-gray-400/60" 
+                  placeholder="اتركه فارغاً للمسوق حرية وضع السعر" 
                 />
-              </label>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-purple-900">أقصى عدد للمسوقين</label>
+                <input 
+                  type="number" 
+                  value={maxResellers} 
+                  onChange={(e) => setMaxResellers(e.target.value)} 
+                  className="w-full rounded-xl border-2 border-purple-100 bg-white px-4 py-2.5 text-sm font-bold text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all" 
+                />
+              </div>
             </div>
-          )}
-        </div>
+
+            <label className="flex items-center justify-between gap-3 rounded-xl border-2 border-purple-100 bg-white p-3 cursor-pointer hover:bg-purple-50 transition-colors">
+              <span className="text-xs font-black text-purple-900">قبول طلبات التسويق تلقائياً</span>
+              <input 
+                type="checkbox" 
+                checked={allowAutoApproval} 
+                onChange={(e) => setAllowAutoApproval(e.target.checked)} 
+                className="h-6 w-6 rounded-lg border-2 border-purple-200 text-purple-600 focus:ring-purple-500 transition-all" 
+              />
+            </label>
+          </div>
+        )}
+      </div>
       )}
 
       {/* Submit Button */}

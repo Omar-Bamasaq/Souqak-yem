@@ -74,7 +74,12 @@ export default function ResellerDashboard() {
                     <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-xl">📦</div>
                     <div>
                       <h3 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{opp.title}</h3>
-                      <p className="text-[10px] text-gray-500">العمولة: <span className="text-green-600 font-black">{opp.commissionValue}{opp.commissionType === 'percentage' ? '%' : ' ر.ي'}</span></p>
+                      <p className="text-[10px] text-gray-500">
+                        السعر الأصلي: <span className="text-blue-600 font-black">{opp.price?.toLocaleString()} ر.ي</span>
+                        {opp.maxResellPrice && (
+                          <span className="mr-2">| الحد الأقصى: <span className="text-purple-600 font-black">{opp.maxResellPrice?.toLocaleString()} ر.ي</span></span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <div className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">ابدأ التسويق</div>
