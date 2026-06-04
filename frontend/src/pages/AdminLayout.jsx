@@ -90,11 +90,11 @@ export default function AdminLayout() {
       label: "الإدارة المالية",
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
       links: [
-        { to: "/admin/escrow", label: "الوساطة والمالية" },
-        { to: "/admin/escrow-monitoring", label: "مراقبة الشراء الآمن" },
-        { to: "/admin/bank-accounts", label: "الحسابات البنكية" },
-        { to: "/admin/plans", label: "الباقات" },
-        { to: "/seller/commissions", label: "إدارة العمولات" }
+        { to: "/admin/finance-hub", label: "📊 مركز الحسابات المالية" },
+        { to: "/admin/finance-hub?tab=escrow", label: "🛡️ الوساطة والمالية" },
+        { to: "/admin/finance-hub?tab=commissions", label: "💰 المبيعات والعمولات" },
+        { to: "/admin/finance-hub?tab=withdrawals", label: "💸 المحفظة والسحوبات" },
+        { to: "/admin/finance-hub?tab=plans", label: "📦 الباقات والحسابات" }
       ]
     },
     {
@@ -104,9 +104,7 @@ export default function AdminLayout() {
       links: [
         { to: "/admin/users", label: "المستخدمون" },
         { to: "/admin/phone-users", label: "مستخدمو الرقم" },
-        { to: "/admin/deleted-users", label: "الحسابات المحذوفة" },
-        { to: "/admin/verification-requests", label: "طلبات التوثيق" },
-        { to: "/admin/featured-requests", label: "طلبات التمييز" }
+        { to: "/admin/deleted-users", label: "الحسابات المحذوفة" }
       ]
     },
     {

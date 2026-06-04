@@ -52,6 +52,7 @@ const SellerVerification = lazy(() => import("./pages/SellerVerification.jsx"));
 const Categories = lazy(() => import("./pages/Categories.jsx"));
 const AdminPlans = lazy(() => import("./pages/AdminPlans.jsx"));
 const AdminBankAccounts = lazy(() => import("./pages/AdminBankAccounts.jsx"));
+const AdminFinanceHub = lazy(() => import("./pages/AdminFinanceHub.jsx"));
 const AdminFeaturedRequests = lazy(() => import("./pages/AdminFeaturedRequests.jsx"));
 const AdminVerificationRequests = lazy(() => import("./pages/AdminVerificationRequests.jsx"));
 const SellerSubscriptions = lazy(() => import("./pages/SellerSubscriptions.jsx"));
@@ -147,6 +148,7 @@ export default function App() {
           <Route path="verification-requests" element={<AdminVerificationRequests />} />
           <Route path="sold-ads" element={<AdminSoldAds />} />
           <Route path="phone-users" element={<AdminPhoneUsers />} />
+          <Route path="finance-hub" element={<AdminFinanceHub />} />
           <Route path="support-inbox" element={<AdminSupportInbox />} />
           <Route path="messaging" element={<AdminMessaging />} />
           <Route path="settings" element={<AdminSettings />} />
