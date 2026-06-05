@@ -5,7 +5,7 @@ import multer from "multer";
 import path from "path";
 import User from "../models/User.js";
 import OtpCode from "../models/OtpCode.js";
-import auth from "../middleware/auth.js";
+import auth, { sendAuthResponse } from "../middleware/auth.js";
 import { uploadIdDoc, uploadAvatar, processImage } from "../middleware/upload.js";
 import { requireRole } from "../middleware/roles.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/emailSender.js";
@@ -105,7 +105,7 @@ router.post("/register-email", async (req, res) => {
       expiresAt
     });
 
-    console.log(`[AUTH] OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
+    logSecurityEvent("Registration OTP requested", req, { email: inputEmail });
 
     // NON-BLOCKING BACKGROUND EMAIL SENDING
     // This prevents the 60s Axios timeout on the frontend
@@ -200,18 +200,19 @@ router.post("/verify-email", async (req, res) => {
 
     const otp = await OtpCode.findOne({ email: inputEmail }).sort({ createdAt: -1 });
     if (!otp) {
-      console.log(`[LOG] Verify failed (No OTP): ${inputEmail}`);
+      logSecurityEvent("Email verification failed: No OTP", req, { email: inputEmail });
       return res.status(400).json({ error: "رمز التحقق غير صالح أو منتهي الصلاحية." });
     }
 
     // Check if locked
     if (otp.lockedUntil && otp.lockedUntil > new Date()) {
       const remaining = Math.ceil((otp.lockedUntil - new Date()) / 1000 / 60);
+      logSecurityEvent("Email verification blocked: too many attempts", req, { email: inputEmail });
       return res.status(403).json({ error: `تم إدخال رمز التحقق بشكل خاطئ عدة مرات، حاول مرة أخرى بعد ${remaining} دقائق.` });
     }
 
     if (otp.codeExpiresAt < new Date()) {
-      console.log(`[LOG] Verify failed (Code Expired): ${inputEmail}`);
+      logSecurityEvent("Email verification failed: Code expired", req, { email: inputEmail });
       return res.status(400).json({ error: "انتهت صلاحية رمز التحقق." });
     }
 
@@ -219,11 +220,10 @@ router.post("/verify-email", async (req, res) => {
     const isMatch = await bcrypt.compare(inputCode, otp.code);
     if (!isMatch) {
       otp.attempts += 1;
-      console.log(`[LOG] Verify failed (Wrong Code, Attempt ${otp.attempts}): ${inputEmail}`);
+      logSecurityEvent("Email verification failed: Wrong code", req, { email: inputEmail, attempt: otp.attempts });
       
       if (otp.attempts >= 5) {
         otp.lockedUntil = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes lock
-        console.log(`[LOG] Account locked for 10m: ${inputEmail}`);
         await otp.save();
         return res.status(403).json({ error: "تم إدخال رمز التحقق بشكل خاطئ عدة مرات، حاول مرة أخرى بعد 10 دقائق." });
       }
@@ -267,13 +267,12 @@ router.post("/verify-email", async (req, res) => {
     await OtpCode.deleteMany({ email: inputEmail });
     console.log(`[LOG] Verify success: ${inputEmail}`);
 
-    // Generate token for immediate login
-    const secret = process.env.JWT_SECRET || "dev_secret_key_change_this_in_production_12345";
-    const token = jwt.sign({ id: user._id.toString(), role: user.role }, secret, { expiresIn: "7d" });
+    // Generate tokens and set cookies
+    const { accessToken } = await sendAuthResponse(user, res);
 
     res.json({
       message: "تم تفعيل حسابك بنجاح، مرحبًا بك في سوقك.",
-      token,
+      token: accessToken, // Still return for legacy frontend
       user: {
         id: user._id,
         name: user.name,
@@ -558,41 +557,73 @@ router.post("/register", uploadIdDoc.single("idDocument"), async (req, res) => {
   }
 });
 
+import { logSecurityEvent } from "../utils/logger.js";
+import useragent from "useragent";
+
 router.post("/login", async (req, res) => {
   try {
-    const { email, password, deviceType } = req.body;
+    const { email, password, deviceType, fingerprint } = req.body;
     const input = String(email || "").trim();
     const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    
     const user =
       (await User.findOne({ email: input })) ||
       (await User.findOne({ email: new RegExp(`^${esc(input)}$`, "i") }));
-    if (!user) return res.status(400).json({ error: "بيانات الدخول غير صحيحة." });
+
+    if (!user) {
+      logSecurityEvent("Login failed: user not found", req, { email: input });
+      return res.status(400).json({ error: "بيانات الدخول غير صحيحة." });
+    }
     
-    // Check if user is blocked
-    if (user.isDisabled) {
-      return res.status(403).json({ error: "هذا الحساب محظور من قبل الإدارة." });
+    // 1. Check Lockout
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const remaining = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
+      logSecurityEvent("Login blocked: account locked", req, { userId: user._id });
+      return res.status(403).json({ error: `تم حظر الحساب مؤقتاً بسبب محاولات خاطئة متكررة. حاول بعد ${remaining} دقيقة.` });
     }
 
-    // Check if account is deleted
-    if (user.isDeleted) {
-      return res.status(403).json({ error: "هذا الحساب تم حذفه." });
+    if (user.isDisabled || user.isDeleted) {
+      return res.status(403).json({ error: "هذا الحساب محظور أو محذوف." });
     }
 
     const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(400).json({ error: "بيانات الدخول غير صحيحة." });
+    
+    if (!ok) {
+      // 2. Handle Login Failure & Increment Attempts
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = Date.now() + 15 * 60 * 1000; // Lock for 15 mins
+        user.loginAttempts = 0;
+      }
+      await user.save();
+      
+      logSecurityEvent("Login failed: wrong password", req, { userId: user._id, attempts: user.loginAttempts });
+      return res.status(400).json({ error: "بيانات الدخول غير صحيحة." });
+    }
+
+    // 3. Login Success - Reset attempts
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    user.lastLoginAt = new Date();
+    user.lastLoginIp = req.clientIp || req.ip;
+    
+    if (fingerprint) user.deviceFingerprint = fingerprint;
 
     // Track device login
     if (deviceType && ["android", "ios", "windows", "macos"].includes(deviceType)) {
       if (!user.devices) user.devices = { android: 0, ios: 0, windows: 0, macos: 0 };
       user.devices[deviceType] = (user.devices[deviceType] || 0) + 1;
-      await user.save();
     }
+    
+    await user.save();
 
-    const token = jwt.sign({ id: user._id.toString(), role: user.role }, process.env.JWT_SECRET || "dev_secret_key_change_this_in_production_12345", {
-      expiresIn: "7d"
-    });
+    // Generate tokens and set cookies
+    const { accessToken } = await sendAuthResponse(user, res);
+
+    logSecurityEvent("Login successful", req, { userId: user._id });
+
     res.json({
-      token,
+      token: accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -607,7 +638,8 @@ router.post("/login", async (req, res) => {
         idDocument: user.idDocument
       }
     });
-  } catch {
+  } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم." });
   }
 });
@@ -675,10 +707,11 @@ router.post("/phone-register", async (req, res) => {
       isEmailVerified: true // Phone users are considered verified on registration for now
     });
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    // Generate tokens and set cookies
+    const { accessToken } = await sendAuthResponse(user, res);
 
     res.status(201).json({
-      token,
+      token: accessToken,
       requiresActivation: true,
       user: {
         id: user._id,
@@ -758,10 +791,11 @@ router.post("/phone-login", async (req, res) => {
       await user.save();
     }
 
-    const secret = process.env.JWT_SECRET || "dev_secret_key_change_this_in_production_12345";
-    const token = jwt.sign({ id: user._id.toString(), role: user.role }, secret, { expiresIn: "7d" });
+    // Generate tokens and set cookies
+    const { accessToken } = await sendAuthResponse(user, res);
+
     res.json({
-      token,
+      token: accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -1101,12 +1135,57 @@ router.delete("/account", auth, async (req, res) => {
     // 4. إخفاء الإعلانات
     await Ad.updateMany({ userId: userId }, { isVisible: false });
 
-    // 5. تسجيل الخروج (من الناحية الفنية سيتم رفض الـ Token في المرات القادمة)
-    res.json({ message: "تم تقديم طلب حذف الحساب بنجاح. سيتم تسجيل خروجك الآن." });
+    // Clear cookies on account deletion
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.json({ message: "تم إرسال طلب حذف الحساب بنجاح. سيتم تعطيل حسابك فوراً وحذفه نهائياً خلال 30 يوم." });
 
   } catch (err) {
     console.error("Delete account error:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم." });
+  }
+});
+
+// Logout
+router.post("/logout", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await User.findByIdAndUpdate(userId, { refreshToken: null });
+    
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+    
+    res.json({ message: "تم تسجيل الخروج بنجاح." });
+  } catch (err) {
+    res.status(500).json({ error: "حدث خطأ في الخادم." });
+  }
+});
+
+// Refresh Token
+router.post("/refresh-token", async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) return res.status(401).json({ error: "Unauthorized" });
+
+    const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || "refresh_dev_secret_54321";
+    const payload = jwt.verify(refreshToken, REFRESH_SECRET);
+    
+    const user = await User.findById(payload.id);
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(401).json({ error: "Unauthorized: Invalid refresh token" });
+    }
+
+    if (user.isDisabled || user.isDeleted) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    // Generate new tokens
+    const { accessToken } = await sendAuthResponse(user, res);
+    
+    res.json({ token: accessToken });
+  } catch (err) {
+    res.status(401).json({ error: "Unauthorized: Session expired" });
   }
 });
 

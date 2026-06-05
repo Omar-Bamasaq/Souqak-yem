@@ -6,8 +6,17 @@ import Ad from "../models/Ad.js";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
 import ImageUploadService from "../services/imageUploadService.js";
 import CategoryService from "../services/categoryService.js";
+import Joi from "joi";
+import { validateQuery } from "../middleware/validate.js";
 
 const router = express.Router();
+
+const categoriesQuerySchema = Joi.object({
+  flat: Joi.string().valid("true", "false").optional(),
+  parent: Joi.string().allow("null", "").optional(),
+  admin: Joi.string().valid("true", "false").optional(),
+  adType: Joi.string().valid("sell", "order").optional()
+}).unknown(false);
 
 const uploadCategoryImage = ImageUploadService.getUploadMiddleware();
 
@@ -38,7 +47,7 @@ const generateUniqueSlug = async (name, existingId = null) => {
   }
 };
 
-router.get("/", async (req, res) => {
+router.get("/", validateQuery(categoriesQuerySchema), async (req, res) => {
   try {
     const { flat, parent, admin, adType } = req.query;
     console.log("Categories API called with:", { flat, parent, admin, adType });

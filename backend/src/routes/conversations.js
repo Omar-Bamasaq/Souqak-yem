@@ -415,7 +415,6 @@ router.patch("/:id/unmute", auth, async (req, res) => {
 
 router.patch("/:id/close", auth, async (req, res) => {
   try {
-    const { finalPrice, finalCurrency } = req.body;
     const conv = await Conversation.findById(req.params.id).populate("adId");
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     
@@ -429,8 +428,10 @@ router.patch("/:id/close", auth, async (req, res) => {
     await conv.save();
 
     const buyerId = conv.participants.find(p => String(p) !== String(req.user.id));
-    const salePrice = Number(finalPrice) || 0;
-    const currency = finalCurrency || conv.adId.currency || "YER_ADEN";
+    
+    // استخدام السعر من قاعدة البيانات حصراً لمنع التلاعب بالعمولات
+    const salePrice = Number(conv.adId.price) || 0;
+    const currency = conv.adId.currency || "YER_ADEN";
 
     // Mark the ad as sold to this buyer (Manual Sale)
     try {

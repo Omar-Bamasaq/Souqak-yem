@@ -61,7 +61,7 @@ export default function WelcomePromotionSummary() {
             <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center text-4xl shadow-inner backdrop-blur-md mx-auto mb-4 border border-white/30 animate-bounce">
               🎁
             </div>
-            <h2 className="text-2xl font-black text-white mb-2">انتهى التمييز المجاني</h2>
+            <h2 className="text-2xl font-black text-white mb-2">انتهت التجربة المجانية</h2>
             <p className="text-blue-100 text-sm font-bold">شاهد النتائج الرائعة التي حققها إعلانك!</p>
           </div>
         </div>

@@ -3,16 +3,31 @@ import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Message from "../models/Message.js";
 import Product from "../models/Product.js";
+import rateLimit from "../middleware/rateLimit.js";
 
 const router = Router();
 
-router.post("/", auth, requireRole(["buyer"]), async (req, res) => {
+const messageRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 10 // Max 10 messages per minute
+});
+
+router.post("/", auth, requireRole(["buyer"]), messageRateLimit, async (req, res) => {
   try {
     const { productId, message } = req.body;
     if (!productId || !message) return res.status(400).json({ error: "Missing fields" });
+    
+    // Basic Sanitization
+    const cleanMessage = String(message).trim().substring(0, 1000); // Limit length
+    
     const p = await Product.findById(productId).lean();
     if (!p || p.status !== "approved") return res.status(400).json({ error: "Invalid product" });
-    const m = await Message.create({ product: productId, buyer: req.user.id, message });
+    
+    const m = await Message.create({ 
+      product: productId, 
+      buyer: req.user.id, 
+      message: cleanMessage 
+    });
 
     // Update promotionStats in Ad if applicable
     const AdModel = (await import("../models/Ad.js")).default;

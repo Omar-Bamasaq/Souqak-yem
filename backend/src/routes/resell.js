@@ -320,7 +320,8 @@ router.post("/mark-as-sold", authenticate, async (req, res) => {
     if (!transaction) {
       const originalAd = resellAd.originalAdId;
       const originalPrice = originalAd.price;
-      const finalPrice = finalPriceOverride || resellAd.newPrice; // Allow override from chat
+      // تجاهل أي تعديل يدوي للسعر من العميل لضمان السلامة المالية
+      const finalPrice = resellAd.newPrice; 
       const platformFee = originalPrice * 0.01;
       
       let resellerProfit = 0;

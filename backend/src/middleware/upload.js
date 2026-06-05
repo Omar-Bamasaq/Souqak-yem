@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import sharp from "sharp";
+import { v4 as uuidv4 } from "uuid";
 
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -25,7 +26,7 @@ export const processImage = async (filePath, type = "ads") => {
     if (ext.toLowerCase() === ".pdf") return filePath; // Skip PDFs
 
     const newPath = filePath.replace(ext, ".webp");
-    let width = 1000, height = 1000;
+    let width = 1200, height = 1200; // Increased max size slightly for quality
 
     if (type !== "ads") {
       width = 800;
@@ -34,14 +35,14 @@ export const processImage = async (filePath, type = "ads") => {
 
     const image = sharp(filePath).rotate();
     
-    // 1. Full Size (Optimized)
+    // 1. Full Size (Optimized & Sanitized)
     await image
       .clone()
       .resize(width, height, {
         fit: "inside",
         withoutEnlargement: true
       })
-      .webp({ quality: 80 })
+      .webp({ quality: 80, effort: 6 }) // EFFORT 6 for better compression
       .toFile(newPath);
     console.log(`[ImageProcess] Created full size: ${newPath}`);
 
@@ -50,16 +51,15 @@ export const processImage = async (filePath, type = "ads") => {
     try {
       await image
         .clone()
-        .resize(200, 200, {
+        .resize(300, 300, {
           fit: "cover",
           position: "center"
         })
-        .webp({ quality: 60 })
+        .webp({ quality: 70 })
         .toFile(thumbPath);
       console.log(`[ImageProcess] Created thumbnail: ${thumbPath}`);
     } catch (thumbErr) {
       console.error(`[ImageProcess] Thumbnail failed for ${filePath}:`, thumbErr);
-      // We don't throw here so the main image is still used
     }
 
     // Delete original file if it's different from the new one
@@ -72,7 +72,7 @@ export const processImage = async (filePath, type = "ads") => {
     return newPath;
   } catch (err) {
     console.error("Image processing error:", err);
-    return filePath; // Return original on failure to avoid breaking flow
+    return filePath;
   }
 };
 
@@ -80,58 +80,55 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const base = path.basename(file.originalname, ext).replace(/[^a-z0-9_-]/gi, "");
-    const name = `${base}-${Date.now()}${ext}`;
+    const name = `${uuidv4()}${ext}`; // Use UUID for security
     cb(null, name);
   }
 });
 
 function fileFilter(req, file, cb) {
-  const allowed = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"];
-  if (!allowed.includes(file.mimetype)) {
-    const err = new Error("نوع الملف غير مدعوم. يرجى رفع صورة (JPG, PNG, WebP, GIF)");
-    err.status = 400; // Hint for error handler
-    return cb(err, false);
-  }
-  cb(null, true);
-}
-
-export const uploadImages = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
-});
-
-const idsDir = path.join(uploadDir, "ids");
-if (!fs.existsSync(idsDir)) {
-  fs.mkdirSync(idsDir, { recursive: true });
-}
-
-const storageIds = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, idsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const base = path.basename(file.originalname, ext).replace(/[^a-z0-9_-]/gi, "");
-    const name = `${base}-${Date.now()}${ext}`;
-    cb(null, name);
-  }
-});
-
-function idFileFilter(req, file, cb) {
-  const allowed = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif", "application/pdf"];
-  if (!allowed.includes(file.mimetype)) {
-    const err = new Error("نوع الملف غير مدعوم. يرجى رفع صورة (JPG, PNG, WebP, GIF) أو ملف PDF");
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"]; // More strict, removed GIF
+  if (!allowedTypes.includes(file.mimetype)) {
+    const err = new Error("نوع الملف غير مدعوم. يرجى رفع صورة (JPG, PNG, WebP)");
     err.status = 400;
     return cb(err, false);
   }
   cb(null, true);
 }
 
+const commonOptions = {
+  storage,
+  fileFilter,
+  limits: { fileSize: 3 * 1024 * 1024 } // 3MB limit
+};
+
+export const uploadImages = multer({
+  ...commonOptions,
+  limits: { fileSize: 5 * 1024 * 1024, files: 10 } // Allow up to 5MB and 10 files for ads
+});
+
+export const uploadAvatar = multer({
+  ...commonOptions,
+  limits: { fileSize: 2 * 1024 * 1024 } // 2MB for avatar
+});
+
+export const uploadReceipt = multer({
+  ...commonOptions,
+  limits: { fileSize: 4 * 1024 * 1024 } // 4MB for receipts
+});
+
 export const uploadIdDoc = multer({
-  storage: storageIds,
-  fileFilter: idFileFilter,
+  ...commonOptions,
+  fileFilter: (req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error("يرجى رفع صورة الهوية أو ملف PDF فقط."), false);
+    }
+    cb(null, true);
+  },
   limits: { fileSize: 5 * 1024 * 1024 }
 });
+
+
 
 const receiptsDir = path.join(uploadDir, "receipts");
 if (!fs.existsSync(receiptsDir)) {
@@ -161,40 +158,9 @@ export const uploadVerificationDocs = multer({
   { name: "selfieImage", maxCount: 1 }
 ]);
 
-const storageReceipt = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, receiptsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const base = path.basename(file.originalname, ext).replace(/[^a-z0-9_-]/gi, "");
-    cb(null, `receipt-${base}-${Date.now()}${ext}`);
-  }
-});
 
-export const uploadReceipt = multer({
-  storage: storageReceipt,
-  fileFilter: idFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
-}).array("paymentReceipt", 2);
 
-const avatarsDir = path.join(uploadDir, "avatars");
-if (!fs.existsSync(avatarsDir)) {
-  fs.mkdirSync(avatarsDir, { recursive: true });
-}
 
-const storageAvatars = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, avatarsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const name = `avatar-${req.user?.id || 'guest'}-${Date.now()}${ext}`;
-    cb(null, name);
-  }
-});
-
-export const uploadAvatar = multer({
-  storage: storageAvatars,
-  fileFilter: fileFilter,
-  limits: { fileSize: 2 * 1024 * 1024 }
-});
 
 const logosDir = path.join(uploadDir, "logos");
 if (!fs.existsSync(logosDir)) {

@@ -37,24 +37,31 @@ const getCurrencyBalance = (wallet, currency) => {
 /**
  * إضافة رصيد معلق للبائع عند تأكيد الدفع من الإدارة
  */
-export const addPendingBalance = async (userId, amount, orderId, currency = "YER", type = "PAYMENT") => {
+export const addPendingBalance = async (userId, amount, description, currency = "YER", orderId = null) => {
   try {
-    const wallet = await getOrCreateWallet(userId);
     const numAmount = Number(amount) || 0;
-    
-    if (numAmount <= 0) return wallet;
+    if (numAmount <= 0) return await getOrCreateWallet(userId);
 
-    const balance = getCurrencyBalance(wallet, currency);
-    balance.pendingBalance += numAmount;
-    
-    await wallet.save();
+    // تحديث ذري لضمان عدم حدوث تضارب
+    const wallet = await Wallet.findOneAndUpdate(
+      { user: userId, "balances.currency": currency },
+      { $inc: { "balances.$.pendingBalance": numAmount } },
+      { new: true }
+    );
 
-    const description = type === "SHIPPING" ? `رصيد شحن معلق للطلب #${orderId}` : `رصيد معلق للطلب #${orderId}`;
+    if (!wallet) {
+      // إذا لم تكن العملة موجودة في المحفظة، نحتاج لإضافتها
+      const existingWallet = await getOrCreateWallet(userId);
+      const balance = getCurrencyBalance(existingWallet, currency);
+      balance.pendingBalance += numAmount;
+      await existingWallet.save();
+      return existingWallet;
+    }
 
     await Transaction.create([{
       user: userId,
       order: orderId,
-      type: "PAYMENT",
+      type: "ORDER_PAYMENT",
       amount: numAmount,
       currency,
       balanceType: "pending",
@@ -69,32 +76,31 @@ export const addPendingBalance = async (userId, amount, orderId, currency = "YER
 };
 
 /**
- * إزالة رصيد معلق (في حال إلغاء الطلب بعد تأكيد الدفع)
+ * خصم الرصيد المعلق (في حال إلغاء طلب)
  */
-export const removePendingBalance = async (userId, amount, orderId, currency = "YER", type = "CANCEL") => {
+export const removePendingBalance = async (userId, amount, description, currency = "YER", orderId = null) => {
   try {
-    const wallet = await getOrCreateWallet(userId);
     const numAmount = Number(amount) || 0;
+    if (numAmount <= 0) return await getOrCreateWallet(userId);
 
-    if (numAmount <= 0) return wallet;
+    const wallet = await Wallet.findOneAndUpdate(
+      { 
+        user: userId, 
+        "balances.currency": currency,
+        "balances.pendingBalance": { $gte: numAmount }
+      },
+      { $inc: { "balances.$.pendingBalance": -numAmount } },
+      { new: true }
+    );
 
-    const balance = getCurrencyBalance(wallet, currency);
-
-    if (balance.pendingBalance >= numAmount) {
-      balance.pendingBalance -= numAmount;
-    } else {
-      console.warn(`[WALLET] removePendingBalance: pending balance (${balance.pendingBalance}) < amount (${numAmount}) for order ${orderId}. Setting pending to 0.`);
-      balance.pendingBalance = 0;
+    if (!wallet) {
+      throw new Error(`رصيد معلق غير كافٍ بالعملة ${currency}`);
     }
-    
-    await wallet.save();
-
-    const description = type === "SHIPPING" ? `إزالة رصيد شحن معلق للطلب الملغي #${orderId}` : `إزالة رصيد معلق للطلب الملغي #${orderId}`;
 
     await Transaction.create([{
       user: userId,
       order: orderId,
-      type: "CANCEL",
+      type: "ORDER_CANCEL",
       amount: -numAmount,
       currency,
       balanceType: "pending",
@@ -113,10 +119,8 @@ export const removePendingBalance = async (userId, amount, orderId, currency = "
  */
 export const releaseBalance = async (userId, amount, orderId, currency = "YER", type = "RELEASE") => {
   try {
-    const wallet = await getOrCreateWallet(userId);
     const numAmount = Number(amount) || 0;
-
-    if (numAmount <= 0) return wallet;
+    if (numAmount <= 0) return await getOrCreateWallet(userId);
 
     // التأكد من عدم تحرير الرصيد لهذا الطلب مسبقاً بنفس العملة والنوع (Idempotency)
     const existingRelease = await Transaction.findOne({
@@ -129,22 +133,43 @@ export const releaseBalance = async (userId, amount, orderId, currency = "YER", 
 
     if (existingRelease) {
       console.log(`[WALLET] Balance for order ${orderId} (${type}) in ${currency} already released. Skipping.`);
-      return wallet;
+      return await getOrCreateWallet(userId);
     }
 
-    const balance = getCurrencyBalance(wallet, currency);
+    // تحديث ذري: تحويل من معلق إلى متاح
+    const wallet = await Wallet.findOneAndUpdate(
+      { 
+        user: userId, 
+        "balances.currency": currency,
+        "balances.pendingBalance": { $gte: numAmount }
+      },
+      { 
+        $inc: { 
+          "balances.$.pendingBalance": -numAmount,
+          "balances.$.availableBalance": numAmount
+        } 
+      },
+      { new: true }
+    );
 
-    // تحرير الرصيد من المعلق
-    if (balance.pendingBalance >= numAmount) {
-      balance.pendingBalance -= numAmount;
-    } else {
-      console.warn(`[WALLET] ReleaseBalance: pending balance (${balance.pendingBalance}) < amount (${numAmount}) for order ${orderId}. Setting pending to 0.`);
-      balance.pendingBalance = 0;
+    if (!wallet) {
+       // إذا كان الرصيد المعلق أقل، نقوم بتحويل المتاح فقط لتجنب تعليق العملية، 
+       // ولكن من الأفضل في الأنظمة المالية الصارمة رمي خطأ.
+       // سنقوم هنا بتحويل ما هو متاح في المعلق كحد أقصى.
+       const currentWallet = await getOrCreateWallet(userId);
+       const balance = getCurrencyBalance(currentWallet, currency);
+       const actualToRelease = Math.min(balance.pendingBalance, numAmount);
+       
+       balance.pendingBalance -= actualToRelease;
+       balance.availableBalance += actualToRelease;
+       await currentWallet.save();
+       
+       const description = type === "SHIPPING" ? `تحرير رصيد شحن الطلب #${orderId} (تعديل تلقائي)` : `تحرير رصيد الطلب #${orderId} (تعديل تلقائي)`;
+       await Transaction.create([{
+         user: userId, order: orderId, type: "RELEASE", amount: actualToRelease, currency, balanceType: "available", description
+       }]);
+       return currentWallet;
     }
-    
-    balance.availableBalance += numAmount;
-    
-    await wallet.save();
 
     const description = type === "SHIPPING" ? `تحرير رصيد شحن الطلب #${orderId} إلى متاح` : `تحرير رصيد الطلب #${orderId} إلى متاح`;
 
@@ -170,26 +195,34 @@ export const releaseBalance = async (userId, amount, orderId, currency = "YER", 
  */
 export const deductAvailableBalance = async (userId, amount, description, currency = "YER") => {
   try {
-    const wallet = await getOrCreateWallet(userId);
-    const numAmount = Number(amount) || 0;
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) throw new Error("المبلغ غير صالح");
 
-    const balance = getCurrencyBalance(wallet, currency);
+    // استخدام تحديث ذري (Atomic Update) لمنع Race Conditions
+    const wallet = await Wallet.findOneAndUpdate(
+      { 
+        user: userId,
+        "balances.currency": currency,
+        "balances.availableBalance": { $gte: numAmount } 
+      },
+      { 
+        $inc: { "balances.$.availableBalance": -numAmount } 
+      },
+      { new: true }
+    );
 
-    if (balance.availableBalance < numAmount) {
-        throw new Error(`رصيد غير كافٍ للسحب بالعملة ${currency}.`);
+    if (!wallet) {
+      throw new Error(`رصيد غير كافٍ أو محفظة غير موجودة للعملة ${currency}.`);
     }
-    
-    balance.availableBalance -= numAmount;
-    await wallet.save();
 
     await Transaction.create([{
-        user: userId,
-        type: "WITHDRAWAL",
-        amount: -numAmount,
-        currency,
-        balanceType: "available",
-        description,
-        status: "PENDING"
+      user: userId,
+      type: "WITHDRAWAL",
+      amount: -numAmount,
+      currency,
+      balanceType: "available",
+      description: description || "عملية سحب رصيد",
+      status: "PENDING"
     }]);
 
     return wallet;
@@ -204,13 +237,22 @@ export const deductAvailableBalance = async (userId, amount, description, curren
  */
 export const refundAvailableBalance = async (userId, amount, description, currency = "YER", orderId = null) => {
   try {
-    const wallet = await getOrCreateWallet(userId);
     const numAmount = Number(amount) || 0;
+    if (numAmount <= 0) return await getOrCreateWallet(userId);
 
-    const balance = getCurrencyBalance(wallet, currency);
-    balance.availableBalance += numAmount;
-    
-    await wallet.save();
+    const wallet = await Wallet.findOneAndUpdate(
+      { user: userId, "balances.currency": currency },
+      { $inc: { "balances.$.availableBalance": numAmount } },
+      { new: true }
+    );
+
+    if (!wallet) {
+      const existingWallet = await getOrCreateWallet(userId);
+      const balance = getCurrencyBalance(existingWallet, currency);
+      balance.availableBalance += numAmount;
+      await existingWallet.save();
+      return existingWallet;
+    }
 
     await Transaction.create([{
         user: userId,

@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/roles.js";
 import Order from "../models/Order.js";
 import Dispute from "../models/Dispute.js";
 import Ad from "../models/Ad.js";
+import ResellAd from "../models/ResellAd.js";
 import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
 import { uploadReceipt } from "../middleware/upload.js";
@@ -23,7 +24,7 @@ router.post(
   requireRole(["buyer", "user"]),
   validateBody(Joi.object({
     adId: Joi.string().length(24).hex().required(),
-    finalPrice: Joi.number().min(0).required(),
+    finalPrice: Joi.number().min(0).optional(), // تجاهل هذه القيمة واستخدام سعر قاعدة البيانات
     shippingFee: Joi.number().min(0).default(0),
     shippingCurrency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").default("YER"),
     shippingPayer: Joi.string().valid("buyer", "seller", "none").default("buyer"),
@@ -33,43 +34,62 @@ router.post(
   })),
   async (req, res) => {
     try {
-      const { adId, finalPrice, shippingFee, shippingCurrency, shippingPayer, notes, agreedTerms, currency } = req.body;
-      const ad = await Ad.findById(adId).lean();
-      if (!ad || ad.status !== "approved") return res.status(400).json({ error: "الإعلان غير صالح أو غير متوفر حالياً." });
+      const { adId, shippingFee, shippingCurrency, shippingPayer, notes, agreedTerms, currency } = req.body;
       
-      if (!ad.userId) {
+      // جلب بيانات الإعلان من قاعدة البيانات حصراً
+      let ad = await Ad.findById(adId).lean();
+      let price = 0;
+      let sellerId = null;
+      let isResell = false;
+
+      if (!ad) {
+        // التحقق مما إذا كان إعلان إعادة بيع
+        const resellAd = await ResellAd.findById(adId).populate("originalAdId").lean();
+        if (resellAd && resellAd.originalAdId) {
+          ad = resellAd.originalAdId;
+          price = resellAd.newPrice;
+          sellerId = resellAd.resellerId;
+          isResell = true;
+        }
+      } else {
+        price = ad.price;
+        sellerId = ad.userId;
+      }
+
+      if (!ad || ad.status !== "approved") {
+        return res.status(400).json({ error: "الإعلان غير صالح أو غير متوفر حالياً." });
+      }
+      
+      if (!sellerId) {
           return res.status(400).json({ error: "هذا الإعلان غير مرتبط بمستخدم، لا يمكن إتمام عملية الشراء." });
       }
 
-      if (ad.userId.toString() === req.user.id) {
+      if (sellerId.toString() === req.user.id) {
           return res.status(400).json({ error: "لا يمكنك شراء منتجك الخاص." });
       }
 
-      const price = Number(finalPrice) || 0;
       const sFee = Number(shippingFee) || 0;
       
       // حساب العمولات (3% على المشتري، 1% على البائع)
+      // يتم الحساب بناءً على السعر المجلوب من قاعدة البيانات فقط
       const buyerServiceFee = Math.round(price * 0.03); 
       const sellerCommission = Math.round(price * 0.01);
       
       // الحسابات المالية (بالعملة الأساسية للمنتج)
-      // ملاحظة هامة: لا نجمع الشحن مع المبالغ الإجمالية إلا إذا كان بنفس العملة
       let totalAmount = price + buyerServiceFee;
-      let sellerAmount = price - sellerCommission; // البائع يحصل على السعر ناقص العمولة (1%)
+      let sellerAmount = price - sellerCommission; 
 
-      // ملاحظة: رصيد الشحن يُعامل كعملية مالية منفصلة دائماً لضمان دقة المحاسبة وتحرير الرصيد
       if (shippingPayer === "buyer" && shippingCurrency === currency) {
         totalAmount += sFee;
-        // لا نضيف الشحن للـ sellerAmount هنا لأنه سيُضاف للمحفظة كمعاملة منفصلة (SHIPPING)
       }
       
-      // إجمالي ربح المنصة من العمولات
       const platformFee = buyerServiceFee + sellerCommission;
 
       const order = await Order.create({
         buyer: req.user.id,
-        seller: ad.userId,
-        ad: adId,
+        seller: sellerId,
+        ad: ad._id,
+        resellAd: isResell ? adId : undefined,
         status: "PENDING_SELLER_APPROVAL",
         amount: price,
         shippingFee: sFee,

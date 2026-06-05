@@ -100,6 +100,15 @@ const userSchema = new mongoose.Schema(
     hasUsedWelcomePromotion: { type: Boolean, default: false },
     welcomePromotionUsedAt: { type: Date, default: null },
 
+    refreshToken: { type: String }, // For secure auth session
+
+    // Security & Account Lockout
+    loginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date },
+    lastLoginAt: { type: Date },
+    lastLoginIp: { type: String },
+    deviceFingerprint: { type: String },
+
     // Seller specific fields (Cumulative)
     sellerRating: { type: Number, default: 0 },
     sellerReviewsCount: { type: Number, default: 0 },

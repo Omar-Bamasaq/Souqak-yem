@@ -75,6 +75,18 @@ router.post(
           return res.status(400).json({ error: "رصيدك المتاح لهذه العملة غير كافٍ." });
       }
 
+      // التحقق من تكرار الطلب في وقت قصير (منع التلاعب أو الخطأ)
+      const existingWithdrawal = await Withdrawal.findOne({
+        user: req.user.id,
+        amount: numAmount,
+        currency,
+        status: "PENDING",
+        createdAt: { $gt: new Date(Date.now() - 60000) } // خلال آخر دقيقة
+      });
+      if (existingWithdrawal) {
+        return res.status(400).json({ error: "يوجد طلب سحب مماثل قيد المراجعة حالياً، يرجى الانتظار دقيقة قبل المحاولة مرة أخرى." });
+      }
+
       // خصم الرصيد وتسجيل العملية كمعلقة (عن طريق خدمة المحفظة)
       await deductAvailableBalance(req.user.id, numAmount, `طلب سحب (${receiptType === 'bank_account' ? 'حساب' : 'حوالة'}) إلى ${bankName}`, currency);
 

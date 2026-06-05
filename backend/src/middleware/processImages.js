@@ -38,10 +38,10 @@ export default function processImages(type = "ads") {
           const maxWidth = type === "ads" ? 1000 : 800;
           const maxHeight = type === "ads" ? 1000 : 800;
 
-          // Process image: Resize, Convert to WebP, Optimize
+          // Process image: Resize, Convert to WebP, Optimize & Clean Metadata
           const image = sharp(srcPath).rotate();
           
-          // 1. Full Size (Optimized)
+          // 1. Full Size (Optimized & Sanitized)
           await image
             .clone()
             .resize(maxWidth, maxHeight, {

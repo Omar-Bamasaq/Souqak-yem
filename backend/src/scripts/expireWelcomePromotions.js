@@ -34,8 +34,8 @@ async function expireWelcomePromotions() {
         await createNotification(null, {
           userId: ad.userId,
           type: "welcome_promotion_expired",
-          title: "🎁 انتهى التمييز المجاني",
-          body: `حقق إعلانك "${ad.title}" نتائج ممتازة خلال فترة التمييز الترحيبي. شاهد الملخص الآن!`,
+          title: "🎁 انتهت التجربة المجانية",
+          body: `حقق إعلانك "${ad.title}" نتائج ممتازة خلال فترة التجربة المجانية. شاهد الملخص الآن!`,
           data: { 
             adId: ad._id, 
             action: "show_welcome_summary",

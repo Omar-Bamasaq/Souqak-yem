@@ -54,8 +54,7 @@ router.patch(
         enabled: Joi.boolean(),
         durationHours: Joi.number().min(1),
         maxBeneficiaries: Joi.number().min(0),
-        endDate: Joi.date().allow(null),
-        firstAdOnly: Joi.boolean()
+        endDate: Joi.date().allow(null)
       }).optional()
     })
   ),
@@ -110,23 +109,22 @@ router.get("/welcome-promotion/stats", async (req, res) => {
     const wp = settings.welcomePromotion || {};
     const wpStats = wp.stats || {};
     
-    // Total beneficiaries (historical)
-    const totalBeneficiaries = await Ad.countDocuments({ 
-      $or: [
-        { isWelcomePromoted: true },
-        { welcomePromotionStartDate: { $ne: null } }
-      ]
-    });
+    // إجمالي المستفيدين (تاريخياً) - الذين استخدموا التجربة المجانية فعلياً
+    const totalBeneficiaries = wp.usedCount || 0;
 
-    // Currently active
+    // المتبقي من الكوتا
+    const remainingQuota = Math.max(0, wp.maxBeneficiaries - wp.usedCount);
+
+    // العروض النشطة حالياً
     const activePromotions = await Ad.countDocuments({ isWelcomePromoted: true });
 
-    // Conversion rate: ads that were welcome promoted AND later purchased a real plan
+    // عدد الذين اشتروا التمييز بعد التجربة
     const convertedAds = wpStats.totalConversions || 0;
 
     res.json({
       totalBeneficiaries,
       activePromotions,
+      remainingQuota,
       convertedAds,
       conversionRate: totalBeneficiaries > 0 ? (convertedAds / totalBeneficiaries * 100).toFixed(2) : 0,
       summaryShownCount: wpStats.summaryShownCount || 0,
@@ -134,7 +132,6 @@ router.get("/welcome-promotion/stats", async (req, res) => {
       clickThroughRate: wpStats.summaryShownCount > 0 ? (wpStats.promoteClickCount / wpStats.summaryShownCount * 100).toFixed(2) : 0
     });
   } catch (error) {
-    console.error("Stats error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });

@@ -13,23 +13,47 @@ export default function Pricing() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trialEligibility, setTrialEligibility] = useState(null);
 
   const load = async () => {
     try {
-      const res = await api.get("/plans");
-      setPlans(res.data);
+      const [plansRes, eligibilityRes] = await Promise.all([
+        api.get("/plans"),
+        api.get("/ads/welcome-promotion/eligibility")
+      ]);
+      setPlans(plansRes.data);
+      setTrialEligibility(eligibilityRes.data);
       if (user) {
         const my = await api.get("/ads/my?status=approved");
         setAds(my.data || []);
       }
     } catch (e) {
-      setErr("فشل تحميل الباقات");
+      setErr("فشل تحميل البيانات");
     }
   };
 
   useEffect(() => {
     load();
-  }, []);
+  }, [user]);
+
+  const activateTrial = async () => {
+    if (!selectedAd) {
+      setErr("يجب اختيار إعلان لتجربة التمييز");
+      return;
+    }
+    setLoading(true);
+    setErr("");
+    setMsg("");
+    try {
+      const res = await api.post("/ads/welcome-promotion/activate", { adId: selectedAd });
+      setMsg(res.data.message);
+      load(); // Refresh eligibility
+    } catch (e) {
+      setErr(e.response?.data?.error || "تعذر تفعيل التجربة المجانية");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getSaleIcon = (type) => {
     switch (type) {
@@ -92,6 +116,79 @@ export default function Pricing() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Welcome Promotion Trial Card */}
+        {trialEligibility && (trialEligibility.eligible || trialEligibility.reason === "quota_full") && (
+          <div className="relative group flex flex-col bg-gradient-to-br from-amber-50 to-orange-50 rounded-[2.5rem] border-2 border-orange-200 transition-all duration-500 hover:shadow-2xl hover:shadow-orange-100 hover:-translate-y-2 overflow-hidden">
+            <div className="absolute top-0 right-0 p-4">
+              <span className="bg-orange-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-orange-200 uppercase tracking-widest animate-pulse">
+                🎁 عرض ترحيبي
+              </span>
+            </div>
+            
+            <div className="p-8 pt-12 flex-1 flex flex-col">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-black text-gray-900 mb-2">تجربة تمييز مجانية</h3>
+                <p className="text-xs font-bold text-orange-700 leading-relaxed">
+                  ارفع إعلانك إلى أعلى النتائج لمدة {trialEligibility.durationHours || 6} ساعات مجاناً وشاهد الفرق في النتائج.
+                </p>
+              </div>
+
+              <div className="bg-white/60 rounded-3xl p-6 mb-6 text-center border border-orange-100 backdrop-blur-sm">
+                <div className="text-3xl font-black text-gray-900">مجاناً</div>
+                <div className="text-[10px] font-black text-orange-600 uppercase tracking-widest mt-1">
+                  تجربة لمرة واحدة فقط
+                </div>
+              </div>
+
+              {trialEligibility.eligible ? (
+                <>
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center gap-3 text-xs font-bold text-orange-800">
+                      <div className="w-5 h-5 rounded-full bg-orange-200 text-orange-700 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                      </div>
+                      متبقي {trialEligibility.remaining} تجربة مجانية فقط
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-[10px] font-black text-orange-400 mb-2 mr-1 uppercase tracking-wider">اختر الإعلان للتجربة</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-white/80 border border-orange-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all appearance-none cursor-pointer"
+                      value={selectedAd} 
+                      onChange={(e) => setSelectedAd(e.target.value)}
+                    >
+                      <option value="">-- اختر إعلانك --</option>
+                      {ads.map((ad) => (
+                        <option key={ad._id} value={ad._id}>{ad.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button 
+                    onClick={activateTrial}
+                    disabled={loading}
+                    className="w-full py-4 bg-orange-600 text-white rounded-[1.5rem] text-sm font-black hover:bg-orange-700 transition-all active:scale-95 shadow-xl shadow-orange-200 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <span>ابدأ التجربة المجانية</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <div className="mt-auto p-4 bg-orange-100/50 rounded-2xl border border-orange-200 text-center">
+                  <p className="text-sm font-black text-orange-800">انتهت جميع التجارب المجانية المتاحة حالياً.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {plans.map((p) => (
           <div 
             key={p._id} 

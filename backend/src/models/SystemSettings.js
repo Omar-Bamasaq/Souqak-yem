@@ -35,7 +35,6 @@ const SystemSettingsSchema = new mongoose.Schema(
       durationHours: { type: Number, default: 6 },
       maxBeneficiaries: { type: Number, default: 100 },
       usedCount: { type: Number, default: 0 },
-      firstAdOnly: { type: Boolean, default: true },
       endDate: { type: Date, default: null },
       stats: {
         summaryShownCount: { type: Number, default: 0 },

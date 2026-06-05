@@ -48,9 +48,44 @@ const parseJsonAttributes = (req, _res, next) => {
   next();
 };
 
-router.get("/", async (req, res) => {
+const publicAdsRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 30, // 30 searches per minute per IP
+  message: "لقد تجاوزت حد البحث المسموح به. يرجى الانتظار قليلاً."
+});
+
+const adsSearchQuerySchema = Joi.object({
+  q: Joi.string().max(100).allow("").optional(),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  categoryId: Joi.string().length(24).hex().optional(),
+  governorateId: Joi.string().length(24).hex().optional(),
+  cityId: Joi.string().length(24).hex().optional(),
+  cities: Joi.string().optional(),
+  minPrice: Joi.number().min(0).optional(),
+  maxPrice: Joi.number().min(0).optional(),
+  conditions: Joi.string().optional(),
+  verifiedOnly: Joi.string().valid("true", "false").optional(),
+  featuredOnly: Joi.string().valid("true", "false").optional(),
+  lat: Joi.number().optional(),
+  lng: Joi.number().optional(),
+  radiusKm: Joi.number().optional(),
+  sort: Joi.string().valid("new", "old", "cheap", "expensive", "views", "price_asc", "price_desc").optional(),
+  adType: Joi.string().valid("sell", "order").optional(),
+  currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional(),
+  isResellEnabled: Joi.string().valid("true", "false").optional(),
+  subCategoryId: Joi.string().length(24).hex().optional(), // Used in smart-search
+  userLat: Joi.number().optional(), // Used in smart-search
+  userLng: Joi.number().optional() // Used in smart-search
+}).pattern(/^attr_/, Joi.string().max(200)) // السماح بمفاتيح attr_* كقيمة نصية فقط
+  .unknown(false); // رفض أي مفاتيح غير معروفة
+
+router.get("/", 
+  publicAdsRateLimit, 
+  validateQuery(adsSearchQuerySchema),
+  async (req, res) => {
   try {
-    const {
+    let {
       q,
       governorateId,
       cityId,
@@ -64,13 +99,24 @@ router.get("/", async (req, res) => {
       lat,
       lng,
       radiusKm,
-      page = 1,
-      limit = 20,
-      sort = "new",
+      page,
+      limit,
+      sort,
       adType,
       currency,
       isResellEnabled
-    } = req.query || {};
+    } = req.query;
+
+    // 1. Mandatory Pagination & Limit Enforcement
+    page = Math.max(1, parseInt(page) || 1);
+    limit = Math.min(50, Math.max(1, parseInt(limit) || 20)); // Max 50 per page
+
+    // 2. Anti-Scraping: Detect high page crawling
+    if (page > 100) {
+      logSecurityEvent("Suspicious scraping: deep pagination", req, { page });
+      return res.status(403).json({ error: "Access denied. Please contact support for bulk data access." });
+    }
+
     const filter = { 
       status: "approved", 
       isArchived: { $ne: true }, 
@@ -251,7 +297,10 @@ router.get("/my", auth, async (req, res) => {
 });
 
 // Smart Search API Endpoint
-router.get("/smart-search", optionalAuth, async (req, res) => {
+router.get("/smart-search", 
+  optionalAuth, 
+  validateQuery(adsSearchQuerySchema),
+  async (req, res) => {
   try {
     const {
       q,
@@ -269,8 +318,8 @@ router.get("/smart-search", optionalAuth, async (req, res) => {
       sort,
       adType,
       isResellEnabled,
-      page = 1,
-      limit = 20
+      page,
+      limit
     } = req.query;
 
     const userId = req.user?.id || null;
@@ -291,8 +340,8 @@ router.get("/smart-search", optionalAuth, async (req, res) => {
       userId,
       adType,
       isResellEnabled,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      page: parseInt(page, 10) || 1,
+      limit: parseInt(limit, 10) || 20,
       sort: sort || "relevance"
     });
 
@@ -516,11 +565,11 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   validateBody(Joi.object({ 
     reason: Joi.string().valid("sold", "archive", "sold_out", "archived").required(),
-    price: Joi.number().min(0).optional()
+    price: Joi.number().min(0).optional() // تجاهل القيمة واستخدام سعر قاعدة البيانات
   })),
   async (req, res) => {
   try {
-    const { reason, price: finalPrice } = req.body || {};
+    const { reason } = req.body || {};
     const ad = await Ad.findById(req.params.id);
     if (!ad) return res.status(404).json({ error: "Not found" });
     if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "Forbidden" });
@@ -540,7 +589,8 @@ router.patch(
         const CommissionModel = mongoose.model("Commission");
         let commission = await CommissionModel.findOne({ adId: updatedAd._id });
         
-        const price = Number(finalPrice) || Number(updatedAd.price) || 0;
+        // استخدام السعر من قاعدة البيانات حصراً لمنع التلاعب بالعمولات
+        const price = Number(updatedAd.price) || 0;
         const commissionAmount = Math.round(price * 0.01);
 
         if (!commission) {
@@ -783,7 +833,7 @@ router.get("/welcome-promotion/eligibility", auth, async (req, res) => {
     }
 
     if (settings.welcomePromotion.usedCount >= settings.welcomePromotion.maxBeneficiaries) {
-      return res.json({ eligible: false, reason: "quota_full" });
+      return res.json({ eligible: false, reason: "quota_full", remaining: 0 });
     }
 
     const now = new Date();
@@ -791,15 +841,70 @@ router.get("/welcome-promotion/eligibility", auth, async (req, res) => {
       return res.json({ eligible: false, reason: "expired" });
     }
 
-    // Check if it's the first ad
-    const adsCount = await Ad.countDocuments({ userId: req.user.id, isDeleted: false });
-    if (adsCount > 0) {
-      return res.json({ eligible: false, reason: "not_first_ad" });
-    }
-
     res.json({ 
       eligible: true, 
-      durationHours: settings.welcomePromotion.durationHours 
+      durationHours: settings.welcomePromotion.durationHours,
+      remaining: settings.welcomePromotion.maxBeneficiaries - settings.welcomePromotion.usedCount
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Activate Welcome Promotion (Trial) for a specific Ad
+router.post("/welcome-promotion/activate", auth, async (req, res) => {
+  try {
+    const { adId } = req.body;
+    if (!adId) return res.status(400).json({ error: "معرف الإعلان مطلوب" });
+
+    const settings = await SystemSettings.getSettings();
+    const wp = settings.welcomePromotion;
+
+    if (!wp || !wp.enabled) {
+      return res.status(400).json({ error: "التجربة المجانية غير مفعلة حالياً." });
+    }
+
+    const now = new Date();
+    if (wp.endDate && now > new Date(wp.endDate)) {
+      return res.status(400).json({ error: "انتهت فترة عرض التجربة المجانية." });
+    }
+
+    if (wp.usedCount >= wp.maxBeneficiaries) {
+      return res.status(400).json({ error: "عذراً، انتهت جميع التجارب المجانية المتاحة حالياً." });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (user.hasUsedWelcomePromotion) {
+      return res.status(400).json({ error: "لقد استخدمت التجربة المجانية مسبقاً." });
+    }
+
+    const ad = await Ad.findOne({ _id: adId, userId: req.user.id, isDeleted: false });
+    if (!ad) return res.status(404).json({ error: "الإعلان غير موجود." });
+
+    if (ad.status !== "approved") {
+      return res.status(400).json({ error: "يجب أن يكون الإعلان مقبولاً أولاً لتتمكن من تمييزه." });
+    }
+
+    // Activate Promotion
+    ad.featured = true;
+    ad.isWelcomePromoted = true;
+    ad.welcomePromotionStartDate = now;
+    ad.welcomePromotionEndDate = new Date(now.getTime() + wp.durationHours * 60 * 60 * 1000);
+    await ad.save();
+
+    // Update User
+    user.hasUsedWelcomePromotion = true;
+    user.welcomePromotionUsedAt = now;
+    await user.save();
+
+    // Update Global Counter
+    settings.welcomePromotion.usedCount += 1;
+    await settings.save();
+
+    res.json({ 
+      success: true, 
+      message: "تم تفعيل التجربة المجانية بنجاح لمدة 6 ساعات!",
+      endDate: ad.welcomePromotionEndDate 
     });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -1000,10 +1105,17 @@ router.post(
   }
 );
 
+const createAdRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Max 5 ads per 15 mins
+  message: "لقد تجاوزت الحد المسموح به لنشر الإعلانات. يرجى الانتظار قليلاً."
+});
+
 router.post(
   "/",
   auth,
   requireRole(["seller"]),
+  createAdRateLimit,
   uploadImages.array("images", 10),
   processImages(),
   parseJsonAttributes,
@@ -1051,6 +1163,19 @@ router.post(
       showPhone, phone, showWhatsApp, whatsapp, negotiable, priceOnContact, adType,
       isResellEnabled, commissionType, commissionValue, maxResellPrice, allowAutoApproval, maxResellers
     } = req.body || {};
+
+    // Business Logic Protection: Duplicate Ad Check
+    const duplicateAd = await Ad.findOne({
+      userId: req.user.id,
+      title: title.trim(),
+      price: Number(price),
+      createdAt: { $gt: new Date(Date.now() - 60 * 60 * 1000) } // Last hour
+    });
+
+    if (duplicateAd) {
+      return res.status(400).json({ error: "لقد قمت بنشر إعلان مشابه مؤخراً." });
+    }
+
     const filenames = (req.files || []).map((f) => f.optimizedFilename || f.filename);
 
     let finalTagNames = tagNames || [];
@@ -1066,39 +1191,11 @@ router.post(
     let scheduledPublishAt = undefined;
     let publishedAt = undefined;
 
-    // Welcome Promotion Logic
+    // Welcome Promotion Logic - (إلغاء التفعيل التلقائي، المستخدم يفعله يدوياً الآن)
     let isFeatured = false;
     let isWelcomePromoted = false;
     let welcomePromotionStartDate = null;
     let welcomePromotionEndDate = null;
-
-    const wp = settings.welcomePromotion;
-    if (wp && wp.enabled) {
-      const user = await User.findById(req.user.id);
-      const now = new Date();
-      const isTimeValid = !wp.endDate || now < new Date(wp.endDate);
-      const isQuotaValid = wp.usedCount < wp.maxBeneficiaries;
-      
-      if (user && !user.hasUsedWelcomePromotion && isTimeValid && isQuotaValid) {
-        // Double check if it's the first ad
-        const adsCount = await Ad.countDocuments({ userId: req.user.id, isDeleted: false });
-        if (adsCount === 0) {
-          isFeatured = true;
-          isWelcomePromoted = true;
-          welcomePromotionStartDate = now;
-          welcomePromotionEndDate = new Date(now.getTime() + wp.durationHours * 60 * 60 * 1000);
-
-          // Update user
-          user.hasUsedWelcomePromotion = true;
-          user.welcomePromotionUsedAt = now;
-          await user.save();
-
-          // Increment settings usedCount
-          settings.welcomePromotion.usedCount += 1;
-          await settings.save();
-        }
-      }
-    }
 
     // Check for prohibited keywords
     const contentToSearch = `${title} ${description || ""} ${finalTagNames.join(" ")}`.toLowerCase();

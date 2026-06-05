@@ -5,6 +5,7 @@ const orderSchema = new mongoose.Schema(
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     ad: { type: mongoose.Schema.Types.ObjectId, ref: "Ad", required: true },
+    resellAd: { type: mongoose.Schema.Types.ObjectId, ref: "ResellAd" }, // مرجع لإعلان إعادة البيع إذا وجد
     status: {
       type: String,
       enum: [

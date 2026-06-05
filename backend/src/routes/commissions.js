@@ -21,8 +21,17 @@ const commissionSchema = Joi.object({
 
 router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req, res) => {
   try {
-    const { name, phone, salePrice, currency, adId } = req.body || {};
+    let { name, phone, salePrice, currency, adId } = req.body || {};
     
+    // جلب بيانات الإعلان من قاعدة البيانات لضمان عدم التلاعب بالسعر
+    if (adId && adId.length === 24) {
+      const ad = await Ad.findById(adId).lean();
+      if (ad) {
+        salePrice = ad.price;
+        currency = ad.currency;
+      }
+    }
+
     // Validate manually since multipart/form-data can be tricky with Joi and multer sometimes
     if (!name || !phone || !salePrice) {
       return res.status(400).json({ error: "Name, phone and salePrice are required" });

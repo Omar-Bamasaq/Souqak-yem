@@ -24,6 +24,14 @@ import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
 import compression from "compression";
+import cookieParser from "cookie-parser";
+import mongoSanitize from "express-mongo-sanitize";
+import xss from "xss-clean";
+import hpp from "hpp";
+import requestIp from "request-ip";
+import addRequestId from "express-request-id";
+import { securityHeaders, csrfProtection, botDetection } from "./middleware/security.js";
+import { logSecurityEvent } from "./utils/logger.js";
 import rateLimit from "./middleware/rateLimit.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
@@ -50,6 +58,7 @@ import blocksRoutes from "./routes/blocks.js";
 import favoritesRoutes from "./routes/favorites.js";
 import followsRoutes from "./routes/followsUsers.js";
 import attributesRoutes from "./routes/attributes.js";
+import filesRoutes from "./routes/files.js";
 import governorateRoutes from "./routes/governorates.js";
 import cityRoutes from "./routes/cities.js";
 import sellersRoutes from "./routes/sellers.js";
@@ -89,6 +98,9 @@ const allowedOrigins = [
   "http://localhost:5174"
 ];
 
+app.use(addRequestId());
+app.use(requestIp.mw());
+
 // Enhanced CORS Configuration
 const corsOptions = {
   origin: function (origin, callback) {
@@ -102,12 +114,17 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token"],
   exposedHeaders: ["Set-Cookie"]
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Handle preflight globally
+
+// Global Security Middleware
+app.use(securityHeaders);
+app.use(botDetection);
+app.use(csrfProtection);
 
 app.get("/api/version", (req, res) => {
   res.json({ version: "1.0.1", patch_fix: true, timestamp: new Date().toISOString() });
@@ -160,24 +177,16 @@ if (process.env.SENTRY_DSN) {
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
 const WS_URL = BACKEND_URL.replace(/^http/, "ws");
 
-app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "http:", "https:"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        fontSrc: ["'self'"],
-        connectSrc: ["'self'", BACKEND_URL, WS_URL, "http://localhost:5000", "ws://localhost:5000", "http://127.0.0.1:5000", "ws://127.0.0.1:5000"],
-        frameSrc: ["'none'"],
-        objectSrc: ["'none'"],
-      },
-    },
-  })
-);
+// تمت إزالة helmet المكرر هنا لأنه يتم تطبيقه في securityHeaders بالأعلى مع إعدادات CSP المتقدمة
+
 app.use(compression());
+app.use(cookieParser());
+
+// Security Middlewares
+app.use(mongoSanitize()); // Prevent NoSQL Injection
+app.use(xss()); // Prevent Basic XSS
+app.use(hpp()); // Prevent Parameter Pollution
+
 app.use(
   rateLimit({
     windowMs: 60_000,
@@ -217,7 +226,16 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Fallback for missing images in /uploads
+app.use("/uploads", filesRoutes); // إضافة حماية للملفات الحساسة
 app.use("/uploads", (req, res, next) => {
+  // منع الوصول المباشر للمجلدات الحساسة (إذا فشل الـ middleware أعلاه أو تم تجاوز auth)
+  const sensitiveFolders = ["ids", "kyc", "documents", "receipts"];
+  const requestedFolder = req.path.split("/")[1];
+  
+  if (sensitiveFolders.includes(requestedFolder)) {
+    return res.status(403).json({ error: "Access denied to sensitive documents. Use the protected API instead." });
+  }
+
   const filePath = path.join(uploadDir, req.path);
   if (!fs.existsSync(filePath)) {
     const isCategory = req.path.includes("categories") || req.path.includes("category-");
@@ -629,7 +647,22 @@ setInterval(async () => {
 }, 60 * 1000);
 
 app.use((err, req, res, next) => {
-  logger.error({ event: "http_error", route: req.originalUrl, method: req.method, message: err.message });
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  logger.error({ 
+    event: "unhandled_error", 
+    route: req.originalUrl, 
+    method: req.method, 
+    message: err.message,
+    stack: isProduction ? undefined : err.stack,
+    ip: req.clientIp || req.ip,
+    requestId: req.id
+  });
+
   if (process.env.SENTRY_DSN) Sentry.captureException(err);
-  res.status(500).json({ error: "Server error" });
+
+  // Generic error message in production, detailed in development
+  res.status(err.status || 500).json({ 
+    error: isProduction ? "حدث خطأ غير متوقع في الخادم. يرجى المحاولة لاحقاً." : err.message 
+  });
 });

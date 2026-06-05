@@ -27,7 +27,8 @@ export function useApi() {
     
     const instance = axios.create({
       baseURL: base,
-      timeout: 60000 // Increased to 60 seconds for slow operations like email sending
+      withCredentials: true, // Send cookies (JWT & CSRF)
+      timeout: 60000 
     });
     
     instance.interceptors.request.use((config) => {
@@ -36,6 +37,20 @@ export function useApi() {
         config.url = config.url.substring(1);
       }
       if (token) config.headers.Authorization = `Bearer ${token}`;
+
+      // CSRF Protection: Add X-CSRF-Token header for mutation requests
+      const nonGetMethods = ["post", "put", "delete", "patch"];
+      if (nonGetMethods.includes(config.method?.toLowerCase())) {
+        const csrfToken = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("csrfToken="))
+          ?.split("=")[1];
+        
+        if (csrfToken) {
+          config.headers["X-CSRF-Token"] = csrfToken;
+        }
+      }
+
       return config;
     }, (error) => Promise.reject(error));
 

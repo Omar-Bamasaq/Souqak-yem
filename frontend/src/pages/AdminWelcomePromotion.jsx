@@ -9,13 +9,13 @@ export default function AdminWelcomePromotion() {
       durationHours: 6,
       maxBeneficiaries: 100,
       usedCount: 0,
-      firstAdOnly: true,
       endDate: ""
     }
   });
   const [stats, setStats] = useState({
     totalBeneficiaries: 0,
     activePromotions: 0,
+    remainingQuota: 0,
     convertedAds: 0,
     conversionRate: 0,
     summaryShownCount: 0,
@@ -113,25 +113,24 @@ export default function AdminWelcomePromotion() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي المستفيدين</p>
-          <h4 className="text-2xl font-black text-gray-900">{stats.totalBeneficiaries}</h4>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">المستفيدون</p>
+          <div className="text-2xl font-black text-gray-900">{stats.totalBeneficiaries}</div>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">المتحولون لتمييز مدفوع</p>
-          <h4 className="text-2xl font-black text-green-600">{stats.convertedAds}</h4>
-          <p className="text-[10px] font-bold text-gray-400 mt-1">نسبة التحويل: {stats.conversionRate}%</p>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">المتبقي</p>
+          <div className="text-2xl font-black text-orange-600">{stats.remainingQuota}</div>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">مشاهدات الملخص</p>
-          <h4 className="text-2xl font-black text-purple-600">{stats.summaryShownCount}</h4>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">النشطة حالياً</p>
+          <div className="text-2xl font-black text-blue-600">{stats.activePromotions}</div>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">نقرات "ميز الآن"</p>
-          <h4 className="text-2xl font-black text-orange-600">{stats.promoteClickCount}</h4>
-          <p className="text-[10px] font-bold text-gray-400 mt-1">نسبة النقر: {stats.clickThroughRate}%</p>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">معدل التحويل</p>
+          <div className="text-2xl font-black text-emerald-600">%{stats.conversionRate}</div>
+          <p className="text-[10px] font-bold text-gray-400 mt-1">{stats.convertedAds} مستخدم اشترى باقة</p>
         </div>
       </div>
 
@@ -189,16 +188,6 @@ export default function AdminWelcomePromotion() {
                     value={wp.endDate || ""}
                     onChange={(e) => setSettings({ ...settings, welcomePromotion: { ...wp, endDate: e.target.value } })}
                   />
-                </div>
-                <div className="flex items-center gap-3 h-full pt-6">
-                  <input 
-                    type="checkbox" 
-                    id="firstAdOnly"
-                    className="w-5 h-5 rounded-lg border-gray-300 text-blue-600 focus:ring-blue-500"
-                    checked={wp.firstAdOnly}
-                    onChange={(e) => setSettings({ ...settings, welcomePromotion: { ...wp, firstAdOnly: e.target.checked } })}
-                  />
-                  <label htmlFor="firstAdOnly" className="text-sm font-bold text-gray-700 cursor-pointer">لأول إعلان فقط</label>
                 </div>
               </div>
             </div>
