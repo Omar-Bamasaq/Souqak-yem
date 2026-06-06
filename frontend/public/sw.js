@@ -1,4 +1,4 @@
-const CACHE_NAME = "suqaq-pwa-v4";
+const CACHE_NAME = "suqaq-pwa-v3";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
