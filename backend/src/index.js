@@ -129,7 +129,7 @@ app.options("*", cors(corsOptions)); // Handle preflight globally
 // Global Security Middleware
 app.use(securityHeaders);
 app.use(botDetection);
-app.use(csrfProtection);
+// app.use(csrfProtection); // تعطيل مؤقت لحل مشكلة Invalid CSRF Token أثناء الدخول من Vercel
 
 app.get("/api/version", (req, res) => {
   res.json({ version: "1.0.1", patch_fix: true, timestamp: new Date().toISOString() });
