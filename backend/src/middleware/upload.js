@@ -101,6 +101,24 @@ const commonOptions = {
   limits: { fileSize: 3 * 1024 * 1024 } // 3MB limit
 };
 
+const receiptsDir = path.join(uploadDir, "receipts");
+if (!fs.existsSync(receiptsDir)) {
+  fs.mkdirSync(receiptsDir, { recursive: true });
+}
+
+const idsDir = path.join(uploadDir, "ids");
+if (!fs.existsSync(idsDir)) {
+  fs.mkdirSync(idsDir, { recursive: true });
+}
+
+function idFileFilter(req, file, cb) {
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+  if (!allowedTypes.includes(file.mimetype)) {
+    return cb(new Error("نوع الملف غير مدعوم. يرجى رفع صورة أو ملف PDF"), false);
+  }
+  cb(null, true);
+}
+
 export const uploadImages = multer({
   ...commonOptions,
   limits: { fileSize: 5 * 1024 * 1024, files: 10 } // Allow up to 5MB and 10 files for ads
@@ -118,22 +136,11 @@ export const uploadReceipt = multer({
 
 export const uploadIdDoc = multer({
   ...commonOptions,
-  fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new Error("يرجى رفع صورة الهوية أو ملف PDF فقط."), false);
-    }
-    cb(null, true);
-  },
+  fileFilter: idFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 
-
-const receiptsDir = path.join(uploadDir, "receipts");
-if (!fs.existsSync(receiptsDir)) {
-  fs.mkdirSync(receiptsDir, { recursive: true });
-}
 
 const storageVerification = multer.diskStorage({
   destination: (req, file, cb) => {
