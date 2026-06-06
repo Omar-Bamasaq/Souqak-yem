@@ -1,7 +1,7 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { logger } from "../utils/logger.js";
+import logger from "../utils/logger.js";
 
 class ImageUploadService {
   constructor() {
