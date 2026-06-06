@@ -1,0 +1,18 @@
+import React from "react";
+
+export default function LogoIcon({ className = "w-full h-full" }) {
+  return (
+    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <defs>
+        <linearGradient id="icon_grad_def" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#3B82F6"/>
+          <stop offset="1" stop-color="#2563EB"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="128" fill="url(#icon_grad_def)"/>
+      <path d="M375 180H137C126.5 180 118 188.5 118 199V395C118 405.5 126.5 414 137 414H375C385.5 414 394 405.5 394 395V199C394 188.5 385.5 180 375 180Z" fill="white"/>
+      <path d="M320 180V140C320 104.7 291.3 76 256 76C220.7 76 192 104.7 192 140V180" stroke="white" stroke-width="28" stroke-linecap="round"/>
+      <path d="M205 260C205 290 230 305 245 285C260 305 285 290 285 260V330C285 365 195 365 195 320" stroke="#2563EB" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+  );
+}

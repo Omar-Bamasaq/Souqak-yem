@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import LogoIcon from "./LogoIcon.jsx";
 
 export default function OrdersList({ type }) { // type: 'buyer' or 'seller'
   const api = useApi();
@@ -55,10 +56,8 @@ export default function OrdersList({ type }) { // type: 'buyer' or 'seller'
       <div className="grid gap-4">
         {orders.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-gray-200 dark:border-slate-800">
-            <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
+            <div className="w-16 h-16 mx-auto mb-4 grayscale opacity-20">
+              <LogoIcon />
             </div>
             <p className="text-gray-500 font-bold">لا توجد طلبات شراء آمنة حالياً.</p>
           </div>

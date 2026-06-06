@@ -1,0 +1,24 @@
+<svg width="300" height="80" viewBox="0 0 300 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="icon_grad" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="text_grad" x1="0" y1="0" x2="200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon Part -->
+  <g transform="translate(230, 10) scale(0.117)">
+    <rect width="512" height="512" rx="128" fill="url(#icon_grad)"/>
+    <path d="M375 180H137C126.5 180 118 188.5 118 199V395C118 405.5 126.5 414 137 414H375C385.5 414 394 405.5 394 395V199C394 188.5 385.5 180 375 180Z" fill="white"/>
+    <path d="M320 180V140C320 104.7 291.3 76 256 76C220.7 76 192 104.7 192 140V180" stroke="white" stroke-width="28" stroke-linecap="round"/>
+    <path d="M205 260C205 290 230 305 245 285C260 305 285 290 285 260V330C285 365 195 365 195 320" stroke="#2563EB" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Text Part -->
+  <text x="210" y="45" font-family="Tajawal, sans-serif" font-weight="bold" font-size="36" fill="url(#text_grad)" text-anchor="end">سوقك</text>
+  <text x="210" y="65" font-family="Tajawal, sans-serif" font-weight="medium" font-size="12" fill="#6B7280" text-anchor="end">حراج اليمن للإعلانات المبوبة</text>
+</svg>

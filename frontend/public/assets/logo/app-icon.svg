@@ -6,13 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="128" fill="url(#icon_grad)"/>
-  
-  <!-- Stylized Bag and "س" -->
   <path d="M375 180H137C126.5 180 118 188.5 118 199V395C118 405.5 126.5 414 137 414H375C385.5 414 394 405.5 394 395V199C394 188.5 385.5 180 375 180Z" fill="white"/>
-  
-  <!-- Handle -->
   <path d="M320 180V140C320 104.7 291.3 76 256 76C220.7 76 192 104.7 192 140V180" stroke="white" stroke-width="28" stroke-linecap="round"/>
-
-  <!-- "س" Letter Cutout (using background color or transparent) -->
   <path d="M205 260C205 290 230 305 245 285C260 305 285 290 285 260V330C285 365 195 365 195 320" stroke="#2563EB" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import LogoIcon from "./LogoIcon.jsx";
 
 const INTRO_KEY = "suqaq_intro_seen";
 
@@ -99,10 +100,8 @@ export default function FirstVisitSessionIntro() {
                   transition={{ duration: 3, repeat: Infinity }}
                   className="absolute inset-0 bg-blue-400 blur-2xl rounded-full"
                 />
-                <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[28%] flex items-center justify-center shadow-2xl shadow-blue-500/30">
-                  <svg className="w-12 h-12 sm:w-14 sm:h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24">
+                  <LogoIcon />
                 </div>
               </div>
               
