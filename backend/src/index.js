@@ -101,6 +101,11 @@ const allowedOrigins = [
 app.use(addRequestId());
 app.use(requestIp.mw());
 
+app.use(compression());
+app.use(cookieParser());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
 // Enhanced CORS Configuration
 const corsOptions = {
   origin: function (origin, callback) {
@@ -179,9 +184,6 @@ const WS_URL = BACKEND_URL.replace(/^http/, "ws");
 
 // تمت إزالة helmet المكرر هنا لأنه يتم تطبيقه في securityHeaders بالأعلى مع إعدادات CSP المتقدمة
 
-app.use(compression());
-app.use(cookieParser());
-
 // Security Middlewares
 app.use(mongoSanitize()); // Prevent NoSQL Injection
 app.use(xss()); // Prevent Basic XSS
@@ -202,7 +204,6 @@ app.use(
     }
   })
 );
-app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
 connectLocal()
