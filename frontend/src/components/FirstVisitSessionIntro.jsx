@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import LogoIcon from "./LogoIcon.jsx";
 
 const INTRO_KEY = "suqaq_intro_seen";
 
@@ -100,8 +99,15 @@ export default function FirstVisitSessionIntro() {
                   transition={{ duration: 3, repeat: Infinity }}
                   className="absolute inset-0 bg-blue-400 blur-2xl rounded-full"
                 />
-                <div className="relative w-20 h-20 sm:w-24 sm:h-24">
-                  <LogoIcon />
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 bg-blue-600 rounded-[28%] flex items-center justify-center shadow-2xl shadow-blue-500/30">
+                  <svg className="w-14 h-14 sm:w-16 sm:h-16 text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M156 220C156 200 172 184 192 184H320C340 184 356 200 356 220V380C356 400 340 416 320 416H192C172 416 156 400 156 380V220Z" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M200 184V152C200 121.072 225.072 96 256 96C286.928 96 312 121.072 312 152V184" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M256 340C235 340 220 310 220 310" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M256 275C248 275 240 260 240 260" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M256 340C277 340 292 310 292 310" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M256 275C264 275 272 260 272 260" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </div>
               </div>
               
@@ -110,18 +116,22 @@ export default function FirstVisitSessionIntro() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="text-5xl sm:text-6xl font-black tracking-tight bg-gradient-to-b from-blue-600 to-indigo-700 bg-clip-text text-transparent"
+                  className="text-6xl sm:text-7xl font-black tracking-tight text-blue-700"
                 >
                   سوقك
                 </motion.h1>
-                <motion.span 
+                <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
-                  className="text-[10px] font-bold text-blue-500/60 uppercase tracking-[0.3em] block mt-1"
+                  className="flex items-center gap-1.5 justify-center mt-2"
                 >
-                  Beta Version
-                </motion.span>
+                  <div className="h-[1px] w-4 bg-blue-300"></div>
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
+                    حراج اليمن الأول
+                  </span>
+                  <div className="h-[1px] w-4 bg-blue-300"></div>
+                </motion.div>
               </div>
             </motion.div>
 

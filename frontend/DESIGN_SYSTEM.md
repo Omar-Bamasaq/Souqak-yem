@@ -2,8 +2,8 @@
 
 ## 1. Color System
 - Brand (primary):
-  - brand.500 `#3b82f6` – primary actions
-  - brand.600 `#2563eb` – hover/active
+  - brand.500 `#3b82f6` – secondary actions
+  - brand.600 `#1d4ed8` – primary brand color & main actions
   - brand.700 `#1e40af` – emphasis text/icons
 - Accent (secondary highlights):
   - accent.500 `#e11d48` – badges, highlights

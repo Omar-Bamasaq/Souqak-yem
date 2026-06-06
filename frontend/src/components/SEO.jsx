@@ -11,7 +11,7 @@ const SEO = ({ title, description, image, url, type = 'website', price, currency
   const cleanDescription = metaDescription.replace(/<[^>]*>?/gm, '').substring(0, 160);
 
   const domain = window.location.origin;
-  const metaImage = image ? (image.startsWith('http') ? image : `${domain}${image}`) : `${domain}/assets/logo/logo-full.png`;
+  const metaImage = image ? (image.startsWith('http') ? image : `${domain}${image}`) : `${domain}/favicon.svg`;
   const metaUrl = url ? (url.startsWith('http') ? url : `${domain}${url}`) : window.location.href;
 
   return (

@@ -150,7 +150,7 @@ ${code}
     `,
     html: `
       <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-        <h2 style="color: #2563eb;">رمز التحقق</h2>
+        <h2 style="color: #1d4ed8;">رمز التحقق</h2>
         <p style="font-size: 16px; color: #333;">رمز التحقق الخاص بك هو:</p>
         <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; color: #1e40af;">
           ${code}
@@ -187,7 +187,7 @@ ${code}
     `,
     html: `
       <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-        <h2 style="color: #2563eb;">إعادة تعيين كلمة المرور</h2>
+        <h2 style="color: #1d4ed8;">إعادة تعيين كلمة المرور</h2>
         <p style="font-size: 16px; color: #333;">لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. رمز التحقق هو:</p>
         <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; color: #1e40af;">
           ${code}
@@ -226,10 +226,10 @@ export async function sendSafePurchaseNotification(to, sellerName, adTitle, orde
     `,
     html: `
       <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-        <h2 style="color: #2563eb;">طلب شراء آمن جديد</h2>
+        <h2 style="color: #1d4ed8;">طلب شراء آمن جديد</h2>
         <p style="font-size: 16px; color: #333;">مرحباً <strong>${sellerName}</strong>،</p>
         <p style="font-size: 16px; color: #333;">لقد تلقيت طلب شراء آمن جديد لإعلانك:</p>
-        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #2563eb; text-align: right;">
+        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #1d4ed8; text-align: right;">
           <div style="font-weight: bold; color: #1e40af; margin-bottom: 5px;">${adTitle}</div>
           <div style="font-size: 14px; color: #666;">رقم الطلب: #${orderId.toString().slice(-6)}</div>
           <div style="font-size: 14px; color: #666;">السعر المتفق عليه: ${price} ${currency}</div>
@@ -237,7 +237,7 @@ export async function sendSafePurchaseNotification(to, sellerName, adTitle, orde
           <div style="font-size: 14px; color: #666;">رسوم التوصيل: ${shippingFee} ${shippingCurrency}</div>
         </div>
         <p style="color: #666; font-size: 14px; margin-bottom: 25px;">يرجى التوجه إلى حسابك للموافقة على الطلب أو رفضه.</p>
-        <a href="http://localhost:5173/profile/orders" style="background: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">مراجعة الطلب</a>
+        <a href="http://localhost:5173/profile/orders" style="background: #1d4ed8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">مراجعة الطلب</a>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 25px;">
         <p style="color: #999; font-size: 12px; margin-top: 10px;">تحياتنا،<br>فريق منصة سوقك</p>
       </div>

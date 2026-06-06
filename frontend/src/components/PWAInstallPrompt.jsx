@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import LogoIcon from "./LogoIcon.jsx";
 
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -66,8 +65,15 @@ export default function PWAInstallPrompt() {
         >
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-blue-100 dark:border-slate-800 flex flex-col gap-4">
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 flex-shrink-0">
-                <LogoIcon />
+              <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none flex-shrink-0">
+                <svg className="w-9 h-9 text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M156 220C156 200 172 184 192 184H320C340 184 356 200 356 220V380C356 400 340 416 320 416H192C172 416 156 400 156 380V220Z" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M200 184V152C200 121.072 225.072 96 256 96C286.928 96 312 121.072 312 152V184" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M256 340C235 340 220 310 220 310" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M256 275C248 275 240 260 240 260" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M256 340C277 340 292 310 292 310" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M256 275C264 275 272 260 272 260" stroke="currentColor" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-black text-gray-900 dark:text-white">تثبيت تطبيق سوقك</h3>

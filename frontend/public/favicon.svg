@@ -1,17 +1,13 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="120" fill="url(#paint0_linear)"/>
+  <path d="M156 220C156 200 172 184 192 184H320C340 184 356 200 356 220V380C356 400 340 416 320 416H192C172 416 156 400 156 380V220Z" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M200 184V152C200 121.072 225.072 96 256 96C286.928 96 312 121.072 312 152V184" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M220 310C220 310 235 340 256 340C277 340 292 310 292 310" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M240 260C240 260 248 275 256 275C264 275 272 260 272 260" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
   <defs>
-    <linearGradient id="suqaq_grad_v4_favicon" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#00ADFF"/>
-      <stop offset="1" stop-color="#0047FF"/>
+    <linearGradient id="paint0_linear" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0066FF"/>
+      <stop offset="1" stop-color="#0044CC"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="140" fill="url(#suqaq_grad_v4_favicon)"/>
-  <g transform="translate(106, 90)">
-    <path d="M75 110 C75 30, 225 30, 225 110" stroke="white" stroke-width="45" stroke-linecap="round" fill="none"/>
-    <path d="M10 110 H290 C330 110, 350 140, 350 180 V250 C350 310, 280 355, 150 355 C20 355, -50 310, -50 250 V180 C-50 140, -30 110, 10 110 Z" fill="white"/>
-    <g transform="translate(45, 185)">
-      <path d="M200 0 V45 C200 85, 155 85, 155 45 C155 85, 110 85, 110 45 V0" stroke="#0066FF" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="M110 45 V85 C110 135, 10 135, 10 85 C10 55, 30 40, 50 40" stroke="#0066FF" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </g>
-  </g>
 </svg>
