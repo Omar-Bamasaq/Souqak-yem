@@ -132,7 +132,7 @@ export const uploadAvatar = multer({
 export const uploadReceipt = multer({
   ...commonOptions,
   limits: { fileSize: 4 * 1024 * 1024 } // 4MB for receipts
-});
+}).array("paymentReceipt", 5);
 
 export const uploadIdDoc = multer({
   ...commonOptions,
