@@ -23,7 +23,7 @@ import AdView from "../models/AdView.js";
 import SystemSettings from "../models/SystemSettings.js";
 import Commission from "../models/Commission.js";
 import Joi from "joi";
-import { validateBody, validateParams } from "../middleware/validate.js";
+import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
 import processImages from "../middleware/processImages.js";
 import ListingService from "../services/listingService.js";
 import SmartSearchService from "../services/smartSearchService.js";
