@@ -20,8 +20,8 @@
       <rect x="0" y="0" width="80" height="56" rx="10" fill="#ffffff"/>
       <rect x="10" y="10" width="26" height="36" rx="6" fill="#e8eef7"/>
       <rect x="44" y="10" width="26" height="36" rx="6" fill="#e8eef7"/>
-      <circle cx="20" cy="54" r="6" fill="#1e61c0"/>
-      <circle cx="60" cy="54" r="6" fill="#1e61c0"/>
+      <circle cx="20" cy="54" r="6" fill="#1d4ed8"/>
+      <circle cx="60" cy="54" r="6" fill="#1d4ed8"/>
     </g>
     <g transform="translate(300 80)">
       <rect x="0" y="0" width="96" height="64" rx="12" fill="#ffffff"/>
