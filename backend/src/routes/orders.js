@@ -198,7 +198,7 @@ router.patch(
   auth,
   requireRole(["seller", "user"]),
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
-  validateBody(Joi.object({ reason: Joi.string().allow("") })),
+  validateBody(Joi.object({ reason: Joi.string().allow("").optional() })),
   async (req, res) => {
     try {
       const order = await Order.findById(req.params.id);
@@ -211,13 +211,17 @@ router.patch(
       await order.save();
 
       // إشعار للمشتري
-      await createNotification(req.app, {
-        userId: order.buyer,
-        title: "تم رفض طلب الشراء",
-        body: `نعتذر منك، قام البائع برفض طلب الشراء الخاص بك للطلب #${order._id.toString().slice(-6)}. السبب: ${req.body.reason || "غير محدد"}.`,
-        type: "order",
-        data: { orderId: order._id }
-      });
+      try {
+        await createNotification(req.app, {
+          userId: order.buyer,
+          title: "تم رفض طلب الشراء",
+          body: `نعتذر منك، قام البائع برفض طلب الشراء الخاص بك للطلب #${order._id.toString().slice(-6).toUpperCase()}. السبب: ${req.body.reason || "غير محدد"}.`,
+          type: "order",
+          data: { orderId: order._id }
+        });
+      } catch (notifErr) {
+        console.error("Notification to buyer failed:", notifErr);
+      }
 
       res.json(order);
     } catch (err) {
