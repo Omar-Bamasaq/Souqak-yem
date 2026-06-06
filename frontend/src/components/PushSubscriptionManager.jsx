@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "../store/AuthContext.jsx";
 import { subscribeToPush } from "../utils/pushNotifications.js";
-import useApi from "../api/axios.js";
+import { useApi } from "../api/axios.js";
 
 /**
  * Component to manage push subscription automatically
