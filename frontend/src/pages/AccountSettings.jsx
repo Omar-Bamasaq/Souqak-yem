@@ -4,6 +4,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useTheme } from "../store/ThemeContext.jsx";
 import { useNavigate, Link } from "react-router-dom";
 import { uploadsUrl } from "../lib/uploads.js";
+import { subscribeToPush } from "../utils/pushNotifications.js";
 
 export default function AccountSettings() {
   const api = useApi();
@@ -105,7 +106,9 @@ export default function AccountSettings() {
     }
   };
 
-  const toggleNotif = (category, type) => {
+  const toggleNotif = async (category, type) => {
+    const isEnablingPush = type === 'push' && !notifPrefs[category][type];
+    
     const newPrefs = {
       ...notifPrefs,
       [category]: {
@@ -113,8 +116,17 @@ export default function AccountSettings() {
         [type]: !notifPrefs[category][type]
       }
     };
+    
     setNotifPrefs(newPrefs);
     handleUpdateNotifications(newPrefs);
+
+    if (isEnablingPush) {
+      try {
+        await subscribeToPush(api);
+      } catch (err) {
+        console.error("Push subscription error:", err);
+      }
+    }
   };
 
   const toggleAdhkar = () => {

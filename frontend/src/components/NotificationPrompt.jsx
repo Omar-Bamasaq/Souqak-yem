@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useApi } from "../api/axios.js";
 import { motion, AnimatePresence } from "framer-motion";
+import { subscribeToPush } from "../utils/pushNotifications.js";
 
 export default function NotificationPrompt() {
   const { user, setUser } = useAuth();
@@ -64,9 +65,9 @@ export default function NotificationPrompt() {
 
       if (enabled) {
         try {
-          await Notification.requestPermission();
+          await subscribeToPush(api);
         } catch (err) {
-          console.error("Browser notification permission error:", err);
+          console.error("Browser notification subscription error:", err);
         }
       }
 

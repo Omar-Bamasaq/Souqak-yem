@@ -68,3 +68,68 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// Push Event - Handle incoming push notifications
+self.addEventListener("push", (event) => {
+  if (!(self.Notification && self.Notification.permission === "granted")) {
+    return;
+  }
+
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: "سوقك", body: event.data.text() };
+    }
+  }
+
+  const title = data.title || "سوقك";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/icon-192.png",
+    badge: data.badge || "/badge.png",
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.data?.url || "/",
+      ...data.data
+    },
+    actions: [
+      { action: "open", title: "عرض الآن" },
+      { action: "close", title: "إغلاق" }
+    ],
+    // Ensure notification stays until interacted with (good for important alerts)
+    requireInteraction: true 
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Notification Click Event - Handle user interaction
+self.addEventListener("notificationclick", (event) => {
+  const notification = event.notification;
+  const action = event.action;
+
+  notification.close();
+
+  if (action === "close") return;
+
+  const urlToOpen = notification.data?.url || "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      // If a window is already open with the same URL, focus it
+      for (let client of windowClients) {
+        if (client.url === urlToOpen && "focus" in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise, open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});

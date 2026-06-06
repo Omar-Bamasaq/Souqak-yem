@@ -8,6 +8,7 @@ import FirstVisitSessionIntro from "./components/FirstVisitSessionIntro.jsx";
 import SupportChatFAB from "./components/SupportChatFAB.jsx";
 import OnboardingTour from "./components/OnboardingTour.jsx";
 import LoadingSpinner from "./components/LoadingSpinner.jsx";
+import PushSubscriptionManager from "./components/PushSubscriptionManager.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
 import AuthLayout from "./layouts/AuthLayout.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
@@ -97,6 +98,7 @@ function RequireRole({ role, children }) {
 export default function App() {
   return (
     <>
+      <PushSubscriptionManager />
       <FirstVisitSessionIntro />
       <ScrollToTop />
       <SupportChatFAB />
