@@ -279,10 +279,8 @@ export default function OrderDetail() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-gray-50 dark:border-slate-800 shadow-xl shadow-gray-50 dark:shadow-none">
         <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-100 dark:shadow-none shrink-0">
-            <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
+          <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center shadow-xl shadow-blue-100 dark:shadow-none shrink-0 overflow-hidden">
+            <img src="/assets/logo/app-icon.svg" alt="سوقك" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
           </div>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-2xl font-black text-gray-900 dark:text-white truncate">طلب #{order._id.slice(-6).toUpperCase()}</h1>
