@@ -5,7 +5,7 @@ export default function Logo({ showText = true, iconSize = "h-8 sm:h-10", textSi
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <img 
-        src="/assets/logo/logo-full.svg" 
+        src="/assets/logo/logo.svg" 
         alt="سوقك" 
         className={`${iconSize} w-auto object-contain`}
       />

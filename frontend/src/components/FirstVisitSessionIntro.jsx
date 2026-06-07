@@ -100,7 +100,7 @@ export default function FirstVisitSessionIntro() {
                   className="absolute inset-0 bg-blue-400 blur-2xl rounded-full"
                 />
                 <img 
-                  src="/assets/logo/logo-full.svg" 
+                  src="/assets/logo/logo.svg" 
                   alt="سوقك" 
                   className="relative h-20 sm:h-24 w-auto object-contain"
                 />
