@@ -65,12 +65,9 @@ export default function PWAInstallPrompt() {
         >
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-blue-100 dark:border-slate-800 flex flex-col gap-4">
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#0088FF] to-[#0044CC] rounded-[28%] flex items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none flex-shrink-0">
-                <svg className="w-10 h-10 text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M140 220C140 190 160 175 190 175H322C352 175 372 190 372 220V370C372 405 345 425 310 425H202C167 425 140 405 140 370V220Z" stroke="currentColor" strokeWidth="36" strokeLinejoin="round"/>
-                  <path d="M205 175V150C205 120 225 100 256 100C287 100 307 120 307 150V175" stroke="currentColor" strokeWidth="36" strokeLinecap="round"/>
-                  <path d="M210 320C210 320 225 355 256 355C287 355 302 320 302 320" stroke="currentColor" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M235 285C235 285 245 305 256 305C267 305 277 285 277 285" stroke="currentColor" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round"/>
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none flex-shrink-0">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
               </div>
               <div className="flex-1">

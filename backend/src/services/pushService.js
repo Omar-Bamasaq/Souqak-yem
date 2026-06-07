@@ -31,8 +31,8 @@ export const sendPushNotification = async (userId, payload) => {
     const notificationPayload = JSON.stringify({
       title: payload.title || "سوقك",
       body: payload.body || "",
-      icon: payload.icon || "/favicon.svg",
-      badge: "/favicon.svg",
+      icon: payload.icon || "/logo192.png",
+      badge: "/badge.png",
       data: {
         url: payload.url || "/",
         ...payload.data

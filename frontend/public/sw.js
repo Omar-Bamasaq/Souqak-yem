@@ -1,4 +1,4 @@
-const CACHE_NAME = "suqaq-pwa-v4";
+const CACHE_NAME = "suqaq-pwa-v3";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
@@ -87,8 +87,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "سوقك";
   const options = {
     body: data.body || "",
-    icon: data.icon || "/favicon.svg",
-    badge: data.badge || "/favicon.svg",
+    icon: data.icon || "/icon-192.png",
+    badge: data.badge || "/badge.png",
     vibrate: [100, 50, 100],
     data: {
       url: data.data?.url || "/",

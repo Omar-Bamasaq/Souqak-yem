@@ -280,10 +280,10 @@ export default function OrderDetail() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-gray-50 dark:border-slate-800 shadow-xl shadow-gray-50 dark:shadow-none">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-100 dark:shadow-none shrink-0">
-              <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
-            </div>
+            <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+          </div>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-2xl font-black text-gray-900 dark:text-white truncate">طلب #{order._id.slice(-6).toUpperCase()}</h1>
             <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{new Date(order.createdAt).toLocaleString("ar-EG")}</p>
