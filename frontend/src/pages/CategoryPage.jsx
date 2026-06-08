@@ -454,6 +454,19 @@ export default function CategoryPage() {
     navigate(`?${next.toString()}`, { replace: true, preventScrollReset: true });
   };
 
+  // Filter attributes to show only Brand and Type quick filters
+  const quickFilters = useMemo(() => {
+    if (!categoryAttributes) return [];
+    return categoryAttributes.filter(attr => {
+      if (!attr.options || attr.options.length === 0) return false;
+      const label = (attr.label || "").toLowerCase();
+      const name = (attr.name || "").toLowerCase();
+      const isBrand = ["ماركة", "الماركة", "البراند", "براند", "brand", "make", "manufacturer", "الشركة المصنعة"].some(k => label.includes(k) || name.includes(k));
+      const isType = ["النوع", "نوع", "type", "category", "الفئة", "موديل", "model"].some(k => label.includes(k) || name.includes(k));
+      return isBrand || isType;
+    });
+  }, [categoryAttributes]);
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -643,37 +656,14 @@ export default function CategoryPage() {
       )}
 
       {/* Category Attributes Filters */}
-      {categoryAttributes && categoryAttributes.length > 0 && (
-        <div className="space-y-6">
-          {categoryAttributes.map((attr) => {
-            if (!attr.options || attr.options.length === 0) return null;
-            
-            // Filter logic: Show only "Brand" for all categories, 
-            // except for "Motorcycles" (دراجات) where we show both "Type" and "Brand".
-            const label = (attr.label || "").toLowerCase();
-            const name = (attr.name || "").toLowerCase();
-            const isBrand = ["ماركة", "الماركة", "البراند", "brand", "make"].some(k => label.includes(k) || name.includes(k));
-            const isType = ["النوع", "نوع", "type"].some(k => label.includes(k) || name.includes(k));
-
-            const isMotorcycle = category?.name?.includes("دراجات") || 
-                               category?.slug?.includes("motorcycle") ||
-                               subSlug?.includes("motorcycle") || 
-                               subSlug?.includes("دراجات") ||
-                               breadcrumbs.some(b => b.name?.includes("دراجات") || b.slug?.includes("motorcycle"));
-
-            if (isMotorcycle) {
-              // For motorcycles, allow both Type and Brand
-              if (!isBrand && !isType) return null;
-            } else {
-              // For other categories, allow only Brand
-              if (!isBrand) return null;
-            }
-            
+      {quickFilters.length > 0 && (
+        <div className="space-y-6 animate-in fade-in duration-700">
+          {quickFilters.map((attr) => {
             const attrKey = `attr_${attr.id || attr._id}`;
             const activeValue = searchParams.get(attrKey);
             
             return (
-              <div key={attr.id || attr._id} className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div key={attr.id || attr._id} className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">{attr.label}</h2>
                   {activeValue && (
@@ -681,7 +671,7 @@ export default function CategoryPage() {
                       onClick={() => {
                         const next = new URLSearchParams(searchParams);
                         next.delete(attrKey);
-                        navigate(`?${next.toString()}`, { replace: true });
+                        navigate(`?${next.toString()}`, { replace: true, preventScrollReset: true });
                       }}
                       className="text-[10px] font-bold text-red-500 hover:underline"
                     >
@@ -699,10 +689,10 @@ export default function CategoryPage() {
                         <button
                           key={option}
                           onClick={() => handleAttributeClick(attr.id || attr._id, option)}
-                          className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-all border ${
+                          className={`px-5 py-2 rounded-full text-[13px] font-bold transition-all border shadow-sm ${
                             isActive
-                              ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100"
-                              : "bg-white border-gray-100 text-gray-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                              ? "bg-blue-600 border-blue-600 text-white shadow-blue-100 scale-[1.05]"
+                              : "bg-white border-gray-100 text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
                           }`}
                         >
                           {option}
