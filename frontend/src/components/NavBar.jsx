@@ -8,6 +8,7 @@ import { useApi } from "../api/axios.js";
 import AdvancedSearchModal from "./AdvancedSearchModal.jsx";
 import MobileSelect from "./MobileSelect.jsx";
 import UserNotificationBell from "./UserNotificationBell.jsx";
+import PWAInstallButton from "./PWAInstallButton.jsx";
 import { useTheme } from "../store/ThemeContext";
 import { uploadsUrl } from "../lib/uploads.js";
 
@@ -209,6 +210,7 @@ export default function NavBar() {
 
           {/* Mobile Actions - Simplified & Consistent */}
           <div className="flex md:hidden flex-1 justify-end items-center gap-2">
+            <PWAInstallButton mobile={true} />
             <button 
               onClick={() => navigate("/search")}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-sm transition-all active:scale-90 dark:border-slate-800 dark:bg-slate-900"
@@ -233,6 +235,7 @@ export default function NavBar() {
 
           {/* Desktop Actions */}
           <div className="flex items-center gap-1.5 sm:gap-3">
+            <PWAInstallButton />
             <button
               type="button"
               onClick={toggleTheme}

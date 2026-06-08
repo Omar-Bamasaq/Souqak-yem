@@ -88,33 +88,49 @@ export default function FirstVisitSessionIntro() {
               initial={{ scale: 0.8, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ 
-                duration: 0.7, 
+                duration: 0.8, 
                 ease: [0.22, 1, 0.36, 1] 
               }}
-              className="flex flex-col items-center gap-4 mb-8"
+              className="flex flex-col items-center gap-6 mb-8"
             >
               <div className="relative">
+                {/* Enhanced Glow Effect */}
                 <motion.div 
-                  animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                  className="absolute inset-0 bg-blue-400 blur-2xl rounded-full"
+                  animate={{ 
+                    scale: [1, 1.1, 1], 
+                    opacity: [0.3, 0.6, 0.3],
+                    rotate: [0, 90, 180, 270, 360]
+                  }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                  className="absolute inset-[-20%] bg-gradient-to-tr from-brand-400/30 to-brand-600/30 blur-3xl rounded-full"
                 />
-                <img 
-                  src="/assets/logo/opening-logo.svg" 
-                  alt="سوقك" 
-                  className="relative h-20 sm:h-24 w-auto object-contain"
-                />
+                
+                {/* Main Logo */}
+                <div className="relative group">
+                  <motion.div
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <img 
+                      src="/assets/logo/opening-logo.svg" 
+                      alt="سوقك" 
+                      className="h-24 sm:h-32 w-auto object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </motion.div>
+                </div>
               </div>
               
               <div className="text-center">
-                <motion.span 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="text-[10px] font-bold text-blue-500/60 uppercase tracking-[0.3em] block mt-1"
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5, duration: 0.5 }}
+                  className="inline-flex flex-col items-center"
                 >
-                  النسخة التجريبية
-                </motion.span>
+                  <span className="text-[11px] font-black text-brand-600 uppercase tracking-[0.4em] px-4 py-1.5 bg-brand-50 rounded-full border border-brand-100 shadow-sm">
+                    النسخة التجريبية
+                  </span>
+                </motion.div>
               </div>
             </motion.div>
 
@@ -122,18 +138,18 @@ export default function FirstVisitSessionIntro() {
             <div className="relative py-4 w-full flex flex-col items-center">
               <motion.div 
                 initial={{ width: 0 }}
-                animate={{ width: 40 }}
-                transition={{ delay: 0.6, duration: 0.8 }}
-                className="h-[2px] bg-blue-200 mb-4"
+                animate={{ width: 60 }}
+                transition={{ delay: 0.7, duration: 1 }}
+                className="h-[3px] bg-brand-200 rounded-full mb-6"
               />
               <motion.p
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8, duration: 0.6 }}
-                className="text-gray-500 text-lg font-medium text-center leading-relaxed"
+                transition={{ delay: 0.9, duration: 0.8 }}
+                className="text-gray-600 text-xl font-medium text-center leading-relaxed"
               >
                 بيع، اشترِ، واعثر على <br/>
-                <span className="text-blue-600 font-bold">كل ما تحتاجه</span>
+                <span className="text-brand-600 font-black text-2xl mt-1 block">كل ما تحتاجه</span>
               </motion.p>
             </div>
 

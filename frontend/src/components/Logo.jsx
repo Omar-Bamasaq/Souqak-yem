@@ -16,7 +16,7 @@ export default function Logo({ showText = true, iconSize = "h-8 sm:h-10", textSi
       */}
       {showText && (
         <div className="flex flex-col -gap-1">
-          <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter -mt-1 opacity-80">
+          <span className="text-[9px] font-bold text-brand-500 uppercase tracking-tighter -mt-1 opacity-80">
             نسخة تجريبية
           </span>
         </div>

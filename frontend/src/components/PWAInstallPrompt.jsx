@@ -12,6 +12,9 @@ export default function PWAInstallPrompt() {
       // Store the event so it can be triggered later
       setDeferredPrompt(e);
       
+      // Dispatch custom event to notify NavBar and others
+      window.dispatchEvent(new CustomEvent("pwa:can-install", { detail: e }));
+      
       // Check if user has already dismissed it in this session
       const isDismissed = sessionStorage.getItem("pwa_prompt_dismissed");
       if (!isDismissed) {
@@ -26,13 +29,28 @@ export default function PWAInstallPrompt() {
     window.addEventListener("appinstalled", () => {
       setDeferredPrompt(null);
       setShowPrompt(false);
+      window.dispatchEvent(new CustomEvent("pwa:installed"));
       console.log("PWA was installed");
     });
 
+    // Listen for manual install requests from NavBar
+    const handleManualRequest = async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setDeferredPrompt(null);
+          setShowPrompt(false);
+        }
+      }
+    };
+    window.addEventListener("pwa:request-install", handleManualRequest);
+
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("pwa:request-install", handleManualRequest);
     };
-  }, []);
+  }, [deferredPrompt]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
