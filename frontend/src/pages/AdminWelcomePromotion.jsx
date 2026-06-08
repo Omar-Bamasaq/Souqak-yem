@@ -17,6 +17,7 @@ export default function AdminWelcomePromotion() {
     activePromotions: 0,
     remainingQuota: 0,
     convertedAds: 0,
+    purchasedAfterTrialCount: 0,
     conversionRate: 0,
     summaryShownCount: 0,
     promoteClickCount: 0,
@@ -130,7 +131,7 @@ export default function AdminWelcomePromotion() {
         <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">معدل التحويل</p>
           <div className="text-2xl font-black text-emerald-600">%{stats.conversionRate}</div>
-          <p className="text-[10px] font-bold text-gray-400 mt-1">{stats.convertedAds} مستخدم اشترى باقة</p>
+          <p className="text-[10px] font-bold text-gray-400 mt-1">{stats.purchasedAfterTrialCount} مستخدم اشترى باقة بعد التجربة</p>
         </div>
       </div>
 

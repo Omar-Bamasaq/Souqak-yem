@@ -39,7 +39,8 @@ const SystemSettingsSchema = new mongoose.Schema(
       stats: {
         summaryShownCount: { type: Number, default: 0 },
         promoteClickCount: { type: Number, default: 0 },
-        totalConversions: { type: Number, default: 0 }
+        totalConversions: { type: Number, default: 0 },
+        purchasedAfterTrialCount: { type: Number, default: 0 }
       }
     },
     updatedBy: {

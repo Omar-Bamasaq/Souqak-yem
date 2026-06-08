@@ -644,18 +644,24 @@ export default function AddProduct() {
 
       {/* Welcome Promotion Banner */}
       {promoEligibility.eligible && adType !== "order" && (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-[2rem] p-6 mb-8 text-white shadow-xl shadow-blue-100 relative overflow-hidden group">
+        <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-[2rem] p-6 mb-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border-4 border-white">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex flex-col sm:flex-row items-center gap-6">
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm">
               🎁
             </div>
             <div className="flex-1 text-center sm:text-right">
-              <h3 className="text-lg font-black mb-1">هدية ترحيبية من سواق!</h3>
-              <p className="text-blue-50 text-sm font-medium leading-relaxed">
-                سيتم تمييز أول إعلان لك <span className="bg-white/20 px-2 py-0.5 rounded-lg font-black text-white">مجاناً</span> لمدة {promoEligibility.durationHours} ساعات لزيادة فرص البيع.
+              <h3 className="text-lg font-black mb-1">جرب التمييز مجاناً!</h3>
+              <p className="text-orange-50 text-sm font-medium leading-relaxed">
+                يمكنك الآن تجربة ميزة التمييز <span className="bg-white/20 px-2 py-0.5 rounded-lg font-black text-white">مجاناً</span> لمدة {promoEligibility.durationHours} ساعات لأي إعلان تختاره.
               </p>
             </div>
+            <Link 
+              to="/seller/featured-ad" 
+              className="px-6 py-2 bg-white text-orange-600 rounded-xl font-black text-sm shadow-lg hover:bg-orange-50 transition-colors"
+            >
+              اكتشف المزيد
+            </Link>
           </div>
         </div>
       )}

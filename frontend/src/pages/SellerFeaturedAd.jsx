@@ -17,24 +17,48 @@ export default function SellerFeaturedAd() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [promoEligibility, setPromoEligibility] = useState({ eligible: false });
+  const [activatingFreeTrial, setActivatingFreeTrial] = useState(false);
+  const [showFreeTrialModal, setShowFreeTrialModal] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [pRes, aRes, bRes] = await Promise.all([
+        const [pRes, aRes, bRes, eRes] = await Promise.all([
           api.get("/plans", { params: { type: "featured" } }),
           api.get("/ads/my", { params: { status: "approved" } }),
-          api.get("/bank-accounts")
+          api.get("/bank-accounts"),
+          api.get("/ads/welcome-promotion/eligibility")
         ]);
         setPlans(pRes.data || []);
         setAds(aRes.data || []);
         setBanks(bRes.data || []);
+        setPromoEligibility(eRes.data || { eligible: false });
       } catch (e) {
         console.error("Featured load error:", e?.response?.status, e?.message);
         setError(e?.response?.data?.error || e?.message || "فشل تحميل البيانات");
       }
     })();
   }, []);
+
+  const handleFreeTrialActivate = async (adId) => {
+    const targetAdId = adId || selectedAd;
+    if (!targetAdId) {
+      setError("يرجى اختيار الإعلان الذي تريد تمييزه أولاً");
+      return;
+    }
+    setError("");
+    setActivatingFreeTrial(true);
+    try {
+      await api.post("/ads/welcome-promotion/activate", { adId: targetAdId });
+      setSuccess(true);
+      setShowFreeTrialModal(false);
+    } catch (e) {
+      setError(e.response?.data?.error || "فشل تفعيل التجربة المجانية");
+    } finally {
+      setActivatingFreeTrial(false);
+    }
+  };
 
   const selectedPlan = plans.find((p) => p._id === selectedPlanId);
 
@@ -74,8 +98,10 @@ export default function SellerFeaturedAd() {
     return (
       <div className="mx-auto max-w-lg rounded-2xl border bg-white p-8 text-center shadow-lg">
         <div className="mb-4 text-6xl">✅</div>
-        <h2 className="text-xl font-bold text-gray-900">تم إرسال طلب التمييز بنجاح</h2>
-        <p className="mt-2 text-sm text-gray-600">سيتم مراجعته من الإدارة خلال فترة قصيرة.</p>
+        <h2 className="text-xl font-bold text-gray-900">تم التفعيل بنجاح</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          {selectedPlanId ? "تم إرسال طلب التمييز وهو قيد المراجعة." : "تم تفعيل التجربة المجانية لإعلانك بنجاح!"}
+        </p>
         <Link to="/seller" className="mt-6 inline-block rounded-xl bg-blue-600 px-6 py-2 text-white hover:bg-blue-700">
           العودة للوحة التحكم
         </Link>
@@ -90,6 +116,109 @@ export default function SellerFeaturedAd() {
 
       {step === 1 && (
         <>
+          {/* Free Trial Card */}
+          {promoEligibility.eligible && (
+            <div className="rounded-[2rem] bg-gradient-to-r from-amber-400 to-orange-500 p-6 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border-4 border-white">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative flex flex-col sm:flex-row items-center gap-6">
+                <div className="w-16 h-16 bg-white/30 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm">
+                  🎁
+                </div>
+                <div className="flex-1 text-center sm:text-right">
+                  <h3 className="text-xl font-black mb-1">تجربة مجانية</h3>
+                  <p className="text-orange-50 text-sm font-bold leading-relaxed">
+                    جرّب ميزة التمييز مجاناً لمدة {promoEligibility.durationHours} ساعات. ارفع إعلانك إلى أعلى النتائج وشاهد الفرق.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-[10px] font-black">
+                    🔥 متبقي {promoEligibility.remaining} تجربة مجانية
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFreeTrialModal(true)}
+                  disabled={activatingFreeTrial}
+                  className="w-full sm:w-auto px-8 py-3 bg-white text-orange-600 rounded-xl font-black shadow-lg hover:bg-orange-50 transition-colors disabled:opacity-50 active:scale-95"
+                >
+                  تجربة مجانية الآن
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Free Trial Ad Selection Modal */}
+          {showFreeTrialModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="w-full max-w-md rounded-[2.5rem] bg-white shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 text-center text-white">
+                  <div className="text-4xl mb-2">🎁</div>
+                  <h3 className="text-xl font-black">اختر الإعلان</h3>
+                  <p className="text-orange-50 text-xs font-bold">اختر الإعلان الذي تريد تمييزه مجاناً لمدة {promoEligibility.durationHours} ساعات</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    {ads.length > 0 ? ads.map(ad => (
+                      <label 
+                        key={ad._id}
+                        className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                          selectedAd === ad._id ? "border-orange-500 bg-orange-50" : "border-gray-100 hover:border-orange-200"
+                        }`}
+                      >
+                        <input 
+                          type="radio" 
+                          name="trialAd" 
+                          className="sr-only" 
+                          checked={selectedAd === ad._id}
+                          onChange={() => setSelectedAd(ad._id)}
+                        />
+                        {ad.images?.[0] && (
+                          <img 
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${ad.images[0]}`} 
+                            alt="" 
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-sm font-black text-gray-900 line-clamp-1">{ad.title}</p>
+                          <p className="text-[10px] font-bold text-gray-400">{ad.price} {ad.currency}</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          selectedAd === ad._id ? "border-orange-500 bg-orange-500" : "border-gray-300"
+                        }`}>
+                          {selectedAd === ad._id && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                        </div>
+                      </label>
+                    )) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 font-bold">لا توجد إعلانات معتمدة حالياً.</p>
+                        <Link to="/add-product" className="text-blue-600 text-sm font-black mt-2 inline-block">أنشئ إعلانك الأول الآن</Link>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-6 flex flex-col gap-2">
+                    <button
+                      onClick={() => handleFreeTrialActivate(selectedAd)}
+                      disabled={!selectedAd || activatingFreeTrial}
+                      className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-100 hover:bg-orange-600 active:scale-95 disabled:opacity-50 transition-all"
+                    >
+                      {activatingFreeTrial ? "جاري التفعيل..." : "تأكيد التفعيل المجاني"}
+                    </button>
+                    <button
+                      onClick={() => setShowFreeTrialModal(false)}
+                      className="w-full py-3 bg-gray-50 text-gray-500 rounded-2xl text-xs font-bold hover:bg-gray-100 transition-all"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!promoEligibility.eligible && promoEligibility.reason === "quota_full" && (
+            <div className="rounded-2xl bg-gray-50 p-4 border border-gray-200 text-center">
+              <p className="text-sm font-bold text-gray-500">🎁 انتهت جميع التجارب المجانية حالياً.</p>
+            </div>
+          )}
           <div className="rounded-xl border bg-gray-50 p-4">
             <h3 className="font-semibold mb-2">فائدة التمييز</h3>
             <ul className="space-y-1 text-sm text-gray-700">

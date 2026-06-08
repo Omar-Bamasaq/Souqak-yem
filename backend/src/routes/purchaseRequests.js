@@ -158,6 +158,7 @@ router.patch("/:id/approve", auth, requireRole(["admin"]), async (req, res) => {
         const settings = await SystemSettings.getSettings();
         if (settings.welcomePromotion && settings.welcomePromotion.stats) {
           settings.welcomePromotion.stats.totalConversions += 1;
+          settings.welcomePromotion.stats.purchasedAfterTrialCount += 1;
           await settings.save();
         }
       }

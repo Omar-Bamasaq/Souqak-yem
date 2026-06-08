@@ -126,6 +126,7 @@ router.get("/welcome-promotion/stats", async (req, res) => {
       activePromotions,
       remainingQuota,
       convertedAds,
+      purchasedAfterTrialCount: convertedAds, // Alias for clarity as requested
       conversionRate: totalBeneficiaries > 0 ? (convertedAds / totalBeneficiaries * 100).toFixed(2) : 0,
       summaryShownCount: wpStats.summaryShownCount || 0,
       promoteClickCount: wpStats.promoteClickCount || 0,
