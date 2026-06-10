@@ -1,11 +1,18 @@
-import { useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
 
+// Initialize axios instance ONCE
+let apiInstance = null;
+
 export function useApi() {
   const { token, logout } = useAuth();
+  const instanceRef = useRef(null);
+  const requestInterceptorRef = useRef(null);
+  const responseInterceptorRef = useRef(null);
   
-  return useMemo(() => {
+  // Initialize the instance if it doesn't exist yet
+  if (!apiInstance) {
     const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
     
     // Safeguard against misconfigured environment variables
@@ -19,26 +26,36 @@ export function useApi() {
     if (!base.endsWith("/api")) {
       base = `${base}/api`;
     }
-    // ALWAYS ensure baseURL ends with a trailing slash for Axios to correctly join relative paths
     base = `${base}/`;
     
-    // DEBUG LOG - Remove in production if desired
     console.log(`[API] Initializing with baseURL: ${base}`);
     
-    const instance = axios.create({
+    apiInstance = axios.create({
       baseURL: base,
-      withCredentials: true, // Send cookies (JWT & CSRF)
+      withCredentials: true,
       timeout: 60000 
     });
+  }
+  
+  // Update interceptors when token or logout changes
+  useEffect(() => {
+    const instance = apiInstance;
     
-    instance.interceptors.request.use((config) => {
-      // Ensure the URL is relative to the baseURL path by stripping leading slash
+    // Eject old interceptors if they exist
+    if (requestInterceptorRef.current !== null) {
+      instance.interceptors.request.eject(requestInterceptorRef.current);
+    }
+    if (responseInterceptorRef.current !== null) {
+      instance.interceptors.response.eject(responseInterceptorRef.current);
+    }
+    
+    // Request interceptor
+    requestInterceptorRef.current = instance.interceptors.request.use((config) => {
       if (config.url && config.url.startsWith("/")) {
         config.url = config.url.substring(1);
       }
       if (token) config.headers.Authorization = `Bearer ${token}`;
 
-      // CSRF Protection: Add X-CSRF-Token header for mutation requests
       const nonGetMethods = ["post", "put", "delete", "patch"];
       if (nonGetMethods.includes(config.method?.toLowerCase())) {
         const csrfToken = document.cookie
@@ -53,9 +70,9 @@ export function useApi() {
 
       return config;
     }, (error) => Promise.reject(error));
-
-    // Response interceptor for better error logging and auth handling
-    instance.interceptors.response.use(
+    
+    // Response interceptor
+    responseInterceptorRef.current = instance.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
@@ -69,6 +86,11 @@ export function useApi() {
       }
     );
     
-    return instance;
+    return () => {
+      instance.interceptors.request.eject(requestInterceptorRef.current);
+      instance.interceptors.response.eject(responseInterceptorRef.current);
+    };
   }, [token, logout]);
+  
+  return apiInstance;
 }
