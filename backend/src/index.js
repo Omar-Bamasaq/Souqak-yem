@@ -196,8 +196,8 @@ app.use(
     skip: (req) => {
       if (req.method === "OPTIONS") return true;
       const p = req.path || req.originalUrl || "";
-      // Allow high-frequency GETs for public catalog/payment info
-      if (req.method === "GET" && /^\/api\/(bank-accounts|plans|categories|governorates|cities|tags|ads(\/|$))/.test(p)) {
+      // Allow high-frequency GETs for public catalog/payment info, notifications, admin settings and messages
+      if (req.method === "GET" && /^\/api\/(bank-accounts|plans|categories|governorates|cities|tags|ads|notifications|admin-messages|admin\/settings|admin|conversations)(\/|$)/.test(p)) {
         return true;
       }
       return false;

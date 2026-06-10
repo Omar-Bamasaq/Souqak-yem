@@ -96,257 +96,344 @@ export default function SellerFeaturedAd() {
 
   if (success) {
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border bg-white p-8 text-center shadow-lg">
-        <div className="mb-4 text-6xl">✅</div>
-        <h2 className="text-xl font-bold text-gray-900">تم التفعيل بنجاح</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          {selectedPlanId ? "تم إرسال طلب التمييز وهو قيد المراجعة." : "تم تفعيل التجربة المجانية لإعلانك بنجاح!"}
-        </p>
-        <Link to="/seller" className="mt-6 inline-block rounded-xl bg-blue-600 px-6 py-2 text-white hover:bg-blue-700">
-          العودة للوحة التحكم
-        </Link>
+      <div className="mx-auto max-w-2xl px-4 py-12">
+        <div className="rounded-[2.5rem] bg-white border border-gray-100 p-10 text-center shadow-2xl shadow-blue-50 animate-in zoom-in duration-500">
+          <div className="mb-6 flex justify-center">
+            <div className="rounded-full bg-green-50 p-4 ring-8 ring-green-50/50">
+              <svg className="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="mb-4 text-3xl font-black text-gray-900">
+            {selectedPlanId ? "تم إرسال الطلب بنجاح!" : "تم تفعيل التجربة بنجاح!"}
+          </h2>
+          <p className="mb-10 text-gray-600 font-bold leading-relaxed">
+            {selectedPlanId 
+              ? "سيتم مراجعة طلب التمييز الخاص بك من قبل الإدارة وتفعيله في أقرب وقت ممكن." 
+              : "استمتع بمميزات التمييز المجانية لإعلانك الآن وضاعف فرص وصولك."}
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              to="/seller"
+              className="w-full rounded-2xl bg-blue-600 py-4 text-base font-black text-white transition-all hover:bg-blue-700 shadow-xl shadow-blue-100 active:scale-95"
+            >
+              العودة للوحة التحكم
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Link to="/seller" className="text-sm text-blue-600 hover:underline">← العودة للوحة التحكم</Link>
-      <h2 className="text-2xl font-bold">تمييز الإعلانات</h2>
+    <div className="max-w-6xl mx-auto px-4 py-12 space-y-12">
+      <div className="flex items-center justify-between">
+        <Link to="/seller" className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+          لوحة التحكم
+        </Link>
+        <h2 className="text-2xl font-black text-gray-900">تمييز الإعلانات</h2>
+      </div>
 
       {step === 1 && (
-        <>
+        <div className="space-y-12">
           {/* Free Trial Card */}
           {promoEligibility.eligible && (
-            <div className="rounded-[2rem] bg-gradient-to-r from-amber-400 to-orange-500 p-6 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border-4 border-white">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-              <div className="relative flex flex-col sm:flex-row items-center gap-6">
-                <div className="w-16 h-16 bg-white/30 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm">
+            <div className="rounded-[2.5rem] bg-gradient-to-r from-amber-400 to-orange-500 p-8 text-white shadow-2xl shadow-orange-100 relative overflow-hidden group border-4 border-white">
+              <div className="absolute top-0 left-0 w-48 h-48 bg-white/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative flex flex-col md:flex-row items-center gap-8">
+                <div className="w-20 h-20 bg-white/30 rounded-3xl flex items-center justify-center text-4xl shadow-inner backdrop-blur-sm border border-white/30 animate-bounce">
                   🎁
                 </div>
-                <div className="flex-1 text-center sm:text-right">
-                  <h3 className="text-xl font-black mb-1">تجربة مجانية</h3>
-                  <p className="text-orange-50 text-sm font-bold leading-relaxed">
-                    جرّب ميزة التمييز مجاناً لمدة {promoEligibility.durationHours} ساعات. ارفع إعلانك إلى أعلى النتائج وشاهد الفرق.
+                <div className="flex-1 text-center md:text-right">
+                  <h3 className="text-2xl font-black mb-2">هدية ترحيبية: تجربة مجانية</h3>
+                  <p className="text-orange-50 text-base font-bold leading-relaxed max-w-xl">
+                    جرّب ميزة التمييز مجاناً لمدة {promoEligibility.durationHours} ساعات. ارفع إعلانك إلى أعلى النتائج وشاهد الفرق في عدد المشاهدات والتواصل.
                   </p>
-                  <div className="mt-3 inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-[10px] font-black">
-                    🔥 متبقي {promoEligibility.remaining} تجربة مجانية
+                  <div className="mt-4 inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full text-xs font-black">
+                    🔥 متبقي {promoEligibility.remaining} تجربة مجانية فقط
                   </div>
                 </div>
                 <button
                   onClick={() => setShowFreeTrialModal(true)}
                   disabled={activatingFreeTrial}
-                  className="w-full sm:w-auto px-8 py-3 bg-white text-orange-600 rounded-xl font-black shadow-lg hover:bg-orange-50 transition-colors disabled:opacity-50 active:scale-95"
+                  className="w-full md:w-auto px-10 py-4 bg-white text-orange-600 rounded-2xl font-black shadow-xl hover:bg-orange-50 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  تجربة مجانية الآن
+                  تفعيل التجربة الآن
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Free Trial Ad Selection Modal */}
-          {showFreeTrialModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="w-full max-w-md rounded-[2.5rem] bg-white shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 text-center text-white">
-                  <div className="text-4xl mb-2">🎁</div>
-                  <h3 className="text-xl font-black">اختر الإعلان</h3>
-                  <p className="text-orange-50 text-xs font-bold">اختر الإعلان الذي تريد تمييزه مجاناً لمدة {promoEligibility.durationHours} ساعات</p>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {ads.length > 0 ? ads.map(ad => (
-                      <label 
-                        key={ad._id}
-                        className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                          selectedAd === ad._id ? "border-orange-500 bg-orange-50" : "border-gray-100 hover:border-orange-200"
-                        }`}
-                      >
-                        <input 
-                          type="radio" 
-                          name="trialAd" 
-                          className="sr-only" 
-                          checked={selectedAd === ad._id}
-                          onChange={() => setSelectedAd(ad._id)}
-                        />
-                        {ad.images?.[0] && (
-                          <img 
-                            src={`${import.meta.env.VITE_API_URL}/uploads/${ad.images[0]}`} 
-                            alt="" 
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="text-sm font-black text-gray-900 line-clamp-1">{ad.title}</p>
-                          <p className="text-[10px] font-bold text-gray-400">{ad.price} {ad.currency}</p>
-                        </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          selectedAd === ad._id ? "border-orange-500 bg-orange-500" : "border-gray-300"
-                        }`}>
-                          {selectedAd === ad._id && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                        </div>
-                      </label>
-                    )) : (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 font-bold">لا توجد إعلانات معتمدة حالياً.</p>
-                        <Link to="/add-product" className="text-blue-600 text-sm font-black mt-2 inline-block">أنشئ إعلانك الأول الآن</Link>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex flex-col gap-2">
-                    <button
-                      onClick={() => handleFreeTrialActivate(selectedAd)}
-                      disabled={!selectedAd || activatingFreeTrial}
-                      className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-100 hover:bg-orange-600 active:scale-95 disabled:opacity-50 transition-all"
-                    >
-                      {activatingFreeTrial ? "جاري التفعيل..." : "تأكيد التفعيل المجاني"}
-                    </button>
-                    <button
-                      onClick={() => setShowFreeTrialModal(false)}
-                      className="w-full py-3 bg-gray-50 text-gray-500 rounded-2xl text-xs font-bold hover:bg-gray-100 transition-all"
-                    >
-                      إلغاء
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
           {!promoEligibility.eligible && promoEligibility.reason === "quota_full" && (
-            <div className="rounded-2xl bg-gray-50 p-4 border border-gray-200 text-center">
-              <p className="text-sm font-bold text-gray-500">🎁 انتهت جميع التجارب المجانية حالياً.</p>
+            <div className="rounded-[2rem] bg-gray-50 p-6 border-2 border-dashed border-gray-200 text-center">
+              <p className="text-base font-bold text-gray-400">🎁 انتهت جميع التجارب المجانية حالياً. يمكنك الاشتراك في إحدى الباقات أدناه.</p>
             </div>
           )}
-          <div className="rounded-xl border bg-gray-50 p-4">
-            <h3 className="font-semibold mb-2">فائدة التمييز</h3>
-            <ul className="space-y-1 text-sm text-gray-700">
-              <li>• ظهور الإعلان في أعلى النتائج</li>
-              <li>• علامة ⭐ إعلان مميز</li>
-              <li>• زيادة عدد المشاهدات</li>
-              <li>• سرعة البيع</li>
-            </ul>
-          </div>
-          <div className="rounded-xl border bg-white p-4">
-            <h3 className="font-semibold mb-4 text-gray-900">اختيار الإعلان</h3>
-            <div className="relative w-full max-w-full">
-              <MobileSelect
-                value={selectedAd}
-                onChange={(e) => setSelectedAd(e.target.value)}
-                required={true}
-                options={ads.map(a => ({ value: a._id, label: a.title.length > 30 ? a.title.substring(0, 30) + "..." : a.title }))}
-                placeholder="اختر إعلان"
-              />
+
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="h-px flex-1 bg-gray-100"></div>
+              <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">باقات التمييز المدفوعة</h3>
+              <div className="h-px flex-1 bg-gray-100"></div>
             </div>
-            {ads.length === 0 && <p className="mt-2 text-xs text-gray-500 font-bold">لا توجد إعلانات معتمدة حالياً.</p>}
-          </div>
-          <div className="rounded-xl border bg-white p-4">
-            <h3 className="font-semibold mb-4">اختيار المدة</h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {plans.map((p) => (
-                <button
-                  key={p._id}
-                  type="button"
-                  onClick={() => setSelectedPlanId(p._id)}
-                  className={`relative rounded-xl border-2 p-4 text-right transition ${
-                    selectedPlanId === p._id ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  {p.isSaleRunning && p.saleLabel && (
-                    <div className="absolute -top-2 -left-2 bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 z-10">
-                      {getSaleIcon(p.saleType)} {p.saleLabel}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {plans.map((plan) => {
+                const isPopular = plan.isPopularOffer;
+                return (
+                  <div 
+                    key={plan._id}
+                    className={`relative group flex flex-col bg-gradient-to-br from-blue-600 to-indigo-800 rounded-[2.5rem] border-4 border-white transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 overflow-hidden shadow-xl text-white`}
+                  >
+                    <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                      <svg width="100%" height="100%"><pattern id={`grid-plan-${plan._id}`} width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill={`url(#grid-plan-${plan._id})`} /></svg>
                     </div>
-                  )}
-                  {p.isPopularOffer && (
-                    <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 rounded-lg shadow-sm z-10">
-                      الأكثر طلباً
-                    </div>
-                  )}
-                  <div className="font-bold">{p.durationInDays} يوم</div>
-                  <div className="text-sm">
-                    {p.isSaleRunning ? (
-                      <div className="flex flex-col">
-                        <span className="text-gray-400 line-through text-[10px]">{p.originalPrice}</span>
-                        <span className="text-blue-600 font-black">{p.finalPrice} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}</span>
+
+                    {isPopular && (
+                      <div className="absolute top-4 right-4 z-20">
+                        <span className="bg-white text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-widest">الأكثر طلباً</span>
                       </div>
-                    ) : (
-                      <span className="text-gray-600">
-                        {p.price ?? 0} {p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}
-                      </span>
                     )}
+
+                    <div className="p-8 pt-12 flex-1 flex flex-col relative z-10">
+                      <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm mx-auto mb-4 border border-white/30">
+                          ⭐
+                        </div>
+                        <h3 className="text-2xl font-black mb-1">{plan.name}</h3>
+                        <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">تمييز احترافي</p>
+                      </div>
+
+                      <div className="bg-white/10 rounded-3xl p-6 mb-8 text-center border border-white/20 backdrop-blur-sm">
+                        <div className="flex items-baseline justify-center gap-1">
+                          <span className="text-4xl font-black">{plan.price.toLocaleString()}</span>
+                          <span className="text-xs font-black text-white/70">{plan.currency === "SAR" ? "ر.س" : plan.currency === "USD" ? "$" : "ر.ي"}</span>
+                        </div>
+                        <div className="mt-2 text-[10px] font-black text-white/50 uppercase tracking-tighter">صلاحية لمدة {plan.durationInDays} يوم</div>
+                      </div>
+
+                      <div className="space-y-4 mb-8">
+                        <div className="flex items-center gap-3 text-sm font-bold text-white/90">
+                          <div className="w-6 h-6 rounded-full bg-white/20 text-white flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          ظهور في مقدمة نتائج البحث
+                        </div>
+                        <div className="flex items-center gap-3 text-sm font-bold text-white/90">
+                          <div className="w-6 h-6 rounded-full bg-white/20 text-white flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          زيادة المشاهدات بنسبة تصل لـ 10 أضعاف
+                        </div>
+                      </div>
+
+                      <div className="mt-auto space-y-4">
+                        <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
+                          <label className="block text-[10px] font-black text-white/50 mb-2 uppercase tracking-wider mr-1">اختر الإعلان لتمييزه</label>
+                          <select 
+                            className="w-full bg-transparent border-none text-sm font-black text-white focus:ring-0 cursor-pointer"
+                            value={selectedAd}
+                            onChange={(e) => setSelectedAd(e.target.value)}
+                          >
+                            <option value="" className="text-gray-900">-- اختر من إعلاناتك --</option>
+                            {ads.map(ad => (
+                              <option key={ad._id} value={ad._id} className="text-gray-900">{ad.title}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <button
+                          disabled={!selectedAd}
+                          onClick={() => {
+                            setSelectedPlanId(plan._id);
+                            setStep(2);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="w-full py-4 bg-white text-blue-600 rounded-[1.5rem] text-sm font-black shadow-xl hover:bg-blue-50 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          <span>{selectedAd ? "استمرار للدفع" : "اختر إعلان أولاً"}</span>
+                          {selectedAd && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           </div>
-          {selectedPlan && (
-            <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-gray-600">السعر النهائي:</span>
-                <div className="text-right">
-                  <div className="font-black text-blue-600">
-                    {selectedPlan.isSaleRunning ? selectedPlan.finalPrice : selectedPlan.price ?? 0}{" "}
-                    {selectedPlan.currency === "USD" ? "$" : selectedPlan.currency === "SAR" ? "ر.س" : "ر.ي"}
-                  </div>
-                  {selectedPlan.isSaleRunning && (
-                    <div className="text-[10px] font-black text-orange-600 flex items-center gap-1 justify-end">
-                      {getSaleIcon(selectedPlan.saleType)} {selectedPlan.saleLabel} (وفر {selectedPlan.discountPercent}%)
-                    </div>
-                  )}
-                </div>
-              </div>
-              {selectedPlan.isSaleRunning && selectedPlan.remainingSlots > 0 && (
-                <div className="text-[10px] font-bold text-red-600 bg-red-50 p-1.5 rounded-lg border border-red-100 text-center animate-pulse">
-                  ⚠️ بقي {selectedPlan.remainingSlots} اشتراك فقط بهذا السعر
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            disabled={!selectedAd || !selectedPlanId}
-            onClick={() => setStep(2)}
-            className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            ميز إعلانك الآن
-          </button>
-        </>
+        </div>
       )}
 
       {step === 2 && (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="rounded-[2rem] border bg-gray-50/50 p-6 shadow-sm">
-            <h3 className="text-sm font-black text-gray-900 mb-6 flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-              الحسابات البنكية المعتمدة
-            </h3>
-            
-            <BankAccountsDisplay banks={banks} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">سند الدفع (صورة أو PDF)</label>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-              required
-              className="w-full rounded-xl border px-4 py-3 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-600"
-            />
-          </div>
-          {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(1)} className="rounded-xl border px-4 py-3 hover:bg-gray-50">
-              رجوع
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !receiptFile}
-              className="flex-1 rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+        <div className="max-w-3xl mx-auto space-y-8 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => setStep(1)}
+              className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors"
             >
-              {loading ? "جاري الإرسال..." : "إرسال الطلب"}
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+              تغيير الباقة
             </button>
+            <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
+              خطوة 2 من 2: الدفع
+            </div>
           </div>
-        </form>
+
+          <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-800 p-8 text-white text-center relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                <svg width="100%" height="100%"><pattern id="grid-step2-seller" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill="url(#grid-step2-seller)" /></svg>
+              </div>
+              <div className="relative z-10">
+                <h2 className="text-2xl font-black mb-2">تفعيل باقة {selectedPlan?.name}</h2>
+                <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-black">
+                  المبلغ المطلوب: {selectedPlan?.isSaleRunning ? selectedPlan?.finalPrice : selectedPlan?.price} {selectedPlan?.currency === "SAR" ? "ر.س" : selectedPlan?.currency === "USD" ? "$" : "ر.ي"}
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-8 space-y-8">
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-gray-100 bg-gray-50/50 p-6">
+                  <h3 className="text-sm font-black text-gray-900 mb-6 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    الحسابات البنكية المعتمدة
+                  </h3>
+                  <BankAccountsDisplay banks={banks} />
+                </div>
+
+                <div className="space-y-4">
+                  <label className="block text-sm font-black text-gray-700">سند الدفع (صورة أو PDF)</label>
+                  <div className="relative group">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                      required
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <div className={`w-full py-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all ${receiptFile ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-gray-50/50 group-hover:border-blue-200 group-hover:bg-blue-50'}`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4 ${receiptFile ? 'bg-green-200 text-green-600' : 'bg-white shadow-sm text-gray-400'}`}>
+                        {receiptFile ? "✅" : "📄"}
+                      </div>
+                      <p className="text-sm font-black text-gray-900">
+                        {receiptFile ? receiptFile.name : "اضغط هنا لرفع سند الدفع"}
+                      </p>
+                      <p className="text-xs font-bold text-gray-400 mt-1">PNG, JPG, PDF (Max 5MB)</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-2xl bg-red-50 border border-red-100 p-4 flex items-center gap-3 text-red-700">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-sm font-bold">{error}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || !receiptFile}
+                className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] text-base font-black shadow-2xl shadow-gray-200 hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+              >
+                {loading ? (
+                  <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <span>إرسال طلب التفعيل</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Trial Modal for consistency */}
+      {showFreeTrialModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="w-full max-w-md rounded-[2.5rem] bg-white shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-8 text-center text-white relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                <svg width="100%" height="100%"><pattern id="grid-trial-seller" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill="url(#grid-trial-seller)" /></svg>
+              </div>
+              <div className="relative z-10">
+                <div className="text-5xl mb-4 animate-bounce">🎁</div>
+                <h3 className="text-2xl font-black">تفعيل التجربة المجانية</h3>
+                <p className="text-orange-50 text-xs font-bold mt-2">اختر الإعلان الذي تريد تمييزه مجاناً لمدة {promoEligibility.durationHours} ساعات</p>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {ads.length > 0 ? ads.map(ad => (
+                  <label 
+                    key={ad._id}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      selectedAd === ad._id ? "border-orange-500 bg-orange-50 shadow-lg shadow-orange-100" : "border-gray-50 bg-gray-50/50 hover:border-orange-200"
+                    }`}
+                  >
+                    <input 
+                      type="radio" 
+                      name="trialAdSeller" 
+                      className="sr-only" 
+                      checked={selectedAd === ad._id}
+                      onChange={() => setSelectedAd(ad._id)}
+                    />
+                    {ad.images?.[0] && (
+                      <img 
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${ad.images[0]}`} 
+                        alt="" 
+                        className="w-12 h-12 rounded-xl object-cover shadow-sm"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-black text-gray-900 line-clamp-1">{ad.title}</p>
+                      <p className="text-[10px] font-bold text-gray-400">{ad.price} {ad.currency}</p>
+                    </div>
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      selectedAd === ad._id ? "border-orange-500 bg-orange-500" : "border-gray-200 bg-white"
+                    }`}>
+                      {selectedAd === ad._id && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
+                    </div>
+                  </label>
+                )) : (
+                  <div className="text-center py-10">
+                    <div className="text-4xl mb-4 opacity-20">📭</div>
+                    <p className="text-gray-500 font-bold">لا توجد إعلانات معتمدة حالياً.</p>
+                    <Link to="/add-product" className="text-blue-600 text-sm font-black mt-3 inline-block hover:underline">أنشئ إعلانك الأول الآن</Link>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  onClick={() => handleFreeTrialActivate(selectedAd)}
+                  disabled={!selectedAd || activatingFreeTrial}
+                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-xl shadow-orange-100 hover:bg-orange-600 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  {activatingFreeTrial ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span>تأكيد التفعيل المجاني</span>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowFreeTrialModal(false)}
+                  className="w-full py-3 bg-white text-gray-400 rounded-2xl text-xs font-bold hover:bg-gray-50 transition-all"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

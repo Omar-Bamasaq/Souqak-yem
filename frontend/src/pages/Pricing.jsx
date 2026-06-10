@@ -3,28 +3,39 @@ import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
 import CountdownTimer from "../components/CountdownTimer.jsx";
+import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
+import { useSearchParams, Link } from "react-router-dom";
 
 export default function Pricing() {
   const api = useApi();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [plans, setPlans] = useState([]);
   const [ads, setAds] = useState([]);
-  const [selectedAd, setSelectedAd] = useState("");
+  const [banks, setBanks] = useState([]);
+  const [selectedAd, setSelectedAd] = useState(searchParams.get("adId") || "");
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [step, setStep] = useState(1);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [trialEligibility, setTrialEligibility] = useState(null);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [activatingTrial, setActivatingTrial] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const load = async () => {
     try {
-      const [plansRes, eligibilityRes] = await Promise.all([
+      const [plansRes, eligibilityRes, bankRes] = await Promise.all([
         api.get("/plans"),
-        api.get("/ads/welcome-promotion/eligibility")
+        api.get("/ads/welcome-promotion/eligibility"),
+        api.get("/bank-accounts")
       ]);
       setPlans(plansRes.data);
       setTrialEligibility(eligibilityRes.data);
+      setBanks(bankRes.data || []);
+      
       if (user) {
         const my = await api.get("/ads/my?status=approved");
         setAds(my.data || []);
@@ -72,24 +83,44 @@ export default function Pricing() {
   const subscribe = async (plan) => {
     setMsg("");
     setErr("");
+    
+    if (!user) {
+      setErr("قم بتسجيل الدخول للمتابعة");
+      return;
+    }
+
+    if (plan.type === "featured" && !selectedAd) {
+      setErr("يجب اختيار إعلان أولاً");
+      return;
+    }
+
+    setSelectedPlan(plan);
+    setStep(2);
+    // Scroll to top or step container
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSubmitRequest = async (e) => {
+    e.preventDefault();
+    setMsg("");
+    setErr("");
     setLoading(true);
+
     try {
-      if (!user) {
-        setErr("قم بتسجيل الدخول للمتابعة");
-        return;
+      const fd = new FormData();
+      fd.append("planId", selectedPlan._id);
+      if (selectedPlan.type === "featured") {
+        fd.append("productId", selectedAd);
       }
-      const payload = { planId: plan._id };
-      if (plan.type === "featured") {
-        if (!selectedAd) {
-          setErr("يجب اختيار إعلان");
-          return;
-        }
-        payload.productId = selectedAd;
+      if (receiptFile) {
+        fd.append("paymentReceipt", receiptFile);
       }
       
-      // Note: In a real flow with receipt upload, we would use FormData
-      // For now, staying compatible with current subscribe logic but adding feedback
-      await api.post("/purchase-requests", payload);
+      await api.post("/purchase-requests", fd, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      
+      setSuccess(true);
       setMsg(t("pricing.requestActivated"));
     } catch (e) {
       setErr(e.response?.data?.error || t("pricing.requestError"));
@@ -98,28 +129,58 @@ export default function Pricing() {
     }
   };
 
+  if (success) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12">
+        <div className="rounded-[2.5rem] bg-white border border-gray-100 p-10 text-center shadow-2xl shadow-blue-50 animate-in zoom-in duration-500">
+          <div className="mb-6 flex justify-center">
+            <div className="rounded-full bg-green-50 p-4 ring-8 ring-green-50/50">
+              <svg className="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="mb-4 text-3xl font-black text-gray-900">تم استلام طلبك بنجاح!</h2>
+          <p className="mb-10 text-gray-600 font-bold leading-relaxed">
+            سيتم مراجعة طلب التمييز الخاص بك من قبل الإدارة وتفعيله في أقرب وقت ممكن.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              to="/seller"
+              className="w-full rounded-2xl bg-blue-600 py-4 text-base font-black text-white transition-all hover:bg-blue-700 shadow-xl shadow-blue-100 active:scale-95"
+            >
+              العودة للوحة التحكم
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 space-y-12">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t("pricing.title")}</h1>
-        <p className="text-gray-500 font-medium max-w-2xl mx-auto">اختر الباقة المناسبة لاحتياجاتك وابدأ في تنمية أعمالك اليوم مع مميزات حصرية.</p>
-      </div>
+      {step === 1 && (
+        <>
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t("pricing.title")}</h1>
+            <p className="text-gray-500 font-medium max-w-2xl mx-auto">اختر الباقة المناسبة لاحتياجاتك وابدأ في تنمية أعمالك اليوم مع مميزات حصرية.</p>
+          </div>
 
-      {msg && (
-        <div className="max-w-md mx-auto bg-green-50 border border-green-100 rounded-2xl p-4 flex items-center gap-3 text-green-700 animate-in fade-in zoom-in duration-300">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-          <p className="text-sm font-bold">{msg}</p>
-        </div>
-      )}
+          {msg && (
+            <div className="max-w-md mx-auto bg-green-50 border border-green-100 rounded-2xl p-4 flex items-center gap-3 text-green-700 animate-in fade-in zoom-in duration-300">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              <p className="text-sm font-bold">{msg}</p>
+            </div>
+          )}
 
-      {err && (
-        <div className="max-w-md mx-auto bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3 text-red-700 animate-in fade-in zoom-in duration-300">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <p className="text-sm font-bold">{err}</p>
-        </div>
-      )}
+          {err && (
+            <div className="max-w-md mx-auto bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-3 text-red-700 animate-in fade-in zoom-in duration-300">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-sm font-bold">{err}</p>
+            </div>
+          )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* Welcome Promotion Trial Card */}
         {trialEligibility && (trialEligibility.eligible || trialEligibility.reason === "quota_full") && (
           <div className="relative group flex flex-col bg-gradient-to-br from-amber-400 to-orange-500 rounded-[2.5rem] border-4 border-white transition-all duration-500 hover:shadow-2xl hover:shadow-orange-100 hover:-translate-y-2 overflow-hidden shadow-xl">
@@ -241,136 +302,233 @@ export default function Pricing() {
           </div>
         )}
 
-        {plans.map((p) => (
-          <div 
-            key={p._id} 
-            className={`relative group flex flex-col bg-white rounded-[2.5rem] border transition-all duration-500 hover:shadow-2xl hover:shadow-blue-100 hover:-translate-y-2 ${
-              p.isPopularOffer ? 'border-blue-500 ring-4 ring-blue-50' : 'border-gray-100'
-            }`}
-          >
-            {/* Badges */}
-            <div className="absolute -top-4 inset-x-0 flex flex-col items-center gap-2">
-              {p.isPopularOffer && (
-                <span className="bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-blue-200 uppercase tracking-widest">
-                  الأكثر شراءً
-                </span>
-              )}
-              {p.isSaleRunning && p.saleLabel && (
-                <span className="bg-orange-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-orange-200 uppercase tracking-widest flex items-center gap-1.5">
-                  {getSaleIcon(p.saleType)} {p.saleLabel}
-                </span>
-              )}
+            {plans.map((p) => {
+              const isVerification = p.type === "verification";
+              const gradientClass = isVerification 
+                ? "from-emerald-500 to-teal-700" 
+                : "from-blue-600 to-indigo-800";
+              
+              return (
+                <div 
+                  key={p._id} 
+                  className={`relative group flex flex-col bg-gradient-to-br ${gradientClass} rounded-[2.5rem] border-4 border-white transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 overflow-hidden shadow-xl text-white`}
+                >
+                  <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                    <svg width="100%" height="100%"><pattern id={`grid-${p._id}`} width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill={`url(#grid-${p._id})`} /></svg>
+                  </div>
+
+                  {/* Badges */}
+                  <div className="absolute top-4 inset-x-0 flex flex-col items-center gap-2 z-20">
+                    {p.isPopularOffer && (
+                      <span className="bg-white text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                        الأكثر شراءً
+                      </span>
+                    )}
+                    {p.isSaleRunning && p.saleLabel && (
+                      <span className="bg-orange-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-widest flex items-center gap-1.5">
+                        {getSaleIcon(p.saleType)} {p.saleLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-8 pt-16 flex-1 flex flex-col relative z-10">
+                    <div className="text-center mb-8">
+                      <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm mx-auto mb-4 border border-white/30">
+                        {isVerification ? "🛡️" : "⭐"}
+                      </div>
+                      <h3 className="text-2xl font-black mb-1">{p.name}</h3>
+                      <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">
+                        {isVerification ? t("pricing.typeVerification") : t("pricing.typeFeatured")}
+                      </p>
+                    </div>
+
+                    {/* Price Section */}
+                    <div className="bg-white/10 rounded-3xl p-6 mb-8 text-center border border-white/20 backdrop-blur-sm">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        {p.isSaleRunning ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white/50 text-sm font-bold line-through">
+                                {p.originalPrice.toLocaleString()}
+                              </span>
+                              <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-orange-400">
+                                وفر {p.discountPercent}%
+                              </span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-4xl font-black">{p.finalPrice.toLocaleString()}</span>
+                              <span className="text-xs font-black text-white/70">{p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-black">{p.price.toLocaleString()}</span>
+                            <span className="text-xs font-black text-white/70">{p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 text-[10px] font-black text-white/50 uppercase tracking-tighter">
+                        صلاحية لمدة {p.durationInDays} يوم
+                      </div>
+                    </div>
+
+                    {/* Countdown Timer */}
+                    {p.isSaleRunning && p.saleEndDate && (
+                      <div className="mb-8">
+                        <CountdownTimer endDate={p.saleEndDate} />
+                      </div>
+                    )}
+
+                    {/* Features List */}
+                    <div className="space-y-4 mb-8">
+                      <div className="flex items-center gap-3 text-sm font-bold text-white/90">
+                        <div className="w-6 h-6 rounded-full bg-white/20 text-white flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                        {isVerification ? "علامة التوثيق المعتمدة" : "ظهور مميز في الصفحة الرئيسية"}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm font-bold text-white/90">
+                        <div className="w-6 h-6 rounded-full bg-white/20 text-white flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                        {isVerification ? "زيادة الثقة لدى المشترين" : "دعم فني سريع وأولوية في المراجعة"}
+                      </div>
+                      {p.remainingSlots > 0 && (
+                        <div className="flex items-center gap-3 text-sm font-black text-orange-200 bg-white/10 p-3 rounded-2xl border border-white/20 animate-pulse">
+                          <div className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px]">⚠️</span>
+                          </div>
+                          بقي {p.remainingSlots} اشتراك فقط بهذا السعر
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ad Selection for Featured */}
+                    {p.type === "featured" && (
+                      <div className="mb-6">
+                        <label className="block text-[10px] font-black text-white/50 mb-2 mr-1 uppercase tracking-wider">اختر الإعلان لتمييزه</label>
+                        <select 
+                          className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-white/30 outline-none transition-all appearance-none cursor-pointer text-white backdrop-blur-sm"
+                          value={selectedAd} 
+                          onChange={(e) => setSelectedAd(e.target.value)}
+                        >
+                          <option value="" className="text-gray-900">-- اختر من إعلاناتك --</option>
+                          {ads.map((ad) => (
+                            <option key={ad._id} value={ad._id} className="text-gray-900">{ad.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Action Button */}
+                    <button 
+                      className={`w-full py-4 bg-white text-gray-900 rounded-[1.5rem] text-sm font-black transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 shadow-xl hover:bg-gray-50 disabled:opacity-50 mt-auto`}
+                      onClick={() => subscribe(p)}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <span>{t("pricing.subscribeNow")}</span>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {step === 2 && selectedPlan && (
+        <div className="max-w-3xl mx-auto space-y-8 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => setStep(1)}
+              className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+              تغيير الباقة
+            </button>
+            <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
+              خطوة 2 من 2: الدفع
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden">
+            <div className={`bg-gradient-to-br ${selectedPlan.type === 'verification' ? 'from-emerald-500 to-teal-700' : 'from-blue-600 to-indigo-800'} p-8 text-white text-center relative overflow-hidden`}>
+              <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                <svg width="100%" height="100%"><pattern id="grid-step2" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill="url(#grid-step2)" /></svg>
+              </div>
+              <div className="relative z-10">
+                <h2 className="text-2xl font-black mb-2">تفعيل باقة {selectedPlan.name}</h2>
+                <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-sm font-black">
+                  المبلغ المطلوب: {selectedPlan.isSaleRunning ? selectedPlan.finalPrice : selectedPlan.price} {selectedPlan.currency === "SAR" ? "ر.س" : selectedPlan.currency === "USD" ? "$" : "ر.ي"}
+                </div>
+              </div>
             </div>
 
-            <div className="p-8 pt-10 flex-1 flex flex-col">
-              <div className="text-center mb-8">
-                <h3 className="text-xl font-black text-gray-900 mb-1">{p.name}</h3>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  {p.type === "verification" ? t("pricing.typeVerification") : t("pricing.typeFeatured")}
-                </p>
-              </div>
+            <form onSubmit={handleSubmitRequest} className="p-8 space-y-8">
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-gray-100 bg-gray-50/50 p-6">
+                  <h3 className="text-sm font-black text-gray-900 mb-6 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    الحسابات البنكية المعتمدة
+                  </h3>
+                  <BankAccountsDisplay banks={banks} />
+                </div>
 
-              {/* Price Section */}
-              <div className="bg-gray-50/50 rounded-3xl p-6 mb-8 text-center border border-gray-100/50">
-                <div className="flex flex-col items-center justify-center gap-1">
-                  {p.isSaleRunning ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-400 text-sm font-bold line-through opacity-60">
-                          {p.originalPrice.toLocaleString()}
-                        </span>
-                        <span className="bg-red-50 text-red-600 text-[10px] font-black px-2 py-0.5 rounded-lg border border-red-100">
-                          وفر {p.discountPercent}%
-                        </span>
+                <div className="space-y-4">
+                  <label className="block text-sm font-black text-gray-700">سند الدفع (صورة أو PDF)</label>
+                  <div className="relative group">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                      required
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <div className={`w-full py-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center transition-all ${receiptFile ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-gray-50/50 group-hover:border-blue-200 group-hover:bg-blue-50'}`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-4 ${receiptFile ? 'bg-green-200 text-green-600' : 'bg-white shadow-sm text-gray-400'}`}>
+                        {receiptFile ? "✅" : "📄"}
                       </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-gray-900">{p.finalPrice.toLocaleString()}</span>
-                        <span className="text-xs font-black text-gray-500">{p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-black text-gray-900">{p.price.toLocaleString()}</span>
-                      <span className="text-xs font-black text-gray-500">{p.currency === "USD" ? "$" : p.currency === "SAR" ? "ر.س" : "ر.ي"}</span>
+                      <p className="text-sm font-black text-gray-900">
+                        {receiptFile ? receiptFile.name : "اضغط هنا لرفع سند الدفع"}
+                      </p>
+                      <p className="text-xs font-bold text-gray-400 mt-1">PNG, JPG, PDF (Max 5MB)</p>
                     </div>
-                  )}
-                </div>
-                <div className="mt-2 text-[10px] font-black text-gray-400 uppercase tracking-tighter">
-                  صلاحية لمدة {p.durationInDays} يوم
+                  </div>
                 </div>
               </div>
 
-              {/* Countdown Timer */}
-              {p.isSaleRunning && p.saleEndDate && (
-                <div className="mb-8">
-                  <CountdownTimer endDate={p.saleEndDate} />
+              {err && (
+                <div className="rounded-2xl bg-red-50 border border-red-100 p-4 flex items-center gap-3 text-red-700">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-sm font-bold">{err}</p>
                 </div>
               )}
 
-              {/* Features List */}
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center gap-3 text-sm font-bold text-gray-600">
-                  <div className="w-5 h-5 rounded-full bg-green-50 text-green-600 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                  ظهور مميز في الصفحة الرئيسية
-                </div>
-                <div className="flex items-center gap-3 text-sm font-bold text-gray-600">
-                  <div className="w-5 h-5 rounded-full bg-green-50 text-green-600 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                  دعم فني سريع وأولوية في المراجعة
-                </div>
-                {p.remainingSlots > 0 && (
-                  <div className="flex items-center gap-3 text-sm font-bold text-orange-600 bg-orange-50 p-3 rounded-2xl border border-orange-100 animate-pulse">
-                    <div className="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px]">⚠️</span>
-                    </div>
-                    بقي {p.remainingSlots} اشتراك فقط بهذا السعر
-                  </div>
-                )}
-              </div>
-
-              {/* Ad Selection for Featured */}
-              {p.type === "featured" && (
-                <div className="mb-4">
-                  <label className="block text-[10px] font-black text-gray-400 mb-2 mr-1 uppercase tracking-wider">اختر الإعلان لتمييزه</label>
-                  <select 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-                    value={selectedAd} 
-                    onChange={(e) => setSelectedAd(e.target.value)}
-                  >
-                    <option value="">-- اختر من إعلاناتك --</option>
-                    {ads.map((ad) => (
-                      <option key={ad._id} value={ad._id}>{ad.title}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Action Button */}
-              <button 
-                className={`w-full py-4 rounded-[1.5rem] text-sm font-black transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 shadow-xl ${
-                  p.isPopularOffer 
-                  ? 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700' 
-                  : 'bg-gray-900 text-white shadow-gray-200 hover:bg-black'
-                } disabled:opacity-50`}
-                onClick={() => subscribe(p)}
-                disabled={loading}
+              <button
+                type="submit"
+                disabled={loading || !receiptFile}
+                className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] text-base font-black shadow-2xl shadow-gray-200 hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                 ) : (
                   <>
-                    <span>{t("pricing.subscribeNow")}</span>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                    <span>إرسال طلب التفعيل</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                   </>
                 )}
               </button>
-            </div>
+            </form>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       <div className="text-center pt-8">
         <p className="text-gray-400 text-xs font-bold">جميع المعاملات تتم بشكل آمن ويتم مراجعتها من قبل الإدارة.</p>

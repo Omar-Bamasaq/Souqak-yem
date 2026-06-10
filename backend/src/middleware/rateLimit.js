@@ -28,9 +28,8 @@ export default function rateLimit({
 
       if (typeof skip === "function" && skip(req)) return next();
 
-      const route = (req.baseUrl || "") + (req.path || req.originalUrl || "");
       const user = (req.user && req.user.id) || "anon";
-      const key = `${keyPrefix}:${ip}:${user}:${route}`;
+      const key = `${keyPrefix}:${ip}:${user}`;
       
       const now = Date.now();
       const bucket = buckets.get(key) || { ts: now, count: 0, violations: 0 };
