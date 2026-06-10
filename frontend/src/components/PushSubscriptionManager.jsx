@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../store/AuthContext.jsx";
 import { subscribeToPush } from "../utils/pushNotifications.js";
 import { useApi } from "../api/axios.js";
@@ -10,6 +10,7 @@ import { useApi } from "../api/axios.js";
 export default function PushSubscriptionManager() {
   const { user } = useAuth();
   const api = useApi();
+  const [hasRequested, setHasRequested] = useState(false);
 
   useEffect(() => {
     const handleSubscription = async () => {
@@ -21,7 +22,17 @@ export default function PushSubscriptionManager() {
         return;
       }
 
-      // If permission is already granted, ensure we are subscribed on the backend
+      // Request permission if we haven't already and it's not denied
+      if (!hasRequested && Notification.permission === "default") {
+        try {
+          await Notification.requestPermission();
+          setHasRequested(true);
+        } catch (error) {
+          console.error("Permission request error:", error);
+        }
+      }
+
+      // If permission is granted, ensure we are subscribed on the backend
       if (Notification.permission === "granted") {
         try {
           await subscribeToPush(api);
@@ -32,7 +43,7 @@ export default function PushSubscriptionManager() {
     };
 
     handleSubscription();
-  }, [user, api]);
+  }, [user, api, hasRequested]);
 
   return null; // This component doesn't render anything
 }
