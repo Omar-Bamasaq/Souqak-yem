@@ -59,6 +59,12 @@ export default function AddProduct() {
   const [nowTs, setNowTs] = useState(Date.now());
   const [blockErr, setBlockErr] = useState("");
   const [selectedMainCategoryName, setSelectedMainCategoryName] = useState("");
+  
+  // Resell / Affiliate Marketing
+  const [isResellEnabled, setIsResellEnabled] = useState(false);
+  const [maxResellPrice, setMaxResellPrice] = useState("");
+  const [maxResellers, setMaxResellers] = useState("5");
+  const [allowAutoApproval, setAllowAutoApproval] = useState(true);
 
   const CONDITION_ENABLED_CATEGORIES = [
     "السيارات",
@@ -364,6 +370,17 @@ export default function AddProduct() {
       
       if (attributes.length > 0) {
         form.append("attributes", JSON.stringify(attributes));
+      }
+      
+      // Add resell/affiliate marketing fields
+      if (isResellEnabled) {
+        form.append("isResellEnabled", "true");
+        if (maxResellPrice) form.append("maxResellPrice", Number(maxResellPrice));
+        if (maxResellers) form.append("maxResellers", Number(maxResellers));
+        form.append("allowAutoApproval", allowAutoApproval ? "true" : "false");
+        // Default commission type and value for now
+        form.append("commissionType", "percentage");
+        form.append("commissionValue", 10); // Default 10% commission
       }
       
       const res = await api.post("/ads", form);
