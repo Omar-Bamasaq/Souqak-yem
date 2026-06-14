@@ -166,9 +166,6 @@ export default function SearchResults() {
     verifiedOnly: searchParams.get("verifiedOnly") || false,
     featuredOnly: searchParams.get("featuredOnly") || false,
     adType: searchParams.get("adType") || "",
-    resellerLevel: searchParams.get("resellerLevel") || "",
-    performance: searchParams.get("performance") || "",
-    isResellEnabled: searchParams.get("isResellEnabled") || false,
     sort: searchParams.get("sort") || "best"
   };
 
@@ -304,8 +301,7 @@ export default function SearchResults() {
         {[
           { id: "", label: "الكل", icon: "🌐" },
           { id: "sell", label: "بيع", icon: "💰" },
-          { id: "order", label: "طلبات", icon: "📝" },
-          { id: "profitable", label: "فرص الربح", icon: "🔥", badge: "جديد" }
+          { id: "order", label: "طلبات", icon: "📝" }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -318,11 +314,6 @@ export default function SearchResults() {
           >
             <span>{tab.icon}</span>
             <span>{tab.label}</span>
-            {tab.badge && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-8 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white uppercase tracking-tighter shadow-sm">
-                {tab.badge}
-              </span>
-            )}
           </button>
         ))}
       </div>

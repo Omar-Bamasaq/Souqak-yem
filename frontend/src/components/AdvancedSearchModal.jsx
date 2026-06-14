@@ -24,15 +24,12 @@ function buildFilters(initialFilters = {}, preSelectedCategory = null) {
     dateRange: safeFilters.dateRange || "any",
     verifiedOnly: safeFilters.verifiedOnly === true || safeFilters.verifiedOnly === "true",
     featuredOnly: safeFilters.featuredOnly === true || safeFilters.featuredOnly === "true",
-    isResellEnabled: safeFilters.isResellEnabled === true || safeFilters.isResellEnabled === "true",
     adType: safeFilters.adType || "",
-    resellerLevel: safeFilters.resellerLevel || "",
-    performance: safeFilters.performance || "",
     sort: safeFilters.sort || "best"
   };
 }
 
-export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCategory = null, initialFilters = null }) {
+export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCategory = null, initialFilters = null) {
   const navigate = useNavigate();
   const categoryApi = useCategoryApi();
   const api = useApi();
@@ -153,10 +150,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
     if (filters.condition.length > 0) params.append("conditions", filters.condition.join(","));
     if (filters.verifiedOnly) params.append("verifiedOnly", "true");
     if (filters.featuredOnly) params.append("featuredOnly", "true");
-    if (filters.isResellEnabled) params.append("isResellEnabled", "true");
     if (filters.adType) params.append("adType", filters.adType);
-    if (filters.resellerLevel) params.append("resellerLevel", filters.resellerLevel);
-    if (filters.performance) params.append("performance", filters.performance);
     if (filters.sort !== "best") params.append("sort", filters.sort);
 
     // Add dynamic attributes
@@ -189,7 +183,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             className="absolute left-2 top-2 p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -208,7 +202,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                 className="ds-input h-12 pr-10 pl-4"
               />
               <svg className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
           </div>
@@ -234,7 +228,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <MobileSelect
               label="📂 الفئة الفرعية"
               value={filters.subCategoryId}
-              onChange={(e) => setFilters({ ...filters, subCategoryId: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, subCategoryId: e.target.value }))}
               options={subCategories.map(c => ({ value: c._id, label: c.name }))}
               placeholder={filters.categoryId ? (subCategories.length > 0 ? "جميع الفئات الفرعية" : "لا توجد فئات فرعية") : "اختر الفئة الرئيسية أولاً"}
               disabled={!filters.categoryId || subCategories.length === 0}
@@ -246,7 +240,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <MobileSelect
               label="📍 المحافظة"
               value={filters.governorateId}
-              onChange={(e) => setFilters({ ...filters, governorateId: e.target.value, cityId: "" })}
+              onChange={(e) => setFilters({ ...filters, governorateId: e.target.value, cityId: "" }))}
               options={governorates.map(g => ({ value: g._id, label: g.name }))}
               placeholder="جميع المحافظات"
             />
@@ -254,7 +248,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <MobileSelect
               label="🏙️ المدينة"
               value={filters.cityId}
-              onChange={(e) => setFilters({ ...filters, cityId: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, cityId: e.target.value }))}
               options={cities.map(c => ({ value: c._id, label: c.name }))}
               placeholder={filters.governorateId ? (cities.length > 0 ? "جميع المدن" : "لا توجد مدن") : "اختر المحافظة أولاً"}
               disabled={!filters.governorateId || cities.length === 0}
@@ -268,12 +262,11 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               {[
                   { id: "", label: "الكل" },
                   { id: "sell", label: "بيع" },
-                  { id: "order", label: "طلب شراء" },
-                  { id: "resell", label: "إعادة بيع" }
+                  { id: "order", label: "طلب شراء" }
                 ].map((type) => (
                 <button
                   key={type.id}
-                  onClick={() => setFilters({ ...filters, adType: type.id })}
+                  onClick={() => setFilters({ ...filters, adType: type.id }))}
                   className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-xl border-2 transition-all font-bold text-sm ${
                     filters.adType === type.id
                       ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100 scale-[1.02]"
@@ -284,34 +277,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Reseller Level & Performance */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <MobileSelect
-              label="🏅 مستوى المسوق"
-              value={filters.resellerLevel}
-              onChange={(e) => setFilters({ ...filters, resellerLevel: e.target.value })}
-              options={[
-                { value: "VIP", label: "VIP" },
-                { value: "Pro", label: "Pro" },
-                { value: "Active", label: "Active" },
-                { value: "Beginner", label: "Beginner" }
-              ]}
-              placeholder="جميع المستويات"
-            />
-
-            <MobileSelect
-              label="⚡ الأداء"
-              value={filters.performance}
-              onChange={(e) => setFilters({ ...filters, performance: e.target.value })}
-              options={[
-                { value: "topRated", label: "الأعلى تقييماً" },
-                { value: "mostSold", label: "الأكثر مبيعاً" },
-                { value: "fastestResponse", label: "الأسرع رداً" }
-              ]}
-              placeholder="الكل"
-            />
           </div>
 
           {/* Price Range */}
@@ -328,7 +293,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               ].map((curr) => (
                 <button
                   key={curr.id}
-                  onClick={() => setFilters({ ...filters, currency: curr.id })}
+                  onClick={() => setFilters({ ...filters, currency: curr.id }))}
                   className={`flex-1 min-w-[70px] px-2 py-2 rounded-xl border-2 transition-all font-bold text-[10px] ${
                     filters.currency === curr.id
                       ? "bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]"
@@ -361,7 +326,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                     type="text"
                     inputMode="numeric"
                     value={filters.maxPrice}
-                    onChange={(e) => setFilters({ ...filters, maxPrice: (e.target.value || '').replace(/\D/g, '') })}
+                    onChange={(e) => setFilters({ ...filters, maxPrice: (e.target.value || '').replace(/\D/g, '') }))}
                     placeholder="أعلى سعر"
                     className="ds-input h-12 pr-4 pl-4"
                   />
@@ -381,7 +346,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               ].map((cond) => (
                 <button
                   key={cond.id}
-                  onClick={() => handleConditionToggle(cond.id)}
+                  onClick={() => handleConditionToggle(cond.id))}
                   className={`flex-1 px-4 py-2.5 rounded-xl border-2 transition-all font-bold text-sm ${
                     filters.condition.includes(cond.id)
                       ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100 scale-[1.02]"
@@ -408,7 +373,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                     {attr.type === "select" ? (
                       <select
                         value={attributeValues[attr._id] || ""}
-                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value })}
+                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value }))}
                         className="ds-select h-11"
                       >
                         <option value="">اختر...</option>
@@ -420,7 +385,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                       <input
                         type="number"
                         value={attributeValues[attr._id] || ""}
-                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value })}
+                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value }))}
                         placeholder={attr.placeholder}
                         className="ds-input h-11"
                       />
@@ -428,7 +393,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                       <input
                         type="text"
                         value={attributeValues[attr._id] || ""}
-                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value })}
+                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value }))}
                         placeholder={attr.placeholder}
                         className="ds-input h-11"
                       />
@@ -444,17 +409,8 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-xl border border-gray-50 hover:bg-gray-50 transition-colors">
               <input
                 type="checkbox"
-                checked={filters.isResellEnabled}
-                onChange={(e) => setFilters({ ...filters, isResellEnabled: e.target.checked })}
-                className="w-5 h-5 text-indigo-600 rounded-md border-gray-300 focus:ring-indigo-500 cursor-pointer"
-              />
-              <span className="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition-colors">📢 إعلانات قابلة للتسويق</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-xl border border-gray-50 hover:bg-gray-50 transition-colors">
-              <input
-                type="checkbox"
                 checked={filters.verifiedOnly}
-                onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked })}
+                onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked }))}
                 className="w-5 h-5 text-blue-600 rounded-md border-gray-300 focus:ring-blue-500 cursor-pointer"
               />
               <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">✓ بائعين موثوقين</span>
@@ -463,7 +419,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               <input
                 type="checkbox"
                 checked={filters.featuredOnly}
-                onChange={(e) => setFilters({ ...filters, featuredOnly: e.target.checked })}
+                onChange={(e) => setFilters({ ...filters, featuredOnly: e.target.checked }))}
                 className="w-5 h-5 text-blue-600 rounded-md border-gray-300 focus:ring-blue-500 cursor-pointer"
               />
               <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">⭐ إعلانات مميزة</span>
@@ -475,7 +431,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">📊 ترتيب النتائج</label>
             <select
               value={filters.sort}
-              onChange={(e) => setFilters({ ...filters, sort: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, sort: e.target.value }))}
               className="ds-select h-12"
             >
               <option value="best">الأفضل (Quality Score)</option>
@@ -502,7 +458,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             className="px-10 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200 flex items-center gap-2 active:scale-95 text-sm"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             إظهار النتائج
           </button>
@@ -513,4 +469,3 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
 
   return createPortal(modalContent, document.body);
 }
-
