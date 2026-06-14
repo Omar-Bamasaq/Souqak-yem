@@ -29,7 +29,7 @@ function buildFilters(initialFilters = {}, preSelectedCategory = null) {
   };
 }
 
-export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCategory = null, initialFilters = null) {
+export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCategory = null, initialFilters = null }) {
   const navigate = useNavigate();
   const categoryApi = useCategoryApi();
   const api = useApi();
@@ -74,7 +74,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
 
   const loadCategories = async () => {
     try {
-      // Use dedicated main-categories endpoint so we don't include subcategories
       const res = await api.get("/categories/main");
       setCategories(res.data || []);
     } catch (error) {
@@ -84,11 +83,9 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
 
   const loadSubCategories = async (parentId) => {
     try {
-      // Find the selected category object
       const selectedCat = categories.find(c => (c._id || c.id) === parentId);
       
       if (selectedCat && (selectedCat.slug === "purchase-orders" || selectedCat.name === "طلبات الشراء")) {
-        // If it's Purchase Orders, show all OTHER main categories as sub-categories
         setSubCategories(categories.filter(c => c.slug !== "purchase-orders" && c.name !== "طلبات الشراء"));
         return;
       }
@@ -153,7 +150,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
     if (filters.adType) params.append("adType", filters.adType);
     if (filters.sort !== "best") params.append("sort", filters.sort);
 
-    // Add dynamic attributes
     Object.entries(attributeValues).forEach(([key, value]) => {
       if (value) params.append(`attr_${key}`, value);
     });
@@ -175,7 +171,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
         className="bg-white rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col w-[95%] max-w-xl max-h-[90vh] overflow-hidden relative border border-gray-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="relative flex items-center justify-center py-3 border-b flex-shrink-0 bg-white z-10">
           <h2 className="text-sm font-black text-gray-900">البحث المتقدم</h2>
           <button 
@@ -188,9 +183,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar scroll-smooth">
-          {/* Search Query */}
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">كلمة البحث</label>
             <div className="relative">
@@ -207,7 +200,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             </div>
           </div>
 
-          {/* Categories */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MobileSelect
               label="📁 الفئة الرئيسية"
@@ -228,19 +220,18 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <MobileSelect
               label="📂 الفئة الفرعية"
               value={filters.subCategoryId}
-              onChange={(e) => setFilters({ ...filters, subCategoryId: e.target.value }))}
+              onChange={(e) => setFilters({ ...filters, subCategoryId: e.target.value })}
               options={subCategories.map(c => ({ value: c._id, label: c.name }))}
               placeholder={filters.categoryId ? (subCategories.length > 0 ? "جميع الفئات الفرعية" : "لا توجد فئات فرعية") : "اختر الفئة الرئيسية أولاً"}
               disabled={!filters.categoryId || subCategories.length === 0}
             />
           </div>
 
-          {/* Location */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <MobileSelect
               label="📍 المحافظة"
               value={filters.governorateId}
-              onChange={(e) => setFilters({ ...filters, governorateId: e.target.value, cityId: "" }))}
+              onChange={(e) => setFilters({ ...filters, governorateId: e.target.value, cityId: "" })}
               options={governorates.map(g => ({ value: g._id, label: g.name }))}
               placeholder="جميع المحافظات"
             />
@@ -248,14 +239,13 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <MobileSelect
               label="🏙️ المدينة"
               value={filters.cityId}
-              onChange={(e) => setFilters({ ...filters, cityId: e.target.value }))}
+              onChange={(e) => setFilters({ ...filters, cityId: e.target.value })}
               options={cities.map(c => ({ value: c._id, label: c.name }))}
               placeholder={filters.governorateId ? (cities.length > 0 ? "جميع المدن" : "لا توجد مدن") : "اختر المحافظة أولاً"}
               disabled={!filters.governorateId || cities.length === 0}
             />
           </div>
 
-          {/* Ad Type */}
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">نوع الإعلان</label>
             <div className="flex flex-wrap gap-2">
@@ -266,7 +256,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                 ].map((type) => (
                 <button
                   key={type.id}
-                  onClick={() => setFilters({ ...filters, adType: type.id }))}
+                  onClick={() => setFilters({ ...filters, adType: type.id })}
                   className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-xl border-2 transition-all font-bold text-sm ${
                     filters.adType === type.id
                       ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100 scale-[1.02]"
@@ -279,7 +269,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             </div>
           </div>
 
-          {/* Price Range */}
           <div className="space-y-3">
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest px-1">💰 نطاق السعر والعملة</label>
             
@@ -293,7 +282,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               ].map((curr) => (
                 <button
                   key={curr.id}
-                  onClick={() => setFilters({ ...filters, currency: curr.id }))}
+                  onClick={() => setFilters({ ...filters, currency: curr.id })}
                   className={`flex-1 min-w-[70px] px-2 py-2 rounded-xl border-2 transition-all font-bold text-[10px] ${
                     filters.currency === curr.id
                       ? "bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]"
@@ -326,7 +315,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                     type="text"
                     inputMode="numeric"
                     value={filters.maxPrice}
-                    onChange={(e) => setFilters({ ...filters, maxPrice: (e.target.value || '').replace(/\D/g, '') }))}
+                    onChange={(e) => setFilters({ ...filters, maxPrice: (e.target.value || '').replace(/\D/g, '') })}
                     placeholder="أعلى سعر"
                     className="ds-input h-12 pr-4 pl-4"
                   />
@@ -335,7 +324,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             </div>
           </div>
 
-          {/* Condition */}
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">✨ الحالة</label>
             <div className="flex flex-wrap gap-2">
@@ -346,7 +334,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               ].map((cond) => (
                 <button
                   key={cond.id}
-                  onClick={() => handleConditionToggle(cond.id))}
+                  onClick={() => handleConditionToggle(cond.id)}
                   className={`flex-1 px-4 py-2.5 rounded-xl border-2 transition-all font-bold text-sm ${
                     filters.condition.includes(cond.id)
                       ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100 scale-[1.02]"
@@ -359,7 +347,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             </div>
           </div>
 
-          {/* Dynamic Attributes */}
           {categoryAttributes.length > 0 && (
             <div className="border-t pt-6">
               <div className="flex items-center gap-2 mb-4">
@@ -373,7 +360,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                     {attr.type === "select" ? (
                       <select
                         value={attributeValues[attr._id] || ""}
-                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value }))}
+                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value })}
                         className="ds-select h-11"
                       >
                         <option value="">اختر...</option>
@@ -385,7 +372,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                       <input
                         type="number"
                         value={attributeValues[attr._id] || ""}
-                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value }))}
+                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value })}
                         placeholder={attr.placeholder}
                         className="ds-input h-11"
                       />
@@ -393,7 +380,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
                       <input
                         type="text"
                         value={attributeValues[attr._id] || ""}
-                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value }))}
+                        onChange={(e) => setAttributeValues({ ...attributeValues, [attr._id]: e.target.value })}
                         placeholder={attr.placeholder}
                         className="ds-input h-11"
                       />
@@ -404,13 +391,12 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             </div>
           )}
 
-          {/* Additional Options */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-xl border border-gray-50 hover:bg-gray-50 transition-colors">
               <input
                 type="checkbox"
                 checked={filters.verifiedOnly}
-                onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked }))}
+                onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked })}
                 className="w-5 h-5 text-blue-600 rounded-md border-gray-300 focus:ring-blue-500 cursor-pointer"
               />
               <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">✓ بائعين موثوقين</span>
@@ -419,19 +405,18 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               <input
                 type="checkbox"
                 checked={filters.featuredOnly}
-                onChange={(e) => setFilters({ ...filters, featuredOnly: e.target.checked }))}
+                onChange={(e) => setFilters({ ...filters, featuredOnly: e.target.checked })}
                 className="w-5 h-5 text-blue-600 rounded-md border-gray-300 focus:ring-blue-500 cursor-pointer"
               />
               <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">⭐ إعلانات مميزة</span>
             </label>
           </div>
 
-          {/* Sort */}
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">📊 ترتيب النتائج</label>
             <select
               value={filters.sort}
-              onChange={(e) => setFilters({ ...filters, sort: e.target.value }))}
+              onChange={(e) => setFilters({ ...filters, sort: e.target.value })}
               className="ds-select h-12"
             >
               <option value="best">الأفضل (Quality Score)</option>
@@ -445,7 +430,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t bg-gray-50 flex-shrink-0">
           <button
             onClick={handleReset}
