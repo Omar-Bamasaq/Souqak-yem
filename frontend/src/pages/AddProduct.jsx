@@ -83,13 +83,6 @@ export default function AddProduct() {
     "الأجهزة المنزلية",
     "اجهزه منزليه"
   ];
-
-  // Resell System
-  const [isResellEnabled, setIsResellEnabled] = useState(false);
-  const [maxResellPrice, setMaxResellPrice] = useState("");
-  const [allowAutoApproval, setAllowAutoApproval] = useState(true);
-  const [maxResellers, setMaxResellers] = useState(5);
-
   // Category state for 'order' type (Level 2 & 3 selection)
   const [mainCatsForOrder, setMainCatsForOrder] = useState([]);
   const [subCatsForOrder, setSubCatsForOrder] = useState([]);
@@ -344,14 +337,6 @@ export default function AddProduct() {
       form.append("cityId", cityId);
       if (categoryId) form.append("categoryId", categoryId);
       form.append("adType", adType);
-
-      // Resell fields
-      if (isResellEnabled) {
-        form.append("isResellEnabled", "true");
-        if (maxResellPrice) form.append("maxResellPrice", maxResellPrice);
-        form.append("allowAutoApproval", String(allowAutoApproval));
-        form.append("maxResellers", String(maxResellers));
-      }
 
       form.append("condition", condition);
       form.append("negotiable", negotiable ? "true" : "false");

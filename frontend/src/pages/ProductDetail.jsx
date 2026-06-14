@@ -140,12 +140,6 @@ export default function ProductDetail() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [convOpening, setConvOpening] = useState(false);
   const [fav, setFav] = useState(false);
-  const [resellModalOpen, setResellModalOpen] = useState(false);
-  const [resellPrice, setResellPrice] = useState("");
-  const [resellDesc, setResellDesc] = useState("");
-  const [marketingType, setMarketingType] = useState("resell"); // 'resell' or 'affiliate'
-  const [resellStatus, setResellStatus] = useState(null); // null, 'pending', 'approved', 'active'
-  const [resellSubmitting, setResellSubmitting] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [followingSeller, setFollowingSeller] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -208,115 +202,6 @@ export default function ProductDetail() {
       action();
     }
   };
-
-  const handleResellRequest = async () => {
-    if (!user) {
-      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "يجب تسجيل الدخول لتقديم عرض تسويق", type: "error" } }));
-      return;
-    }
-    setResellPrice(p.price || "");
-    setResellDesc(p.description || "");
-    setMarketingType("resell");
-    setResellModalOpen(true);
-  };
-
-  const submitResellOffer = async () => {
-    if (marketingType === "resell" && !resellPrice) {
-      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "يرجى تحديد السعر", type: "error" } }));
-      return;
-    }
-
-    // Max Price Validation
-    if (marketingType === "resell" && p.maxResellPrice && Number(resellPrice) > p.maxResellPrice) {
-      window.dispatchEvent(new CustomEvent("admin:toast", { 
-        detail: { 
-          message: `عذراً، لا يمكن أن يتجاوز السعر الحد الأقصى المسموح به (${p.maxResellPrice} ${formatCurrency(p.currency)})`, 
-          type: "error" 
-        } 
-      }));
-      return;
-    }
-
-    if (!resellDesc) {
-      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "يرجى كتابة وصف للعرض", type: "error" } }));
-      return;
-    }
-    try {
-      setResellSubmitting(true);
-      // Use originalId if it exists (meaning we are viewing a resell ad), otherwise use _id
-      const targetAdId = p.originalId?._id || p.originalId || p._id;
-      
-      const res = await api.post("/resell/request", { 
-        originalAdId: targetAdId,
-        newPrice: marketingType === "affiliate" ? p.price : Number(resellPrice),
-        customDescription: resellDesc,
-        marketingType: marketingType
-      });
-      
-      setResellStatus(res.data.status);
-      setResellModalOpen(false);
-      
-      window.dispatchEvent(new CustomEvent("admin:toast", { 
-        detail: { 
-          message: res.data.message || "تم إرسال عرضك بنجاح", 
-          type: "success" 
-        } 
-      }));
-    } catch (err) {
-      const errorMsg = err.response?.data?.error || "حدث خطأ أثناء إرسال العرض";
-      window.dispatchEvent(new CustomEvent("admin:toast", { 
-        detail: { 
-          message: errorMsg, 
-          type: "error" 
-        } 
-      }));
-      
-      // If already active or approved, update local status to disable button
-      if (err.response?.status === 400 && (errorMsg.includes("بالفعل") || errorMsg.includes("نشط"))) {
-        setResellStatus("active");
-        setResellModalOpen(false);
-      }
-    } finally {
-      setResellSubmitting(false);
-    }
-  };
-
-  const handleResellCreate = async () => {
-    try {
-      if (!resellPrice) return alert("يرجى تحديد السعر");
-      setResellSubmitting(true);
-      const res = await api.post("/resell/create", {
-        originalAdId: id,
-        newPrice: Number(resellPrice),
-        customDescription: resellDesc
-      });
-      alert("مبروك! تم إنشاء إعلان إعادة البيع الخاص بك");
-      setResellModalOpen(false);
-      setResellStatus("active");
-      navigate("/reseller/dashboard");
-    } catch (err) {
-      alert(err.response?.data?.error || "حدث خطأ ما");
-    } finally {
-      setResellSubmitting(false);
-    }
-  };
-
-  const trackReferral = async () => {
-    if (!refId) return;
-    try {
-      // Find resellAdId for this refId (resellerId) and current ad id
-      const res = await api.get(`/resell/find-by-ref?adId=${id}&refId=${refId}`);
-      if (res.data.resellAdId) {
-        await api.post(`/resell/track-click/${res.data.resellAdId}`);
-      }
-    } catch (err) {
-      console.error("Referral tracking error:", err);
-    }
-  };
-
-  useEffect(() => {
-    trackReferral();
-  }, [id, refId]);
 
   const [followersCount, setFollowersCount] = useState(0);
   const [sellerAdsCount, setSellerAdsCount] = useState(0);
@@ -1222,26 +1107,6 @@ export default function ProductDetail() {
                     </svg>
                     شراء آمن (وساطة المنصة)
                   </button>
-
-                  {/* Resell / Affiliate Button */}
-                  {p.isResellEnabled && !isMyAd && (
-                    <button 
-                      onClick={handleResellRequest}
-                      className={`w-full flex items-center justify-center gap-3 rounded-xl px-6 py-4 text-sm font-black transition-all shadow-xl active:scale-95 ring-4 ${
-                        resellStatus === 'active' ? 'bg-purple-50 text-purple-700 ring-purple-100 border-2 border-purple-200' :
-                        resellStatus === 'pending' ? 'bg-amber-50 text-amber-700 ring-amber-100 border-2 border-amber-200' :
-                        'bg-purple-600 text-white hover:bg-purple-700 ring-purple-50'
-                      }`}
-                    >
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {resellStatus === 'active' ? 'أنت تسوق لهذا الإعلان (عرض التفاصيل)' :
-                       resellStatus === 'pending' ? 'طلب التسويق قيد المراجعة' :
-                       resellStatus === 'rejected' ? 'تم رفض طلبك (إعادة المحاولة)' :
-                       'سوق لهذا المنتج واربح عمولة'}
-                    </button>
-                  )}
                 </div>
               )}
 
@@ -1588,90 +1453,6 @@ export default function ProductDetail() {
                 }}
               />
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Resell Modal */}
-      {resellModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-[2.5rem] bg-white p-8 shadow-2xl animate-in zoom-in duration-300 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 to-indigo-600"></div>
-            
-            <button 
-              onClick={() => setResellModalOpen(false)}
-              className="absolute top-6 left-6 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 mb-4 shadow-inner">
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-black text-gray-900">ابدأ التسويق لهذا المنتج 💰</h3>
-              <p className="text-gray-500 font-bold mt-2">حدد السعر الذي ترغب بالبيع به واكسب الفرق كربح</p>
-            </div>
-
-            <div className="space-y-4 mb-8">
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center">
-                <span className="text-xs font-bold text-gray-500">سعر البائع الأصلي:</span>
-                <span className="text-sm font-black text-gray-900">{p.price?.toLocaleString()} {formatCurrency(p.currency)}</span>
-              </div>
-
-              <div className="space-y-2 animate-in slide-in-from-top-2">
-                <label className="text-sm font-black text-gray-700 block mr-2">سعر البيع الخاص بك</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    value={resellPrice}
-                    onChange={(e) => setResellPrice(e.target.value)}
-                    placeholder="أدخل السعر الذي ستعرضه للزبائن..."
-                    className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 font-black text-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all"
-                  />
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">{formatCurrency(p.currency)}</span>
-                </div>
-                {p.maxResellPrice ? (
-                  <p className="text-[10px] font-bold text-amber-600 mr-2">⚠️ الحد الأقصى المسموح به: {p.maxResellPrice} {formatCurrency(p.currency)}</p>
-                ) : (
-                  <p className="text-[10px] font-bold text-blue-600 mr-2">✨ لك الحرية في وضع السعر المناسب لك</p>
-                )}
-              </div>
-
-              {resellPrice && Number(resellPrice) > (p.price || 0) && (
-                <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 animate-in zoom-in duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-emerald-800">ربحك المتوقع من هذه البيعة:</span>
-                    <span className="text-sm font-black text-emerald-600">
-                      {(Number(resellPrice) - (p.price || 0)).toLocaleString()} {formatCurrency(p.currency)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-sm font-black text-gray-700 block mr-2">رسالة للبائع (اختياري)</label>
-                <textarea 
-                  value={resellDesc}
-                  onChange={(e) => setResellDesc(e.target.value)}
-                  placeholder="لماذا أنت المسوق المناسب؟"
-                  rows={3}
-                  className="w-full rounded-2xl border-2 border-gray-100 px-6 py-4 text-sm font-bold focus:border-purple-500 focus:ring-4 focus:ring-purple-50 outline-none transition-all resize-none"
-                />
-              </div>
-            </div>
-
-            <button 
-              onClick={submitResellOffer}
-              disabled={resellSubmitting || !resellPrice}
-              className="w-full rounded-2xl bg-purple-600 py-4 text-lg font-black text-white hover:bg-purple-700 transition-all shadow-xl shadow-purple-100 disabled:opacity-50 active:scale-95"
-            >
-              {resellSubmitting ? 'جارٍ الإرسال...' : 'تأكيد وإرسال طلب التسويق'}
-            </button>
           </div>
         </div>
       )}

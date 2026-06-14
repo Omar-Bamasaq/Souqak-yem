@@ -67,7 +67,6 @@ import categoryRoutes from "./routes/categories.js";
 import categoryAttributeRoutes from "./routes/categoryAttributes.js";
 import supportRoutes from "./routes/support.js";
 import platformReviewRoutes from "./routes/platformReviews.js";
-import resellRoutes from "./routes/resell.js";
 import reviewRoutes from "./routes/reviews.js";
 import walletRoutes from "./routes/wallets.js";
 import adminEscrowRoutes from "./routes/adminEscrow.js";
@@ -200,6 +199,10 @@ app.use(
       if (req.method === "GET" && /^\/api\/(bank-accounts|plans|categories|governorates|cities|tags|ads|notifications|admin-messages|admin\/settings|admin|conversations)(\/|$)/.test(p)) {
         return true;
       }
+      // Skip auth endpoints entirely
+      if (/^\/api\/auth/.test(p)) {
+        return true;
+      }
       return false;
     }
   })
@@ -273,7 +276,6 @@ app.get("/api/health/readiness", async (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/resell", resellRoutes); // Moved up
 app.use("/api/admin/settings", adminSettingsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/messages", messageRoutes);

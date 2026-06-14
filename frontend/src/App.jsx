@@ -65,9 +65,6 @@ const AdminMessaging = lazy(() => import("./pages/AdminMessaging.jsx"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings.jsx"));
 const AdminSupportInbox = lazy(() => import("./pages/AdminSupportInbox.jsx"));
 const SellerCommissions = lazy(() => import("./pages/SellerCommissions.jsx"));
-const ResellerDashboard = lazy(() => import("./pages/ResellerDashboard.jsx"));
-const ResellRequests = lazy(() => import("./pages/ResellRequests.jsx"));
-const HowToEarn = lazy(() => import("./pages/HowToEarn.jsx"));
 const AdminEscrowDashboard = lazy(() => import("./pages/AdminEscrowDashboard.jsx"));
 const AdminAnalyticsDashboard = lazy(() => import("./pages/AdminAnalyticsDashboard.jsx"));
 const AdminDeletedUsers = lazy(() => import("./pages/AdminDeletedUsers.jsx"));
@@ -121,9 +118,6 @@ export default function App() {
         <Route path="/seller/verification" element={<RequireRole role={null}><SellerVerification /></RequireRole>} />
         <Route path="/seller/subscriptions" element={<RequireRole role={null}><SellerSubscriptions /></RequireRole>} />
         <Route path="/seller/commissions" element={<RequireRole role={null}><SellerCommissions /></RequireRole>} />
-        <Route path="/reseller/dashboard" element={<RequireRole role={null}><ResellerDashboard /></RequireRole>} />
-        <Route path="/resell/requests" element={<RequireRole role={null}><ResellRequests /></RequireRole>} />
-        <Route path="/how-to-earn" element={<HowToEarn />} />
         <Route path="/add-product" element={<RequireRole role={null}><AddProduct /></RequireRole>} />
         <Route path="/choose-add-type" element={<RequireRole role={null}><ChooseAddType /></RequireRole>} />
         <Route path="/commission/pay" element={<RequireRole role={null}><CommissionPay /></RequireRole>} />
