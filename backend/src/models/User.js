@@ -112,15 +112,6 @@ const userSchema = new mongoose.Schema(
     // Seller specific fields (Cumulative)
     sellerRating: { type: Number, default: 0 },
     sellerReviewsCount: { type: Number, default: 0 },
-
-    // Reseller specific fields
-    resellerRating: { type: Number, default: 0 },
-    resellerSalesCount: { type: Number, default: 0 },
-    resellerCancellationsCount: { type: Number, default: 0 }, // Added to track failures
-    resellerCompletionRate: { type: Number, default: 0 },
-    resellerResponseTime: { type: Number, default: 0 }, // Average response time in minutes
-    resellerLevel: { type: String, enum: ["Beginner", "Active", "Pro", "VIP"], default: "Beginner" },
-    isTrustedReseller: { type: Boolean, default: false },
     
     // Web Push Subscriptions
     pushSubscriptions: [

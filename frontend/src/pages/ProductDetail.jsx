@@ -282,14 +282,6 @@ export default function ProductDetail() {
             setFollowingSeller(!!s.data?.following);
           }
         } catch {}
-        
-        // Check resell status
-        try {
-          if (res.data?.isResellEnabled) {
-            const rs = await api.get(`/resell/request-status/${id}`);
-            setResellStatus(rs.data?.status);
-          }
-        } catch {}
       }
       try {
         const sellerId = res.data?.userId?._id || res.data?.userId;
@@ -431,7 +423,6 @@ export default function ProductDetail() {
     }
     try {
       setConvOpening(true);
-      const targetAdId = p.originalId?._id || p.originalId || p._id;
       const r = await api.post("/conversations/open", { adId: id });
       if (r.data?._id) {
         navigate(`/messages?c=${r.data._id}&direct=1`);

@@ -1,5 +1,4 @@
 import Ad from "../models/Ad.js";
-import ResellAd from "../models/ResellAd.js";
 import mongoose from "mongoose";
 
 /**
@@ -39,7 +38,7 @@ const ARABIC_SPELLING_CORRECTIONS = {
   "تويوت": "تويوتا",
   "تويوته": "تويوتا",
   "هونداي": "هيونداي",
-  "هونداى": "هيونداي",
+  "هوندايى": "هيونداي",
   "هوندي": "هيونداي",
   "مرسيدس": "مرسيدس",
   "مرسيديس": "مرسيدس",
@@ -464,44 +463,6 @@ class SmartSearchService {
   }
 
   /**
-   * Calculate Quality Score for an ad (0-600+)
-   * Used for selecting the "winner" in a group and for sorting.
-   */
-  static calculateQualityScore(item) {
-    if (!item) return 0;
-    let score = 0;
-    const user = item.userId || {};
-    
-    // 1. Price Factor (35% weight)
-    // Since we compare same product, we penalize higher prices relative to original.
-    const referencePrice = item.originalPrice || item.price; 
-    const priceDiffPercent = referencePrice > 0 ? ((referencePrice - item.price) / referencePrice) * 100 : 0;
-    score += priceDiffPercent * 5; // e.g., 10% cheaper = +50 points.
-
-    // 2. Reseller Level (20% weight)
-    const levelWeights = { "VIP": 100, "Pro": 75, "Active": 50, "Beginner": 25 };
-    score += levelWeights[user.resellerLevel] || 25;
-
-    // 3. Rating (15% weight)
-    score += (user.resellerRating || 0) * 20; // 5.0 rating = 100 points.
-
-    // 4. Sales Volume (10% weight)
-    score += Math.min(user.resellerSalesCount || 0, 100); // Max 100 points for 100+ sales.
-
-    // 5. Response Speed (10% weight)
-    const responseTime = user.resellerResponseTime || 60; // Default 1 hour
-    score += Math.max(0, 100 - responseTime); // 0 mins = 100 pts, 100+ mins = 0 pts.
-
-    // 6. Completion Rate (10% weight)
-    score += user.resellerCompletionRate || 0; // Max 100 points.
-
-    // Bonus: Featured status
-    if (item.featured) score += 50;
-    
-    return score;
-  }
-
-  /**
    * Enhanced Arabic Normalization
    * Normalizes letters that often vary (alef, teh marbuta, yah)
    */
@@ -581,9 +542,6 @@ class SmartSearchService {
     userLng = null,
     userId = null,
     adType = null,
-    resellerLevel = null,
-    performance = null,
-    isResellEnabled = null,
     page = 1,
     limit = 20,
     sort = "best"
@@ -613,8 +571,7 @@ class SmartSearchService {
     const cacheParams = {
       originalQuery, categoryId, subCategoryId, governorateId, cityId,
       minPrice, maxPrice, conditions: finalCondition, page, limit, sort: finalSort,
-      verifiedOnly, featuredOnly, userLat, userLng, userId, adType: finalAdType,
-      resellerLevel, performance, isResellEnabled
+      verifiedOnly, featuredOnly, userLat, userLng, userId, adType: finalAdType
     };
     const cacheKey = this.getCacheKey(cacheParams);
     const cachedResult = this.getCachedResult(cacheKey);
@@ -745,36 +702,8 @@ class SmartSearchService {
       filter.featured = true;
     }
 
-    if (adType && adType !== "profitable") {
+    if (adType) {
       filter.adType = adType;
-    }
-
-    // 4. Profitable Filter (for resellers to find ads to market)
-    if (adType === "profitable") {
-      filter.isResellEnabled = true;
-      // Exclude user's own ads from profitable opportunities
-      if (userId) {
-        filter.userId = { $ne: new mongoose.Types.ObjectId(userId) };
-      }
-      delete filter.adType;
-    }
-
-    // 4. Resell filter logic
-    if (adType === "resell") {
-      delete filter.adType;
-      filter.adType = "sell"; 
-    }
-
-    // Force strict filters at the end to ensure they are not overwritten
-    if (isResellEnabled === true || isResellEnabled === "true") {
-      filter.isResellEnabled = true;
-      // Orders are never marketable
-      if (filter.adType === "order") {
-        // If user specifically asked for orders AND marketable, return nothing
-        filter._id = new mongoose.Types.ObjectId(); 
-      } else {
-        filter.adType = { $ne: "order" };
-      }
     }
 
     // Execute search
@@ -789,63 +718,8 @@ class SmartSearchService {
           select: "name"
         }
       })
-      .populate("userId", "isVerifiedSeller isTrustedReseller resellerLevel resellerRating resellerSalesCount resellerResponseTime resellerCompletionRate name avatar sellerRating sellerReviewsCount")
+      .populate("userId", "isVerifiedSeller isTrustedReseller name avatar sellerRating sellerReviewsCount")
       .lean();
-
-    // Fetch and Merge ResellAds if adType is not "order" and not "profitable"
-    const shouldIncludeResellAds = finalAdType !== "order" && 
-                                  finalAdType !== "profitable" && 
-                                  isResellEnabled !== true && 
-                                  isResellEnabled !== "true";
-
-    if (shouldIncludeResellAds) {
-      const resellAds = await ResellAd.find({ status: "active" })
-        .populate({
-          path: "originalAdId",
-          match: filter, // Apply same filters to original ad
-          populate: [
-            { path: "governorateId", select: "name" },
-            { path: "cityId", select: "name" },
-            { 
-              path: "categoryId", 
-              select: "name slug parentId",
-              populate: {
-                path: "parentId",
-                select: "name"
-              }
-            }
-          ]
-        })
-        .populate("resellerId", "isVerifiedSeller isTrustedReseller resellerLevel resellerRating resellerSalesCount resellerResponseTime resellerCompletionRate name avatar sellerRating sellerReviewsCount")
-        .lean();
-
-      const formattedResellAds = resellAds
-        .filter(ra => ra.originalAdId) // Only those whose original ad matched filters
-        .map(ra => ({
-          ...ra.originalAdId,
-          _id: ra._id,
-          originalId: ra.originalAdId._id,
-          price: ra.newPrice,
-          description: ra.customDescription || ra.originalAdId.description,
-          userId: ra.resellerId,
-          viewCount: ra.viewsCount || 0,
-          createdAt: ra.createdAt,
-          isResell: true
-        }));
-
-      ads = [...ads, ...formattedResellAds];
-    }
-
-    // 1. Post-Fetch Filtering (Advanced Filters)
-    
-    // Filter by adType (resell, sell, all)
-    if (finalAdType && finalAdType !== "all" && finalAdType !== "order" && finalAdType !== "profitable") {
-      ads = ads.filter(ad => {
-        if (finalAdType === "resell") return ad.isResell === true;
-        if (finalAdType === "sell") return !ad.isResell;
-        return true;
-      });
-    }
 
     // Filter by conditions
     if (finalCondition) {
@@ -854,57 +728,6 @@ class SmartSearchService {
         ads = ads.filter(ad => condValues.includes(ad.condition));
       }
     }
-
-    // Filter by resellerLevel
-    if (resellerLevel && resellerLevel !== "all") {
-      ads = ads.filter(ad => ad.userId?.resellerLevel === resellerLevel);
-    }
-
-    // Filter by performance
-    if (performance) {
-      if (performance === "topRated") {
-        ads = ads.filter(ad => (ad.userId?.resellerRating || 0) >= 4.5);
-      } else if (performance === "mostSold") {
-        ads = ads.filter(ad => (ad.userId?.resellerSalesCount || 0) >= 50);
-      } else if (performance === "fastestResponse") {
-        ads = ads.filter(ad => (ad.userId?.resellerResponseTime || 100) <= 30);
-      }
-    }
-
-    // Profit Opportunities (for resellers to find ads to market)
-    if (finalAdType === "profitable") {
-      ads = ads.filter(ad => 
-        ad.isResellEnabled === true && 
-        (ad.commissionValue > 0)
-      );
-    }
-
-    // 2. Deduplication: Group by originalId and pick the best offer
-    const groupedAds = new Map();
-    ads.forEach(ad => {
-      const groupId = ad.originalId || ad._id;
-      const existing = groupedAds.get(String(groupId));
-      
-      if (!existing) {
-        groupedAds.set(String(groupId), ad);
-      } else {
-        // Ranking Logic (Quality Score Model)
-        const adScore = this.calculateQualityScore(ad);
-        const exScore = this.calculateQualityScore(existing);
-
-        if (adScore > exScore) {
-          groupedAds.set(String(groupId), ad);
-        }
-      }
-    });
-
-    ads = Array.from(groupedAds.values());
-
-    // 3. Calculate Quality Score for sorting
-    ads = ads.map(ad => ({
-      ...ad,
-      qualityScore: this.calculateQualityScore(ad)
-    }));
 
     // Calculate relevance score for relevance-based features
     const userLocation = userLat && userLng ? { lat: userLat, lng: userLng } : null;
@@ -948,14 +771,6 @@ class SmartSearchService {
     // Optional post-filter for verified sellers
     if (verifiedOnly === true || verifiedOnly === "true") {
       ads = ads.filter(a => a?.userId?.isVerifiedSeller === true);
-    }
-
-    // Optional post-filter for marketable ads
-    if (isResellEnabled === true || isResellEnabled === "true") {
-      ads = ads.filter(a => {
-        const val = a?.isResellEnabled;
-        return val === true || val === "true" || val === 1;
-      });
     }
 
     // Optional confirm featured flag
@@ -1004,11 +819,6 @@ class SmartSearchService {
         if (a.featured !== b.featured) return b.featured ? 1 : -1;
         return (Number(b.price || 0) - Number(a.price || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
       });
-    } else if (s === "rating") {
-      copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return (Number(b.userId?.resellerRating || 0) - Number(a.userId?.resellerRating || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
-      });
     } else if (s === "old") {
       copy.sort((a, b) => {
         if (a.featured !== b.featured) return b.featured ? 1 : -1;
@@ -1023,11 +833,6 @@ class SmartSearchService {
       copy.sort((a, b) => {
         if (a.featured !== b.featured) return b.featured ? 1 : -1;
         return (Number(b.viewCount || 0) - Number(a.viewCount || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
-      });
-    } else if (s === "best") {
-      copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return (Number(b.qualityScore || 0) - Number(a.qualityScore || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
       });
     } else {
       copy.sort((a, b) => {

@@ -2,7 +2,6 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Ad from "../models/Ad.js";
 import SoldListing from "../models/SoldListing.js";
-import ResellAd from "../models/ResellAd.js";
 import Category from "../models/Category.js";
 import CategoryAttribute from "../models/CategoryAttribute.js";
 import ListingAttributeValue from "../models/ListingAttributeValue.js";
@@ -430,45 +429,10 @@ router.get("/:id", optionalAuth, async (req, res) => {
       .populate("userId", "name avatar isVerifiedSeller isTrustedReseller createdAt")
       .lean();
     
-    // If not found, check ResellAd
-    if (!ad) {
-      const resellAd = await ResellAd.findById(adId)
-        .populate({
-          path: "originalAdId",
-          populate: [
-            { path: "governorateId", select: "name" },
-            { path: "cityId", select: "name" },
-            { path: "categoryId", select: "name slug image parentId" }
-          ]
-        })
-        .populate("resellerId", "name avatar isVerifiedSeller isTrustedReseller")
-        .lean();
-
-      if (resellAd && resellAd.originalAdId) {
-        ad = {
-          ...resellAd.originalAdId,
-          _id: resellAd._id,
-          originalId: resellAd.originalAdId._id,
-          price: resellAd.newPrice,
-          description: resellAd.customDescription || resellAd.originalAdId.description,
-          userId: resellAd.resellerId,
-          viewCount: resellAd.viewsCount || 0,
-          createdAt: resellAd.createdAt,
-          isResell: true,
-          contactInfo: { // Hide original seller info
-            showPhone: false,
-            showWhatsApp: false,
-            phone: "",
-            whatsapp: ""
-          }
-        };
-      }
-    }
-    
     if (!ad) return res.status(404).json({ error: "Not found" });
 
     // Logic for restricted ads (only owner or admin can see)
-    if (ad.status !== "approved" && !ad.isResell) {
+    if (ad.status !== "approved") {
       const isAdmin = req.user?.role === "admin";
       const isOwner = req.user && String(ad.userId?._id || ad.userId) === String(req.user.id);
       
@@ -491,49 +455,12 @@ router.get("/:id", optionalAuth, async (req, res) => {
     // Get attributes
     let attributes = [];
     try {
-      attributes = await ListingService.getListingAttributes(ad.isResell ? ad.originalId : ad._id);
+      attributes = await ListingService.getListingAttributes(ad._id);
     } catch (attrErr) {
       console.error("Error fetching attributes:", attrErr);
     }
 
-    // Get other offers for the same product
-    let otherOffers = [];
-    try {
-      const originalId = ad.isResell ? ad.originalId : ad._id;
-      const resellAds = await ResellAd.find({ 
-        originalAdId: originalId, 
-        _id: { $ne: ad._id },
-        status: "active" 
-      })
-      .populate("resellerId", "name avatar isVerifiedSeller resellerLevel resellerCompletionRate resellerSalesCount")
-      .lean();
-
-      otherOffers = resellAds.map(ra => ({
-        _id: ra._id,
-        price: ra.newPrice,
-        reseller: ra.resellerId,
-        isResell: true
-      }));
-
-      // Also include original ad if current is a resell ad
-      if (ad.isResell) {
-        const originalAd = await Ad.findById(originalId)
-          .populate("userId", "name avatar isVerifiedSeller")
-          .lean();
-        if (originalAd && originalAd.status === "approved") {
-          otherOffers.push({
-            _id: originalAd._id,
-            price: originalAd.price,
-            seller: originalAd.userId,
-            isOriginal: true
-          });
-        }
-      }
-    } catch (offerErr) {
-      console.error("Error fetching other offers:", offerErr);
-    }
-    
-    res.json({ ...ad, attributes, parentCategory, otherOffers });
+    res.json({ ...ad, attributes, parentCategory });
   } catch (error) {
     console.error("Get ad detail error:", error);
     res.status(500).json({ error: "Server error", message: error.message });
@@ -728,20 +655,9 @@ router.patch("/:id/followup-response", auth, requireRole(["seller", "user"]), as
 router.get("/:id/comments", async (req, res) => {
   try {
     const adId = req.params.id;
-    let targetAdId = adId;
-    let adModel = "Ad";
     
-    // Check if it's a regular ad or a resell ad
+    // Check if it's a regular ad
     let ad = await Ad.findById(adId).lean();
-    if (!ad) {
-      const resellAd = await ResellAd.findById(adId).lean();
-      if (resellAd) {
-        ad = resellAd;
-        targetAdId = resellAd._id;
-        adModel = "ResellAd";
-      }
-    }
-
     if (!ad) return res.status(404).json({ error: "الإعلان غير موجود" });
 
     const { page = 1, limit = 20 } = req.query || {};
@@ -750,13 +666,13 @@ router.get("/:id/comments", async (req, res) => {
     
     const [list, total] = await Promise.all([
       AdComment
-      .find({ adId: targetAdId, adModel })
+      .find({ adId, adModel: "Ad" })
       .populate("userId", "name avatar")
       .sort({ createdAt: -1 })
       .skip((p - 1) * l)
       .limit(l)
       .lean(),
-      AdComment.countDocuments({ adId: targetAdId, adModel })
+      AdComment.countDocuments({ adId, adModel: "Ad" })
     ]);
     res.json({ items: list, page: p, limit: l, total, pages: Math.ceil(total / l) });
   } catch (error) {
@@ -920,31 +836,16 @@ router.post(
   async (req, res) => {
   try {
     const adId = req.params.id;
-    let targetAdId = adId;
-    let adModel = "Ad";
     const { text } = req.body || {};
     
-    // Check if it's a regular ad or a resell ad
+    // Check if it's a regular ad
     let ad = await Ad.findById(adId).lean();
-    let notifyUserId = null;
-
-    if (!ad) {
-      const resellAd = await ResellAd.findById(adId).lean();
-      if (resellAd) {
-        ad = resellAd;
-        targetAdId = resellAd._id;
-        adModel = "ResellAd";
-        notifyUserId = resellAd.resellerId;
-      }
-    } else {
-      notifyUserId = ad.userId;
-    }
-
     if (!ad) return res.status(404).json({ error: "الإعلان غير موجود" });
+    let notifyUserId = ad.userId;
     
     const c = await AdComment.create({ 
-      adId: targetAdId, 
-      adModel, 
+      adId: adId, 
+      adModel: "Ad", 
       userId: req.user.id, 
       text: String(text).trim() 
     });
@@ -961,16 +862,16 @@ router.post(
     try {
       const u = await User.findById(req.user.id).select("name").lean();
       const title = "تعليق جديد على إعلانك";
-      const adTitle = ad.title || (adModel === "ResellAd" ? "إعلان إعادة بيع" : "إعلان");
+      const adTitle = ad.title || "إعلان";
       const body = `${u?.name || "مستخدم"} علّق على إعلان ${adTitle}: ${String(text).trim()}`;
       
-      // Notify seller/reseller
+      // Notify seller
       await createNotification(req.app, {
         userId: notifyUserId,
         type: "comment",
         title,
         body,
-        data: { adId: targetAdId, adModel, commentId: c._id }
+        data: { adId, adModel: "Ad", commentId: c._id }
       });
     } catch (notifErr) {
       console.error("Comment notification failed:", notifErr);
@@ -1030,41 +931,25 @@ router.post(
         return res.json({ counted: false, reason: "duplicate" });
       }
 
-      // Check if it's a regular ad or a resell ad
+      // Check if it's a regular ad
       let ad = await Ad.findById(adId);
-      let isResell = false;
-      
-      if (!ad) {
-        ad = await ResellAd.findById(adId);
-        if (ad) isResell = true;
-      }
-
       if (!ad) return res.status(404).json({ error: "الإعلان غير موجود" });
 
       // Record the new view
       await AdView.create({ adId, userId, ip });
 
-      // Increment view count in appropriate model
-      let updatedAd;
-      if (isResell) {
-        updatedAd = await ResellAd.findByIdAndUpdate(
-          adId,
-          { $inc: { viewsCount: 1 } },
-          { new: true }
-        ).select("viewsCount");
-      } else {
-        const updateObj = { $inc: { viewCount: 1 } };
-        if (ad.isWelcomePromoted) {
-          updateObj.$inc["promotionStats.views"] = 1;
-        }
-        updatedAd = await Ad.findByIdAndUpdate(
-          adId,
-          updateObj,
-          { new: true }
-        ).select("viewCount");
+      // Increment view count in ad model
+      const updateObj = { $inc: { viewCount: 1 } };
+      if (ad.isWelcomePromoted) {
+        updateObj.$inc["promotionStats.views"] = 1;
       }
+      const updatedAd = await Ad.findByIdAndUpdate(
+        adId,
+        updateObj,
+        { new: true }
+      ).select("viewCount");
 
-      res.json({ counted: true, viewCount: isResell ? updatedAd.viewsCount : updatedAd.viewCount });
+      res.json({ counted: true, viewCount: updatedAd.viewCount });
     } catch (err) {
       if (err.code === 11000) {
         return res.json({ counted: false, reason: "duplicate" });
@@ -1521,16 +1406,6 @@ router.delete("/:id", auth, async (req, res) => {
     } catch (soldErr) {
       console.error("Error updating SoldListing on soft delete:", soldErr);
     }
-    
-    // Disable all related ResellAds
-    try {
-      await ResellAd.updateMany(
-        { originalAdId: ad._id },
-        { status: "cancelled" }
-      );
-    } catch (resellErr) {
-      console.error("Error disabling resell ads on deletion:", resellErr);
-    }
 
     res.json({ ok: true, message: "تم حذف الإعلان بنجاح" });
   } catch (error) {
@@ -1547,12 +1422,6 @@ router.get("/:id/similar", async (req, res) => {
     }
 
     let ad = await Ad.findById(adId).lean();
-    if (!ad) {
-      const resellAd = await ResellAd.findById(adId).populate("originalAdId").lean();
-      if (resellAd && resellAd.originalAdId) {
-        ad = resellAd.originalAdId;
-      }
-    }
 
     if (!ad) return res.status(404).json({ error: "الإعلان غير موجود" });
 

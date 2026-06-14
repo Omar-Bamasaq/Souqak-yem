@@ -92,13 +92,7 @@ const AdSchema = new mongoose.Schema(
       favorites: { type: Number, default: 0 }
     },
 
-    // Resell (Affiliate Marketing) Fields
-    isResellEnabled: { type: Boolean, default: false },
-    commissionType: { type: String, enum: ["fixed", "percentage"], default: "percentage" },
-    commissionValue: { type: Number, default: 0 },
-    maxResellPrice: { type: Number },
-    allowAutoApproval: { type: Boolean, default: true },
-    maxResellers: { type: Number, default: 5 },
+
 
     // Buyer Information
     buyerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -128,7 +122,7 @@ AdSchema.index({ sellerId: 1 }); // User mentioned seller index
 AdSchema.index({ createdAt: 1 });
 AdSchema.index({ soldAt: 1 });
 AdSchema.index({ featured: -1, createdAt: -1 });
-AdSchema.index({ isResellEnabled: 1 }, { partialFilterExpression: { isResellEnabled: true } });
+
 
 AdSchema.plugin(softDeletePlugin);
 

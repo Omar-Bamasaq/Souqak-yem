@@ -4,7 +4,6 @@ import { requireRole } from "../middleware/roles.js";
 import Order from "../models/Order.js";
 import Dispute from "../models/Dispute.js";
 import Ad from "../models/Ad.js";
-import ResellAd from "../models/ResellAd.js";
 import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
 import { uploadReceipt } from "../middleware/upload.js";
@@ -37,38 +36,22 @@ router.post(
       const { adId, shippingFee, shippingCurrency, shippingPayer, notes, agreedTerms, currency } = req.body;
       
       // جلب بيانات الإعلان من قاعدة البيانات حصراً
-      let ad = await Ad.findById(adId).lean();
-      let price = 0;
-      let sellerId = null;
-      let isResell = false;
-
-      if (!ad) {
-        // التحقق مما إذا كان إعلان إعادة بيع
-        const resellAd = await ResellAd.findById(adId).populate("originalAdId").lean();
-        if (resellAd && resellAd.originalAdId) {
-          ad = resellAd.originalAdId;
-          price = resellAd.newPrice;
-          sellerId = resellAd.resellerId;
-          isResell = true;
-        }
-      } else {
-        price = ad.price;
-        sellerId = ad.userId;
-      }
+      const ad = await Ad.findById(adId).lean();
 
       if (!ad || ad.status !== "approved") {
         return res.status(400).json({ error: "الإعلان غير صالح أو غير متوفر حالياً." });
       }
       
-      if (!sellerId) {
+      if (!ad.userId) {
           return res.status(400).json({ error: "هذا الإعلان غير مرتبط بمستخدم، لا يمكن إتمام عملية الشراء." });
       }
 
-      if (sellerId.toString() === req.user.id) {
+      if (ad.userId.toString() === req.user.id) {
           return res.status(400).json({ error: "لا يمكنك شراء منتجك الخاص." });
       }
 
       const sFee = Number(shippingFee) || 0;
+      const price = ad.price;
       
       // حساب العمولات (3% على المشتري، 1% على البائع)
       // يتم الحساب بناءً على السعر المجلوب من قاعدة البيانات فقط
@@ -87,9 +70,8 @@ router.post(
 
       const order = await Order.create({
         buyer: req.user.id,
-        seller: sellerId,
+        seller: ad.userId,
         ad: ad._id,
-        resellAd: isResell ? adId : undefined,
         status: "PENDING_SELLER_APPROVAL",
         amount: price,
         shippingFee: sFee,

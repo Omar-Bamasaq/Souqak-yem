@@ -5,7 +5,6 @@ import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
 import ConversationMessage from "../models/ConversationMessage.js";
 import Ad from "../models/Ad.js";
-import ResellAd from "../models/ResellAd.js";
 import Notification from "../models/Notification.js";
 import { createNotification } from "../services/notificationService.js";
 import { uploadImages } from "../middleware/upload.js";
@@ -47,7 +46,8 @@ router.get("/", auth, async (req, res) => {
     const list = await Conversation.find({ 
       participants: req.user.id,
       deletedBy: { $ne: req.user.id },
-      isDeletedByAdmin: { $ne: true }
+      isDeletedByAdmin: { $ne: true },
+      adModel: "Ad"
     })
       .populate({
         path: "adId",
@@ -59,23 +59,6 @@ router.get("/", auth, async (req, res) => {
 
     console.log("Conversations found:", list.length);
     if (list.length === 0) return res.json([]);
-
-    // Manually populate originalAdId for ResellAd items if needed
-    for (let i = 0; i < list.length; i++) {
-      const conv = list[i];
-      if (conv.adModel === "ResellAd" && conv.adId && conv.adId.originalAdId) {
-        try {
-          const originalAd = await Ad.findById(conv.adId.originalAdId)
-            .select("title images userId status price currency governorateId cityId")
-            .lean();
-          if (originalAd) {
-            conv.adId.originalAdId = originalAd;
-          }
-        } catch (popErr) {
-          console.error("Error populating originalAdId manually:", popErr);
-        }
-      }
-    }
 
     // Get unread counts for all conversations in one go
     const convIds = list.map(c => c._id);
@@ -160,20 +143,8 @@ router.post("/open", auth, async (req, res) => {
     const { adId, participantId } = req.body;
     if (!adId) return res.status(400).json({ error: "adId required" });
     
-    let ad = await Ad.findById(adId).lean();
-    let adModel = "Ad";
-    let sellerId = null;
-
-    if (!ad) {
-      const resellAd = await ResellAd.findById(adId).lean();
-      if (resellAd) {
-        ad = resellAd;
-        adModel = "ResellAd";
-        sellerId = resellAd.resellerId;
-      }
-    } else {
-      sellerId = ad.userId;
-    }
+    const ad = await Ad.findById(adId).lean();
+    const adModel = "Ad";
 
     if (!ad) {
       return res.status(400).json({ error: "الإعلان غير موجود" });
@@ -198,7 +169,7 @@ router.post("/open", auth, async (req, res) => {
     } else {
       // Default behavior (from ProductDetail): requester is buyer, ad owner is seller
       buyerId = currentUserId;
-      targetSellerId = sellerId;
+      targetSellerId = ad.userId;
 
       if (String(targetSellerId) === String(buyerId)) {
         return res.status(400).json({ error: "Cannot message own ad" });
@@ -230,15 +201,7 @@ router.post("/open", auth, async (req, res) => {
 
       // زيادة عداد المتواصلين في الإعلان عند فتح أول محادثة بين المشتري والبائع لهذا الإعلان
       try {
-        if (adModel === "Ad") {
-          await Ad.findByIdAndUpdate(adId, { $inc: { contactsCount: 1 } });
-        } else if (adModel === "ResellAd") {
-          // إذا كان إعلان إعادة بيع، نزيد العداد في الإعلان الأصلي أيضاً إذا وجد
-          const resellAd = await ResellAd.findById(adId).select("originalAdId").lean();
-          if (resellAd && resellAd.originalAdId) {
-            await Ad.findByIdAndUpdate(resellAd.originalAdId, { $inc: { contactsCount: 1 } });
-          }
-        }
+        await Ad.findByIdAndUpdate(adId, { $inc: { contactsCount: 1 } });
       } catch (incErr) {
         console.error("Error incrementing contactsCount:", incErr);
       }
