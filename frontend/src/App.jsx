@@ -82,6 +82,12 @@ const Wallet = lazy(() => import("./pages/Wallet.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks.jsx"));
 const SecureDealExplanation = lazy(() => import("./pages/SecureDealExplanation.jsx"));
+// Brokerage Pages
+const BrokerDashboard = lazy(() => import("./pages/BrokerDashboard.jsx"));
+const BrokerageCampaigns = lazy(() => import("./pages/BrokerageCampaigns.jsx"));
+const BrokerageMemberships = lazy(() => import("./pages/BrokerageMemberships.jsx"));
+const BrokerageDeals = lazy(() => import("./pages/BrokerageDeals.jsx"));
+const BrokerageAchievements = lazy(() => import("./pages/BrokerageAchievements.jsx"));
 
 function RequireRole({ role, children }) {
   const { user, loading } = useAuth();
@@ -223,6 +229,14 @@ export default function App() {
         <Route path="/refund-escrow" element={<RefundEscrow />} />
         <Route path="/platform-reviews" element={<PlatformReviews />} />
         <Route path="/pricing" element={<Pricing />} />
+        
+        {/* Brokerage Routes */}
+        <Route path="/brokerage" element={<RequireRole role={null}><BrokerDashboard /></RequireRole>} />
+        <Route path="/brokerage/campaigns" element={<RequireRole role={null}><BrokerageCampaigns /></RequireRole>} />
+        <Route path="/brokerage/memberships" element={<RequireRole role={null}><BrokerageMemberships /></RequireRole>} />
+        <Route path="/brokerage/deals" element={<RequireRole role={null}><BrokerageDeals /></RequireRole>} />
+        <Route path="/brokerage/achievements" element={<RequireRole role={null}><BrokerageAchievements /></RequireRole>} />
+        
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

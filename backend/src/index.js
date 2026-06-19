@@ -72,6 +72,7 @@ import walletRoutes from "./routes/wallets.js";
 import adminEscrowRoutes from "./routes/adminEscrow.js";
 import adminAnalyticsRoutes from "./routes/adminAnalytics.js";
 import sellerAnalyticsRoutes from "./routes/sellerAnalytics.js";
+import brokerageRoutes from "./routes/brokerage.js";
 import User from "./models/User.js";
 import Ad from "./models/Ad.js";
 import Order from "./models/Order.js";
@@ -352,6 +353,7 @@ app.use("/api/commissions", commissionsRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/platform-reviews", platformReviewRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/brokerage", brokerageRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
