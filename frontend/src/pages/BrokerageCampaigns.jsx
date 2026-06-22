@@ -13,7 +13,7 @@ export default function BrokerageCampaigns() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await brokerageApi.getCampaigns();
+        const res = await brokerageApi.getCampaigns({ state: "ACTIVE" });
         setCampaigns(res.data?.items || res.data || []);
       } catch (err) {
         console.error("Failed to fetch campaigns:", err);
