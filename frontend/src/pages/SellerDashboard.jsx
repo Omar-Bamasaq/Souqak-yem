@@ -209,22 +209,22 @@ export default function SellerDashboard() {
           <span className="font-bold text-sm">لوحة البائع</span>
         </Link>
 
-        <Link to="/reseller/dashboard" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-purple-100 bg-purple-50/30 dark:bg-purple-900/10 dark:border-purple-900/30">
+        <Link to="/brokerage" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-purple-100 bg-purple-50/30 dark:bg-purple-900/10 dark:border-purple-900/30">
           <div className="p-3 bg-purple-100 dark:bg-purple-900/40 rounded-2xl">
             <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
           </div>
-          <span className="font-bold text-sm text-purple-700 dark:text-purple-400">لوحة المسوق</span>
+          <span className="font-bold text-sm text-purple-700 dark:text-purple-400">لوحة الوسيط</span>
         </Link>
 
-        <Link to="/resell/requests" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
+        <Link to="/brokerage/campaigns" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
           <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
             <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
             </svg>
           </div>
-          <span className="font-bold text-sm">طلبات التسويق</span>
+          <span className="font-bold text-sm">الحملات المتاحة</span>
         </Link>
 
         <Link to="/my-ads" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
