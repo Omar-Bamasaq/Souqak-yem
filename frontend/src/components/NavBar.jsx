@@ -316,6 +316,12 @@ export default function NavBar() {
                           <span className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded-md">جديد</span>
                         </Link>
                         <Link to="/seller" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">لوحة البائع</Link>
+                        <Link to="/brokerage" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-black hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <span>🤝</span>
+                            <span>لوحة الوسيط</span>
+                          </div>
+                        </Link>
                         <Link to="/my-ads" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">إعلاناتي</Link>
                         <Link to="/favorites" className="flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">
                           <span>المفضلة</span>
