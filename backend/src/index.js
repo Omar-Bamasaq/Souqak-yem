@@ -423,10 +423,10 @@ setInterval(async () => {
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// Verify Email Accounts on Startup
-verifyEmailAccounts().catch(err => {
-  console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
-});
+// Verify Email Accounts on Startup (Disabled per user request)
+// verifyEmailAccounts().catch(err => {
+//   console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
+// });
 
 const io = new Server(server, {
   cors: corsOptions
