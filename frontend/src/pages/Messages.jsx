@@ -299,24 +299,30 @@ export default function Messages() {
         } catch {}
         await loadMsgs(selectedId);
         await loadConvs();
-        setSelectedConv((prev) => {
-          const updated = (conversations || []).find((x) => x._id === selectedId);
-          return updated || prev;
-        });
+        
+        // Fetch the single conversation directly to ensure we have the latest data
         try {
-          window.dispatchEvent(new CustomEvent("conversation:active", { detail: { conversationId: selectedId } }));
-        } catch {}
-        try {
-          const fresh = (await api.get("/conversations")).data || [];
-          const found = fresh.find((x) => x._id === selectedId);
-          setMuted(!!found?.muted);
-        } catch {}
-        try {
-          if (selectedConv?.counterpartId) {
+          const convRes = await api.get(`/conversations/${selectedId}`);
+          setSelectedConv(convRes.data);
+          setMuted(!!convRes.data.muted);
+          
+          // Also check if the counterpart is blocked
+          if (convRes.data.counterpartId) {
             const blocks = (await api.get("/blocks")).data || [];
-            const exists = blocks.find((b) => String(b.blockedId?._id || b.blockedId) === String(selectedConv.counterpartId));
+            const exists = blocks.find((b) => String(b.blockedId?._id || b.blockedId) === String(convRes.data.counterpartId));
             setBlocked(!!exists);
           }
+        } catch (err) {
+          console.error("Failed to fetch conversation:", err);
+          // Fallback to the list if direct fetch fails
+          setSelectedConv((prev) => {
+            const updated = (conversations || []).find((x) => x._id === selectedId);
+            return updated || prev;
+          });
+        }
+        
+        try {
+          window.dispatchEvent(new CustomEvent("conversation:active", { detail: { conversationId: selectedId } }));
         } catch {}
       }
     })();

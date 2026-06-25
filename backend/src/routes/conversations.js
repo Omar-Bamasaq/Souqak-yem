@@ -16,6 +16,83 @@ import { sendPushNotification } from "../services/pushService.js";
 
 const router = Router();
 
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const conv = await Conversation.findById(req.params.id)
+      .populate({
+        path: "adId",
+        refPath: "adModel"
+      })
+      .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
+      .lean();
+
+    if (!conv) return res.status(404).json({ error: "Not found" });
+    if (!conv.participants.find(p => String(p._id || p) === String(req.user.id))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Process the conversation to include counterpart info
+    const participants = Array.isArray(conv.participants) ? conv.participants : [];
+    const counterpart = participants.find(p => p && String(p._id || p) !== String(req.user.id));
+    
+    let counterpartName = "مستخدم";
+    let counterpartId = null;
+    let counterpartAvatar = null;
+    let counterpartIsVerified = false;
+    let counterpartIsOnline = false;
+    let counterpartLastSeen = null;
+
+    if (conv.type === "DISPUTE" && conv.title) {
+      counterpartName = conv.title;
+    } else if (counterpart) {
+      let counterpartObj = null;
+      if (typeof counterpart === "object" && counterpart._id) {
+        counterpartObj = counterpart;
+      } else {
+        // Fetch the user if not populated
+        const cid = typeof counterpart === "object" ? counterpart._id : counterpart;
+        counterpartObj = await User.findById(cid).select("name avatar isVerifiedSeller isOnline lastSeen").lean();
+      }
+
+      if (counterpartObj) {
+        counterpartId = counterpartObj._id;
+        counterpartName = counterpartObj.name || "مستخدم";
+        counterpartAvatar = counterpartObj.avatar;
+        counterpartIsVerified = !!counterpartObj.isVerifiedSeller;
+        counterpartIsOnline = !!counterpartObj.isOnline;
+        counterpartLastSeen = counterpartObj.lastSeen;
+      }
+    }
+
+    const muted = Array.isArray(conv.mutedFor) ? !!conv.mutedFor.find(u => String(u) === String(req.user.id)) : false;
+    const isPinned = Array.isArray(conv.pinnedBy) ? !!conv.pinnedBy.find(u => String(u) === String(req.user.id)) : false;
+
+    // Get unread count for this conversation
+    const unreadCount = await ConversationMessage.countDocuments({
+      conversationId: conv._id,
+      senderId: { $ne: req.user.id },
+      status: { $ne: "read" },
+      deletedBy: { $ne: req.user.id }
+    });
+
+    res.json({
+      ...conv,
+      unreadCount,
+      counterpartName,
+      counterpartId,
+      counterpartAvatar,
+      counterpartIsVerified,
+      counterpartIsOnline,
+      counterpartLastSeen,
+      muted,
+      isPinned
+    });
+  } catch (error) {
+    console.error("Get conversation error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/unread-count", auth, async (req, res) => {
   try {
     const conversations = await Conversation.find({ 
@@ -46,8 +123,7 @@ router.get("/", auth, async (req, res) => {
     const list = await Conversation.find({ 
       participants: req.user.id,
       deletedBy: { $ne: req.user.id },
-      isDeletedByAdmin: { $ne: true },
-      adModel: "Ad"
+      isDeletedByAdmin: { $ne: true }
     })
       .populate({
         path: "adId",
@@ -79,6 +155,26 @@ router.get("/", auth, async (req, res) => {
       return acc;
     }, {});
 
+    // Collect all counterpart IDs that need to be fetched (in case populate failed)
+    const counterpartIds = [];
+    list.forEach(c => {
+      const participants = Array.isArray(c.participants) ? c.participants : [];
+      const counterpart = participants.find(p => p && String(p._id || p) !== String(req.user.id));
+      if (counterpart && typeof counterpart === "object" && counterpart._id) {
+        // already populated
+      } else if (counterpart) {
+        // not populated, add to fetch list
+        counterpartIds.push(typeof counterpart === "object" ? counterpart._id : counterpart);
+      }
+    });
+
+    // Fetch any missing counterpart users
+    const missingUsers = await User.find({ _id: { $in: counterpartIds } })
+      .select("name avatar isVerifiedSeller isOnline lastSeen")
+      .lean();
+    
+    const userMap = new Map(missingUsers.map(u => [u._id.toString(), u));
+
     const withUnread = list.map((c) => {
       try {
         const participants = Array.isArray(c.participants) ? c.participants : [];
@@ -95,13 +191,24 @@ router.get("/", auth, async (req, res) => {
 
         if (c.type === "DISPUTE" && c.title) {
           counterpartName = c.title;
-        } else if (counterpart && typeof counterpart === "object") {
-          counterpartId = counterpart._id;
-          counterpartName = counterpart.name || "مستخدم";
-          counterpartAvatar = counterpart.avatar;
-          counterpartIsVerified = !!counterpart.isVerifiedSeller;
-          counterpartIsOnline = !!counterpart.isOnline;
-          counterpartLastSeen = counterpart.lastSeen;
+        } else if (counterpart) {
+          let counterpartObj = null;
+          if (typeof counterpart === "object" && counterpart._id) {
+            counterpartObj = counterpart;
+          } else {
+            // Try to find from userMap
+            const cid = typeof counterpart === "object" ? counterpart._id.toString() : counterpart.toString();
+            counterpartObj = userMap.get(cid);
+          }
+
+          if (counterpartObj) {
+            counterpartId = counterpartObj._id;
+            counterpartName = counterpartObj.name || "مستخدم";
+            counterpartAvatar = counterpartObj.avatar;
+            counterpartIsVerified = !!counterpartObj.isVerifiedSeller;
+            counterpartIsOnline = !!counterpartObj.isOnline;
+            counterpartLastSeen = counterpartObj.lastSeen;
+          }
         }
 
         const muted = Array.isArray(c.mutedFor) ? !!c.mutedFor.find((u) => String(u) === String(req.user.id)) : false;

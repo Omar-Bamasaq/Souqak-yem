@@ -534,31 +534,31 @@ export default function CategoryPage() {
       </nav>
 
       {/* Category Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-4 md:p-8 text-white shadow-xl">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
           <div className="flex-1 text-center md:text-right">
-            <h1 className="text-3xl md:text-5xl font-black mb-4 leading-tight">
+            <h1 className="text-xl md:text-3xl md:text-5xl font-black mb-2 md:mb-4 leading-tight">
               {category.name}
             </h1>
             {category.description && (
-              <p className="text-blue-50/80 max-w-2xl text-sm md:text-base leading-relaxed mb-6">
+              <p className="text-blue-50/80 max-w-2xl text-[11px] md:text-sm md:text-base leading-relaxed mb-3 md:mb-6">
                 {category.description}
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-              <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-sm font-bold">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3">
+              <div className="px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-[11px] md:text-sm font-bold">
                 {totalAds.toLocaleString("ar-EG")} إعلان متاح
               </div>
               <button
                 onClick={() => setShowAdvancedModal(true)}
-                className="px-4 py-2 rounded-xl bg-white text-blue-600 text-sm font-bold shadow-lg hover:bg-blue-50 transition-all active:scale-95"
+                className="px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-white text-blue-600 text-[11px] md:text-sm font-bold shadow-lg hover:bg-blue-50 transition-all active:scale-95"
               >
                 تصفية النتائج
               </button>
             </div>
           </div>
           {category.image && (
-            <div className="h-32 w-32 md:h-48 md:w-48 rounded-2xl bg-white/10 backdrop-blur-md p-2 flex-shrink-0">
+            <div className="h-20 w-20 md:h-32 md:w-32 md:h-48 md:w-48 rounded-2xl bg-white/10 backdrop-blur-md p-1 md:p-2 flex-shrink-0">
               <img
                 src={uploadsUrl(category.image, "thumb")}
                 alt={category.name}
@@ -657,13 +657,13 @@ export default function CategoryPage() {
 
       {/* Category Attributes Filters */}
       {quickFilters.length > 0 && (
-        <div className="space-y-6 animate-in fade-in duration-700">
+        <div className="space-y-4 animate-in fade-in duration-700">
           {quickFilters.map((attr) => {
             const attrKey = `attr_${attr.id || attr._id}`;
             const activeValue = searchParams.get(attrKey);
             
             return (
-              <div key={attr.id || attr._id} className="space-y-3">
+              <div key={attr.id || attr._id} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">{attr.label}</h2>
                   {activeValue && (
@@ -679,7 +679,7 @@ export default function CategoryPage() {
                     </button>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                   {attr.options
                     .flatMap(opt => typeof opt === 'string' ? opt.split(/[,،]/).map(s => s.trim()) : opt)
                     .filter(Boolean)
@@ -689,7 +689,7 @@ export default function CategoryPage() {
                         <button
                           key={option}
                           onClick={() => handleAttributeClick(attr.id || attr._id, option)}
-                          className={`px-5 py-2 rounded-full text-[13px] font-bold transition-all border shadow-sm ${
+                          className={`px-5 py-2 rounded-full text-[13px] font-bold transition-all border shadow-sm shrink-0 ${
                             isActive
                               ? "bg-blue-600 border-blue-600 text-white shadow-blue-100 scale-[1.05]"
                               : "bg-white border-gray-100 text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"

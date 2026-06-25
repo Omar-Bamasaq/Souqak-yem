@@ -1230,6 +1230,16 @@ router.patch("/phone-users/:id/status", async (req, res) => {
         isDisabled: true 
       }, { new: true });
       if (!updated) return res.status(404).json({ error: "User not found" });
+      
+      // Send rejection notification to user
+      await createNotification(req.app, {
+        userId: updated._id,
+        type: "system",
+        title: "تم رفض تفعيل حسابك",
+        body: "تم رفض طلب تفعيل حسابك. من فضلك تواصل معنا لمزيد من التفاصيل.",
+        push: false
+      });
+      
       return res.json({ ok: true, message: "User status updated to Rejected and Disabled" });
     }
 
@@ -1237,6 +1247,16 @@ router.patch("/phone-users/:id/status", async (req, res) => {
     const updated = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select("name phone role phoneTrial phoneTrialStatus").lean();
     console.log("User approval result:", updated ? "Approved" : "Not Found");
     if (!updated) return res.status(404).json({ error: "User not found for approval" });
+    
+    // Send approval notification to user
+    await createNotification(req.app, {
+      userId: updated._id,
+      type: "system",
+      title: "تم تفعيل حسابك!",
+      body: "تهانينا! تم تفعيل حسابك بنجاح. يمكنك الآن استخدام جميع خصائص المنصة.",
+      push: false
+    });
+    
     res.json(updated);
   } catch (err) {
     console.error("Admin phone status update error:", err);
