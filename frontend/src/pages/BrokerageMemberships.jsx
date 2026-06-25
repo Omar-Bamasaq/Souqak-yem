@@ -9,6 +9,7 @@ export default function BrokerageMemberships() {
   const brokerageApi = useBrokerageApi();
   const [memberships, setMemberships] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [copiedField, setCopiedField] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -40,18 +41,41 @@ export default function BrokerageMemberships() {
     }
   };
 
+  const copyToClipboard = async (text, fieldId) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      alert("فشل نسخ النص");
+    }
+  };
+
   const stateLabels = {
-    PENDING: "قيد المراجعة",
+    REQUEST_SENT: "قيد المراجعة",
+    AUTO_ACTIVE: "نشط",
     APPROVED: "مقبول",
+    ACTIVE: "نشط",
     REJECTED: "مرفوض",
     WITHDRAWN: "منسحب",
+    BANNED: "محظور",
+    EXPIRED: "منتهي",
+    INACTIVE: "غير نشط",
+    ARCHIVED: "مؤرشف",
   };
 
   const stateColors = {
-    PENDING: "bg-amber-100 text-amber-700",
+    REQUEST_SENT: "bg-amber-100 text-amber-700",
+    AUTO_ACTIVE: "bg-emerald-100 text-emerald-700",
     APPROVED: "bg-emerald-100 text-emerald-700",
+    ACTIVE: "bg-emerald-100 text-emerald-700",
     REJECTED: "bg-red-100 text-red-700",
     WITHDRAWN: "bg-gray-100 text-gray-600",
+    BANNED: "bg-red-100 text-red-700",
+    EXPIRED: "bg-gray-100 text-gray-600",
+    INACTIVE: "bg-gray-100 text-gray-600",
+    ARCHIVED: "bg-gray-100 text-gray-600",
   };
 
   if (loading) {
@@ -129,10 +153,10 @@ export default function BrokerageMemberships() {
                   </div>
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-black ${
-                      stateColors[membership.state]
+                      stateColors[membership.state] || "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {stateLabels[membership.state]}
+                    {stateLabels[membership.state] || membership.state}
                   </span>
                 </div>
 
@@ -156,14 +180,66 @@ export default function BrokerageMemberships() {
                   </div>
                 </div>
 
-                {membership.state === "APPROVED" || membership.state === "PENDING" ? (
+                {/* Referral Code & Link - only for approved/active memberships */}
+                {(membership.state === "APPROVED" || membership.state === "AUTO_ACTIVE" || membership.state === "ACTIVE") && (
+                  <>
+                    {membership.referralCode && (
+                      <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">
+                          كود الإحالة
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <code className="text-sm font-bold text-blue-900 dark:text-blue-100 bg-white dark:bg-slate-800 px-3 py-1 rounded-xl">
+                            {membership.referralCode}
+                          </code>
+                          <button
+                            onClick={() => copyToClipboard(membership.referralCode, `${membership._id}-code`)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-xl font-black text-xs hover:bg-blue-700 transition-all"
+                          >
+                            {copiedField === `${membership._id}-code` ? "تم النسخ!" : "نسخ"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {membership.referralLink && (
+                      <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
+                        <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2">
+                          رابط الإحالة
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-bold text-purple-900 dark:text-purple-100 truncate flex-1 bg-white dark:bg-slate-800 px-3 py-2 rounded-xl">
+                            {membership.referralLink}
+                          </p>
+                          <button
+                            onClick={() => copyToClipboard(membership.referralLink, `${membership._id}-link`)}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-xl font-black text-xs hover:bg-purple-700 transition-all shrink-0"
+                          >
+                            {copiedField === `${membership._id}-link` ? "تم النسخ!" : "نسخ"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Message for pending requests */}
+                {membership.state === "REQUEST_SENT" && (
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                      يرجى انتظار موافقة البائع على طلبك قبل أن يتم منحك حق الوصول إلى رابط الإحالة!
+                    </p>
+                  </div>
+                )}
+
+                {(membership.state === "APPROVED" || membership.state === "REQUEST_SENT" || membership.state === "AUTO_ACTIVE" || membership.state === "ACTIVE") && (
                   <button
                     onClick={() => handleWithdraw(membership._id)}
                     className="w-full bg-red-50 text-red-600 border border-red-100 font-black py-3 rounded-2xl hover:bg-red-100 transition-all"
                   >
                     الانسحاب
                   </button>
-                ) : null}
+                )}
               </div>
             </div>
           ))

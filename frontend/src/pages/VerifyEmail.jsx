@@ -52,6 +52,13 @@ const VerifyEmail = () => {
   useEffect(() => {
     if (!email) {
       navigate("/register");
+    } else {
+      // Focus first input when page loads
+      setTimeout(() => {
+        if (inputRefs[0].current) {
+          inputRefs[0].current.focus();
+        }
+      }, 100);
     }
   }, [email, navigate]);
 
@@ -75,11 +82,28 @@ const VerifyEmail = () => {
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
+    
+    // If user types multiple digits (paste or autocorrect), fill from current index
+    if (value.length > 1) {
+      for (let i = 0; i < value.length && index + i < 6; i++) {
+        newOtp[index + i] = value[i];
+      }
+    } else {
+      // Single digit - place at current index
+      newOtp[index] = value.slice(-1);
+    }
+    
     setOtp(newOtp);
 
-    if (value && index < 5) {
-      inputRefs[index + 1].current.focus();
+    // Move focus to next empty slot or last slot
+    if (value) {
+      let nextIndex = index;
+      while (nextIndex < 5 && newOtp[nextIndex] !== "") {
+        nextIndex++;
+      }
+      if (nextIndex <= 5 && inputRefs[nextIndex].current) {
+        inputRefs[nextIndex].current.focus();
+      }
     }
 
     if (newOtp.every((digit) => digit !== "")) {
@@ -88,23 +112,51 @@ const VerifyEmail = () => {
   };
 
   const handleKeyDown = (index, e) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
+    if (e.key === "Backspace") {
+      const newOtp = [...otp];
+      if (newOtp[index] !== "") {
+        // Clear current cell
+        newOtp[index] = "";
+        setOtp(newOtp);
+      } else if (index > 0) {
+        // Move to previous cell and clear it
+        inputRefs[index - 1].current.focus();
+        newOtp[index - 1] = "";
+        setOtp(newOtp);
+      }
+      e.preventDefault();
+    } else if (e.key === "ArrowLeft" && index > 0) {
       inputRefs[index - 1].current.focus();
+      e.preventDefault();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      inputRefs[index + 1].current.focus();
+      e.preventDefault();
     }
   };
 
   const handlePaste = (e) => {
-    const pasteData = e.clipboardData.getData("text").slice(0, 6);
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData("text").slice(0, 6).replace(/\D/g, ""); // Only keep digits
     if (/^\d+$/.test(pasteData)) {
       const newOtp = [...otp];
+      let startIndex = newOtp.findIndex(d => d === ""); // Find first empty slot
+      if (startIndex === -1) startIndex = 0; // If all full, start from beginning
+      
       pasteData.split("").forEach((char, i) => {
-        if (i < 6) newOtp[i] = char;
+        if (startIndex + i < 6) newOtp[startIndex + i] = char;
       });
       setOtp(newOtp);
+      
       if (newOtp.every((digit) => digit !== "")) {
         verifyOtp(newOtp.join(""));
-      } else if (pasteData.length < 6) {
-        inputRefs[pasteData.length].current.focus();
+      } else {
+        // Focus next empty slot after paste
+        const nextEmpty = newOtp.findIndex(d => d === "");
+        if (nextEmpty !== -1 && inputRefs[nextEmpty].current) {
+          inputRefs[nextEmpty].current.focus();
+        } else if (inputRefs[5].current) {
+          inputRefs[5].current.focus();
+        }
       }
     }
   };
@@ -210,7 +262,7 @@ const VerifyEmail = () => {
             </div>
           )}
 
-          <div className="flex gap-2 mb-8 dir-ltr justify-center" onPaste={handlePaste}>
+          <div dir="ltr" className="flex gap-2 mb-8 justify-center" onPaste={handlePaste} style={{ direction: 'ltr', textAlign: 'center' }}>
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -222,6 +274,8 @@ const VerifyEmail = () => {
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 disabled={loading}
+                dir="ltr"
+                style={{ direction: 'ltr', textAlign: 'center' }}
                 className={`w-12 h-14 text-center text-xl font-bold border-2 rounded-xl transition-all duration-200 focus:ring-4 focus:ring-blue-100 outline-none
                   ${digit ? "border-blue-600 bg-blue-50/30" : "border-gray-200 hover:border-gray-300"}
                   ${error ? "border-red-300 focus:border-red-500 focus:ring-red-100" : "focus:border-blue-600"}

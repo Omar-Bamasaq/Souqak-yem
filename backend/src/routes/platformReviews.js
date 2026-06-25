@@ -3,8 +3,9 @@ import Joi from "joi";
 import PlatformReview from "../models/PlatformReview.js";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
-import { validateBody } from "../middleware/validate.js";
+import { validateBody, validateParams } from "../middleware/validate.js";
 import rateLimit from "../middleware/rateLimit.js";
+import { createAdminNotification } from "../services/notificationService.js";
 
 const router = Router();
 
@@ -28,6 +29,16 @@ router.post(
         status: "APPROVED",
         isPublic: true // يظهر تلقائياً في حائط الآراء عند الاعتماد التلقائي
       });
+
+      // Send admin notification for new platform review
+      await createAdminNotification(req.app, {
+        type: "new_platform_review",
+        title: "تقييم جديد للمنصة",
+        message: `تم إضافة تقييم جديد للمنصة: ${review.rating} نجوم`,
+        link: "/admin/platform-reviews",
+        data: { reviewId: review._id }
+      });
+
       res.status(201).json(review);
     } catch (error) {
       console.error("Platform review submission error:", error);
@@ -41,6 +52,7 @@ router.get("/public", async (req, res) => {
   try {
     const reviews = await PlatformReview.find({ isPublic: true, status: "APPROVED" })
       .populate("userId", "name avatar")
+      .populate("adminRepliedBy", "name avatar")
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
@@ -61,6 +73,7 @@ router.get("/public", async (req, res) => {
 
     res.json(processedReviews);
   } catch (error) {
+    console.error("Get public reviews error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -98,6 +111,7 @@ router.get("/stats", async (req, res) => {
       stars: starCounts
     });
   } catch (error) {
+    console.error("Get stats error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -107,10 +121,12 @@ router.get("/admin/all", auth, requireRole(["admin"]), async (req, res) => {
   try {
     const reviews = await PlatformReview.find()
       .populate("userId", "name avatar email")
+      .populate("adminRepliedBy", "name avatar")
       .sort({ createdAt: -1 })
       .lean();
     res.json(reviews);
   } catch (error) {
+    console.error("Get all reviews error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -126,6 +142,57 @@ router.patch("/admin/:id", auth, requireRole(["admin"]), async (req, res) => {
     );
     res.json(review);
   } catch (error) {
+    console.error("Update review error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 6. إضافة أو تعديل رد الأدمين على تقييم (Admin Only)
+router.patch("/admin/:id/reply",
+  auth,
+  requireRole(["admin"]),
+  validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
+  validateBody(Joi.object({ adminReply: Joi.string().trim().max(1000).allow(null, "") })),
+  async (req, res) => {
+  try {
+    const { adminReply } = req.body;
+    const updateData = {
+      adminReply: adminReply && adminReply.trim() !== "" ? adminReply : null,
+      adminReplyAt: adminReply && adminReply.trim() !== "" ? new Date() : null,
+      adminRepliedBy: adminReply && adminReply.trim() !== "" ? req.user.id : null
+    };
+
+    const review = await PlatformReview.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true }
+    ).populate("adminRepliedBy", "name avatar");
+
+    if (!review) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    res.json(review);
+  } catch (error) {
+    console.error("Add/update reply error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 7. حذف رد الأدمين من تقييم (Admin Only)
+router.delete("/admin/:id/reply", auth, requireRole(["admin"]), async (req, res) => {
+  try {
+    const review = await PlatformReview.findByIdAndUpdate(
+      req.params.id,
+      { $set: { adminReply: null, adminReplyAt: null, adminRepliedBy: null } },
+      { new: true }
+    );
+    if (!review) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+    res.json({ message: "تم حذف الرد بنجاح" });
+  } catch (error) {
+    console.error("Delete reply error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -135,6 +202,7 @@ router.delete("/admin/:id", auth, requireRole(["admin"]), async (req, res) => {
     await PlatformReview.findByIdAndDelete(req.params.id);
     res.json({ message: "تم حذف التقييم بنجاح" });
   } catch (error) {
+    console.error("Delete review error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });

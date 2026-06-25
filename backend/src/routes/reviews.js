@@ -48,15 +48,31 @@ router.post(
   uploadImages.array("images", 3),
   validateParams(Joi.object({ targetId: Joi.string().length(24).hex().required() })),
   validateBody(Joi.object({
-    reliability: Joi.number().min(1).max(5).required(),
-    communication: Joi.number().min(1).max(5).required(),
-    deliverySpeed: Joi.number().min(1).max(5).required(),
+    reliability: Joi.alternatives().try(Joi.number().min(1).max(5), Joi.string().custom((value, helpers) => {
+      const num = Number(value);
+      if (isNaN(num) || num < 1 || num > 5) return helpers.error('any.invalid');
+      return num;
+    })).required(),
+    communication: Joi.alternatives().try(Joi.number().min(1).max(5), Joi.string().custom((value, helpers) => {
+      const num = Number(value);
+      if (isNaN(num) || num < 1 || num > 5) return helpers.error('any.invalid');
+      return num;
+    })).required(),
+    deliverySpeed: Joi.alternatives().try(Joi.number().min(1).max(5), Joi.string().custom((value, helpers) => {
+      const num = Number(value);
+      if (isNaN(num) || num < 1 || num > 5) return helpers.error('any.invalid');
+      return num;
+    })).required(),
     comment: Joi.string().trim().min(10).max(1000).required()
   })),
   async (req, res) => {
     try {
       const { targetId } = req.params;
-      const { reliability, communication, deliverySpeed, comment } = req.body;
+      let { reliability, communication, deliverySpeed, comment } = req.body;
+      // Convert string values to numbers
+      reliability = Number(reliability);
+      communication = Number(communication);
+      deliverySpeed = Number(deliverySpeed);
       const buyerId = req.user.id;
 
       let order = await Order.findById(targetId);

@@ -11,6 +11,8 @@ const AdminPlatformReviews = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
+  const [replyInputs, setReplyInputs] = useState({}); // Stores reply text per review id
+  const [savingReply, setSavingReply] = useState({}); // Tracks saving state per review id
 
   const loadData = async () => {
     setLoading(true);
@@ -50,6 +52,49 @@ const AdminPlatformReviews = () => {
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم الحذف بنجاح", type: "success" } }));
     } catch (err) {
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "فشل الحذف", type: "error" } }));
+    }
+  };
+
+  // Handle reply input change
+  const handleReplyInputChange = (reviewId, text) => {
+    setReplyInputs(prev => ({ ...prev, [reviewId]: text }));
+  };
+
+  // Save or update reply
+  const handleSaveReply = async (reviewId) => {
+    setSavingReply(prev => ({ ...prev, [reviewId]: true }));
+    try {
+      const res = await api.patch(`/platform-reviews/admin/${reviewId}/reply`, {
+        adminReply: replyInputs[reviewId]
+      });
+      // Update the local reviews array with the updated review
+      setReviews(prev => prev.map(r => r._id === reviewId ? res.data : r));
+      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم حفظ الرد بنجاح", type: "success" } }));
+    } catch (err) {
+      console.error("Save reply error:", err);
+      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "فشل حفظ الرد", type: "error" } }));
+    } finally {
+      setSavingReply(prev => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
+  // Delete reply
+  const handleDeleteReply = async (reviewId) => {
+    if (!window.confirm("هل أنت متأكد من حذف الرد؟")) return;
+    try {
+      await api.delete(`/platform-reviews/admin/${reviewId}/reply`);
+      // Update local reviews
+      setReviews(prev => prev.map(r => 
+        r._id === reviewId 
+          ? { ...r, adminReply: null, adminReplyAt: null, adminRepliedBy: null } 
+          : r
+      ));
+      // Clear the input
+      setReplyInputs(prev => ({ ...prev, [reviewId]: "" }));
+      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم حذف الرد بنجاح", type: "success" } }));
+    } catch (err) {
+      console.error("Delete reply error:", err);
+      window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "فشل حذف الرد", type: "error" } }));
     }
   };
 
@@ -182,6 +227,69 @@ const AdminPlatformReviews = () => {
                     "{review.comment}"
                   </div>
                 )}
+
+                {/* Admin Reply Section */}
+                <div className="mb-4">
+                  {review.adminReply && (
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl mb-3 border-l-4 border-emerald-500">
+                      <div className="flex items-center gap-2 mb-2">
+                        {review.adminRepliedBy?.avatar ? (
+                          <img 
+                            src={uploadsUrl(review.adminRepliedBy.avatar, "thumb")} 
+                            alt="" 
+                            className="w-6 h-6 rounded-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = uploadsUrl(review.adminRepliedBy.avatar, "full");
+                            }}
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center">
+                            <span className="text-emerald-700 dark:text-emerald-300 font-black text-xs">
+                              {(review.adminRepliedBy?.name || "A").slice(0, 1)}
+                            </span>
+                          </div>
+                        )}
+                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
+                          {review.adminRepliedBy?.name || "مدير المنصة"}
+                        </span>
+                        {review.adminReplyAt && (
+                          <span className="text-[10px] font-bold text-gray-400">
+                            {format(new Date(review.adminReplyAt), "dd MMMM yyyy, HH:mm", { locale: ar })}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-emerald-800 dark:text-emerald-300">{review.adminReply}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={replyInputs[review._id] !== undefined ? replyInputs[review._id] : (review.adminReply || "")}
+                      onChange={(e) => handleReplyInputChange(review._id, e.target.value)}
+                      placeholder="اكتب ردك هنا..."
+                      className="ds-input w-full resize-none text-sm"
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSaveReply(review._id)}
+                        disabled={savingReply[review._id]}
+                        className="ds-btn-primary text-xs px-4 py-2"
+                      >
+                        {savingReply[review._id] ? "جارٍ الحفظ..." : "حفظ الرد"}
+                      </button>
+                      {review.adminReply && (
+                        <button
+                          onClick={() => handleDeleteReply(review._id)}
+                          className="text-xs font-black text-red-500 hover:text-red-700 px-4 py-2"
+                        >
+                          حذف الرد
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t dark:border-slate-800">
                   <div className="flex items-center gap-4">

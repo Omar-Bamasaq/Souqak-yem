@@ -42,8 +42,8 @@ export default function Register() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [showFeatures, setShowFeatures] = useState(false);
-  const [activeBox, setActiveBox] = useState("phone"); // Default to phone
-  const [isEmailDisabled] = useState(true); // Toggle for Beta phase
+  const [activeBox, setActiveBox] = useState("email"); // Default to email
+  const [isEmailDisabled] = useState(false); // Enable email registration
   const [emailReg, setEmailReg] = useState("");
   const [passwordReg, setPasswordReg] = useState("");
   const [showPassword, setShowPassword] = useState(false);

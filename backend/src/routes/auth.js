@@ -1015,6 +1015,35 @@ router.patch("/update-profile", auth, async (req, res) => {
   }
 });
 
+// تغيير دور المستخدم
+router.patch("/switch-role", auth, async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!["user", "seller", "buyer"].includes(role)) {
+      return res.status(400).json({ error: "الدور غير صالح. الخيارات المتاحة: user, seller, buyer" });
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.id, { role }, { new: true });
+    if (!user) return res.status(404).json({ error: "المستخدم غير موجود." });
+
+    res.json({
+      message: "تم تغيير الدور بنجاح.",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        isVerifiedSeller: user.isVerifiedSeller
+      }
+    });
+  } catch (err) {
+    console.error("Switch role error:", err);
+    res.status(500).json({ error: "حدث خطأ في الخادم." });
+  }
+});
+
 // تغيير كلمة المرور
 router.post("/change-password", auth, async (req, res) => {
   try {

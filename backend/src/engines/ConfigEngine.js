@@ -4,7 +4,7 @@ import AuditEngine from "./AuditEngine.js";
 // Default config values (fallbacks)
 const DEFAULT_CONFIG = {
   // Security
-  "security.min_broker_reputation": 100,
+  "security.min_broker_reputation": 0,
   "security.rate_limit.broker_joins_per_day": 10,
   
   // Rewards

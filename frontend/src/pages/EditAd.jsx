@@ -6,10 +6,12 @@ import { t } from "../i18n/index.js";
 import CategorySelect from "../components/CategorySelect.jsx";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import MobileSelect from "../components/MobileSelect.jsx";
+import { useBrokerageApi } from "../api/brokerage.js";
 
 export default function EditAd() {
   const { id } = useParams();
   const api = useApi();
+  const brokerageApi = useBrokerageApi();
   const navigate = useNavigate();
   
   // Form Refs for scrolling
@@ -46,6 +48,15 @@ export default function EditAd() {
   const [whatsapp, setWhatsapp] = useState("");
   const [negotiable, setNegotiable] = useState(false);
   const [priceOnContact, setPriceOnContact] = useState(false);
+
+  // Brokerage Campaign State
+  const [enableBrokerage, setEnableBrokerage] = useState(false);
+  const [existingCampaign, setExistingCampaign] = useState(null);
+  const [brokerageType, setBrokerageType] = useState("AUTO_JOIN"); // AUTO_JOIN, MANUAL_APPROVAL, SINGLE_BROKER, LIMITED
+  const [brokerageRewardType, setBrokerageRewardType] = useState("FIXED"); // FIXED, PERCENTAGE
+  const [brokerageRewardValue, setBrokerageRewardValue] = useState("");
+  const [brokerageMaxBrokers, setBrokerageMaxBrokers] = useState("");
+  const [brokerageExpiresAt, setBrokerageExpiresAt] = useState("");
 
   // Dynamic category attributes
   const categoryAttributeApi = useCategoryAttributeApi();
@@ -144,6 +155,26 @@ export default function EditAd() {
 
         // Store attributes to prefill after we load category attributes metadata
         adAttrRef.current = Array.isArray(ad.attributes) ? ad.attributes : [];
+
+        // Load brokerage campaign for this ad
+        try {
+          const campaigns = await brokerageApi.getMyCampaigns();
+          const campaignForAd = campaigns.find(c => c.adId?._id === id || c.adId === id);
+          if (campaignForAd) {
+            setExistingCampaign(campaignForAd);
+            setEnableBrokerage(true);
+            setBrokerageType(campaignForAd.type);
+            setBrokerageRewardType(campaignForAd.rewardType);
+            setBrokerageRewardValue(campaignForAd.rewardValue.toString());
+            setBrokerageMaxBrokers(campaignForAd.maxBrokerCount?.toString() || "");
+            if (campaignForAd.expiresAt) {
+              const date = new Date(campaignForAd.expiresAt);
+              setBrokerageExpiresAt(date.toISOString().split('T')[0]);
+            }
+          }
+        } catch (campaignErr) {
+          console.error("Failed to load brokerage campaign:", campaignErr);
+        }
       } catch {
         setErr("تعذر تحميل الإعلان");
       }
@@ -326,6 +357,29 @@ export default function EditAd() {
         form.append("attributes", JSON.stringify(attrs));
       }
       const res = await api.patch(`/ads/${id}`, form);
+      
+      // Handle brokerage campaign
+      if (enableBrokerage) {
+        const campaignData = {
+          adId: id,
+          type: brokerageType,
+          rewardType: brokerageRewardType,
+          rewardValue: Number(brokerageRewardValue),
+          rewardCurrency: currency
+        };
+        if (brokerageMaxBrokers) campaignData.maxBrokerCount = Number(brokerageMaxBrokers);
+        if (brokerageExpiresAt) campaignData.expiresAt = new Date(brokerageExpiresAt);
+
+        if (existingCampaign) {
+          await brokerageApi.updateCampaign(existingCampaign._id, campaignData);
+        } else {
+          await brokerageApi.createCampaign(campaignData);
+        }
+      } else if (existingCampaign) {
+        // End the campaign if brokerage is disabled
+        await brokerageApi.updateCampaign(existingCampaign._id, { state: "ENDED" });
+      }
+
       if (res.data?._id) {
         setMsg("✅ تم تحديث الإعلان بنجاح" + (String(res.data.status) === "pending" ? " وإعادة نشره للمراجعة" : ""));
         // Redirect after success delay
@@ -335,6 +389,7 @@ export default function EditAd() {
         setTimeout(() => navigate(`/ad/${id}`), 2500);
       }
     } catch (e) {
+      console.error("Error updating ad:", e);
       const status = e?.response?.status;
       const data = e?.response?.data;
       if (status === 400 && data) {
@@ -666,8 +721,92 @@ export default function EditAd() {
         )}
       </div>
 
+      {/* Brokerage System */}
+      <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="enableBrokerage"
+            className="h-5 w-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+            checked={enableBrokerage}
+            onChange={(e) => setEnableBrokerage(e.target.checked)}
+          />
+          <label htmlFor="enableBrokerage" className="text-sm font-black text-amber-900 cursor-pointer">
+            تفعيل نظام التسويق بالعمولة
+          </label>
+        </div>
 
+        {enableBrokerage && (
+          <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2">
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-700">
+                نوع الحملة
+              </label>
+              <MobileSelect
+                value={brokerageType}
+                onChange={(e) => setBrokerageType(e.target.value)}
+                options={[
+                  { value: "AUTO_JOIN", label: "انضمام تلقائي" },
+                  { value: "MANUAL_APPROVAL", label: "موافقة يدوية" },
+                  { value: "LIMITED", label: "عدد محدود" }
+                ]}
+              />
+            </div>
 
+            {brokerageType === "LIMITED" && (
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">
+                  الحد الأقصى للوسطاء
+                </label>
+                <input
+                  className="ds-input"
+                  type="number"
+                  min="1"
+                  value={brokerageMaxBrokers}
+                  onChange={(e) => setBrokerageMaxBrokers(e.target.value)}
+                  placeholder="أدخل عدد الوسطاء"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">
+                  نوع المكافأة
+                </label>
+                <MobileSelect
+                  value={brokerageRewardType}
+                  onChange={(e) => setBrokerageRewardType(e.target.value)}
+                  options={[
+                    { value: "FIXED", label: "مبلغ ثابت" },
+                    { value: "PERCENTAGE", label: "نسبة مئوية" }
+                  ]}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-bold text-gray-700">
+                  {brokerageRewardType === "PERCENTAGE" ? "النسبة %" : "المبلغ"}
+                </label>
+                <input
+                  className="ds-input"
+                  type="number"
+                  min={brokerageRewardType === "PERCENTAGE" ? "1" : "100"}
+                  max={brokerageRewardType === "PERCENTAGE" ? "30" : undefined}
+                  value={brokerageRewardValue}
+                  onChange={(e) => setBrokerageRewardValue(e.target.value)}
+                  placeholder={brokerageRewardType === "PERCENTAGE" ? "1-30%" : "أقل مبلغ 100"}
+                />
+              </div>
+            </div>
+
+            {brokerageRewardType === "PERCENTAGE" && (
+              <div className="mt-2 rounded-md border border-amber-200 bg-amber-100 px-3 py-2 text-center text-sm text-amber-800">
+                المكافأة المتوقعة: {Math.round(Number(price) * (Number(brokerageRewardValue) / 100))} {currency === "USD" ? "$" : currency === "SAR" ? "ر.س" : currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <button disabled={loading} type="submit" className="ds-btn-primary w-full disabled:opacity-60 py-4 text-lg font-bold">
         {loading ? "جاري الحفظ..." : "حفظ التعديلات"}

@@ -53,7 +53,8 @@ router.post("/", auth, requireRole(["seller", "user"]), uploadVerificationDocs, 
     });
 
     // Update user's temporary phone if not set (optional, based on requirement "phone is mandatory")
-    // await User.findByIdAndUpdate(req.user.id, { phone });
+    // Also set user's role to seller
+    await User.findByIdAndUpdate(req.user.id, { phone, role: "seller" });
 
     // إنشاء إشعار للأدمن (Realtime)
     try {

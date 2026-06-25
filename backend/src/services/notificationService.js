@@ -1,4 +1,5 @@
 import Notification from "../models/Notification.js";
+import AdminNotification from "../models/AdminNotification.js";
 import User from "../models/User.js";
 import { sendPushNotification } from "./pushService.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -89,6 +90,51 @@ export const createNotification = async (app, { userId, type, title, body, data,
     return notif;
   } catch (error) {
     console.error("Error creating notification:", error);
+    return null;
+  }
+};
+
+/**
+ * Global admin notification helper to handle Database storage, Socket.io emission, and Push notifications to all admins.
+ * @param {object} app - The Express app instance (to get Socket.io)
+ * @param {object} params - Notification parameters
+ * @param {string} params.type - Notification type
+ * @param {string} params.title - Title (Arabic)
+ * @param {string} params.message - Body (Arabic)
+ * @param {string} params.link - Link to navigate to when clicked
+ * @param {object} [params.data] - Additional metadata
+ */
+export const createAdminNotification = async (app, { type, title, message, link, data }) => {
+  try {
+    // 1. Create in DB
+    const adminNotif = await AdminNotification.create({
+      type,
+      title,
+      message,
+      link,
+      data
+    });
+
+    // 2. Emit via Socket.io for real-time
+    const io = app ? (typeof app.get === 'function' ? app.get("io") : app) : null;
+    if (io) {
+      io.emit("admin_notification:new", adminNotif.toObject());
+    }
+
+    // 3. Send Push Notification to all admins
+    const admins = await User.find({ role: "admin" }).select("_id");
+    for (const admin of admins) {
+      await sendPushNotification(admin._id, {
+        title,
+        body: message,
+        url: link,
+        data: { ...data, type }
+      });
+    }
+
+    return adminNotif;
+  } catch (error) {
+    console.error("Error creating admin notification:", error);
     return null;
   }
 };

@@ -45,16 +45,16 @@ router.patch(
       prohibitedKeywords: Joi.array().items(Joi.string()).optional(),
       withdrawalIdentityThresholdUsd: Joi.number().min(0).optional(),
       exchangeRates: Joi.object({
-        USD: Joi.number().min(0),
-        SAR: Joi.number().min(0),
-        YER: Joi.number().min(0),
-        YER_ADEN: Joi.number().min(0)
+        USD: Joi.number().min(0).optional(),
+        SAR: Joi.number().min(0).optional(),
+        YER: Joi.number().min(0).optional(),
+        YER_ADEN: Joi.number().min(0).optional()
       }).optional(),
       welcomePromotion: Joi.object({
-        enabled: Joi.boolean(),
-        durationHours: Joi.number().min(1),
-        maxBeneficiaries: Joi.number().min(0),
-        endDate: Joi.date().allow(null)
+        enabled: Joi.boolean().optional(),
+        durationHours: Joi.number().min(1).optional(),
+        maxBeneficiaries: Joi.number().min(0).optional(),
+        endDate: Joi.date().allow(null).optional()
       }).optional()
     })
   ),
@@ -68,23 +68,37 @@ router.patch(
         exchangeRates,
         welcomePromotion
       } = req.body;
+      
+      // Get existing settings first
       let settings = await SystemSettings.getSettings();
       
-      if (adReviewMode) settings.adReviewMode = adReviewMode;
-      if (adReviewDelayMinutes !== undefined) settings.adReviewDelayMinutes = adReviewDelayMinutes;
-      if (prohibitedKeywords) settings.prohibitedKeywords = prohibitedKeywords;
-      if (withdrawalIdentityThresholdUsd !== undefined) settings.withdrawalIdentityThresholdUsd = withdrawalIdentityThresholdUsd;
-      if (exchangeRates) settings.exchangeRates = { ...settings.exchangeRates, ...exchangeRates };
+      // Prepare update object
+      const updateData = {
+        updatedBy: req.user.id
+      };
+      
+      if (adReviewMode) updateData.adReviewMode = adReviewMode;
+      if (adReviewDelayMinutes !== undefined) updateData.adReviewDelayMinutes = adReviewDelayMinutes;
+      if (prohibitedKeywords) updateData.prohibitedKeywords = prohibitedKeywords;
+      if (withdrawalIdentityThresholdUsd !== undefined) updateData.withdrawalIdentityThresholdUsd = withdrawalIdentityThresholdUsd;
+      if (exchangeRates) {
+        updateData.exchangeRates = { ...settings.exchangeRates, ...exchangeRates };
+      }
       if (welcomePromotion) {
-        settings.welcomePromotion = { ...settings.welcomePromotion, ...welcomePromotion };
+        updateData.welcomePromotion = { ...settings.welcomePromotion, ...welcomePromotion };
       }
       
-      settings.updatedBy = req.user.id;
-      await settings.save();
+      // Update and return new document
+      const updatedSettings = await SystemSettings.findOneAndUpdate(
+        { _id: settings._id },
+        updateData,
+        { new: true, runValidators: true }
+      );
       
-      res.json(settings);
+      res.json(updatedSettings);
     } catch (error) {
-      res.status(500).json({ error: "Server error" });
+      console.error("Error updating admin settings:", error);
+      res.status(500).json({ error: "Server error", details: error.message });
     }
   }
 );

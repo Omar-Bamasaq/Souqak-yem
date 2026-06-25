@@ -21,7 +21,8 @@ export default function AdminSettings() {
       const res = await api.get("/admin/settings");
       setSettings(res.data);
     } catch (error) {
-      toast("تعذر تحميل الإعدادات", "error");
+      console.error("Failed to load admin settings:", error);
+      toast(error.response?.data?.details || error.response?.data?.error || "تعذر تحميل الإعدادات", "error");
     } finally {
       setLoading(false);
     }
@@ -38,10 +39,12 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.patch("/admin/settings", settings);
+      // Only send the necessary fields, not the entire document (including _id, __v, etc.)
+      const { _id, __v, createdAt, updatedAt, updatedBy, ...dataToSave } = settings;
+      await api.patch("/admin/settings", dataToSave);
       toast("تم حفظ الإعدادات بنجاح", "success");
     } catch (error) {
-      toast("تعذر حفظ الإعدادات", "error");
+      toast(error.response?.data?.details || error.response?.data?.error || "تعذر حفظ الإعدادات", "error");
     } finally {
       setSaving(false);
     }

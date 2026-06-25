@@ -13,7 +13,12 @@ const PlatformReviewSchema = new mongoose.Schema(
     platform: { type: String, enum: ["web", "mobile", "other"], default: "web" },
     isAnonymous: { type: Boolean, default: false }, // الخصوصية: إخفاء الهوية في العرض العام
     isPublic: { type: Boolean, default: false }, // هل يظهر في حائط الآراء العام
-    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED", "ARCHIVED"], default: "PENDING", index: true }
+    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED", "ARCHIVED"], default: "PENDING", index: true },
+
+    // Admin Reply Fields
+    adminReply: { type: String, trim: true, maxlength: 1000, default: null },
+    adminReplyAt: { type: Date, default: null },
+    adminRepliedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }
 );

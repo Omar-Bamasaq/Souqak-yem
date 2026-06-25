@@ -14,7 +14,7 @@ import City from "../models/City.js";
 import fs from "fs";
 import path from "path";
 import Notification from "../models/Notification.js";
-import { createNotification } from "../services/notificationService.js";
+import { createNotification, createAdminNotification } from "../services/notificationService.js";
 import User from "../models/User.js";
 import rateLimit from "../middleware/rateLimit.js";
 import optionalAuth from "../middleware/optionalAuth.js";
@@ -906,6 +906,16 @@ router.post(
       reason: String(reason).trim(),
       details: String(details || "").trim()
     });
+
+    // Send admin notification for new ad report
+    await createAdminNotification(req.app, {
+      type: "new_ad_report",
+      title: "بلاغ جديد على إعلان",
+      message: `تم إرسال بلاغ على إعلان: ${ad.title}`,
+      link: "/admin/reports",
+      data: { reportId: r._id, adId: ad._id }
+    });
+
     res.status(201).json(r);
   } catch {
     res.status(500).json({ error: "Server error" });
@@ -1143,6 +1153,16 @@ router.post(
       // Save attributes using the new consolidated system
       await ListingService.saveAttributeValues(ad._id, attributes);
     }
+
+    // Send admin notification for new ad (especially if pending)
+    await createAdminNotification(req.app, {
+      type: status === "pending" ? "ad_pending" : "new_ad",
+      title: status === "pending" ? "إعلان جديد قيد المراجعة" : "إعلان جديد تم نشره",
+      message: `تم إضافة إعلان جديد: ${title}`,
+      link: "/admin/products",
+      data: { adId: ad._id }
+    });
+
     res.status(201).json(ad);
   } catch (e) {
     res.status(400).json({ error: e && e.message ? e.message : "Create error" });

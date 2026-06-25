@@ -238,6 +238,40 @@ const PlatformReviews = () => {
                   )}
                 </div>
 
+                {/* Admin Reply Display */}
+                {review.adminReply && (
+                  <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-900/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      {review.adminRepliedBy?.avatar ? (
+                        <img 
+                          src={uploadsUrl(review.adminRepliedBy.avatar, "thumb")} 
+                          alt="" 
+                          className="w-6 h-6 rounded-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = uploadsUrl(review.adminRepliedBy.avatar, "full");
+                          }}
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center">
+                          <span className="text-emerald-700 dark:text-emerald-300 font-black text-xs">
+                            {(review.adminRepliedBy?.name || "A").slice(0, 1)}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
+                        {review.adminRepliedBy?.name || "مدير المنصة"}
+                      </span>
+                      {review.adminReplyAt && (
+                        <span className="text-[10px] font-bold text-gray-400">
+                          {format(new Date(review.adminReplyAt), "dd MMMM yyyy", { locale: ar })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-emerald-800 dark:text-emerald-300">{review.adminReply}</p>
+                  </div>
+                )}
+
                 <div className="mt-4 pt-4 border-t dark:border-slate-800 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                    <div className="flex items-center gap-1">
                       <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">

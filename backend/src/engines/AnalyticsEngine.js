@@ -1,6 +1,8 @@
 import BrokerageCampaign from "../models/BrokerageCampaign.js";
 import BrokerageMembership from "../models/BrokerageMembership.js";
 import BrokerageDeal from "../models/BrokerageDeal.js";
+import BrokerProfile from "../models/BrokerProfile.js";
+import BrokerageComplaint from "../models/BrokerageComplaint.js";
 
 export default class AnalyticsEngine {
   static async getPlatformStats() {
@@ -10,6 +12,8 @@ export default class AnalyticsEngine {
     const activeMemberships = await BrokerageMembership.countDocuments({ state: "ACTIVE" });
     const totalDeals = await BrokerageDeal.countDocuments();
     const confirmedDeals = await BrokerageDeal.countDocuments({ state: "CONFIRMED" });
+    const totalBrokers = await BrokerProfile.countDocuments();
+    const totalComplaints = await BrokerageComplaint.countDocuments();
     
     return {
       totalCampaigns,
@@ -18,6 +22,8 @@ export default class AnalyticsEngine {
       activeMemberships,
       totalDeals,
       confirmedDeals,
+      totalBrokers,
+      totalComplaints,
       successRate: totalDeals > 0 ? Math.round((confirmedDeals / totalDeals) * 100) : 0
     };
   }

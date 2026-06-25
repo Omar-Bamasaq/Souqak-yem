@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useBrokerageApi } from "../api/brokerage.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 
-export default function BrokerageCampaigns() {
+export default function BrokerageSellerCampaigns() {
   const navigate = useNavigate();
   const brokerageApi = useBrokerageApi();
   const [campaigns, setCampaigns] = useState([]);
@@ -13,10 +13,15 @@ export default function BrokerageCampaigns() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await brokerageApi.getCampaigns({ state: "ACTIVE" });
-        setCampaigns(res.data?.items || res.data || []);
+        const [campaignsRes, ...membershipsRes] = await Promise.allSettled([
+          brokerageApi.getMyCampaigns()
+        ]);
+        
+        if (campaignsRes.status === 'fulfilled') {
+          setCampaigns(campaignsRes.value.data || []);
+        }
       } catch (err) {
-        console.error("Failed to fetch campaigns:", err);
+        console.error("Failed to fetch seller campaigns:", err);
       } finally {
         setLoading(false);
       }
@@ -25,31 +30,18 @@ export default function BrokerageCampaigns() {
     fetchData();
   }, [brokerageApi]);
 
-  const handleJoinCampaign = async (campaignId, campaignType) => {
-    try {
-      const res = await brokerageApi.joinCampaign(campaignId);
-      if (res.data?.state === "REQUEST_SENT") {
-        alert("تم إرسال طلب الانضمام إلى الحملة! يرجى انتظار موافقة البائع 📨");
-      } else {
-        alert("تم الانضمام إلى الحملة بنجاح! 🎉");
-      }
-      navigate("/brokerage/memberships");
-    } catch (err) {
-      console.error("Failed to join campaign:", err);
-      alert(err.response?.data?.error || "حدث خطأ أثناء الانضمام إلى الحملة");
-    }
-  };
-
   const stateLabels = {
     ACTIVE: "نشط",
     PAUSED: "موقوف",
     COMPLETED: "مكتمل",
+    INACTIVE: "غير نشط",
   };
 
   const stateColors = {
     ACTIVE: "bg-emerald-100 text-emerald-700",
     PAUSED: "bg-amber-100 text-amber-700",
     COMPLETED: "bg-gray-100 text-gray-600",
+    INACTIVE: "bg-gray-100 text-gray-600",
   };
 
   const typeLabels = {
@@ -57,11 +49,6 @@ export default function BrokerageCampaigns() {
     MANUAL_APPROVAL: "موافقة يدوية",
     SINGLE_BROKER: "وسيط واحد",
     LIMITED: "محدد",
-  };
-
-  const rewardTypeLabels = {
-    FIXED: "مبلغ ثابت",
-    PERCENTAGE: "نسبة مئوية",
   };
 
   if (loading) {
@@ -95,32 +82,49 @@ export default function BrokerageCampaigns() {
           </svg>
         </button>
         <h1 className="text-lg font-black text-slate-900 dark:text-white">
-          الحملات المتاحة
+          حملاتي
         </h1>
         <div className="w-10"></div>
       </div>
 
       <div className="space-y-4">
         <h1 className="hidden sm:block text-2xl font-black text-slate-900 dark:text-white">
-          الحملات المتاحة
+          حملاتي
         </h1>
+
+        {campaigns.length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-[2.5rem] p-4 border-2 border-blue-100 dark:border-blue-800 text-center">
+            <p className="text-blue-700 dark:text-blue-300 font-bold text-sm">
+              💡 اضغط على الحملة لمراجعة طلبات المسوقين ومتابعة الحملة
+            </p>
+          </div>
+        )}
 
         {campaigns.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border-2 border-gray-50 dark:border-slate-800 shadow-sm text-center">
             <div className="text-6xl mb-4">📢</div>
             <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">
-              لا توجد حملات متاحة الآن
+              لا توجد حملات بعد
             </h2>
-            <p className="text-gray-500 dark:text-slate-400 font-bold">
-              سيتم عرض الحملات الجديدة هنا فور إضافتها
+            <p className="text-gray-500 dark:text-slate-400 font-bold mb-4">
+              أنشئ حملة وسيط لمنتجك الآن!
             </p>
           </div>
         ) : (
           campaigns.map((campaign) => (
             <div
               key={campaign._id}
-              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 border-gray-50 dark:border-slate-800 shadow-sm"
+              onClick={() => navigate(`/brokerage/campaigns/${campaign._id}`)}
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 border-gray-50 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all relative overflow-hidden"
             >
+              {campaign.type === "MANUAL_APPROVAL" && (
+                <div className="absolute top-3 left-3">
+                  <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-black animate-pulse">
+                    طلبات جديدة
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="text-right">
@@ -128,12 +132,12 @@ export default function BrokerageCampaigns() {
                       {campaign.adId?.title}
                     </h2>
                     <p className="text-sm font-bold text-gray-500 dark:text-slate-400">
-                      من {campaign.sellerId?.name}
+                      {new Date(campaign.createdAt).toLocaleDateString("ar-YE")}
                     </p>
                   </div>
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-black ${
-                      stateColors[campaign.state]
+                      stateColors[campaign.state] || "bg-gray-100 text-gray-600"
                     }`}
                   >
                     {stateLabels[campaign.state]}
@@ -142,32 +146,31 @@ export default function BrokerageCampaigns() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">
                       نوع الحملة
                     </p>
                     <p className="text-sm font-bold text-slate-900 dark:text-white">
                       {typeLabels[campaign.type]}
                     </p>
                   </div>
-                  
+
                   <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">
                       المكافأة
                     </p>
                     <p className="text-sm font-bold text-slate-900 dark:text-white">
-                      {campaign.rewardValue} {campaign.rewardCurrency} ({rewardTypeLabels[campaign.rewardType]})
+                      {campaign.rewardValue} {campaign.rewardCurrency}
                     </p>
                   </div>
                 </div>
 
-                {campaign.state === "ACTIVE" && (
-                  <button
-                    onClick={() => handleJoinCampaign(campaign._id, campaign.type)}
-                    className="w-full bg-blue-600 text-white font-black py-3 rounded-2xl hover:bg-blue-700 transition-all active:scale-95"
-                  >
-                    {campaign.type === "MANUAL_APPROVAL" ? "إرسال طلب الانضمام" : "الانضمام إلى الحملة"}
-                  </button>
-                )}
+                <div className="flex items-center gap-2 text-sm text-gray-400 font-bold">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  اضغط لعرض التفاصيل
+                </div>
               </div>
             </div>
           ))

@@ -128,7 +128,7 @@ app.options("*", cors(corsOptions)); // Handle preflight globally
 
 // Global Security Middleware
 app.use(securityHeaders);
-app.use(botDetection);
+// app.use(botDetection); // تعطيل Bot Detection للتطوير
 // app.use(csrfProtection); // تعطيل مؤقت لحل مشكلة Invalid CSRF Token أثناء الدخول من Vercel
 
 app.get("/api/version", (req, res) => {
@@ -194,18 +194,19 @@ app.use(
     windowMs: 60_000,
     max: 240,
     skip: (req) => {
-      if (req.method === "OPTIONS") return true;
-      const p = req.path || req.originalUrl || "";
-      // Allow high-frequency GETs for public catalog/payment info, notifications, admin settings and messages
-      if (req.method === "GET" && /^\/api\/(bank-accounts|plans|categories|governorates|cities|tags|ads|notifications|admin-messages|admin\/settings|admin|conversations)(\/|$)/.test(p)) {
-        return true;
+        if (req.method === "OPTIONS") return true;
+        const p = (req.originalUrl || req.path || "").toLowerCase();
+        // Skip ALL auth endpoints - no exceptions!
+        if (p.includes("/api/auth")) {
+          console.log(`[Rate Limit Skip] Skipping auth path: ${p}`);
+          return true;
+        }
+        // Allow high-frequency GETs
+        if (req.method === "GET" && /\/api\/(bank-accounts|plans|categories|governorates|cities|tags|ads|notifications|admin-messages|admin\/settings|admin|conversations)/.test(p)) {
+          return true;
+        }
+        return false;
       }
-      // Skip auth endpoints entirely
-      if (/^\/api\/auth/.test(p)) {
-        return true;
-      }
-      return false;
-    }
   })
 );
 app.use(morgan("dev"));
@@ -488,7 +489,7 @@ io.on("connection", (socket) => {
   });
 });
 app.set("io", io);
-server.listen(port, () => { console.log("listening", port); });
+server.listen(port, () => { console.log("Server listening on port", port); });
 server.on("listening", () => logger.info({ event: "server_listening", port }));
 
 setInterval(async () => {

@@ -13,10 +13,17 @@ export default function rateLimit({
   keyPrefix = "" 
 } = {}) {
   return (req, res, next) => {
+    // Disable rate limiting entirely for development
+    return next();
     try {
       const ip = req.clientIp || req.ip;
+      const path = req.path || req.originalUrl || "";
+      console.log(`[Rate Limit] Checking ${req.method} ${path} from ${ip}`);
       
-      if (typeof skip === "function" && skip(req)) return next();
+      if (typeof skip === "function" && skip(req)) {
+        console.log(`[Rate Limit] Skipping ${path}`);
+        return next();
+      }
 
       const user = (req.user && req.user.id) || "anon";
       const key = `${keyPrefix}:${ip}:${user}`;

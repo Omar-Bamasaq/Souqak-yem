@@ -4,6 +4,7 @@ import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import { useBrokerageApi } from "../api/brokerage.js";
 import { uploadsUrl } from "../lib/uploads.js";
 import { t } from "../i18n/index.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
@@ -55,6 +56,7 @@ export default function ProductDetail() {
   const [ok, setOk] = useState("");
   const api = useApi();
   const { user } = useAuth();
+  const brokerageApi = useBrokerageApi();
   const [chatLink, setChatLink] = useState("");
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -374,6 +376,29 @@ export default function ProductDetail() {
       }
     })();
   }, [id, p?._id, user?._id]);
+  // Track referral link visit
+  useEffect(() => {
+    const trackReferral = async () => {
+      if (!refId || !p?._id || !user) return;
+      
+      // Store referral code in localStorage for later use (e.g., when creating a deal)
+      localStorage.setItem(`referral_${p._id}`, refId);
+      
+      try {
+        await brokerageApi.submitEvidence({
+          adId: p._id,
+          type: "INTERNAL_REFERRAL_LINK",
+          referralCode: refId
+        });
+        console.log("Referral tracked successfully");
+      } catch (err) {
+        console.error("Failed to track referral:", err);
+      }
+    };
+    
+    trackReferral();
+  }, [refId, p?._id, user, brokerageApi]);
+
   useEffect(() => {
     (async () => {
       // Don't fetch comments if still loading main ad data or if ad was not found

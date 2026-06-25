@@ -114,6 +114,7 @@ export default function AdminLayout() {
       links: [
         { to: "/admin/analytics", label: "إحصائيات المنصة" },
         { to: "/admin/platform-reviews", label: "تقييمات المنصة" },
+        { to: "/admin/brokerage", label: "إدارة التسويق" },
         { to: "/admin/activity-logs", label: "سجل النشاطات" },
         { to: "/admin/recycle-bin", label: "سلة المهملات" },
         { to: "/admin/system-health", label: "مراقبة النظام" },

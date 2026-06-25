@@ -20,6 +20,7 @@ export function useBrokerageApi() {
     getCampaignById: (id) => api.get(`/brokerage/campaigns/${id}`),
     suspendCampaign: (id) =>
       api.patch(`/brokerage/campaigns/${id}/suspend`),
+    updateCampaign: (id, data) => api.patch(`/brokerage/campaigns/${id}`, data),
 
     // --- Brokerage Memberships ---
     joinCampaign: (id) => api.post(`/brokerage/campaigns/${id}/join`),

@@ -632,10 +632,8 @@ export default function Messages() {
                     setMsgs([]);
                   }}
                 >
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 shadow-sm border border-amber-200">
-                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center">
+                    <img src="/assets/logo/app-icon.svg" alt="سوقك" className="h-full w-full object-contain" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-0.5">
@@ -754,10 +752,8 @@ export default function Messages() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 shadow-inner border border-amber-200">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
+                <div className="h-10 w-10 flex items-center justify-center">
+                  <img src="/assets/logo/app-icon.svg" alt="سوقك" className="h-full w-full object-contain" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-amber-900">إدارة المنصة</div>
@@ -776,21 +772,16 @@ export default function Messages() {
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar bg-amber-50/10">
               <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-                <div className="p-6 sm:p-8">
-                  <h2 className="mb-6 text-xl sm:text-2xl font-black text-amber-900 border-b border-amber-50 pb-4 leading-tight">{selectedAdminMsg.title}</h2>
+                <div className="p-6 sm:p-8 flex flex-col items-center text-center mb-4">
+                  <img src="/assets/logo/app-icon.svg" alt="سوقك" className="h-20 w-20 object-contain" />
+                </div>
+                <div className="px-6 sm:px-8 pb-6 sm:pb-8">
+                  <h2 className="mb-6 text-xl sm:text-2xl font-black text-amber-900 border-b border-amber-50 pb-4 leading-tight text-center">{selectedAdminMsg.title}</h2>
                   <div className="whitespace-pre-wrap text-base sm:text-lg leading-relaxed text-gray-800 font-medium">
                     {selectedAdminMsg.content}
                   </div>
                 </div>
-                <div className="bg-amber-50/50 px-6 py-4 border-t border-amber-50 flex flex-col sm:flex-row justify-between items-center gap-2">
-                  <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    تاريخ الإرسال: {new Date(selectedAdminMsg.createdAt).toLocaleString("ar-EG")}
-                  </span>
-                  <span className="text-[10px] font-black text-amber-600 bg-amber-100/50 px-2 py-0.5 rounded border border-amber-100">رقم المرجع: {selectedAdminMsg._id.slice(-6).toUpperCase()}</span>
-                </div>
+
               </div>
             </div>
           </div>

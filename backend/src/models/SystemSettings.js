@@ -55,10 +55,7 @@ const SystemSettingsSchema = new mongoose.Schema(
 SystemSettingsSchema.statics.getSettings = async function() {
   let settings = await this.findOne();
   if (!settings) {
-    settings = await this.create({
-      adReviewMode: "manual",
-      adReviewDelayMinutes: 0
-    });
+    settings = await this.create();
   }
   return settings;
 };

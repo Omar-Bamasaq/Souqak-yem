@@ -49,8 +49,8 @@ export default function Login() {
   const location = useLocation();
   const { login } = useAuth();
 
-  const [activeBox, setActiveBox] = useState("phone"); // Default to phone
-  const [isEmailDisabled] = useState(true); // Toggle for Beta phase
+  const [activeBox, setActiveBox] = useState("email"); // Default to email for admin
+  const [isEmailDisabled] = useState(false); // Enable email login
   const [showFeatures, setShowFeatures] = useState(false);
   const [loginName, setLoginName] = useState("");
   const [loginPhone, setLoginPhone] = useState("");

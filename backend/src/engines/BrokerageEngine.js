@@ -106,12 +106,13 @@ export default class BrokerageEngine {
 
     const referralCode = nanoid();
     const initialState = campaign.type === "AUTO_JOIN" ? "AUTO_ACTIVE" : "REQUEST_SENT";
+    const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 
     const membership = await BrokerageMembership.create({
       campaignId: campaign._id,
       brokerProfileId: brokerProfile._id,
       referralCode,
-      referralLink: `https://souqak.example.com/ads/${adId}?ref=${referralCode}`, // TODO: Replace with actual env var
+      referralLink: `${baseUrl}/ads/${adId}?ref=${referralCode}`,
       state: initialState
     });
 

@@ -11,12 +11,22 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
+        // Load saved user from localStorage first
+        const savedUserStr = localStorage.getItem("user");
+        const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
         const t = localStorage.getItem("token") || getTokenFromCookie();
+        
+        if (savedUser && t) {
+          setUser(savedUser);
+          setToken(t);
+        }
+        
         if (!t) {
           setLoading(false);
           return;
         }
-        setToken(t);
+        
+        // Now try to verify with backend
         const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
           
           if (envBase.startsWith("mongodb") && !window._api_url_error_logged) {
@@ -34,21 +44,25 @@ export function AuthProvider({ children }) {
         console.log(`[Auth] Checking session at: ${base}auth/me`);
         
         const res = await axios.get(`${base}auth/me`, {
-          headers: { Authorization: `Bearer ${t}` }
+          headers: { Authorization: `Bearer ${t}` },
+          timeout: 5000 // 5 second timeout
         });
+        
         if (res.data) {
           setUser(res.data);
           localStorage.setItem("user", JSON.stringify(res.data));
           setTokenCookie(t);
         }
-      } catch {
-        try {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          clearTokenCookie();
-        } catch {}
-        setUser(null);
-        setToken(null);
+      } catch (err) {
+        console.warn("[Auth] Session check failed, keeping cached user:", err.message);
+        // Don't log out immediately on error! Keep cached user if available
+        const savedUserStr = localStorage.getItem("user");
+        const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+        const t = localStorage.getItem("token") || getTokenFromCookie();
+        if (savedUser && t) {
+          setUser(savedUser);
+          setToken(t);
+        }
       } finally {
         setLoading(false);
       }

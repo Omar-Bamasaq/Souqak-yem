@@ -76,6 +76,7 @@ const AdminDeletedAds = lazy(() => import("./pages/AdminDeletedAds.jsx"));
 const AdminArchivedAds = lazy(() => import("./pages/AdminArchivedAds.jsx"));
 const AdminPlatformReviews = lazy(() => import("./pages/AdminPlatformReviews.jsx"));
 const AdminEscrowMonitoring = lazy(() => import("./pages/AdminEscrowMonitoring.jsx"));
+const AdminBrokerage = lazy(() => import("./pages/AdminBrokerage.jsx"));
 const PlatformReviews = lazy(() => import("./pages/PlatformReviews.jsx"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail.jsx"));
 const Wallet = lazy(() => import("./pages/Wallet.jsx"));
@@ -88,6 +89,8 @@ const BrokerageCampaigns = lazy(() => import("./pages/BrokerageCampaigns.jsx"));
 const BrokerageMemberships = lazy(() => import("./pages/BrokerageMemberships.jsx"));
 const BrokerageDeals = lazy(() => import("./pages/BrokerageDeals.jsx"));
 const BrokerageAchievements = lazy(() => import("./pages/BrokerageAchievements.jsx"));
+const BrokerageSellerCampaigns = lazy(() => import("./pages/BrokerageSellerCampaigns.jsx"));
+const BrokerageCampaignDetails = lazy(() => import("./pages/BrokerageCampaignDetails.jsx"));
 
 function RequireRole({ role, children }) {
   const { user, loading } = useAuth();
@@ -165,6 +168,7 @@ export default function App() {
           <Route path="welcome-promotion" element={<AdminWelcomePromotion />} />
           <Route path="deleted-ads" element={<AdminDeletedAds />} />
           <Route path="archived-ads" element={<AdminArchivedAds />} />
+          <Route path="brokerage" element={<AdminBrokerage />} />
         </Route>
         <Route path="/categories" element={<Categories />} />
         <Route path="/category/:slug" element={<CategoryPage />} />
@@ -236,6 +240,8 @@ export default function App() {
         <Route path="/brokerage/memberships" element={<RequireRole role={null}><BrokerageMemberships /></RequireRole>} />
         <Route path="/brokerage/deals" element={<RequireRole role={null}><BrokerageDeals /></RequireRole>} />
         <Route path="/brokerage/achievements" element={<RequireRole role={null}><BrokerageAchievements /></RequireRole>} />
+        <Route path="/brokerage/my-campaigns" element={<RequireRole role={null}><BrokerageSellerCampaigns /></RequireRole>} />
+        <Route path="/brokerage/campaigns/:id" element={<RequireRole role={null}><BrokerageCampaignDetails /></RequireRole>} />
         
         <Route path="*" element={<NotFound />} />
       </Route>

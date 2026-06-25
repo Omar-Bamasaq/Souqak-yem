@@ -63,7 +63,14 @@ export default function AccountSettings() {
     comment: { inApp: true, push: true, email: true },
     ad_status: { inApp: true, push: true, email: true },
     order: { inApp: true, push: true, email: true },
-    wallet: { inApp: true, push: true, email: true }
+    wallet: { inApp: true, push: true, email: true },
+    broker_request: { inApp: true, push: true, email: true },
+    broker_approved: { inApp: true, push: true, email: true },
+    broker_rejected: { inApp: true, push: true, email: true },
+    deal_pending: { inApp: true, push: true, email: true },
+    deal_confirmed: { inApp: true, push: true, email: true },
+    complaint_received: { inApp: true, push: true, email: true },
+    complaint_resolved: { inApp: true, push: true, email: true }
   });
   const [notifLoading, setNotifLoading] = useState(false);
 
@@ -798,6 +805,100 @@ export default function AccountSettings() {
                     label="إشعارات الهاتف (Push)" 
                     checked={notifPrefs.ad_status?.push} 
                     onChange={() => toggleNotif('ad_status', 'push')} 
+                    loading={notifLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Category: Brokerage Requests */}
+              <div className="space-y-3 sm:space-y-4 pt-6 border-t border-gray-50 dark:border-slate-800/50">
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-xl">🤝</span>
+                  <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest">طلبات الوساطة</h4>
+                </div>
+                <div className="grid gap-2">
+                  <NotificationToggle 
+                    label="طلبات الانضمام الجديدة" 
+                    checked={notifPrefs.broker_request?.inApp} 
+                    onChange={() => toggleNotif('broker_request', 'inApp')} 
+                    loading={notifLoading}
+                  />
+                  <NotificationToggle 
+                    label="إشعارات الهاتف (Push)" 
+                    checked={notifPrefs.broker_request?.push} 
+                    onChange={() => toggleNotif('broker_request', 'push')} 
+                    loading={notifLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Category: Brokerage Membership Status */}
+              <div className="space-y-3 sm:space-y-4 pt-6 border-t border-gray-50 dark:border-slate-800/50">
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-xl">✅</span>
+                  <h4 className="text-xs font-black text-teal-600 uppercase tracking-widest">حالة عضوية الوساطة</h4>
+                </div>
+                <div className="grid gap-2">
+                  <NotificationToggle 
+                    label="قبول/رفض الطلب" 
+                    checked={notifPrefs.broker_approved?.inApp} 
+                    onChange={() => toggleNotif('broker_approved', 'inApp')} 
+                    loading={notifLoading}
+                  />
+                  <NotificationToggle 
+                    label="إشعارات الهاتف (Push)" 
+                    checked={notifPrefs.broker_approved?.push} 
+                    onChange={() => toggleNotif('broker_approved', 'push')} 
+                    loading={notifLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Category: Deals */}
+              <div className="space-y-3 sm:space-y-4 pt-6 border-t border-gray-50 dark:border-slate-800/50">
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-xl">💼</span>
+                  <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest">الصفقات</h4>
+                </div>
+                <div className="grid gap-2">
+                  <NotificationToggle 
+                    label="صفقة جديدة بحاجة للتأكيد" 
+                    checked={notifPrefs.deal_pending?.inApp} 
+                    onChange={() => toggleNotif('deal_pending', 'inApp')} 
+                    loading={notifLoading}
+                  />
+                  <NotificationToggle 
+                    label="تم تأكيد الصفقة" 
+                    checked={notifPrefs.deal_confirmed?.inApp} 
+                    onChange={() => toggleNotif('deal_confirmed', 'inApp')} 
+                    loading={notifLoading}
+                  />
+                  <NotificationToggle 
+                    label="إشعارات الهاتف (Push)" 
+                    checked={notifPrefs.deal_pending?.push} 
+                    onChange={() => toggleNotif('deal_pending', 'push')} 
+                    loading={notifLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Category: Complaints */}
+              <div className="space-y-3 sm:space-y-4 pt-6 border-t border-gray-50 dark:border-slate-800/50">
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-xl">⚠️</span>
+                  <h4 className="text-xs font-black text-red-600 uppercase tracking-widest">الشكاوى</h4>
+                </div>
+                <div className="grid gap-2">
+                  <NotificationToggle 
+                    label="تم حل الشكوى" 
+                    checked={notifPrefs.complaint_resolved?.inApp} 
+                    onChange={() => toggleNotif('complaint_resolved', 'inApp')} 
+                    loading={notifLoading}
+                  />
+                  <NotificationToggle 
+                    label="إشعارات الهاتف (Push)" 
+                    checked={notifPrefs.complaint_resolved?.push} 
+                    onChange={() => toggleNotif('complaint_resolved', 'push')} 
                     loading={notifLoading}
                   />
                 </div>

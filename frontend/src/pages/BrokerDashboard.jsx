@@ -152,6 +152,15 @@ export default function BrokerDashboard() {
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-3">
           <button
+            onClick={() => navigate("/brokerage/my-campaigns")}
+            className="flex flex-col items-center justify-center p-6 rounded-3xl bg-purple-50 dark:bg-purple-900/10 border-2 border-purple-100 dark:border-purple-900/30 transition-all active:scale-95"
+          >
+            <span className="text-3xl mb-2">📢</span>
+            <span className="text-sm font-black text-slate-900 dark:text-white">
+              حملاتي
+            </span>
+          </button>
+          <button
             onClick={() => navigate("/brokerage/campaigns")}
             className="flex flex-col items-center justify-center p-6 rounded-3xl bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 transition-all active:scale-95"
           >
@@ -217,17 +226,29 @@ export default function BrokerDashboard() {
                     </div>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-black ${
-                        membership.state === "APPROVED"
+                        (membership.state === "APPROVED" || membership.state === "ACTIVE" || membership.state === "AUTO_ACTIVE")
                           ? "bg-emerald-100 text-emerald-700"
-                          : membership.state === "PENDING"
+                          : membership.state === "REQUEST_SENT"
                           ? "bg-amber-100 text-amber-700"
+                          : membership.state === "REJECTED" || membership.state === "BANNED"
+                          ? "bg-red-100 text-red-700"
                           : "bg-gray-100 text-gray-600"
                       }`}
                     >
                       {membership.state === "APPROVED"
                         ? "مقبول"
-                        : membership.state === "PENDING"
+                        : membership.state === "REQUEST_SENT"
                         ? "قيد المراجعة"
+                        : membership.state === "ACTIVE" || membership.state === "AUTO_ACTIVE"
+                        ? "نشط"
+                        : membership.state === "REJECTED"
+                        ? "مرفوض"
+                        : membership.state === "WITHDRAWN"
+                        ? "منسحب"
+                        : membership.state === "BANNED"
+                        ? "محظور"
+                        : membership.state === "EXPIRED"
+                        ? "منتهي"
                         : membership.state}
                     </span>
                   </div>
