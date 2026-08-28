@@ -112,26 +112,21 @@ export default function FirstVisitSessionIntro() {
                     transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   >
                     <img 
-                      src="/assets/logo/opening-logo.svg" 
+                      src="/opening-logo.svg" 
                       alt="سوقك" 
                       className="h-24 sm:h-32 w-auto object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
                     />
                   </motion.div>
                 </div>
               </div>
-              
-              <div className="text-center">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                  className="inline-flex flex-col items-center"
-                >
-                  <span className="text-[11px] font-black text-brand-600 uppercase tracking-[0.4em] px-4 py-1.5 bg-brand-50 rounded-full border border-brand-100 shadow-sm">
-                    النسخة التجريبية
-                  </span>
-                </motion.div>
-              </div>
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.75, duration: 0.7 }}
+                className="text-center text-lg font-black tracking-wide text-brand-700 sm:text-xl"
+              >
+                سوق اليمن بين يديك
+              </motion.p>
             </motion.div>
 
             {/* Slogan with elegant line */}

@@ -14,7 +14,13 @@ router.get("/:id", async (req, res) => {
     const { page = 1, limit = 12 } = req.query || {};
     const p = Math.max(parseInt(page, 10) || 1, 1);
     const l = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 100);
-    const filter = { userId: seller._id, status: "approved", isArchived: { $ne: true }, sold: { $ne: true } };
+    const filter = {
+      userId: seller._id,
+      status: "approved",
+      expiresAt: { $gt: new Date() },
+      isArchived: { $ne: true },
+      sold: { $ne: true }
+    };
     const [items, total] = await Promise.all([
       Ad.find(filter).select("title images price governorateId cityId featured viewCount createdAt")
         .populate("governorateId", "name")

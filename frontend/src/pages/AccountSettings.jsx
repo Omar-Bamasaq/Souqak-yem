@@ -76,18 +76,21 @@ export default function AccountSettings() {
 
   const NotificationToggle = ({ label, checked, onChange, loading }) => (
      <div 
-       onClick={!loading ? onChange : undefined}
-       className="flex flex-row items-center justify-between w-full p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-gray-100 dark:border-slate-800 shadow-sm cursor-pointer active:scale-[0.98] transition-all"
+       className="flex !flex-row flex-nowrap items-center justify-between w-full gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 border-2 border-gray-100 dark:border-slate-800 shadow-sm"
      >
-       <span className="text-sm font-black text-gray-700 dark:text-slate-300 text-right">{label}</span>
-       <div 
-         className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-all duration-300 ${checked ? 'bg-blue-600' : 'bg-blue-100 dark:bg-slate-800'}`}
-         style={{ direction: 'ltr' }}
+       <span className="min-w-0 flex-1 whitespace-nowrap text-xs font-black text-gray-700 dark:text-slate-300 text-right">{label}</span>
+       <button
+         type="button"
+         disabled={loading}
+         onClick={onChange}
+         aria-pressed={!!checked}
+         className={`min-w-[64px] flex-shrink-0 rounded-xl px-2 py-2 text-xs font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${checked
+           ? 'bg-red-600 text-white hover:bg-red-700'
+           : 'bg-blue-600 text-white hover:bg-blue-700'
+         }`}
        >
-         <span
-           className={`inline-block h-5 w-5 transform rounded-full shadow-lg transition duration-300 ease-in-out ${checked ? 'translate-x-6 bg-white' : 'translate-x-1 bg-blue-600'}`}
-         />
-       </div>
+         {checked ? 'إيقاف' : 'تفعيل'}
+       </button>
      </div>
    );
 
@@ -444,7 +447,7 @@ export default function AccountSettings() {
             {/* Section: Social Media */}
             <div className="pt-6 border-t border-gray-100 dark:border-slate-800">
               <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">تابعنا على منصات التواصل</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <a 
                   href="https://www.facebook.com/share/1GGvSFnu8Q/" 
                   target="_blank" 
@@ -471,6 +474,20 @@ export default function AccountSettings() {
                     </svg>
                   </div>
                   <span className="text-xs font-black text-rose-700 dark:text-rose-400">انستقرام</span>
+                </a>
+
+                <a
+                  href="https://whatsapp.com/channel/0029VbDWxY0BlHplgBSNoc12"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-3xl bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-900/30 transition-all active:scale-95 group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center mb-2 shadow-lg shadow-green-500/20 group-hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12.04 2C6.51 2 2 6.51 2 12.04c0 1.77.46 3.43 1.27 4.87L2 22l5.24-1.24a10 10 0 0 0 4.8 1.22h.01C17.57 21.98 22 17.47 22 11.96 22 6.46 17.55 2 12.04 2Zm0 18.3c-1.54 0-3.05-.42-4.37-1.21l-.31-.18-3.11.74.75-3.03-.2-.32a8.28 8.28 0 0 1-1.27-4.4c0-4.57 3.73-8.3 8.32-8.3 2.21 0 4.29.86 5.86 2.43a8.24 8.24 0 0 1 2.43 5.88c-.02 4.58-3.75 8.39-8.1 8.39Zm4.55-6.23c-.25-.13-1.46-.72-1.69-.8-.23-.09-.4-.13-.57.13-.17.25-.65.8-.8.97-.15.17-.3.19-.55.06-1.5-.75-2.49-1.34-3.49-3.04-.26-.45.26-.42.74-1.39.08-.17.04-.31-.02-.44-.06-.13-.57-1.37-.78-1.88-.21-.5-.42-.43-.57-.44h-.49c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.43 1.02 2.6.13.17 1.77 2.71 4.3 3.8 1.6.69 2.23.75 3.03.63.49-.07 1.46-.6 1.67-1.18.21-.58.21-1.08.15-1.18-.06-.1-.23-.16-.48-.29Z"/>
+                    </svg>
+                  </div>
+                  <span className="text-xs font-black text-green-700 dark:text-green-400">واتساب</span>
                 </a>
               </div>
             </div>

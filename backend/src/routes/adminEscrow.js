@@ -234,6 +234,8 @@ router.get("/withdrawals", async (req, res) => {
     }
     const withdrawals = await Withdrawal.find(filter)
       .populate("user", "name email phone")
+      .populate("bankDetails.governorateId", "name")
+      .populate("bankDetails.cityId", "name")
       .sort({ createdAt: -1 })
       .lean();
     res.json(withdrawals);

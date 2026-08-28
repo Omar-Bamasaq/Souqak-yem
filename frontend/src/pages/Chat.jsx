@@ -42,7 +42,6 @@ export default function Chat() {
       
       if (!buyerId) throw new Error("لم يتم العثور على المشتري في هذه المحادثة");
       
-      // If it's a resell ad, use the specialized endpoint
       if (ad?.isResell) {
         await api.post("/resell/mark-as-sold", {
           resellAdId: ad._id,
@@ -51,11 +50,9 @@ export default function Chat() {
           finalPriceOverride: Number(finalPrice)
         });
       } else {
-        // Regular ad logic
-        await api.post(`/ads/${ad._id}/sold`, {
-          buyerId,
-          chatId: productId,
-          finalPrice: Number(finalPrice)
+        await api.patch(`/conversations/${productId}/close`, {
+          finalPrice: Number(finalPrice),
+          finalCurrency: ad.currency || "YER_ADEN"
         });
       }
       

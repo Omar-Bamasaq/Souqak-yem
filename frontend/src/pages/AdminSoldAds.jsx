@@ -1,9 +1,37 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
-import { uploadsUrl } from "../lib/uploads.js";
+import { useAuth } from "../store/AuthContext.jsx";
+
+function uploadsBaseUrl() {
+  let envUrl = import.meta.env.VITE_UPLOADS_URL;
+  if (!envUrl) {
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
+  }
+  if (envUrl.endsWith("/uploads")) return envUrl;
+  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
+}
+const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
+function protectedFileUrl(filename, token) {
+  if (!filename) return "";
+  if (filename.startsWith("http")) return filename;
+  let clean = filename;
+  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
+  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
+  const base = `${uploadsBaseUrl()}/${clean}`;
+  const isSensitive = SENSITIVE_KWS.some(kw => {
+    const c = clean.toLowerCase().replace(/\\/g, "/");
+    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
+  });
+  if (!isSensitive) return base;
+  if (!token) return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
+}
 
 export default function AdminSoldAds() {
   const api = useApi();
+  const { token: authToken } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -348,7 +376,7 @@ export default function AdminSoldAds() {
                 <div className="flex justify-between border-b pb-2 items-center">
                   <span className="text-gray-500 font-bold">صورة السند:</span>
                   <a 
-                    href={uploadsUrl(selectedItem.paymentReceipt)} 
+                    href={protectedFileUrl(selectedItem.paymentReceipt, authToken)} 
                     target="_blank" 
                     rel="noreferrer" 
                     className="text-blue-600 hover:underline font-black"
@@ -362,7 +390,7 @@ export default function AdminSoldAds() {
                 <div className="flex justify-between border-b pb-2 items-center">
                   <span className="text-gray-500 font-bold">صورة الإعلان:</span>
                   <a 
-                    href={uploadsUrl(selectedItem.adImage)} 
+                    href={protectedFileUrl(selectedItem.adImage, authToken)} 
                     target="_blank" 
                     rel="noreferrer" 
                     className="text-blue-600 hover:underline font-black"

@@ -43,6 +43,10 @@ const SystemSettingsSchema = new mongoose.Schema(
         purchasedAfterTrialCount: { type: Number, default: 0 }
       }
     },
+    brokerageEnabled: {
+      type: Boolean,
+      default: true
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"

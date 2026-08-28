@@ -59,15 +59,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-4 md:space-y-6 pb-12 dark:text-slate-100">
-      {/* Beta Mode Indicator */}
-      <div className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center justify-between shadow-lg shadow-blue-200">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-          <span className="text-xs font-bold uppercase tracking-wider">وضع النسخة التجريبية نشط</span>
-        </div>
-        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Beta v0.1.0</span>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <h2 className="text-lg sm:text-xl font-black text-gray-900">{t("admin.title")}</h2>

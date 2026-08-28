@@ -1,4 +1,5 @@
 import { Router } from "express";
+import path from "path";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Plan from "../models/Plan.js";
@@ -8,9 +9,10 @@ import Ad from "../models/Ad.js";
 import Notification from "../models/Notification.js";
 import { createNotification } from "../services/notificationService.js";
 import AdminNotification from "../models/AdminNotification.js";
-import { uploadReceipt } from "../middleware/upload.js";
+import { uploadReceipt, processImage } from "../middleware/upload.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { getFinalPrice } from "../utils/planUtils.js";
+import SystemSettings from "../models/SystemSettings.js";
 
 const router = Router();
 
@@ -35,7 +37,6 @@ router.post("/", auth, requireRole(["seller"]), uploadReceipt, async (req, res) 
     const plan = await Plan.findById(planId).lean();
     if (!plan || !plan.isActive) return res.status(400).json({ error: "خطة غير صالحة" });
     
-    // Calculate final price on server
     const priceDetails = getFinalPrice(plan);
     
     if (plan.type === "featured" && !productId) return res.status(400).json({ error: "يجب اختيار إعلان" });
@@ -47,7 +48,11 @@ router.post("/", auth, requireRole(["seller"]), uploadReceipt, async (req, res) 
       if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "غير مصرح" });
     }
 
-    const paymentReceipt = receiptFile ? `receipts/${receiptFile.filename}` : undefined;
+    let paymentReceipt = undefined;
+    if (receiptFile && (plan.type === "featured" || plan.type === "verification")) {
+      const processed = await processImage(receiptFile.path, "receipts");
+      paymentReceipt = `receipts/${path.basename(processed)}`;
+    }
 
     const pr = await PurchaseRequest.create({
       user: req.user.id,
@@ -137,6 +142,9 @@ router.patch("/:id/approve", auth, requireRole(["admin"]), async (req, res) => {
       await User.findByIdAndUpdate(pr.user, { 
         isVerifiedSeller: true, 
         verified: true, 
+        verificationStatus: "verified",
+        verificationDate: new Date(),
+        verificationExpiryDate: expires,
         verifiedAt: new Date(), 
         verificationExpiresAt: expires 
       });

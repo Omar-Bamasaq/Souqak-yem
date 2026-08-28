@@ -10,11 +10,13 @@ import MobileSelect from "./MobileSelect.jsx";
 import UserNotificationBell from "./UserNotificationBell.jsx";
 import PWAInstallButton from "./PWAInstallButton.jsx";
 import { useTheme } from "../store/ThemeContext";
+import { useBrokerageStatus } from "../store/BrokerageStatusContext";
 import { uploadsUrl } from "../lib/uploads.js";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
   const { unread } = useChat();
+  const { enabled: brokerageEnabled } = useBrokerageStatus();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [governorateId, setGovernorateId] = useState("");
@@ -161,10 +163,10 @@ export default function NavBar() {
     navigate(`/search?${params.toString()}`);
   };
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-blue-100/80 bg-white/80 backdrop-blur-2xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-100/50 dark:border-slate-700 dark:bg-slate-900/85 dark:hover:shadow-slate-900/40">
+    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#061b45] backdrop-blur-2xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-950/30 md:border-blue-100/80 md:bg-white/80 md:hover:shadow-blue-100/50 dark:border-slate-700 dark:bg-slate-900/85 dark:hover:shadow-slate-900/40">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500/60 to-transparent" />
       <div className="mx-auto max-w-6xl px-4">
-        <div className="flex h-[70px] items-center justify-between gap-4">
+        <div className="flex h-[60px] items-center justify-between gap-4 md:h-[70px]">
           {/* Logo & Search Toggle on Mobile */}
           <div className="flex items-center gap-4">
             <Link to="/" className="rounded-2xl border border-blue-100 bg-white/80 px-2.5 py-1.5 shadow-sm shadow-blue-100/40 transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -213,7 +215,7 @@ export default function NavBar() {
             <PWAInstallButton mobile={true} />
             <button 
               onClick={() => navigate("/search")}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-sm transition-all active:scale-90 dark:border-slate-800 dark:bg-slate-900"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white shadow-sm transition-all active:scale-90 md:border-slate-100 md:bg-white md:text-slate-600 dark:border-slate-800 dark:bg-slate-900"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -275,7 +277,7 @@ export default function NavBar() {
             {user ? (
               <div className="relative" ref={dropdownRef}>
                 <button 
-                  className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-white p-1.5 pr-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95 dark:border-slate-800 dark:bg-slate-900"
+                  className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 p-1.5 pr-3 text-white hover:bg-white/20 transition-all shadow-sm active:scale-95 md:border-slate-100 md:bg-white md:text-slate-900 md:hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
                   onClick={() => setOpen((v) => !v)}
                 >
                   <div className="hidden sm:flex flex-col items-end mr-1">
@@ -316,12 +318,14 @@ export default function NavBar() {
                           <span className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded-md">جديد</span>
                         </Link>
                         <Link to="/seller" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">لوحة البائع</Link>
-                        <Link to="/brokerage" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-black hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <span>🤝</span>
-                            <span>لوحة الوسيط</span>
-                          </div>
-                        </Link>
+                        {brokerageEnabled && (
+                          <Link to="/brokerage" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-black hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <span>🤝</span>
+                              <span>لوحة الوسيط</span>
+                            </div>
+                          </Link>
+                        )}
                         <Link to="/my-ads" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">إعلاناتي</Link>
                         <Link to="/favorites" className="flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">
                           <span>المفضلة</span>
@@ -354,7 +358,7 @@ export default function NavBar() {
                 </div>
                 {/* Mobile Hamburger for non-logged-in users */}
                 <button 
-                  className="sm:hidden flex h-9 w-9 items-center justify-center rounded-full border border-blue-100 bg-white text-gray-600 shadow-sm hover:bg-blue-50" 
+                  className="sm:hidden flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-sm hover:bg-white/20" 
                   onClick={() => setOpen((v) => !v)}
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

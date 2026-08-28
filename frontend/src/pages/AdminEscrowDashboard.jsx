@@ -2,10 +2,38 @@ import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
-import { uploadsUrl } from "../lib/uploads.js";
+import { useAuth } from "../store/AuthContext.jsx";
+
+function uploadsBaseUrl() {
+  let envUrl = import.meta.env.VITE_UPLOADS_URL;
+  if (!envUrl) {
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
+  }
+  if (envUrl.endsWith("/uploads")) return envUrl;
+  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
+}
+const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
+function protectedFileUrl(filename, token) {
+  if (!filename) return "";
+  if (filename.startsWith("http")) return filename;
+  let clean = filename;
+  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
+  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
+  const base = `${uploadsBaseUrl()}/${clean}`;
+  const isSensitive = SENSITIVE_KWS.some(kw => {
+    const c = clean.toLowerCase().replace(/\\/g, "/");
+    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
+  });
+  if (!isSensitive) return base;
+  if (!token) return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
+}
 
 export default function AdminEscrowDashboard() {
   const api = useApi();
+  const { token: authToken } = useAuth();
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -264,7 +292,7 @@ export default function AdminEscrowDashboard() {
                             {o.paymentDetails?.payments?.map((p, idx) => (
                               <a 
                                 key={idx}
-                                href={uploadsUrl(p.receiptImage)} 
+                                href={protectedFileUrl(p.receiptImage, authToken)} 
                                 target="_blank" 
                                 rel="noreferrer" 
                                 className="px-2 py-1 bg-white border border-blue-100 text-blue-600 text-[9px] font-black rounded-md shadow-sm hover:bg-blue-50 transition-all"
@@ -359,7 +387,7 @@ export default function AdminEscrowDashboard() {
                               <p className="text-xs font-black text-blue-900 truncate">#{p.transactionNumber}</p>
                             </div>
                             <a 
-                              href={uploadsUrl(p.receiptImage)} 
+                              href={protectedFileUrl(p.receiptImage, authToken)} 
                               target="_blank" 
                               rel="noreferrer" 
                               className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black shadow-md shadow-blue-100 active:scale-95"
@@ -395,86 +423,245 @@ export default function AdminEscrowDashboard() {
           <>
             {/* Desktop View */}
             <div className="hidden lg:block overflow-x-auto custom-scrollbar">
-              <table className="w-full text-right text-sm">
+              <table className="w-full text-right text-sm min-w-[1200px]">
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-100">
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">المستخدم</th>
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">المبلغ</th>
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">التواصل</th>
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">بيانات البنك</th>
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">الهوية</th>
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider text-center">الحالة</th>
-                    <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider text-left">إجراء</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">المستخدم</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">نوع السحب</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">المبلغ</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">بيانات التحويل</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">التواصل</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">الهوية</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider text-center">الحالة</th>
+                    <th className="px-5 py-4 text-[11px] font-black text-gray-400 uppercase tracking-wider text-left">إجراء</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {withdrawals.map(w => (
-                    <tr key={w._id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="font-black text-gray-900">{w.user?.name}</p>
-                        <p className="text-[10px] font-bold text-gray-400">{w.user?.phone}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <p className="font-black text-blue-600">{w.amount?.toLocaleString()} {formatCurrency(w.currency)}</p>
-                          <div className="flex flex-col text-[9px] font-bold text-gray-400 opacity-60">
-                            {w.status === 'COMPLETED' ? (
-                              <>
-                                <span className="text-emerald-600">الصافي المكتمل: {w.finalAmount?.toLocaleString()} {formatCurrency(w.currency)}</span>
-                              </>
-                            ) : (
-                              <span className="text-blue-500">المبلغ كامل (الصافي مسبقاً)</span>
-                            )}
+                  {withdrawals.map(w => {
+                    const isBank = w.bankDetails?.receiptType === 'bank_account';
+                    return (
+                    <tr key={w._id} className="hover:bg-gray-50/50 transition-colors align-top">
+                      <td className="px-5 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-black text-base shrink-0 shadow-lg shadow-blue-100">
+                            {w.user?.name?.slice(0, 1) || 'U'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-black text-gray-900 leading-tight truncate">{w.user?.name}</p>
+                            <p className="text-[10px] font-bold text-gray-400 truncate">{w.user?.phone}</p>
+                            <p className="text-[9px] font-bold text-gray-300 mt-0.5">#{w._id?.slice(-8).toUpperCase()}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="font-black text-[11px] text-blue-600 leading-tight">{w.phoneNumber || "N/A"}</p>
+                      <td className="px-5 py-5">
+                        <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-2xl font-black text-[10px] border-2 ${
+                          isBank
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : 'bg-purple-50 text-purple-700 border-purple-100'
+                        }`}>
+                          <span className="text-base">{isBank ? '🏦' : '💸'}</span>
+                          <div className="flex flex-col leading-tight">
+                            <span className="uppercase tracking-wider">{isBank ? 'حساب بنكي' : 'حوالة صرافة'}</span>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="font-black text-[11px] text-gray-900 leading-tight">{w.bankDetails?.bankName}</p>
-                        <p className="text-[10px] font-bold text-gray-400">{w.bankDetails?.accountName}</p>
+                      <td className="px-5 py-5">
+                        <div className="flex flex-col gap-0.5">
+                          <p className="font-black text-blue-700 text-base leading-tight">
+                            {w.amount?.toLocaleString()} <span className="text-xs">{formatCurrency(w.currency)}</span>
+                          </p>
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <p className="text-[9px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md">
+                              عمولة: {(w.feeAmount || 0)?.toLocaleString()} {w.currency}
+                            </p>
+                          </div>
+                          {w.finalAmount > 0 && (
+                            <p className="text-[10px] font-black text-emerald-600 mt-1">
+                              الصافي: {w.finalAmount?.toLocaleString()} {w.currency}
+                            </p>
+                          )}
+                          <p className="text-[9px] font-bold text-gray-300 mt-1">
+                            {new Date(w.createdAt).toLocaleString('ar-EG')}
+                          </p>
+                        </div>
                       </td>
-                      <td className="px-6 py-4">
-                        {w.bankDetails?.identityImage ? (
-                          <a 
-                            href={uploadsUrl(w.bankDetails.identityImage)} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                            <span className="text-[10px] font-black underline uppercase tracking-tighter">عرض الهوية</span>
-                          </a>
+                      <td className="px-5 py-5 max-w-[320px]">
+                        {isBank ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-blue-50 text-blue-600 shrink-0">🏦</span>
+                              <div className="min-w-0">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">اسم البنك</p>
+                                <p className="text-[11px] font-black text-gray-900 leading-tight truncate">{w.bankDetails?.bankName || '-'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">👤</span>
+                              <div className="min-w-0">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">اسم صاحب الحساب</p>
+                                <p className="text-[11px] font-black text-gray-900 leading-tight truncate">{w.bankDetails?.accountName || '-'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">🔢</span>
+                              <div className="min-w-0">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">رقم الحساب</p>
+                                <p className="text-[11px] font-black text-emerald-700 leading-tight font-mono truncate">{w.bankDetails?.accountNumber || '-'}</p>
+                              </div>
+                            </div>
+                            {w.bankDetails?.accountCurrency && (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-amber-50 text-amber-600 shrink-0">💱</span>
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">عملة الحساب المستلم</p>
+                                  <p className="text-[11px] font-black text-amber-700 leading-tight">{formatCurrency(w.bankDetails.accountCurrency)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-[10px] font-bold text-gray-300">غير متوفر</span>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-purple-50 text-purple-600 shrink-0">💸</span>
+                              <div className="min-w-0">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">اسم الصرافة</p>
+                                <p className="text-[11px] font-black text-purple-800 leading-tight truncate">{w.bankDetails?.bankName || '-'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">👤</span>
+                              <div className="min-w-0">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">اسم المستلم</p>
+                                <p className="text-[11px] font-black text-gray-900 leading-tight truncate">{w.bankDetails?.accountName || '-'}</p>
+                              </div>
+                            </div>
+                            {(w.bankDetails?.governorateId?.name || w._governorateName) && (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">📍</span>
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">المحافظة / المدينة</p>
+                                  <p className="text-[11px] font-black text-gray-800 leading-tight truncate">
+                                    {w.bankDetails?.governorateId?.name || w._governorateName || w.bankDetails?.governorateId || '-'}
+                                    <span className="mx-1 text-gray-300">·</span>
+                                    {w.bankDetails?.cityId?.name || w._cityName || w.bankDetails?.cityId || '-'}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {w.bankDetails?.accountCurrency && (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-amber-50 text-amber-600 shrink-0">💱</span>
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">عملة الاستلام</p>
+                                  <p className="text-[11px] font-black text-amber-700 leading-tight">{formatCurrency(w.bankDetails.accountCurrency)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                      <td className="px-5 py-5">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                            <a href={`tel:${w.phoneNumber}`} className="text-[11px] font-black text-blue-600 leading-tight hover:underline">{w.phoneNumber || "N/A"}</a>
+                          </div>
+                          <p className="text-[9px] font-bold text-gray-300 pl-5">اضغط للاتصال</p>
+                        </div>
+                      </td>
+                      <td className="px-5 py-5">
+                        {w.bankDetails?.identityImage ? (
+                          <div className="space-y-1.5">
+                            <a 
+                              href={protectedFileUrl(w.bankDetails.identityImage, authToken)} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                            >
+                              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              <span className="text-[10px] font-black uppercase tracking-tighter">عرض</span>
+                            </a>
+                            <p className="text-[8px] font-bold text-emerald-600 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                              مرفقة ✅
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 text-gray-400 rounded-xl border border-gray-100">
+                              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                              <span className="text-[9px] font-black">غير مرفقة</span>
+                            </div>
+                            <p className="text-[8px] font-bold text-gray-300 px-1">مبلغ صغير</p>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-5 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black border-2 ${
                           w.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                           w.status === 'PROCESSING' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                           w.status === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-100' :
                           'bg-red-50 text-red-700 border-red-100'
-                        }`}>{w.status}</span>
+                        }`}>
+                          {w.status === 'PENDING' && <><span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></span>قيد الانتظار</>}
+                          {w.status === 'PROCESSING' && <><span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>قيد المعالجة</>}
+                          {w.status === 'COMPLETED' && <><span>✅</span>مكتمل</>}
+                          {w.status === 'REJECTED' && <><span>❌</span>مرفوض</>}
+                        </span>
+                        {w.adminNotes && (
+                          <p className="text-[9px] font-bold text-gray-400 mt-2 max-w-[140px] truncate mx-auto" title={w.adminNotes}>
+                            ملاحظة: {w.adminNotes}
+                          </p>
+                        )}
+                        {w.processedAt && (
+                          <p className="text-[8px] font-bold text-gray-300 mt-1">
+                            {new Date(w.processedAt).toLocaleDateString('ar-EG')}
+                          </p>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-left">
+                      <td className="px-5 py-5 text-left">
                         <div className="flex justify-end gap-2">
                           {w.status === 'PENDING' && (
-                            <button onClick={() => handleProcessWithdrawal(w._id)} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95">بدء المعالجة</button>
+                            <button onClick={() => handleProcessWithdrawal(w._id)} className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95 flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                              بدء المعالجة
+                            </button>
                           )}
                           {w.status === 'PROCESSING' && (
-                            <button onClick={() => handleCompleteWithdrawal(w._id)} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95">إكمال السحب</button>
+                            <button onClick={() => handleCompleteWithdrawal(w._id)} className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95 flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                              إكمال السحب
+                            </button>
                           )}
                           {(w.status === 'PENDING' || w.status === 'PROCESSING') && (
-                            <button onClick={() => handleRejectWithdrawal(w._id)} className="px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-[10px] font-black hover:bg-red-100 transition-all active:scale-95">رفض</button>
+                            <button onClick={() => handleRejectWithdrawal(w._id)} className="px-3 py-2.5 bg-red-50 text-red-600 border-2 border-red-100 rounded-xl text-[10px] font-black hover:bg-red-100 transition-all active:scale-95 flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                              رفض
+                            </button>
+                          )}
+                          {w.status === 'COMPLETED' && w.transactionProof && (
+                            <a 
+                              href={protectedFileUrl(w.transactionProof, authToken)} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="px-4 py-2.5 bg-green-50 text-green-700 border-2 border-green-100 rounded-xl text-[10px] font-black hover:bg-green-100 transition-all active:scale-95 flex items-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              إثبات التحويل
+                            </a>
                           )}
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {withdrawals.length === 0 && (
-                    <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-bold">لا توجد طلبات سحب حالياً</td></tr>
+                    <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400 font-bold">
+                      <div className="inline-flex flex-col items-center gap-3">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-3xl border-2 border-gray-100">💳</div>
+                        <p>لا توجد طلبات سحب حالياً</p>
+                      </div>
+                    </td></tr>
                   )}
                 </tbody>
               </table>
@@ -504,92 +691,236 @@ export default function AdminEscrowDashboard() {
                   <p className="text-sm text-gray-500 font-bold">لا توجد طلبات سحب حالياً.</p>
                 </div>
               )}
-              {!loading && withdrawals.map(w => (
-                <div key={w._id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4 transition-all active:scale-[0.99]">
-                  <div className="flex gap-4">
-                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              {!loading && withdrawals.map(w => {
+                const isBank = w.bankDetails?.receiptType === 'bank_account';
+                return (
+                <div key={w._id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4 transition-all active:scale-[0.99] overflow-hidden">
+                  {/* Header: User + Status + Type Badge */}
+                  <div className="flex items-start gap-3">
+                    <div className="h-14 w-14 flex-shrink-0 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-blue-100">
+                      {w.user?.name?.slice(0, 1) || 'U'}
                     </div>
-                    <div className="min-w-0 flex-1 flex flex-col justify-center">
-                      <div className="flex items-center justify-between">
-                        <p className="font-black text-gray-900 text-sm truncate">{w.user?.name || "مستخدم"}</p>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black border ${
+                    <div className="min-w-0 flex-1 flex flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-black text-gray-900 text-[15px] truncate leading-tight">{w.user?.name || "مستخدم"}</p>
+                          <p className="text-[11px] font-bold text-gray-500 mt-0.5 truncate">{w.user?.phone} · #{w._id?.slice(-6).toUpperCase()}</p>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-[10px] font-black border-2 shrink-0 ${
                           w.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                           w.status === 'PROCESSING' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                           w.status === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-100' :
                           'bg-red-50 text-red-700 border-red-100'
                         }`}>
-                          {w.status === 'PENDING' && <><span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></span> قيد الانتظار</>}
-                          {w.status === 'PROCESSING' && <><span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span> قيد المعالجة</>}
-                          {w.status === 'COMPLETED' && <>مكتمل</>}
-                          {w.status === 'REJECTED' && <>مرفوض</>}
+                          {w.status === 'PENDING' && <><span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></span>قيد الانتظار</>}
+                          {w.status === 'PROCESSING' && <><span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>قيد المعالجة</>}
+                          {w.status === 'COMPLETED' && <>✅ مكتمل</>}
+                          {w.status === 'REJECTED' && <>❌ مرفوض</>}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{w.user?.phone}</p>
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black mt-2 w-fit ${
+                        isBank
+                          ? 'bg-blue-50 text-blue-700 border-2 border-blue-100'
+                          : 'bg-purple-50 text-purple-700 border-2 border-purple-100'
+                      }`}>
+                        <span className="text-sm">{isBank ? '🏦' : '💸'}</span>
+                        <span className="uppercase tracking-wider">{isBank ? 'سحب لحساب بنكي' : 'سحب عبر حوالة صرافة'}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
-                    <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                      <p className="text-gray-400 mb-0.5">هاتف التواصل</p>
-                      <p className="text-blue-600 truncate">{w.phoneNumber || "N/A"}</p>
+                  {/* Amount Card */}
+                  <div className="grid grid-cols-3 gap-2 text-[11px] font-black">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-2xl p-3 flex flex-col">
+                      <p className="text-[9px] uppercase tracking-wider text-blue-400 font-black mb-1">المبلغ</p>
+                      <p className="text-blue-700 leading-tight">{w.amount?.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-blue-500 mt-0.5">{formatCurrency(w.currency)}</p>
                     </div>
-                    <div className="bg-blue-50 p-2.5 rounded-xl border border-blue-100">
-                      <p className="text-gray-400 mb-0.5">المبلغ المطلوب</p>
-                      <p className="text-blue-600 truncate">{w.amount?.toLocaleString()} {formatCurrency(w.currency)}</p>
+                    <div className="bg-gray-50 border-2 border-gray-100 rounded-2xl p-3 flex flex-col">
+                      <p className="text-[9px] uppercase tracking-wider text-gray-400 font-black mb-1">العمولة</p>
+                      <p className="text-gray-700 leading-tight">{(w.feeAmount || 0)?.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-gray-400 mt-0.5">{w.currency}</p>
                     </div>
-                    <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 sm:col-span-2">
-                      <p className="text-gray-400 mb-0.5">البنك</p>
-                      <p className="text-gray-700 truncate">{w.bankDetails?.bankName || "-"}</p>
+                    <div className={`${w.finalAmount > 0 ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100' : 'bg-gray-50 border-gray-100'} border-2 rounded-2xl p-3 flex flex-col`}>
+                      <p className={`text-[9px] uppercase tracking-wider ${w.finalAmount > 0 ? 'text-emerald-400' : 'text-gray-400'} font-black mb-1`}>الصافي</p>
+                      <p className={`${w.finalAmount > 0 ? 'text-emerald-700' : 'text-gray-600'} leading-tight`}>
+                        {(w.finalAmount > 0 ? w.finalAmount : w.amount - (w.feeAmount || 0))?.toLocaleString()}
+                      </p>
+                      <p className={`text-[9px] font-bold ${w.finalAmount > 0 ? 'text-emerald-500' : 'text-gray-400'} mt-0.5`}>{w.currency}</p>
                     </div>
                   </div>
 
-                  {/* Identity Image for Mobile */}
-                  {w.bankDetails?.identityImage && (
-                    <div className="pt-1">
-                      <a 
-                        href={uploadsUrl(w.bankDetails.identityImage)} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-50 text-blue-600 rounded-xl border border-blue-100 text-[10px] font-black hover:bg-blue-50 transition-all active:scale-95"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                        عرض صورة الهوية المرفقة
+                  {/* Transfer Details */}
+                  <div className={`rounded-2xl p-3 space-y-2 ${isBank ? 'bg-blue-50/50 border-2 border-blue-100' : 'bg-purple-50/50 border-2 border-purple-100'}`}>
+                    <div className={`flex items-center justify-between px-1 pb-1 mb-1 border-b ${isBank ? 'border-blue-100' : 'border-purple-100'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-wider ${isBank ? 'text-blue-500' : 'text-purple-500'}`}>
+                        {isBank ? '🏦 بيانات الحساب البنكي' : '💸 بيانات الحوالة الصرافية'}
+                      </p>
+                      <p className="text-[9px] font-bold text-gray-400">{new Date(w.createdAt).toLocaleDateString('ar-EG')}</p>
+                    </div>
+                    {isBank ? (
+                      <>
+                        <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-blue-50">
+                          <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 text-sm">🏦</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black text-blue-400 uppercase tracking-wider">اسم البنك</p>
+                            <p className="text-[12px] font-black text-gray-900 leading-tight truncate">{w.bankDetails?.bankName || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-blue-50">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center shrink-0 text-sm">👤</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wider">اسم صاحب الحساب</p>
+                            <p className="text-[12px] font-black text-gray-900 leading-tight truncate">{w.bankDetails?.accountName || '-'}</p>
+                          </div>
+                        </div>
+                        {w.bankDetails?.accountNumber && (
+                          <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-emerald-50">
+                            <div className="h-8 w-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 text-sm">🔢</div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">رقم الحساب</p>
+                              <p className="text-[12px] font-black text-emerald-700 leading-tight font-mono truncate" dir="ltr">{w.bankDetails.accountNumber}</p>
+                            </div>
+                          </div>
+                        )}
+                        {w.bankDetails?.accountCurrency && (
+                          <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-amber-50">
+                            <div className="h-8 w-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 text-sm">💱</div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider">عملة الحساب المستلم</p>
+                              <p className="text-[12px] font-black text-amber-800 leading-tight">{formatCurrency(w.bankDetails.accountCurrency)}</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-purple-50">
+                          <div className="h-8 w-8 rounded-lg bg-purple-500 text-white flex items-center justify-center shrink-0 text-sm">💸</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black text-purple-400 uppercase tracking-wider">اسم الصرافة</p>
+                            <p className="text-[12px] font-black text-purple-800 leading-tight truncate">{w.bankDetails?.bankName || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-indigo-50">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center shrink-0 text-sm">👤</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wider">اسم المستلم</p>
+                            <p className="text-[12px] font-black text-gray-900 leading-tight truncate">{w.bankDetails?.accountName || '-'}</p>
+                          </div>
+                        </div>
+                        {(w.bankDetails?.governorateId?.name || w._governorateName || w.bankDetails?.governorateId) && (
+                          <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-emerald-50">
+                            <div className="h-8 w-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 text-sm">📍</div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">المحافظة · المدينة</p>
+                              <p className="text-[12px] font-black text-gray-800 leading-tight truncate">
+                                {w.bankDetails?.governorateId?.name || w._governorateName || w.bankDetails?.governorateId || '-'}
+                                <span className="mx-1 text-gray-300">·</span>
+                                {w.bankDetails?.cityId?.name || w._cityName || w.bankDetails?.cityId || '-'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {w.bankDetails?.accountCurrency && (
+                          <div className="flex items-center gap-2.5 bg-white rounded-xl p-2.5 border border-amber-50">
+                            <div className="h-8 w-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 text-sm">💱</div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[9px] font-black text-amber-500 uppercase tracking-wider">عملة الاستلام</p>
+                              <p className="text-[12px] font-black text-amber-800 leading-tight">{formatCurrency(w.bankDetails.accountCurrency)}</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Contact & Identity Row */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <a href={`tel:${w.phoneNumber}`} className="flex items-center gap-2 bg-gradient-to-br from-blue-50 to-sky-50 border-2 border-blue-100 rounded-2xl p-3 hover:from-blue-100 transition-all">
+                      <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-100">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] uppercase tracking-wider font-black text-blue-400">اتصال</p>
+                        <p className="text-[11px] font-black text-blue-700 truncate leading-tight">{w.phoneNumber || '-'}</p>
+                      </div>
+                    </a>
+
+                    {w.bankDetails?.identityImage ? (
+                      <a href={protectedFileUrl(w.bankDetails.identityImage, authToken)} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 rounded-2xl p-3 hover:from-emerald-100 transition-all">
+                        <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] uppercase tracking-wider font-black text-emerald-500">الهوية</p>
+                          <p className="text-[11px] font-black text-emerald-700 truncate leading-tight">مرفقة ✅</p>
+                        </div>
                       </a>
+                    ) : (
+                      <div className="flex items-center gap-2 bg-gray-50 border-2 border-gray-100 rounded-2xl p-3">
+                        <div className="h-9 w-9 rounded-xl bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] uppercase tracking-wider font-black text-gray-400">الهوية</p>
+                          <p className="text-[11px] font-black text-gray-500 truncate leading-tight">غير مرفقة</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Admin Notes */}
+                  {w.adminNotes && (
+                    <div className="bg-amber-50 border-2 border-amber-100 rounded-2xl p-3">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-amber-500 mb-1">📝 ملاحظات الإدارة</p>
+                      <p className="text-[12px] font-bold text-amber-900 leading-snug">{w.adminNotes}</p>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-gray-50">
+                  {/* Transaction Proof (when COMPLETED) */}
+                  {w.status === 'COMPLETED' && w.transactionProof && (
+                    <a href={protectedFileUrl(w.transactionProof, authToken)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-2xl border-2 border-green-100 text-[11px] font-black hover:from-green-100 transition-all">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      عرض إثبات التحويل البنكي
+                    </a>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                     {w.status === 'PENDING' && (
-                      <button onClick={() => handleProcessWithdrawal(w._id)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow-sm shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      <button onClick={() => handleProcessWithdrawal(w._id)} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl text-[12px] font-black shadow-lg shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         بدء المعالجة
                       </button>
                     )}
                     {w.status === 'PROCESSING' && (
-                      <button onClick={() => handleCompleteWithdrawal(w._id)} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black shadow-sm shadow-emerald-100 active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                      <button onClick={() => handleCompleteWithdrawal(w._id)} className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl text-[12px] font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                         إكمال السحب
                       </button>
                     )}
                     {(w.status === 'PENDING' || w.status === 'PROCESSING') && (
-                      <button onClick={() => handleRejectWithdrawal(w._id)} className="py-3 px-4 bg-red-50 text-red-600 rounded-xl border border-red-100 hover:bg-red-100 active:scale-95 transition-all">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                      <button onClick={() => handleRejectWithdrawal(w._id)} className="py-3 px-5 bg-red-50 text-red-600 rounded-2xl border-2 border-red-100 hover:bg-red-100 active:scale-95 transition-all">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                     {w.status === 'COMPLETED' && (
-                      <div className="flex-1 text-center py-3 text-green-600 text-[10px] font-black bg-green-50 rounded-xl border border-green-100">
+                      <div className="flex-1 text-center py-3 text-green-600 text-[12px] font-black bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border-2 border-green-100 flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                         تم إكمال السحب بنجاح
                       </div>
                     )}
                     {w.status === 'REJECTED' && (
-                      <div className="flex-1 text-center py-3 text-red-600 text-[10px] font-black bg-red-50 rounded-xl border border-red-100">
+                      <div className="flex-1 text-center py-3 text-red-600 text-[12px] font-black bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl border-2 border-red-100 flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                         تم رفض السحب
                       </div>
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

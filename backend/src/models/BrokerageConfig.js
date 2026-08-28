@@ -16,7 +16,7 @@ const CONFIG_CATEGORIES = [
 
 const BrokerageConfigSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true, unique: true, index: true },
+    key: { type: String, required: true, unique: true },
     category: { type: String, enum: CONFIG_CATEGORIES, required: true },
 
     value: { type: mongoose.Schema.Types.Mixed, required: true },

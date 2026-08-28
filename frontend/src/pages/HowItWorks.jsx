@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useBrokerageStatus } from '../store/BrokerageStatusContext';
 
 const HowItWorks = () => {
   const [activeTab, setActiveTab] = useState('buyer');
   const navigate = useNavigate();
+  const { enabled: brokerageEnabled, loading: brokerageLoading } = useBrokerageStatus();
+
+  useEffect(() => {
+    if (!brokerageLoading && !brokerageEnabled && activeTab === 'reseller') {
+      setActiveTab('buyer');
+    }
+  }, [brokerageEnabled, brokerageLoading, activeTab]);
 
   const tabs = [
     { id: 'buyer', label: 'أنا مشترٍ', icon: '🛒' },
     { id: 'seller', label: 'أنا بائع', icon: '🏪' },
-    { id: 'reseller', label: 'أنا مسوق', icon: '🚀' },
+    ...(brokerageEnabled ? [{ id: 'reseller', label: 'أنا مسوق', icon: '🚀' }] : []),
   ];
 
   const content = {

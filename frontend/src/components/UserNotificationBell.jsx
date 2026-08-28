@@ -146,10 +146,10 @@ export default function UserNotificationBell({ mobile = false }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-full hover:bg-gray-100 transition-colors ${mobile ? 'text-gray-500' : 'text-gray-600'}`}
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full p-1.5 hover:bg-gray-100 transition-colors ${mobile ? 'text-gray-500' : 'text-gray-600'}`}
       >
         <svg
-          className={`${mobile ? 'w-7 h-7' : 'w-6 h-6'}`}
+          className={`${mobile ? 'h-5 w-5' : 'w-6 h-6'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

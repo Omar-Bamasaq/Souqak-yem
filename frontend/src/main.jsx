@@ -7,6 +7,7 @@ import App from "./App.jsx";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { ChatProvider } from "./store/ChatContext.jsx";
 import { ThemeProvider } from "./store/ThemeContext.jsx";
+import { BrokerageStatusProvider } from "./store/BrokerageStatusContext.jsx";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -27,7 +28,9 @@ createRoot(document.getElementById("root")).render(
         <ThemeProvider>
           <AuthProvider>
             <ChatProvider>
-              <App />
+              <BrokerageStatusProvider>
+                <App />
+              </BrokerageStatusProvider>
             </ChatProvider>
           </AuthProvider>
         </ThemeProvider>
@@ -36,16 +39,20 @@ createRoot(document.getElementById("root")).render(
   </BrowserRouter>
 );
 
-// Register Service Worker for Yemen weak internet/offline support
+// Keep the development server and HMR independent from the production PWA worker.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((registration) => {
+  window.addEventListener("load", async () => {
+    if (import.meta.env.PROD) {
+      try {
+        const registration = await navigator.serviceWorker.register("/sw.js");
         console.log("SW registered:", registration);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.log("SW registration failed:", error);
-      });
+      }
+      return;
+    }
+
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
   });
 }

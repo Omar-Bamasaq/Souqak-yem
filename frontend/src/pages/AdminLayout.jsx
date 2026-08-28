@@ -57,7 +57,7 @@ export default function AdminLayout() {
   }, []);
 
   const [openSections, setOpenSections] = useState({
-    market: true,
+    market: false,
     finance: false,
     users: false,
     system: false
@@ -81,8 +81,7 @@ export default function AdminLayout() {
         { to: "/admin/tags", label: "التاجات" },
         { to: "/admin/governorates", label: "المحافظات" },
         { to: "/admin/cities", label: "المدن" },
-        { to: "/admin/reports", label: "البلاغات" },
-        { to: "/resell/requests", label: "طلبات التسويق" }
+        { to: "/admin/reports", label: "البلاغات" }
       ]
     },
     {

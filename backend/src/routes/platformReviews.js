@@ -4,16 +4,15 @@ import PlatformReview from "../models/PlatformReview.js";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import { validateBody, validateParams } from "../middleware/validate.js";
-import rateLimit from "../middleware/rateLimit.js";
 import { createAdminNotification } from "../services/notificationService.js";
 
 const router = Router();
+const PLATFORM_REVIEW_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 // 1. إرسال تقييم للمنصة
 router.post(
   "/",
   auth,
-  rateLimit({ windowMs: 24 * 60 * 60 * 1000, max: 1 }), // تقييم واحد كل 24 ساعة لكل مستخدم
   validateBody(Joi.object({
     rating: Joi.number().min(1).max(5).required(),
     comment: Joi.string().trim().max(1000).allow(""),
@@ -23,6 +22,25 @@ router.post(
   })),
   async (req, res) => {
     try {
+      const latestReview = await PlatformReview.findOne({ userId: req.user.id })
+        .sort({ createdAt: -1 })
+        .select("createdAt")
+        .lean();
+
+      if (latestReview) {
+        const nextReviewAt = new Date(latestReview.createdAt.getTime() + PLATFORM_REVIEW_COOLDOWN_MS);
+        const remainingMs = nextReviewAt.getTime() - Date.now();
+
+        if (remainingMs > 0) {
+          return res.status(429).json({
+            error: "يمكنك إضافة تقييم جديد بعد مرور شهر كامل على تقييمك السابق.",
+            code: "PLATFORM_REVIEW_COOLDOWN",
+            nextReviewAt: nextReviewAt.toISOString(),
+            retryAfter: Math.ceil(remainingMs / 1000)
+          });
+        }
+      }
+
       const review = await PlatformReview.create({
         userId: req.user.id,
         ...req.body,

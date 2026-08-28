@@ -24,6 +24,7 @@ const PlatformReviewSchema = new mongoose.Schema(
 );
 
 // الفهارس لسرعة البحث
+PlatformReviewSchema.index({ userId: 1, createdAt: -1 });
 PlatformReviewSchema.index({ createdAt: -1 });
 PlatformReviewSchema.index({ rating: 1 });
 PlatformReviewSchema.index({ status: 1 });

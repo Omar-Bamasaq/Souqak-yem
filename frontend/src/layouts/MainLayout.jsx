@@ -30,7 +30,7 @@ export default function MainLayout() {
   }, []);
   
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 pb-20 pt-[70px] md:pb-0 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 pb-20 pt-[60px] md:pb-0 md:pt-[70px] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-blue-600/10 to-transparent" />
       {loading && (
         <div className="fixed top-20 right-4 z-50">
@@ -71,7 +71,9 @@ export default function MainLayout() {
         <Outlet />
       </main>
 
-      <Footer />
+      <div className={location.pathname === "/account-settings" ? "" : "hidden md:block"}>
+        <Footer />
+      </div>
       <BottomNavBar />
 
       {toast.open && (

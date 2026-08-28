@@ -37,8 +37,11 @@ const PlatformReviewModal = ({ isOpen, onClose }) => {
         detail: { message: "شكراً لك! تم إرسال تقييمك بنجاح", type: "success" } 
       }));
     } catch (err) {
+      const message = err.response?.data?.code === "PLATFORM_REVIEW_COOLDOWN"
+        ? "يمكنك إضافة تقييم جديد بعد مرور شهر كامل على تقييمك السابق."
+        : err.response?.data?.error || "حدث خطأ أثناء إرسال التقييم";
       window.dispatchEvent(new CustomEvent("app:toast", { 
-        detail: { message: err.response?.data?.error || "حدث خطأ أثناء إرسال التقييم", type: "error" } 
+        detail: { message, type: "error" } 
       }));
     } finally {
       setLoading(false);

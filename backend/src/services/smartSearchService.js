@@ -589,6 +589,7 @@ class SmartSearchService {
     // Build base filter
     const filter = {
       status: "approved",
+      expiresAt: { $gt: new Date() },
       isArchived: { $ne: true },
       sold: { $ne: true },
       isDeleted: { $ne: true }
@@ -867,6 +868,7 @@ class SmartSearchService {
     // Get matching ads titles
     const suggestions = await Ad.find({
       status: "approved",
+      expiresAt: { $gt: new Date() },
       title: { $regex: normalizedQuery, $options: "i" }
     })
       .select("title")

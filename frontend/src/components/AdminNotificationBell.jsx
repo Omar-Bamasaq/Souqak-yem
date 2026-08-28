@@ -86,6 +86,16 @@ export default function AdminNotificationBell() {
     }
   };
 
+  const getNotificationLink = (notification) => {
+    if (
+      ['new_ad', 'ad_pending', 'ad_approved', 'ad_rejected'].includes(notification.type) ||
+      notification.link === '/admin/products'
+    ) {
+      return '/admin/ads';
+    }
+    return notification.link || '/admin';
+  };
+
   const getTypeStyles = (type) => {
     switch (type) {
       case 'verification':
@@ -177,7 +187,7 @@ export default function AdminNotificationBell() {
                 return (
                   <Link
                     key={notif._id}
-                    to={notif.link}
+                    to={getNotificationLink(notif)}
                     onClick={() => {
                       markAsRead(notif._id);
                       setIsOpen(false);

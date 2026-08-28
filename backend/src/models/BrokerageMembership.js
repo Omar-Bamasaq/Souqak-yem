@@ -61,7 +61,6 @@ const BrokerageMembershipSchema = new mongoose.Schema(
 
 BrokerageMembershipSchema.index({ campaignId: 1, brokerProfileId: 1 }, { unique: true });
 BrokerageMembershipSchema.index({ brokerProfileId: 1, state: 1 });
-BrokerageMembershipSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
 BrokerageMembershipSchema.plugin(softDeletePlugin);
 
 export default mongoose.models.BrokerageMembership || mongoose.model("BrokerageMembership", BrokerageMembershipSchema);

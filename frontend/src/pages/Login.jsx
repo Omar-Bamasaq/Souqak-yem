@@ -136,7 +136,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-2 sm:p-4 lg:p-6 relative overflow-hidden text-right" dir="rtl">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-0 sm:p-4 lg:p-6 relative overflow-hidden text-right" dir="rtl">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.08)_0%,_transparent_50%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(99,102,241,0.06)_0%,_transparent_50%)] pointer-events-none" />
 
@@ -163,11 +163,11 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="w-full lg:w-[48%] flex flex-col items-center justify-center">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-gray-200/80 dark:border-slate-700 p-4 sm:p-8 lg:p-10 shadow-xl shadow-gray-200/50 dark:shadow-slate-900/50 backdrop-blur-sm flex flex-col">
+        <div className="w-screen lg:w-[48%] flex flex-col items-center justify-center">
+          <div className="w-screen max-w-none sm:w-full sm:max-w-md min-h-screen sm:min-h-0 bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-slate-700 p-5 sm:p-8 lg:p-10 shadow-xl shadow-gray-200/50 dark:shadow-slate-900/50 backdrop-blur-sm flex flex-col justify-center">
             <div className="flex justify-center w-full mb-4 sm:mb-8">
               <Link to="/" className="hover:opacity-80 transition-opacity shrink-0">
-                <div className="scale-75 sm:scale-100"><Logo /></div>
+                <div className="scale-100 sm:scale-100"><Logo iconSize="h-10 sm:h-10" /></div>
               </Link>
             </div>
 
@@ -201,7 +201,7 @@ export default function Login() {
                   </button>
                   {isEmailDisabled && (
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                      متاح قريباً (مغلق حالياً للفترة التجريبية)
+                      متاح قريباً
                     </div>
                   )}
                 </div>

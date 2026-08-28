@@ -1,4 +1,5 @@
 import { Router } from "express";
+import path from "path";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import VerificationRequest from "../models/VerificationRequest.js";
@@ -6,7 +7,7 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { createNotification } from "../services/notificationService.js";
 import AdminNotification from "../models/AdminNotification.js";
-import { uploadVerificationDocs } from "../middleware/upload.js";
+import { uploadVerificationDocs, processImage } from "../middleware/upload.js";
 import adminAudit from "../middleware/adminAudit.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
@@ -36,6 +37,23 @@ router.post("/", auth, requireRole(["seller", "user"]), uploadVerificationDocs, 
       return res.status(400).json({ error: "البيانات الأساسية وصورة الهوية الأمامية مطلوبة" });
     }
 
+    let idFrontImage = null;
+    let idBackImage = null;
+    let selfieImage = null;
+
+    if (frontFile) {
+      const processed = await processImage(frontFile.path, "ids");
+      idFrontImage = `ids/${path.basename(processed)}`;
+    }
+    if (backFile) {
+      const processed = await processImage(backFile.path, "ids");
+      idBackImage = `ids/${path.basename(processed)}`;
+    }
+    if (selfieFile) {
+      const processed = await processImage(selfieFile.path, "ids");
+      selfieImage = `ids/${path.basename(processed)}`;
+    }
+
     const vr = await VerificationRequest.create({
       user: req.user.id,
       fullName,
@@ -43,9 +61,9 @@ router.post("/", auth, requireRole(["seller", "user"]), uploadVerificationDocs, 
       dateOfBirth,
       country,
       phone,
-      idFrontImage: `ids/${frontFile.filename}`,
-      idBackImage: backFile ? `ids/${backFile.filename}` : undefined,
-      selfieImage: selfieFile ? `ids/${selfieFile.filename}` : undefined,
+      idFrontImage,
+      idBackImage,
+      selfieImage,
       address,
       occupation,
       docType: docType === "passport" ? "passport" : "id_card",

@@ -6,19 +6,19 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /**
- * إلغاء الطلبات التي لم يتم دفعها خلال 6 ساعات
+ * إلغاء الطلبات التي لم يتم دفعها خلال 12 ساعة
  */
 async function autoCancelUnpaidOrders() {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log("Checking for unpaid orders to auto-cancel...");
 
-        // 6 ساعات كحد أقصى للدفع بعد موافقة البائع
-        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+        // 12 ساعة كحد أقصى للدفع بعد موافقة البائع
+        const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
 
         const ordersToCancel = await Order.find({
             status: "AWAITING_PAYMENT",
-            updatedAt: { $lte: sixHoursAgo }
+            updatedAt: { $lte: twelveHoursAgo }
         });
 
         console.log(`Found ${ordersToCancel.length} orders to cancel.`);
@@ -32,7 +32,7 @@ async function autoCancelUnpaidOrders() {
             await createNotification(null, {
                 userId: order.buyer,
                 title: "تم إلغاء الطلب",
-                body: `تم إلغاء طلبك #${order._id} تلقائياً لعدم إتمام عملية الدفع خلال المهلة المحددة (6 ساعات).`,
+                body: `تم إلغاء طلبك #${order._id} تلقائياً لعدم إتمام عملية الدفع خلال المهلة المحددة (12 ساعة).`,
                 type: "order",
                 data: { orderId: order._id }
             });

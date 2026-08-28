@@ -1,4 +1,5 @@
 import { Router } from "express";
+import path from "path";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Order from "../models/Order.js";
@@ -6,7 +7,7 @@ import Dispute from "../models/Dispute.js";
 import Ad from "../models/Ad.js";
 import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
-import { uploadReceipt } from "../middleware/upload.js";
+import { uploadReceipt, processImage } from "../middleware/upload.js";
 import { releaseBalance } from "../services/walletService.js";
 import { createNotification } from "../services/notificationService.js";
 import AdminNotification from "../models/AdminNotification.js";
@@ -23,7 +24,7 @@ router.post(
   requireRole(["buyer", "user"]),
   validateBody(Joi.object({
     adId: Joi.string().length(24).hex().required(),
-    finalPrice: Joi.number().min(0).optional(), // تجاهل هذه القيمة واستخدام سعر قاعدة البيانات
+    finalPrice: Joi.number().min(0).optional(),
     shippingFee: Joi.number().min(0).default(0),
     shippingCurrency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").default("YER"),
     shippingPayer: Joi.string().valid("buyer", "seller", "none").default("buyer"),
@@ -33,7 +34,7 @@ router.post(
   })),
   async (req, res) => {
     try {
-      const { adId, shippingFee, shippingCurrency, shippingPayer, notes, agreedTerms, currency } = req.body;
+      const { adId, finalPrice, shippingFee, shippingCurrency, shippingPayer, notes, agreedTerms, currency } = req.body;
       
       // جلب بيانات الإعلان من قاعدة البيانات حصراً
       const ad = await Ad.findById(adId).lean();
@@ -51,10 +52,12 @@ router.post(
       }
 
       const sFee = Number(shippingFee) || 0;
-      const price = ad.price;
+      const requestedPrice = Number(finalPrice);
+      const price = Number.isFinite(requestedPrice) && requestedPrice > 0
+        ? requestedPrice
+        : ad.price;
       
       // حساب العمولات (3% على المشتري، 1% على البائع)
-      // يتم الحساب بناءً على السعر المجلوب من قاعدة البيانات فقط
       const buyerServiceFee = Math.round(price * 0.03); 
       const sellerCommission = Math.round(price * 0.01);
       
@@ -162,7 +165,7 @@ router.patch(
       await createNotification(req.app, {
         userId: order.buyer,
         title: "تمت الموافقة على طلبك",
-        body: `وافق البائع على طلب الشراء الخاص بك. يرجى إتمام عملية الدفع خلال 6 ساعات.`,
+        body: `وافق البائع على طلب الشراء الخاص بك. يرجى إتمام عملية الدفع خلال 12 ساعة.`,
         type: "order",
         data: { orderId: order._id }
       });
@@ -240,18 +243,21 @@ router.patch(
         return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
       }
 
-      // تحويل أرقام العمليات لضمان التعامل معها كمصفوفة دائماً
       const tNumbers = Array.isArray(transactionNumber) ? transactionNumber : [transactionNumber];
       
-      // دمج السندات مع أرقام العمليات المقابلة لها بدقة
-      const newPayments = receiptFiles.map((file, idx) => {
-        const tNum = String(tNumbers[idx] || tNumbers[0] || "").trim();
-        console.log(`Processing file ${idx}:`, file.filename, "with transaction number:", tNum);
-        return {
-          transactionNumber: tNum, 
-          receiptImage: `receipts/${file.filename}`
-        };
-      }).filter(p => p.transactionNumber !== ""); // استبعاد أي إدخالات فارغة
+      const processedFiles = await Promise.all(
+        receiptFiles.map(async (file, idx) => {
+          const processedPath = await processImage(file.path, "receipts");
+          const processedName = path.basename(processedPath);
+          const tNum = String(tNumbers[idx] || tNumbers[0] || "").trim();
+          console.log(`Processed file ${idx}:`, file.filename, "->", processedName, "tx:", tNum);
+          return {
+            transactionNumber: tNum,
+            receiptImage: `receipts/${processedName}`
+          };
+        })
+      );
+      const newPayments = processedFiles.filter(p => p.transactionNumber !== "");
 
       if (newPayments.length === 0) {
         console.log("Error: No valid payments found in request");
@@ -396,9 +402,10 @@ router.patch(
         shippedAt: new Date()
       };
 
-      // Add optional shipping receipt if uploaded
       if (req.files && req.files.length > 0) {
-        shippingDetails.shippingReceipt = `receipts/${req.files[0].filename}`;
+        const processedPath = await processImage(req.files[0].path, "receipts");
+        const processedName = path.basename(processedPath);
+        shippingDetails.shippingReceipt = `receipts/${processedName}`;
       }
 
       order.shippingDetails = shippingDetails;

@@ -48,17 +48,16 @@ export default function NotificationPrompt() {
         comment: prefsValue,
         ad_status: prefsValue,
         order: prefsValue,
-        wallet: prefsValue,
-        commission_reminder: prefsValue
+        wallet: prefsValue
       };
 
-      const res = await api.put("/notifications/prefs", newPrefs);
+      await api.put("/notifications/prefs", newPrefs);
       
       // Update local user state with new prefs AND seen flag
       if (setUser) {
         setUser({ 
           ...user, 
-          notificationPrefs: res.data,
+          notificationPrefs: newPrefs,
           hasSeenNotificationPrompt: true 
         });
       }

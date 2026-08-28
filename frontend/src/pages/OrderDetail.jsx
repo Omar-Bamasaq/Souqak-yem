@@ -391,10 +391,14 @@ export default function OrderDetail() {
                   <div className="bg-gray-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-gray-100 dark:border-slate-800 space-y-3">
                     <p className="text-sm font-black text-gray-900 dark:text-white">معلومات المشتري وتفاصيل التوصيل:</p>
                     <div className="grid grid-cols-2 gap-4 text-xs font-bold">
+                      <div className="text-gray-400">اسم المشتري:</div>
+                      <div className="text-gray-900 dark:text-white">{order.buyer?.name || "غير متوفر"}</div>
+                      <div className="text-gray-400">المبلغ المتفق عليه:</div>
+                      <div className="text-gray-900 dark:text-white">{order.amount?.toLocaleString()} {formatCurrency(order.currency)}</div>
                       <div className="text-gray-400">من يتحمل التوصيل:</div>
-                      <div className="text-gray-900 dark:text-white">{order.shippingPayer === 'buyer' ? 'المشتري' : 'البائع'}</div>
+                      <div className="text-gray-900 dark:text-white">{order.shippingPayer === 'buyer' ? 'المشتري' : 'البائع (أنت)'}</div>
                       <div className="text-gray-400">رسوم التوصيل:</div>
-                      <div className="text-gray-900 dark:text-white">{order.shippingFee} {formatCurrency(order.shippingCurrency || order.currency)}</div>
+                      <div className="text-gray-900 dark:text-white">{order.shippingPayer === 'seller' ? 0 : (order.shippingFee || 0)} {formatCurrency(order.shippingCurrency || order.currency)}</div>
                       {!isSeller && (
                         <>
                           <div className="text-emerald-600">رسوم الحماية (3%):</div>

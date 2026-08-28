@@ -7,11 +7,13 @@ import CategorySelect from "../components/CategorySelect.jsx";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
+import { useBrokerageStatus } from "../store/BrokerageStatusContext.jsx";
 
 export default function EditAd() {
   const { id } = useParams();
   const api = useApi();
   const brokerageApi = useBrokerageApi();
+  const { enabled: brokerageEnabled } = useBrokerageStatus();
   const navigate = useNavigate();
   
   // Form Refs for scrolling
@@ -722,6 +724,7 @@ export default function EditAd() {
       </div>
 
       {/* Brokerage System */}
+      {brokerageEnabled && (
       <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
         <div className="flex items-center gap-2">
           <input
@@ -807,6 +810,7 @@ export default function EditAd() {
           </div>
         )}
       </div>
+      )}
 
       <button disabled={loading} type="submit" className="ds-btn-primary w-full disabled:opacity-60 py-4 text-lg font-bold">
         {loading ? "جاري الحفظ..." : "حفظ التعديلات"}

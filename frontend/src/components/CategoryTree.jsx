@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCategoryApi } from "../api/categories.js";
 
 function CategoryItem({ category, level = 0 }) {
-  const [isOpen, setIsOpen] = useState(level === 0); // Auto open main categories
+  const [isOpen, setIsOpen] = useState(false);
   const hasChildren = category.children && category.children.length > 0;
 
   return (

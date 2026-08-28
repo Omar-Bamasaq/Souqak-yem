@@ -55,7 +55,6 @@ const BrokerageReviewSchema = new mongoose.Schema(
 );
 
 BrokerageReviewSchema.index({ subjectId: 1, subjectType: 1, state: 1 });
-BrokerageReviewSchema.index({ dealId: 1 }, { unique: true });
 BrokerageReviewSchema.plugin(softDeletePlugin);
 
 export default mongoose.models.BrokerageReview || mongoose.model("BrokerageReview", BrokerageReviewSchema);

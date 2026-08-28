@@ -3,6 +3,7 @@ import BrokerageCampaign from "../models/BrokerageCampaign.js";
 import BrokerageMembership from "../models/BrokerageMembership.js";
 import BrokerageEvidence from "../models/BrokerageEvidence.js";
 import BrokerageDeal from "../models/BrokerageDeal.js";
+import SystemSettings from "../models/SystemSettings.js";
 import CampaignStateMachine from "../state-machines/CampaignStateMachine.js";
 import MembershipStateMachine from "../state-machines/MembershipStateMachine.js";
 import EvidenceStateMachine from "../state-machines/EvidenceStateMachine.js";
@@ -16,7 +17,18 @@ import { customAlphabet } from "nanoid";
 const nanoid = customAlphabet("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz", 8);
 
 export default class BrokerageEngine {
+  static async checkEnabled(userId) {
+    if (userId) {
+      const User = (await import("../models/User.js")).default;
+      const user = await User.findById(userId);
+      if (user?.role === "admin") return true;
+    }
+    const settings = await SystemSettings.getSettings();
+    return settings.brokerageEnabled !== false;
+  }
+
   static async createCampaign(adId, sellerId, data) {
+    if (!(await this.checkEnabled(sellerId))) throw new Error("نظام التسويق معطّل حالياً من قبل الإدارة");
     const { type, maxBrokerCount, rewardType, rewardValue, rewardCurrency, expiresAt } = data;
     const minReputation = await ConfigEngine.get("security.min_broker_reputation", 100);
 
@@ -80,17 +92,60 @@ export default class BrokerageEngine {
       throw new Error(`Your reputation is too low. Minimum required: ${minReputation}`);
     }
 
-    const campaign = await BrokerageCampaign.findOne({ adId, state: "ACTIVE" });
+    const campaign = await BrokerageCampaign.findOne({
+      adId,
+      state: "ACTIVE",
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
+    });
     if (!campaign) throw new Error("Active campaign not found for this ad");
 
-    // Check if already joined
+    // Check if already joined (any state) to avoid Duplicate Key error
     const existingMembership = await BrokerageMembership.findOne({
       campaignId: campaign._id,
-      brokerProfileId: brokerProfile._id,
-      state: { $nin: ["REJECTED", "BANNED", "EXPIRED", "ARCHIVED"] }
+      brokerProfileId: brokerProfile._id
     });
+    
     if (existingMembership) {
-      return existingMembership;
+      // If membership is in a non-terminal/blocked state, return it as-is
+      if (!["REJECTED", "BANNED", "EXPIRED", "ARCHIVED", "WITHDRAWN"].includes(existingMembership.state)) {
+        return existingMembership;
+      }
+      
+      // If membership was WITHDRAWN/REJECTED/EXPIRED, reactivate it
+      if (existingMembership.state !== "BANNED") {
+        const newState = campaign.type === "AUTO_JOIN" ? "AUTO_ACTIVE" : "REQUEST_SENT";
+        existingMembership.state = newState;
+        existingMembership.rejectedReason = null;
+        existingMembership.withdrawnAt = null;
+        existingMembership.rejectedAt = null;
+        existingMembership.expiredAt = null;
+        
+        // Generate new referral code if needed
+        if (!existingMembership.referralCode) {
+          existingMembership.referralCode = nanoid();
+          existingMembership.referralLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/ads/${adId}?ref=${existingMembership.referralCode}`;
+        }
+        
+        await existingMembership.save();
+        
+        await AuditEngine.log(
+          userId,
+          "USER",
+          "BrokerageMembership",
+          existingMembership._id,
+          newState === "REQUEST_SENT" ? "MEMBERSHIP_REQUEST_SENT" : "MEMBERSHIP_AUTO_ACTIVATED",
+          null,
+          { state: newState, reactivated: true },
+          {},
+          ipAddress,
+          userAgent
+        );
+        
+        return existingMembership;
+      }
+      
+      // BANNED users cannot rejoin
+      throw new Error("You have been banned from this campaign");
     }
 
     // Check max brokers if LIMITED
@@ -207,7 +262,11 @@ export default class BrokerageEngine {
   }
 
   static async trackEvidence(adId, userId, evidenceType, metadata = {}, ipAddress = null, userAgent = null) {
-    const campaign = await BrokerageCampaign.findOne({ adId, state: "ACTIVE" });
+    const campaign = await BrokerageCampaign.findOne({
+      adId,
+      state: "ACTIVE",
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
+    });
     if (!campaign) return null;
 
     let membership = null;
@@ -259,7 +318,7 @@ export default class BrokerageEngine {
     const membership = await BrokerageMembership.findOne({
       campaignId: campaign._id,
       brokerProfileId: brokerId,
-      state: "ACTIVE"
+      state: { $in: ["ACTIVE", "AUTO_ACTIVE"] }
     });
     if (!membership) throw new Error("Broker not a member of this campaign");
 

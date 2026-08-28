@@ -1,10 +1,11 @@
 import { Router } from "express";
+import path from "path";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Commission from "../models/Commission.js";
 import Ad from "../models/Ad.js";
 import AdminNotification from "../models/AdminNotification.js";
-import { uploadCommissionDocs } from "../middleware/upload.js";
+import { uploadCommissionDocs, processImage } from "../middleware/upload.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -22,13 +23,16 @@ const commissionSchema = Joi.object({
 router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req, res) => {
   try {
     let { name, phone, salePrice, currency, adId } = req.body || {};
-    
-    // جلب بيانات الإعلان من قاعدة البيانات لضمان عدم التلاعب بالسعر
+
     if (adId && adId.length === 24) {
       const ad = await Ad.findById(adId).lean();
       if (ad) {
-        salePrice = ad.price;
-        currency = ad.currency;
+        if (!salePrice || Number(salePrice) <= 0) {
+          salePrice = ad.price;
+        }
+        if (!currency) {
+          currency = ad.currency;
+        }
       }
     }
 
@@ -37,9 +41,21 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
       return res.status(400).json({ error: "Name, phone and salePrice are required" });
     }
 
-    const receiptFile = (req.files?.paymentReceipt?.[0] || {}).filename;
-    const adImageFile = (req.files?.adImage?.[0] || {}).filename;
-    if (!receiptFile) return res.status(400).json({ error: "Payment receipt is required" });
+    const rawReceipt = req.files?.paymentReceipt?.[0];
+    const rawAdImage = req.files?.adImage?.[0];
+    if (!rawReceipt) return res.status(400).json({ error: "Payment receipt is required" });
+
+    let paymentReceiptPath = null;
+    let adImagePath = null;
+
+    if (rawReceipt) {
+      const processed = await processImage(rawReceipt.path, "receipts");
+      paymentReceiptPath = `receipts/${path.basename(processed)}`;
+    }
+    if (rawAdImage) {
+      const processed = await processImage(rawAdImage.path, "ads");
+      adImagePath = path.basename(processed);
+    }
     
     const commissionAmount = Math.round(Number(salePrice) * 0.01);
     const payload = {
@@ -49,8 +65,8 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
       currency: currency || "YER_ADEN",
       status: "Pending",
       commissionStatus: "pending_review",
-      paymentReceipt: receiptFile ? `receipts/${receiptFile}` : undefined,
-      adImage: adImageFile ? adImageFile : undefined,
+      paymentReceipt: paymentReceiptPath,
+      adImage: adImagePath,
       payerName: name,
       payerPhone: phone,
       notes: `Name: ${name}, Phone: ${phone}`

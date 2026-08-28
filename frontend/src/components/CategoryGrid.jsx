@@ -71,7 +71,7 @@ export default function CategoryGrid({ isHome = false }) {
   }
 
   return (
-    <div className="relative w-full group/grid px-4">
+    <div className="relative w-full group/grid px-0 sm:px-4">
       {/* Navigation Buttons - Visible on Desktop hover */}
       <button 
         onClick={() => scroll("right")}
@@ -94,49 +94,40 @@ export default function CategoryGrid({ isHome = false }) {
       {/* Scroll Container */}
       <div 
         ref={scrollRef}
-        className="flex overflow-x-auto pb-4 pt-2 gap-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
+        className="flex overflow-x-auto pb-1 sm:pb-4 pt-2 gap-2 sm:gap-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
       >
         {/* We use a flex-col flex-wrap wrapper with fixed height to create 2 rows if many categories */}
-        <div className={`flex ${categories.length > 4 ? "flex-col flex-wrap h-[340px] sm:h-[380px]" : "flex-row"} gap-4`}>
+        <div className={`flex ${isHome ? (categories.length > 4 ? "flex-row sm:flex-col sm:flex-wrap sm:h-[380px]" : "flex-row") : (categories.length > 4 ? "flex-col flex-wrap h-[340px] sm:h-[380px]" : "flex-row")} gap-3 sm:gap-4`}>
           {categories.map((category, index) => (
             <Link
               key={category.id}
               to={`/category/${category.slug}`}
               onMouseEnter={() => prefetchCategoryAds(category.name)}
-              className="group relative flex flex-col items-center p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 dark:hover:border-blue-900 hover:-translate-y-1.5 snap-start w-[140px] sm:w-[165px] h-[160px] sm:h-[180px] flex-shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+              className="group relative flex flex-col items-center p-0 sm:p-4 rounded-none sm:rounded-3xl bg-transparent sm:bg-white dark:bg-transparent sm:dark:bg-slate-900 border-0 sm:border border-slate-100 dark:border-slate-800 shadow-none sm:shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-300 dark:hover:border-blue-900 hover:-translate-y-1.5 snap-start w-[72px] sm:w-[165px] h-[112px] sm:h-[180px] flex-shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              {/* Badge - Optional */}
-              {(index === 0 || index === 2) && (
-                <div className="absolute top-2 right-2 z-10">
-                  <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-800 shadow-sm">
-                    {index === 0 ? "الأكثر طلباً" : "جديد"}
-                  </span>
-                </div>
-              )}
-
               {/* Icon Container */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-300">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-slate-100 dark:bg-slate-800/50 rounded-full sm:rounded-2xl border border-slate-200 dark:border-slate-700 sm:border-0 flex items-center justify-center mb-1.5 sm:mb-3 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-300">
                 {category.image ? (
                   <img
                     src={uploadsUrl(category.image, "thumb")}
                     alt={category.name}
                     loading="lazy"
-                    className="w-12 h-12 sm:w-16 sm:h-16 object-contain transition-transform duration-500 group-hover:scale-110"
+                    className="w-14 h-14 sm:w-16 sm:h-16 object-contain transition-transform duration-500 group-hover:scale-110"
                   />
                 ) : (
-                  <svg className="w-10 h-10 sm:w-14 sm:h-14 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-11 h-11 sm:w-14 sm:h-14 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 )}
               </div>
 
               {/* Text Container */}
-              <div className="flex flex-col items-center text-center w-full min-h-[40px] sm:min-h-[50px] justify-center overflow-hidden">
-                <h3 className="text-[12px] sm:text-[14px] font-black text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight px-1 mb-0.5 sm:mb-1">
+              <div className="flex flex-col items-center text-center w-full min-h-0 sm:min-h-[50px] justify-center overflow-hidden">
+                <h3 className="text-[11px] sm:text-[14px] font-black text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight px-1 mb-0.5 sm:mb-1">
                   {category.name}
                 </h3>
-                <span className="text-[9px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 group-hover:text-blue-500/70 transition-colors">
+                <span className="text-[8px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 group-hover:text-blue-500/70 transition-colors">
                   {(category.adCount || 0).toLocaleString("ar-EG")} إعلان
                 </span>
               </div>

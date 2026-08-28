@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const CategorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    slug: { type: String, required: true, unique: true, index: true },
+    slug: { type: String, required: true, unique: true },
     image: { type: String },
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null, index: true },
     description: { type: String },

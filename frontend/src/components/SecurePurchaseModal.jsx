@@ -99,31 +99,29 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
             </svg>
           </button>
 
-          <div className="flex-1 pl-10"> {/* Add padding left to avoid the button */}
-            <h3 className="text-lg font-black text-gray-900 dark:text-white leading-none">طلب شراء آمن</h3>
-            <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mt-1">وساطة منصة سوقك</p>
-          </div>
-          
-          {/* Product Summary Mini Card */}
-          <div className="flex items-center gap-2 bg-blue-50/80 dark:bg-blue-900/20 p-1.5 pr-2 rounded-xl border border-blue-100/50 dark:border-blue-800/30 shadow-sm animate-in fade-in slide-in-from-left-4 duration-500">
-            <div className="text-right flex flex-col justify-center">
-              <span className="text-[9px] font-black text-blue-700 dark:text-blue-400 leading-none">{ad.price?.toLocaleString()}</span>
-              <span className="text-[7px] font-bold text-blue-500/70 leading-none mt-0.5">{formatCurrency(ad.currency)}</span>
-            </div>
-            <div className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 overflow-hidden flex-shrink-0 border border-white dark:border-slate-700 shadow-sm">
+          <div className="flex-1 min-w-0 pl-10 flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-gray-50 dark:bg-slate-800 overflow-hidden flex-shrink-0 border border-gray-100 dark:border-slate-700 shadow-sm">
               {ad.images?.[0] ? (
-                <img 
-                  src={uploadsUrl(ad.images[0])} 
-                  alt="" 
+                <img
+                  src={uploadsUrl(ad.images[0])}
+                  alt=""
                   className="h-full w-full object-contain"
                 />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-gray-300">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
               )}
+            </div>
+            <div className="flex-shrink-0 text-right flex flex-col justify-center bg-blue-50/80 dark:bg-blue-900/20 px-2 py-1.5 rounded-xl border border-blue-100/50 dark:border-blue-800/30 shadow-sm">
+              <span className="text-[9px] font-black text-blue-700 dark:text-blue-400 leading-none">{Number(finalPrice).toLocaleString()}</span>
+              <span className="text-[7px] font-bold text-blue-500/70 leading-none mt-0.5">{formatCurrency(currency)}</span>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-lg font-black text-gray-900 dark:text-white leading-none truncate">طلب شراء آمن</h3>
+              <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mt-1">وساطة منصة سوقك</p>
             </div>
           </div>
         </div>
@@ -232,9 +230,9 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
               </div>
               
               {shippingPayer !== "none" && Number(shippingFee) > 0 && (
-                <div className="flex justify-between text-xs font-bold p-2 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 animate-in fade-in zoom-in duration-300">
+                <div className="flex justify-between text-xs font-bold whitespace-nowrap animate-in fade-in duration-200">
                   <span className="text-gray-500">رسوم التوصيل ({shippingPayer === "buyer" ? "على المشتري" : "على البائع"})</span>
-                  <span className="text-blue-600">{Number(shippingFee)?.toLocaleString()} {formatCurrency(shippingPayer === "buyer" ? shippingCurrency : currency)}</span>
+                  <span className="text-blue-600 font-black">{Number(shippingFee)?.toLocaleString()} {formatCurrency(shippingPayer === "buyer" ? shippingCurrency : currency)}</span>
                 </div>
               )}
 

@@ -292,7 +292,7 @@ export default function AdminSettings() {
               </div>
               <div>
                 <h2 className="text-lg font-black text-red-700 mb-1">منطقة الخطر: إعادة تهيئة الموقع</h2>
-                <p className="text-xs text-red-600/70 font-medium leading-relaxed">حذف جميع الإعلانات، المستخدمين، الرسائل، الطلبات، المحافظ المالية، وكافة البيانات التجريبية. <br />لن يتم حذف الإعدادات الأساسية (المدن، الفئات، إلخ).</p>
+                <p className="text-xs text-red-600/70 font-medium leading-relaxed">حذف جميع الإعلانات، المستخدمين، الرسائل، الطلبات، المحافظ المالية، وكافة بيانات الموقع. <br />لن يتم حذف الإعدادات الأساسية (المدن، الفئات، إلخ).</p>
               </div>
             </div>
             <button
@@ -317,7 +317,7 @@ export default function AdminSettings() {
                   </svg>
                 </div>
                 <h3 className="text-base font-black text-gray-900 mb-2">هل أنت متأكد تماماً؟</h3>
-                <p className="text-xs text-gray-500 font-medium mb-4 leading-relaxed">سيتم حذف جميع البيانات التجريبية نهائياً.</p>
+                <p className="text-xs text-gray-500 font-medium mb-4 leading-relaxed">سيتم حذف جميع بيانات الموقع نهائياً.</p>
                 
                 <div className="space-y-3">
                   <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-right">

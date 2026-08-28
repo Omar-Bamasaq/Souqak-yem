@@ -16,101 +16,30 @@ import { sendPushNotification } from "../services/pushService.js";
 
 const router = Router();
 
-router.get("/:id", auth, async (req, res) => {
-  try {
-    const conv = await Conversation.findById(req.params.id)
-      .populate({
-        path: "adId",
-        refPath: "adModel"
-      })
-      .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
-      .lean();
-
-    if (!conv) return res.status(404).json({ error: "Not found" });
-    if (!conv.participants.find(p => String(p._id || p) === String(req.user.id))) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    // Process the conversation to include counterpart info
-    const participants = Array.isArray(conv.participants) ? conv.participants : [];
-    const counterpart = participants.find(p => p && String(p._id || p) !== String(req.user.id));
-    
-    let counterpartName = "مستخدم";
-    let counterpartId = null;
-    let counterpartAvatar = null;
-    let counterpartIsVerified = false;
-    let counterpartIsOnline = false;
-    let counterpartLastSeen = null;
-
-    if (conv.type === "DISPUTE" && conv.title) {
-      counterpartName = conv.title;
-    } else if (counterpart) {
-      let counterpartObj = null;
-      if (typeof counterpart === "object" && counterpart._id) {
-        counterpartObj = counterpart;
-      } else {
-        // Fetch the user if not populated
-        const cid = typeof counterpart === "object" ? counterpart._id : counterpart;
-        counterpartObj = await User.findById(cid).select("name avatar isVerifiedSeller isOnline lastSeen").lean();
-      }
-
-      if (counterpartObj) {
-        counterpartId = counterpartObj._id;
-        counterpartName = counterpartObj.name || "مستخدم";
-        counterpartAvatar = counterpartObj.avatar;
-        counterpartIsVerified = !!counterpartObj.isVerifiedSeller;
-        counterpartIsOnline = !!counterpartObj.isOnline;
-        counterpartLastSeen = counterpartObj.lastSeen;
-      }
-    }
-
-    const muted = Array.isArray(conv.mutedFor) ? !!conv.mutedFor.find(u => String(u) === String(req.user.id)) : false;
-    const isPinned = Array.isArray(conv.pinnedBy) ? !!conv.pinnedBy.find(u => String(u) === String(req.user.id)) : false;
-
-    // Get unread count for this conversation
-    const unreadCount = await ConversationMessage.countDocuments({
-      conversationId: conv._id,
-      senderId: { $ne: req.user.id },
-      status: { $ne: "read" },
-      deletedBy: { $ne: req.user.id }
-    });
-
-    res.json({
-      ...conv,
-      unreadCount,
-      counterpartName,
-      counterpartId,
-      counterpartAvatar,
-      counterpartIsVerified,
-      counterpartIsOnline,
-      counterpartLastSeen,
-      muted,
-      isPinned
-    });
-  } catch (error) {
-    console.error("Get conversation error:", error);
-    res.status(500).json({ error: "Server error" });
-  }
-});
+// =============================================
+// STATIC ROUTES (MUST COME BEFORE DYNAMIC :id)
+// =============================================
 
 router.get("/unread-count", auth, async (req, res) => {
   try {
-    const conversations = await Conversation.find({ 
+    const convs = await Conversation.find({ 
       participants: req.user.id,
       deletedBy: { $ne: req.user.id },
       isDeletedByAdmin: { $ne: true }
     }).select("_id").lean();
-
-    const conversationIds = conversations.map(c => c._id);
     
-    const unreadCount = await ConversationMessage.countDocuments({
-      conversationId: { $in: conversationIds },
-      senderId: { $ne: req.user.id },
+    const ids = convs.map((c) => c._id);
+    if (ids.length === 0) return res.json({ count: 0 });
+    
+    const count = await ConversationMessage.countDocuments({
+      conversationId: { $in: ids },
       status: { $ne: "read" },
-      deletedBy: { $ne: req.user.id }
+      senderId: { $ne: req.user.id },
+      deletedBy: { $ne: req.user.id },
+      isDeleted: { $ne: true }
     });
-
-    res.json({ count: unreadCount });
+    
+    res.json({ count });
   } catch (error) {
     console.error("Error fetching unread count:", error);
     res.status(500).json({ error: "Server error" });
@@ -136,7 +65,6 @@ router.get("/", auth, async (req, res) => {
     console.log("Conversations found:", list.length);
     if (list.length === 0) return res.json([]);
 
-    // Get unread counts for all conversations in one go
     const convIds = list.map(c => c._id);
     const unreadCounts = await ConversationMessage.aggregate([
       { 
@@ -155,25 +83,21 @@ router.get("/", auth, async (req, res) => {
       return acc;
     }, {});
 
-    // Collect all counterpart IDs that need to be fetched (in case populate failed)
     const counterpartIds = [];
     list.forEach(c => {
       const participants = Array.isArray(c.participants) ? c.participants : [];
       const counterpart = participants.find(p => p && String(p._id || p) !== String(req.user.id));
       if (counterpart && typeof counterpart === "object" && counterpart._id) {
-        // already populated
       } else if (counterpart) {
-        // not populated, add to fetch list
         counterpartIds.push(typeof counterpart === "object" ? counterpart._id : counterpart);
       }
     });
 
-    // Fetch any missing counterpart users
     const missingUsers = await User.find({ _id: { $in: counterpartIds } })
       .select("name avatar isVerifiedSeller isOnline lastSeen")
       .lean();
     
-    const userMap = new Map(missingUsers.map(u => [u._id.toString(), u));
+    const userMap = new Map(missingUsers.map(u => [u._id.toString(), u]));
 
     const withUnread = list.map((c) => {
       try {
@@ -196,7 +120,6 @@ router.get("/", auth, async (req, res) => {
           if (typeof counterpart === "object" && counterpart._id) {
             counterpartObj = counterpart;
           } else {
-            // Try to find from userMap
             const cid = typeof counterpart === "object" ? counterpart._id.toString() : counterpart.toString();
             counterpartObj = userMap.get(cid);
           }
@@ -325,24 +248,106 @@ router.post("/open", auth, async (req, res) => {
   }
 });
 
-router.get("/unread-count", auth, async (req, res) => {
+// =============================================
+// ADMIN STATIC ROUTES (BEFORE DYNAMIC :id)
+// =============================================
+
+router.get("/admin/trash", auth, requireRole(["admin"]), async (req, res) => {
   try {
-    const convs = await Conversation.find({ 
-      participants: req.user.id,
-      deletedBy: { $ne: req.user.id },
-      isDeletedByAdmin: { $ne: true }
-    }).select("_id").lean();
-    const ids = convs.map((c) => c._id);
-    if (ids.length === 0) return res.json({ count: 0 });
-    const count = await ConversationMessage.countDocuments({
-      conversationId: { $in: ids },
-      status: { $ne: "read" },
+    const { page = 1, limit = 20 } = req.query;
+    const p = Math.max(1, parseInt(page));
+    const l = Math.max(1, Math.min(100, parseInt(limit)));
+
+    const [items, total] = await Promise.all([
+      Conversation.find({ isDeletedByAdmin: true, isPermanentlyDeleted: false })
+        .populate("participants", "name avatar")
+        .sort({ deletedByAdminAt: -1 })
+        .skip((p - 1) * l)
+        .limit(l)
+        .lean(),
+      Conversation.countDocuments({ isDeletedByAdmin: true, isPermanentlyDeleted: false })
+    ]);
+
+    res.json({ items, total, pages: Math.ceil(total / l) });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// =============================================
+// DYNAMIC ROUTES (:id and nested)
+// =============================================
+
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const conv = await Conversation.findById(req.params.id)
+      .populate({
+        path: "adId",
+        refPath: "adModel"
+      })
+      .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
+      .lean();
+
+    if (!conv) return res.status(404).json({ error: "Not found" });
+    if (!conv.participants.find(p => String(p._id || p) === String(req.user.id))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const participants = Array.isArray(conv.participants) ? conv.participants : [];
+    const counterpart = participants.find(p => p && String(p._id || p) !== String(req.user.id));
+    
+    let counterpartName = "مستخدم";
+    let counterpartId = null;
+    let counterpartAvatar = null;
+    let counterpartIsVerified = false;
+    let counterpartIsOnline = false;
+    let counterpartLastSeen = null;
+
+    if (conv.type === "DISPUTE" && conv.title) {
+      counterpartName = conv.title;
+    } else if (counterpart) {
+      let counterpartObj = null;
+      if (typeof counterpart === "object" && counterpart._id) {
+        counterpartObj = counterpart;
+      } else {
+        const cid = typeof counterpart === "object" ? counterpart._id : counterpart;
+        counterpartObj = await User.findById(cid).select("name avatar isVerifiedSeller isOnline lastSeen").lean();
+      }
+
+      if (counterpartObj) {
+        counterpartId = counterpartObj._id;
+        counterpartName = counterpartObj.name || "مستخدم";
+        counterpartAvatar = counterpartObj.avatar;
+        counterpartIsVerified = !!counterpartObj.isVerifiedSeller;
+        counterpartIsOnline = !!counterpartObj.isOnline;
+        counterpartLastSeen = counterpartObj.lastSeen;
+      }
+    }
+
+    const muted = Array.isArray(conv.mutedFor) ? !!conv.mutedFor.find(u => String(u) === String(req.user.id)) : false;
+    const isPinned = Array.isArray(conv.pinnedBy) ? !!conv.pinnedBy.find(u => String(u) === String(req.user.id)) : false;
+
+    const unreadCount = await ConversationMessage.countDocuments({
+      conversationId: conv._id,
       senderId: { $ne: req.user.id },
-      deletedBy: { $ne: req.user.id },
-      isDeleted: { $ne: true }
+      status: { $ne: "read" },
+      deletedBy: { $ne: req.user.id }
     });
-    res.json({ count });
-  } catch {
+
+    res.json({
+      ...conv,
+      unreadCount,
+      counterpartName,
+      counterpartId,
+      counterpartAvatar,
+      counterpartIsVerified,
+      counterpartIsOnline,
+      counterpartLastSeen,
+      muted,
+      isPinned
+    });
+  } catch (error) {
+    console.error("Get conversation error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -488,7 +493,6 @@ router.patch("/:id/close", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id).populate("adId");
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     
-    // Only the seller (ad owner) can close the conversation
     if (String(conv.adId.userId) !== String(req.user.id)) {
       return res.status(403).json({ error: "غير مصرح لك بإغلاق هذه المحادثة" });
     }
@@ -499,9 +503,9 @@ router.patch("/:id/close", auth, async (req, res) => {
 
     const buyerId = conv.participants.find(p => String(p) !== String(req.user.id));
     
-    // استخدام السعر من قاعدة البيانات حصراً لمنع التلاعب بالعمولات
-    const salePrice = Number(conv.adId.price) || 0;
-    const currency = conv.adId.currency || "YER_ADEN";
+    const { finalPrice, finalCurrency } = req.body || {};
+    const salePrice = (finalPrice && Number(finalPrice) > 0) ? Number(finalPrice) : (Number(conv.adId.price) || 0);
+    const currency = finalCurrency || conv.adId.currency || "YER_ADEN";
 
     // Mark the ad as sold to this buyer (Manual Sale)
     try {
@@ -513,7 +517,6 @@ router.patch("/:id/close", auth, async (req, res) => {
         buyerType: "DIRECT"
       });
 
-      // Create Commission record
       const CommissionModel = mongoose.model("Commission");
       const SoldListing = mongoose.model("SoldListing");
       
@@ -522,6 +525,7 @@ router.patch("/:id/close", auth, async (req, res) => {
       const commission = await CommissionModel.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
+        buyerId: buyerId,
         price: salePrice,
         currency: currency,
         commissionAmount: commissionAmount,
@@ -530,7 +534,7 @@ router.patch("/:id/close", auth, async (req, res) => {
         soldAt: new Date(),
       });
 
-      // Create SoldListing snapshot
+      const adWithCategory = await Ad.findById(conv.adId._id).populate("categoryId", "name").lean();
       await SoldListing.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
@@ -538,6 +542,7 @@ router.patch("/:id/close", auth, async (req, res) => {
         title: conv.adId.title,
         price: salePrice,
         currency: currency,
+        categoryName: adWithCategory?.categoryId?.name || "N/A",
         images: conv.adId.images || [],
         commissionId: commission._id,
         commissionAmount: commissionAmount,
@@ -670,28 +675,6 @@ router.delete("/:id/messages/:messageId", auth, async (req, res) => {
     
     res.json({ ok: true });
   } catch {
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-router.get("/admin/trash", auth, requireRole(["admin"]), async (req, res) => {
-  try {
-    const { page = 1, limit = 20 } = req.query;
-    const p = Math.max(1, parseInt(page));
-    const l = Math.max(1, Math.min(100, parseInt(limit)));
-
-    const [items, total] = await Promise.all([
-      Conversation.find({ isDeletedByAdmin: true, isPermanentlyDeleted: false })
-        .populate("participants", "name avatar")
-        .sort({ deletedByAdminAt: -1 })
-        .skip((p - 1) * l)
-        .limit(l)
-        .lean(),
-      Conversation.countDocuments({ isDeletedByAdmin: true, isPermanentlyDeleted: false })
-    ]);
-
-    res.json({ items, total, pages: Math.ceil(total / l) });
-  } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
 });

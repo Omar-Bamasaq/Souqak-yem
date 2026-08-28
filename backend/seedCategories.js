@@ -157,6 +157,7 @@ const loungeAttributes = [
 const mobileBrands = ["آبل", "سامسونج", "شاومي", "ريدمي", "بوكو", "أوبو", "فيفو", "هواوي", "هونر", "ريلمي", "نوكيا", "موتورولا", "تكنو", "إنفينيكس", "أخرى"];
 const storageOptions = ["16 جيجابايت", "32 جيجابايت", "64 جيجابايت", "128 جيجابايت", "256 جيجابايت", "512 جيجابايت", "1 تيرابايت", "أخرى"];
 const ramOptions = ["1 جيجابايت", "2 جيجابايت", "3 جيجابايت", "4 جيجابايت", "6 جيجابايت", "8 جيجابايت", "12 جيجابايت", "16 جيجابايت", "أخرى"];
+const computerRamOptions = ["4 جيجابايت", "8 جيجابايت", "16 جيجابايت", "32 جيجابايت", "64 جيجابايت", "أخرى"];
 
 const mobileAttributes = [
   { name: "brand", label: "الماركة", type: "select", options: mobileBrands, required: false, sortOrder: 1 },
@@ -179,7 +180,7 @@ const osOptions = ["ويندوز 10", "ويندوز 11", "لينكس", "ماك �
 const computerAttributes = [
   { name: "brand", label: "الماركة", type: "select", options: computerBrands, required: false, sortOrder: 1 },
   { name: "processor", label: "المعالج", type: "select", options: processorOptions, required: false, sortOrder: 2 },
-  { name: "ram", label: "الرام", type: "select", options: ramOptions, required: false, sortOrder: 3 },
+  { name: "ram", label: "الرام", type: "select", options: computerRamOptions, required: false, sortOrder: 3 },
   { name: "storage", label: "التخزين", type: "select", options: storageOptions, required: false, sortOrder: 4 },
   { name: "storage_type", label: "نوع التخزين", type: "select", options: storageTypeOptions, required: false, sortOrder: 5 },
   { name: "gpu", label: "كرت الشاشة", type: "text", required: false, sortOrder: 6 },
@@ -971,9 +972,21 @@ const categoriesData = [
     ]
   },
   {
+    name: "أنظمة الطاقة المنزلية",
+    slug: "home-energy-systems",
+    sortOrder: 20,
+    description: "قسم لأنظمة الطاقة المنزلية ومكوناتها.",
+    subcategories: [
+      { name: "ألواح شمسية", slug: "solar-panels", sortOrder: 1, attributes: [] },
+      { name: "بطاريات", slug: "batteries", sortOrder: 2, attributes: [] },
+      { name: "انفرترات", slug: "inverters", sortOrder: 3, attributes: [] },
+      { name: "منظمات شحن", slug: "charge-controllers", sortOrder: 4, attributes: [] }
+    ]
+  },
+  {
     name: "طلبات الشراء",
     slug: "purchase-orders",
-    sortOrder: 20,
+    sortOrder: 21,
     description: "قسم مخصص لطلبات الشراء.",
     subcategories: [
       { name: "طلب منتج", slug: "order-product", sortOrder: 1, attributes: [
@@ -985,7 +998,7 @@ const categoriesData = [
   {
     name: "أخرى",
     slug: "other-main",
-    sortOrder: 21,
+    sortOrder: 22,
     description: "أقسام وأصناف أخرى متنوعة.",
     subcategories: [
       { name: "أخرى", slug: "other-other", sortOrder: 999, attributes: [{ name: "item_type", label: "نوع العنصر", type: "text" }] }

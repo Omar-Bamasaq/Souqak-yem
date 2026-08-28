@@ -3,7 +3,7 @@ import { softDeletePlugin } from "../lib/softDelete.js";
 
 const disputeSchema = new mongoose.Schema(
   {
-    order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true, index: true },
+    order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true },
     openedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     reason: { type: String, required: true },
     details: { type: String },

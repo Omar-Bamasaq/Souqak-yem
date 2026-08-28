@@ -9,12 +9,11 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-/**
- * Utility to process images using Sharp
- * @param {string} filePath - Original file path
- * @param {string} type - Image type (ads, avatar, ids, receipts)
- * @returns {Promise<string>} - New file path (WebP)
- */
+const avatarsDir = path.join(uploadDir, "avatars");
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
+}
+
 export const processImage = async (filePath, type = "ads") => {
   try {
     if (!filePath || !fs.existsSync(filePath)) {
@@ -23,10 +22,10 @@ export const processImage = async (filePath, type = "ads") => {
     }
     
     const ext = path.extname(filePath);
-    if (ext.toLowerCase() === ".pdf") return filePath; // Skip PDFs
+    if (ext.toLowerCase() === ".pdf") return filePath;
 
     const newPath = filePath.replace(ext, ".webp");
-    let width = 1200, height = 1200; // Increased max size slightly for quality
+    let width = 1200, height = 1200;
 
     if (type !== "ads") {
       width = 800;
@@ -35,18 +34,16 @@ export const processImage = async (filePath, type = "ads") => {
 
     const image = sharp(filePath).rotate();
     
-    // 1. Full Size (Optimized & Sanitized)
     await image
       .clone()
       .resize(width, height, {
         fit: "inside",
         withoutEnlargement: true
       })
-      .webp({ quality: 80, effort: 6 }) // EFFORT 6 for better compression
+      .webp({ quality: 80, effort: 6 })
       .toFile(newPath);
     console.log(`[ImageProcess] Created full size: ${newPath}`);
 
-    // 2. Thumbnail (for small previews)
     const thumbPath = filePath.replace(ext, ".thumb.webp");
     try {
       await image
@@ -62,7 +59,6 @@ export const processImage = async (filePath, type = "ads") => {
       console.error(`[ImageProcess] Thumbnail failed for ${filePath}:`, thumbErr);
     }
 
-    // Delete original file if it's different from the new one
     if (filePath !== newPath) {
       fs.unlink(filePath, (err) => {
         if (err) console.error(`Error deleting original file: ${filePath}`, err);
@@ -80,13 +76,13 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const name = `${uuidv4()}${ext}`; // Use UUID for security
+    const name = `${uuidv4()}${ext}`;
     cb(null, name);
   }
 });
 
 function fileFilter(req, file, cb) {
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp"]; // More strict, removed GIF
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   if (!allowedTypes.includes(file.mimetype)) {
     const err = new Error("نوع الملف غير مدعوم. يرجى رفع صورة (JPG, PNG, WebP)");
     err.status = 400;
@@ -98,8 +94,16 @@ function fileFilter(req, file, cb) {
 const commonOptions = {
   storage,
   fileFilter,
-  limits: { fileSize: 3 * 1024 * 1024 } // 3MB limit
+  limits: { fileSize: 3 * 1024 * 1024 }
 };
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, avatarsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
 
 const receiptsDir = path.join(uploadDir, "receipts");
 if (!fs.existsSync(receiptsDir)) {
@@ -121,26 +125,29 @@ function idFileFilter(req, file, cb) {
 
 export const uploadImages = multer({
   ...commonOptions,
-  limits: { fileSize: 5 * 1024 * 1024, files: 10 } // Allow up to 5MB and 10 files for ads
+  limits: { fileSize: 5 * 1024 * 1024, files: 10 }
 });
 
 export const uploadAvatar = multer({
-  ...commonOptions,
-  limits: { fileSize: 2 * 1024 * 1024 } // 2MB for avatar
+  storage: avatarStorage,
+  fileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 }
 });
 
-export const uploadReceipt = multer({
-  ...commonOptions,
-  limits: { fileSize: 4 * 1024 * 1024 } // 4MB for receipts
-}).array("paymentReceipt", 5);
+const storageIds = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, idsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const name = `${uuidv4()}${ext}`;
+    cb(null, name);
+  }
+});
 
 export const uploadIdDoc = multer({
-  ...commonOptions,
+  storage: storageIds,
   fileFilter: idFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
 });
-
-
 
 const storageVerification = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -165,10 +172,6 @@ export const uploadVerificationDocs = multer({
   { name: "selfieImage", maxCount: 1 }
 ]);
 
-
-
-
-
 const logosDir = path.join(uploadDir, "logos");
 if (!fs.existsSync(logosDir)) {
   fs.mkdirSync(logosDir, { recursive: true });
@@ -189,11 +192,9 @@ export const uploadBankLogo = multer({
   limits: { fileSize: 2 * 1024 * 1024 }
 }).single("logo");
 
-const commissionDir = receiptsDir;
-const commissionImageDir = uploadDir;
 const storageCommission = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = file.fieldname === "adImage" ? commissionImageDir : commissionDir;
+    const dir = file.fieldname === "adImage" ? uploadDir : receiptsDir;
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -209,3 +210,18 @@ export const uploadCommissionDocs = multer({
   fileFilter: idFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
 }).fields([{ name: "adImage", maxCount: 1 }, { name: "paymentReceipt", maxCount: 1 }]);
+
+const storageReceipts = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, receiptsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const name = `${uuidv4()}${ext}`;
+    cb(null, name);
+  }
+});
+
+export const uploadReceipt = multer({
+  storage: storageReceipts,
+  fileFilter: idFileFilter,
+  limits: { fileSize: 4 * 1024 * 1024 }
+}).array("paymentReceipt", 5);

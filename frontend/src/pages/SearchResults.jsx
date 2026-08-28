@@ -50,19 +50,17 @@ export default function SearchResults() {
       const currentLimit = 20;
       const isInitialRestore = page > 1 && ads.length === 0;
 
+      const allowedParams = ["q", "page", "limit", "categoryId", "governorateId", "cityId", "cities", "minPrice", "maxPrice", "conditions", "verifiedOnly", "featuredOnly", "lat", "lng", "radiusKm", "sort", "adType", "currency", "isResellEnabled", "subCategoryId", "userLat", "userLng", "status"];
       const params = {
         page: isInitialRestore ? 1 : page,
         limit: isInitialRestore ? page * currentLimit : currentLimit
       };
 
-      // Add all search params
       for (const [key, value] of searchParams.entries()) {
-        if (key !== "page" && key !== "limit") {
+        if ((allowedParams.includes(key) || key.startsWith("attr_")) && key !== "page" && key !== "limit") {
           params[key] = value;
         }
       }
-
-      console.log("Smart search params:", params);
 
       // Use smart search endpoint
       const response = await api.get("/ads/smart-search", { params });
@@ -88,12 +86,13 @@ export default function SearchResults() {
       try {
         const currentLimit = 20;
         const isInitialRestore = page > 1 && ads.length === 0;
+        const allowedParams = ["q", "page", "limit", "categoryId", "governorateId", "cityId", "cities", "minPrice", "maxPrice", "conditions", "verifiedOnly", "featuredOnly", "lat", "lng", "radiusKm", "sort", "adType", "currency", "isResellEnabled", "subCategoryId", "userLat", "userLng", "status"];
         const params = { 
           page: isInitialRestore ? 1 : page, 
           limit: isInitialRestore ? page * currentLimit : currentLimit 
         };
         for (const [key, value] of searchParams.entries()) {
-          if (key !== "page" && key !== "limit") {
+          if ((allowedParams.includes(key) || key.startsWith("attr_")) && key !== "page" && key !== "limit") {
             params[key] = value;
           }
         }

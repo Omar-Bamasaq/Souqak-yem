@@ -8,13 +8,14 @@ import { validateBody } from "../middleware/validate.js";
 
 const router = Router();
 
-// Get public settings (withdrawal threshold, exchange rates) - Public access
+// Get public settings (withdrawal threshold, exchange rates, brokerage status) - Public access
 router.get("/public", async (req, res) => {
   try {
     const settings = await SystemSettings.getSettings();
     res.json({
       withdrawalIdentityThresholdUsd: settings.withdrawalIdentityThresholdUsd,
-      exchangeRates: settings.exchangeRates
+      exchangeRates: settings.exchangeRates,
+      brokerageEnabled: settings.brokerageEnabled !== false
     });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -55,7 +56,8 @@ router.patch(
         durationHours: Joi.number().min(1).optional(),
         maxBeneficiaries: Joi.number().min(0).optional(),
         endDate: Joi.date().allow(null).optional()
-      }).optional()
+      }).optional(),
+      brokerageEnabled: Joi.boolean().optional()
     })
   ),
   async (req, res) => {
@@ -66,7 +68,8 @@ router.patch(
         prohibitedKeywords,
         withdrawalIdentityThresholdUsd,
         exchangeRates,
-        welcomePromotion
+        welcomePromotion,
+        brokerageEnabled
       } = req.body;
       
       // Get existing settings first
@@ -86,6 +89,9 @@ router.patch(
       }
       if (welcomePromotion) {
         updateData.welcomePromotion = { ...settings.welcomePromotion, ...welcomePromotion };
+      }
+      if (brokerageEnabled !== undefined) {
+        updateData.brokerageEnabled = brokerageEnabled;
       }
       
       // Update and return new document

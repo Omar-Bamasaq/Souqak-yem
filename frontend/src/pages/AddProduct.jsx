@@ -8,10 +8,12 @@ import { isConditionEnabled } from "../lib/categoryHelpers.js";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
+import { useBrokerageStatus } from "../store/BrokerageStatusContext.jsx";
 
 export default function AddProduct() {
   const api = useApi();
   const brokerageApi = useBrokerageApi();
+  const { enabled: brokerageEnabled } = useBrokerageStatus();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const adType = searchParams.get("type") || "sell"; // 'sell' or 'order'
@@ -572,12 +574,12 @@ export default function AddProduct() {
     return (
       <div className="min-h-[calc(100vh-70px)] bg-white flex flex-col px-4 py-4 sm:p-8">
         <div className="w-full max-w-3xl mx-auto flex-1 flex flex-col justify-center">
-          <div className="mb-6 text-center sm:text-right">
+          <div className="mb-3 text-center sm:mb-6 sm:text-right">
             <h2 className="text-2xl font-black text-gray-900 sm:text-3xl leading-tight">ميثاق الأمانة والعمولة</h2>
             <div className="mt-3 h-1 w-16 bg-blue-600 mx-auto sm:ml-auto sm:mr-0 rounded-full" />
           </div>
 
-          <div className="space-y-6 text-right">
+          <div className="space-y-3 text-right sm:space-y-6">
             <div className="space-y-2 bg-gray-50/50 p-4 sm:p-6 rounded-2xl border border-gray-100">
               <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] text-center sm:text-right">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ</p>
               <p className="text-base leading-relaxed text-gray-700 sm:text-xl text-center sm:text-right">
@@ -586,7 +588,7 @@ export default function AddProduct() {
               </p>
             </div>
 
-            <div className="space-y-4 pt-2">
+            <div className="space-y-2 sm:space-y-4 sm:pt-2">
               <label className="group flex cursor-pointer items-start gap-3 sm:gap-4 p-2">
                 <div className="relative mt-1 flex-shrink-0">
                   <input
@@ -1033,7 +1035,7 @@ export default function AddProduct() {
       )}
 
       {/* Brokerage System */}
-      {adType === "sell" && (
+      {adType === "sell" && brokerageEnabled && (
         <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center gap-2">
             <input

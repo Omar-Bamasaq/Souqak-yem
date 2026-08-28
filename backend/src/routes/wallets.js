@@ -1,4 +1,5 @@
 import { Router } from "express";
+import path from "path";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import { getOrCreateWallet, deductAvailableBalance } from "../services/walletService.js";
@@ -8,12 +9,20 @@ import SystemSettings from "../models/SystemSettings.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
 import { createNotification } from "../services/notificationService.js";
-import { uploadIdDoc } from "../middleware/upload.js";
+import { uploadIdDoc, processImage } from "../middleware/upload.js";
 import AdminNotification from "../models/AdminNotification.js";
 import User from "../models/User.js";
 import { sendAdminEmail } from "../utils/sendEmail.js";
 
 const router = Router();
+
+const MINIMUM_WITHDRAWAL_BY_CURRENCY = {
+  YER: 1000,
+  YER_ADEN: 1000,
+  YER_SANAA: 1000,
+  SAR: 2.5,
+  USD: 0.75
+};
 
 // عرض المحفظة (الرصيد)
 router.get("/me", auth, async (req, res) => {
@@ -58,6 +67,16 @@ router.post(
       if (isNaN(numAmount) || numAmount <= 0) {
         return res.status(400).json({ error: "المبلغ المطلوب غير صالح." });
       }
+
+      const minimumWithdrawal = MINIMUM_WITHDRAWAL_BY_CURRENCY[currency];
+      if (minimumWithdrawal === undefined) {
+        return res.status(400).json({ error: "عملة السحب غير مدعومة." });
+      }
+      if (numAmount < minimumWithdrawal) {
+        return res.status(400).json({
+          error: `الحد الأدنى للسحب هو ${minimumWithdrawal.toLocaleString()} ${currency}.`
+        });
+      }
       
       // Calculate USD equivalent
       const rate = settings.exchangeRates[currency] || 1;
@@ -90,12 +109,18 @@ router.post(
       // خصم الرصيد وتسجيل العملية كمعلقة (عن طريق خدمة المحفظة)
       await deductAvailableBalance(req.user.id, numAmount, `طلب سحب (${receiptType === 'bank_account' ? 'حساب' : 'حوالة'}) إلى ${bankName}`, currency);
 
+      let identityImagePath = undefined;
+      if (req.file) {
+        const processed = await processImage(req.file.path, "ids");
+        identityImagePath = `ids/${path.basename(processed)}`;
+      }
+
       const withdrawal = await Withdrawal.create({
         user: req.user.id,
         amount: numAmount,
         currency,
         phoneNumber,
-        feeAmount: 0, // العمولة تم خصمها مسبقاً عند اكتمال الطلب (1%)
+        feeAmount: 0,
         finalAmount: numAmount,
         bankDetails: { 
           receiptType, 
@@ -105,7 +130,7 @@ router.post(
           accountCurrency, 
           governorateId: (governorateId && governorateId !== "null" && governorateId !== "") ? governorateId : undefined, 
           cityId: (cityId && cityId !== "null" && cityId !== "") ? cityId : undefined,
-          identityImage: req.file ? `ids/${req.file.filename}` : undefined
+          identityImage: identityImagePath
         }
       });
 

@@ -85,6 +85,7 @@ router.get("/", validateQuery(categoriesQuerySchema), async (req, res) => {
       // Get ad counts
       const adFilter = {
         status: "approved",
+        expiresAt: { $gt: new Date() },
         isArchived: { $ne: true },
         sold: { $ne: true },
       };

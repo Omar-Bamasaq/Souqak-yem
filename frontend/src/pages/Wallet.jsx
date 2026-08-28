@@ -4,6 +4,14 @@ import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import OrdersList from "../components/OrdersList.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 
+const MINIMUM_WITHDRAWAL_BY_CURRENCY = {
+  YER: 1000,
+  YER_ADEN: 1000,
+  YER_SANAA: 1000,
+  SAR: 2.5,
+  USD: 0.75
+};
+
 export default function Wallet() {
   const api = useApi();
   const [wallet, setWallet] = useState(null);
@@ -164,8 +172,9 @@ export default function Wallet() {
       return alert("المبلغ يتجاوز الرصيد المتاح لهذه العملة");
     }
     
-    if (Number(withdrawAmount) < 1000 && (withdrawCurrency === "YER" || withdrawCurrency === "YER_ADEN")) {
-      return alert("الحد الأدنى للسحب هو 1000 ريال");
+    const minimumWithdrawal = MINIMUM_WITHDRAWAL_BY_CURRENCY[withdrawCurrency];
+    if (minimumWithdrawal !== undefined && Number(withdrawAmount) < minimumWithdrawal) {
+      return alert(`الحد الأدنى للسحب هو ${minimumWithdrawal.toLocaleString()} ${formatCurrency(withdrawCurrency)}`);
     }
 
     try {
@@ -214,10 +223,10 @@ export default function Wallet() {
           <h2 className="text-2xl font-black text-gray-900 dark:text-white">محفظتي المالية</h2>
           <button 
             onClick={() => {
-              if (totalBalances.some(b => b.availableBalance >= 1000)) {
+              if (totalBalances.some(b => b.availableBalance >= (MINIMUM_WITHDRAWAL_BY_CURRENCY[b.currency] || Infinity))) {
                 setShowWithdrawModal(true);
               } else {
-                alert("لا يوجد رصيد كافٍ للسحب (الحد الأدنى 1000 ريال)");
+                alert("لا يوجد رصيد كافٍ للسحب حسب الحد الأدنى لكل عملة");
               }
             }}
             className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
@@ -698,7 +707,7 @@ export default function Wallet() {
 
             <div className="p-4 sm:p-6 bg-amber-50 dark:bg-amber-900/10 rounded-[1.5rem] sm:rounded-[2rem] border-2 border-amber-100 dark:border-amber-900/20 relative z-10">
               <p className="text-[9px] sm:text-[10px] font-bold text-amber-800 dark:text-amber-400 leading-relaxed text-center">
-                تأكد من صحة البيانات البنكية بنسبة 100%. المنصة غير مسؤولة عن التحويلات للبيانات الخاطئة. الحد الأدنى للسحب هو 1,000 ريال.
+                تأكد من صحة البيانات البنكية بنسبة 100%. المنصة غير مسؤولة عن التحويلات للبيانات الخاطئة. الحد الأدنى للسحب: 1,000 ريال يمني أو 2.5 ريال سعودي أو 0.75 دولار.
               </p>
             </div>
 

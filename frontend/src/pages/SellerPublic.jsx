@@ -40,6 +40,7 @@ export default function SellerPublic() {
   const [activeTab, setActiveTab] = useState(initialTab); // "ads" or "reviews"
   const api = useApi();
   const { user } = useAuth();
+  const isOwnProfile = !!user && String(user._id || user.id) === String(id);
 
   useEffect(() => {
     if (initialTab === "reviews") setActiveTab("reviews");
@@ -178,43 +179,45 @@ export default function SellerPublic() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:self-center">
-            <button
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 ${
-                following 
-                  ? "bg-gray-100 text-gray-600 hover:bg-gray-200" 
-                  : "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200"
-              }`}
-              onClick={async () => {
-                try {
-                  const r = await api.post(`/follows/${id}`);
-                  const f = !!r.data?.following;
-                  setFollowing(f);
-                  const c = await api.get(`/follows/count/${id}`);
-                  setFollowers(Number(c.data?.count || 0));
-                } catch (e) {
-                  if (e?.response?.data?.error) {
-                    alert(e.response.data.error);
+          {!isOwnProfile && (
+            <div className="flex items-center gap-2 sm:self-center">
+              <button
+                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 ${
+                  following 
+                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200" 
+                    : "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200"
+                }`}
+                onClick={async () => {
+                  try {
+                    const r = await api.post(`/follows/${id}`);
+                    const f = !!r.data?.following;
+                    setFollowing(f);
+                    const c = await api.get(`/follows/count/${id}`);
+                    setFollowers(Number(c.data?.count || 0));
+                  } catch (e) {
+                    if (e?.response?.data?.error) {
+                      alert(e.response.data.error);
+                    }
                   }
-                }
-              }}
-              disabled={!user || String(user._id || user.id) === String(id)}
-            >
-              {following ? "إلغاء المتابعة" : "متابعة"}
-            </button>
-            <button 
-              className="p-2.5 rounded-xl border border-gray-100 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95" 
-              onClick={openReport}
-              title="إبلاغ عن البائع"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </button>
-          </div>
+                }}
+                disabled={!user}
+              >
+                {following ? "إلغاء المتابعة" : "متابعة"}
+              </button>
+              <button 
+                className="p-2.5 rounded-xl border border-gray-100 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95" 
+                onClick={openReport}
+                title="إبلاغ عن البائع"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
-        {!user && <div className="mt-3 text-[11px] font-bold text-gray-500 bg-gray-50 p-2 rounded-lg border border-dashed border-gray-200 text-center italic">سجّل الدخول لمتابعة هذا البائع</div>}
-        {user && String(user._id || user.id) === String(id) && (
+        {!user && !isOwnProfile && <div className="mt-3 text-[11px] font-bold text-gray-500 bg-gray-50 p-2 rounded-lg border border-dashed border-gray-200 text-center italic">سجّل الدخول لمتابعة هذا البائع</div>}
+        {isOwnProfile && (
           <div className="mt-3 text-[11px] font-bold text-blue-600 bg-blue-50 p-2 rounded-lg border border-dashed border-blue-100 text-center italic">هذا هو ملفك الشخصي العام</div>
         )}
       </div>

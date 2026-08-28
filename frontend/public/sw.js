@@ -1,4 +1,4 @@
-const CACHE_NAME = "suqaq-pwa-v3";
+const CACHE_NAME = "suqaq-pwa-v4";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
@@ -59,8 +59,15 @@ self.addEventListener("fetch", (event) => {
         }).catch(() => {
           // If network fails and no cache, return offline fallback
           if (event.request.mode === "navigate") {
-            return caches.match("/index.html");
+            return caches.match("/index.html").then((fallback) =>
+              fallback || new Response("Offline", {
+                status: 503,
+                statusText: "Offline",
+                headers: { "Content-Type": "text/plain; charset=utf-8" }
+              })
+            );
           }
+          return new Response("", { status: 503, statusText: "Service Unavailable" });
         });
 
         return cachedResponse || fetchedResponse;

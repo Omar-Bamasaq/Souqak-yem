@@ -10,6 +10,8 @@ const AdminBrokerage = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
+  const [brokerageEnabled, setBrokerageEnabled] = useState(true);
+  const [toggling, setToggling] = useState(false);
 
   const tabs = [
     { id: "campaigns", label: "الحملات" },
@@ -20,10 +22,16 @@ const AdminBrokerage = () => {
     { id: "brokers", label: "الوسطاء" },
   ];
 
+  const loadSystemStatus = async () => {
+    try {
+      const res = await api.get("/admin/settings");
+      setBrokerageEnabled(res.data.brokerageEnabled !== false);
+    } catch {}
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load platform stats
       const [statsRes, dataRes] = await Promise.all([
         api.get("/brokerage/analytics/platform"),
         api.get(activeTab === "complaints" ? "/brokerage/complaints" : `/brokerage/admin/${activeTab}`),
@@ -38,8 +46,27 @@ const AdminBrokerage = () => {
   };
 
   useEffect(() => {
+    loadSystemStatus();
+  }, []);
+
+  useEffect(() => {
     loadData();
   }, [activeTab]);
+
+  const toggleBrokerage = async () => {
+    if (toggling) return;
+    setToggling(true);
+    try {
+      const newVal = !brokerageEnabled;
+      await api.patch("/admin/settings", { brokerageEnabled: newVal });
+      setBrokerageEnabled(newVal);
+    } catch (err) {
+      console.error(err);
+      alert("فشل تغيير حالة التسويق");
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const formatDate = (date) => {
     try {
@@ -68,7 +95,6 @@ const AdminBrokerage = () => {
       RESOLVED_IN_FAVOR: "bg-emerald-100 text-emerald-800",
       RESOLVED_AGAINST: "bg-red-100 text-red-800",
       SUBMITTED: "bg-blue-100 text-blue-800",
-      REJECTED: "bg-red-100 text-red-800",
     };
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-bold ${colors[state] || "bg-gray-100 text-gray-800"}`}>
@@ -376,6 +402,65 @@ const AdminBrokerage = () => {
 
   return (
     <div className="space-y-6">
+      <div className={`rounded-2xl p-5 md:p-6 shadow-lg border-2 ${brokerageEnabled ? "bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 dark:from-emerald-900/20 dark:to-teal-900/20 dark:border-emerald-800" : "bg-gradient-to-r from-red-50 to-rose-50 border-red-200 dark:from-red-900/20 dark:to-rose-900/20 dark:border-red-800"}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${brokerageEnabled ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {brokerageEnabled ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                )}
+              </svg>
+            </div>
+            <div>
+              <h2 className={`text-lg md:text-xl font-black mb-1 ${brokerageEnabled ? "text-emerald-800 dark:text-emerald-200" : "text-red-800 dark:text-red-200"}`}>
+                نظام التسويق بالعمولة: {brokerageEnabled ? "مفعل" : "مُوقف مؤقتاً"}
+              </h2>
+              <p className={`text-sm font-medium leading-relaxed max-w-2xl ${brokerageEnabled ? "text-emerald-700/80 dark:text-emerald-300/80" : "text-red-700/80 dark:text-red-300/80"}`}>
+                {brokerageEnabled
+                  ? "نظام التسويق يعمل حالياً ويظهر لكافة المستخدمين في الموقع، مع إمكانية عرض حملات التسويق، التوسط بين البائعين والمشترين، وكل مميزاته."
+                  : "عند إيقاف نظام التسويق سيتم إخفاء كافة روابطه وصفقاته وعناصره عن جميع المستخدمين العاديين والبائعين على الموقع، بينما يظل ظاهراً لك هنا في لوحة الإدارة."}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={toggleBrokerage}
+            disabled={toggling}
+            className={`w-full md:w-auto px-6 py-3 rounded-2xl font-black text-sm md:text-base whitespace-nowrap transition-all active:scale-95 disabled:opacity-60 shadow-xl ${
+              brokerageEnabled
+                ? "bg-red-600 hover:bg-red-700 text-white shadow-red-200 dark:shadow-none"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 dark:shadow-none"
+            }`}
+          >
+            {toggling ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                جاري التحديث...
+              </span>
+            ) : brokerageEnabled ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                إيقاف نظام التسويق
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                تفعيل نظام التسويق
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-900 dark:text-white">إدارة التسويق</h1>

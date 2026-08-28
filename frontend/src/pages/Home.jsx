@@ -170,19 +170,43 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 dark:text-slate-100 font-sans leading-relaxed">
-      {/* Beta Notice Banner */}
-      <div className="bg-amber-500 text-white text-center py-1.5 px-4 text-xs font-bold shadow-sm relative z-0">
-        <span className="inline-flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          هذه نسخة تجريبية (Beta) مخصصة للاختبار. نرحب بآرائكم وملاحظاتكم.
-        </span>
-      </div>
+    <div className="-mx-4 min-h-screen bg-[#f7faff] dark:bg-slate-950 dark:text-slate-100 font-sans leading-relaxed sm:mx-0 sm:bg-slate-50">
+      <section className="relative mx-2 -mt-6 mb-4 overflow-hidden rounded-xl bg-blue-600 px-3.5 py-3.5 text-white shadow-lg shadow-blue-900/25 sm:hidden">
+        <div className="relative flex items-center justify-center">
+          <div className="relative z-10 w-full text-center">
+            <p className="mb-1 text-[10px] font-bold tracking-wide text-blue-100">وجهتك الأولى للتجارة في اليمن</p>
+            <h1 className="text-xl font-black leading-tight tracking-tight">سوقك، سوق اليمن بين يديك</h1>
+            <div className="mt-3 flex w-full items-center gap-2 rounded-xl bg-white/95 px-3 py-1.5 text-right shadow-lg shadow-blue-950/10">
+              <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="ابحث في سوقك..."
+                value={q}
+                onChange={(e) => updateFilters({ q: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
+                className="min-w-0 flex-1 bg-transparent text-[11px] font-bold text-slate-800 placeholder-slate-400 outline-none"
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              {["سيارة", "جوال", "بيت", "عقار", "أثاث", "وظائف"].map((keyword) => (
+                <button
+                  key={keyword}
+                  type="button"
+                  onClick={() => handleSearchSubmit(keyword)}
+                  className="rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[9px] font-black text-white/90 backdrop-blur-sm transition-colors hover:bg-white/25"
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-b-[40px] sm:rounded-b-[60px] border-b border-blue-100/60 shadow-2xl shadow-blue-200/50 dark:border-slate-800 dark:shadow-slate-900/40">
+      <section className="hidden sm:block relative -translate-y-2 sm:-translate-y-3 overflow-hidden rounded-b-[40px] sm:rounded-b-[60px] border-b border-blue-100/60 shadow-2xl shadow-blue-200/50 dark:border-slate-800 dark:shadow-slate-900/40">
         {/* Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.03%22%3E%3Cpath%20d%3D%22M36%2034v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6%2034v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6%204V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
@@ -200,33 +224,10 @@ export default function Home() {
               أكبر تجمع تجاري في اليمن
             </div>
             
-            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 sm:mb-3 leading-tight tracking-tight">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 sm:mb-3 leading-[1.35] sm:leading-[1.35] md:leading-[1.35] lg:leading-[1.35] tracking-tight">
               بيع واشترِ <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">بكل سهولة وأمان</span>
             </h2>
-
-            {/* Enhanced Compact Platform Rating */}
-            <Link 
-              to="/platform-reviews"
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-4 hover:bg-white/20 transition-all group shadow-xl shadow-black/5"
-            >
-              <div className="flex flex-col items-center sm:items-start leading-none">
-                <div className="flex items-center gap-1 text-amber-400 mb-1">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${i < Math.floor(platformStats.avgRating || 0) ? "fill-current" : "text-white/20 fill-current"}`} viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-black text-white">{platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}</span>
-                  <span className="text-[11px] font-bold text-white/70">رؤية تقييمات المستخدمين</span>
-                  <svg className="w-3.5 h-3.5 text-blue-300 transition-transform group-hover:translate-x-[-3px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </div>
-              </div>
-            </Link>
 
             <p className="text-[11px] sm:text-lg text-white/70 mb-3 sm:mb-5 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
               سوقك الموثوق لكل ما تحتاجه في اليمن
@@ -235,7 +236,7 @@ export default function Home() {
             {/* Removed Hero Stats Mobile Version */}
             
             {/* Search Bar - Optimized for Mobile */}
-            <div className="max-w-2xl mx-auto px-1 sm:px-0">
+            <div className="w-full mx-auto px-1 sm:px-0">
               <div className="flex items-center gap-1 p-1 rounded-2xl sm:rounded-[24px] bg-white shadow-2xl shadow-black/20 focus-within:ring-4 focus-within:ring-blue-500/20 transition-all duration-300">
                 <div className="flex-1 flex items-center gap-2 px-2 sm:px-4">
                   <svg className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -276,9 +277,34 @@ export default function Home() {
       </section>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 -mt-6 sm:-mt-12 relative z-10">
+      <main className="container mx-auto px-4 mt-0 sm:-mt-12 relative z-10">
+        <Link
+          to="/platform-reviews"
+          className="group -mt-4 mb-5 flex items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-lg shadow-blue-100/50 transition-all hover:-translate-y-0.5 hover:border-blue-300 sm:mt-0 sm:mb-8 sm:px-6 sm:py-4 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex items-center gap-0.5 text-amber-400" aria-label="تقييم المنصة">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className={`h-4 w-4 sm:h-5 sm:w-5 ${i < Math.floor(platformStats.avgRating || 0) ? "fill-current" : "fill-slate-200 dark:fill-slate-700"}`} viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              ))}
+            </div>
+            <div className="min-w-0">
+              <p className="whitespace-nowrap text-sm font-black text-slate-900 dark:text-white sm:text-base">تقييم منصة سوقك</p>
+              <p className="hidden text-[10px] font-bold text-slate-500 dark:text-slate-400 sm:block sm:text-xs">شاركنا رأيك وساعدنا على التطور</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-lg font-black text-blue-600 sm:text-xl">{platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}</span>
+            <svg className="h-4 w-4 text-blue-500 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </div>
+        </Link>
+
         {/* Trust Highlights - Optimized for Mobile */}
-        <section className="mb-10 sm:mb-16 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300 fill-mode-both">
+        <section className="hidden sm:grid mb-10 sm:mb-16 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300 fill-mode-both">
           {[
             { title: "واجهة ذكية", desc: "تصفح سريع وسهل", icon: "⚡", color: "from-amber-400 to-orange-500" },
             { title: "حماية كاملة", desc: "بيع وشراء آمن", icon: "🛡️", color: "from-blue-500 to-indigo-600" },
@@ -296,8 +322,8 @@ export default function Home() {
         </section>
 
         {/* Categories Section */}
-        <section className="mb-8 sm:mb-16 py-6 sm:py-12 rounded-[32px] sm:rounded-[40px] bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200/50 dark:border-slate-800/50">
-          <div className="px-4 sm:px-6 mb-4 sm:mb-8 flex items-center justify-between">
+        <section className="mb-1 sm:mb-16 py-3 sm:py-12 rounded-none sm:rounded-[40px] bg-transparent sm:bg-slate-100/50 dark:bg-transparent sm:dark:bg-slate-900/30 border-0 sm:border border-slate-200/50 dark:border-slate-800/50">
+          <div className="px-1 sm:px-6 mb-3 sm:mb-8 flex items-center justify-between">
             <div>
               <h3 className="text-lg sm:text-3xl font-black text-slate-900 dark:text-white mb-1">تصفح حسب الفئة</h3>
               <p className="text-[10px] sm:text-base text-slate-500 dark:text-slate-400 font-bold">اكتشف جميع الأقسام المتاحة</p>
@@ -348,7 +374,7 @@ export default function Home() {
               <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-bold">إعلانات جديدة تضاف كل دقيقة</p>
             </div>
             
-            <div className="flex items-center gap-2 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm self-stretch sm:self-auto overflow-x-auto no-scrollbar">
+            <div className="hidden sm:flex items-center gap-2 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm self-stretch sm:self-auto overflow-x-auto no-scrollbar">
               {[
                 { label: "الأحدث", value: "new" },
                 { label: "الأرخص", value: "price_asc" },
@@ -452,6 +478,17 @@ export default function Home() {
               </div>
             )}
           </div>
+        </section>
+
+        <section className="mb-10 overflow-hidden rounded-3xl bg-blue-50/70 px-4 py-5 text-center sm:mb-16 sm:px-8 sm:py-8 dark:bg-slate-900/60">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white sm:text-2xl">منصة سوقك لكل احتياجاتك</h3>
+          <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 sm:text-sm">كل ما تبحث عنه في مكان واحد</p>
+          <img
+            src="/main_picture.png"
+            alt="منتجات متنوعة في منصة سوقك"
+            className="mx-auto mt-3 w-full max-w-[330px] object-contain sm:mt-5 sm:max-w-[520px]"
+            loading="lazy"
+          />
         </section>
 
         {popularTags.length > 0 && (

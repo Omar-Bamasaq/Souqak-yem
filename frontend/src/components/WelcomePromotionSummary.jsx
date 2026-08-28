@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function WelcomePromotionSummary() {
   const api = useApi();
@@ -51,7 +52,7 @@ export default function WelcomePromotionSummary() {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md animate-in fade-in duration-500">
-      <div className="w-full max-w-lg rounded-[2.5rem] bg-white shadow-2xl overflow-hidden animate-in zoom-in slide-in-from-bottom-8 duration-500">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-y-auto rounded-[2.5rem] bg-white shadow-2xl animate-in zoom-in slide-in-from-bottom-8 duration-500">
         {/* Top Decorative Banner */}
         <div className="bg-gradient-to-br from-blue-600 to-indigo-800 p-8 text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10">
@@ -71,7 +72,7 @@ export default function WelcomePromotionSummary() {
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
             {ad.images?.[0] && (
               <img 
-                src={`${import.meta.env.VITE_API_URL}/uploads/${ad.images[0]}`} 
+                src={uploadsUrl(ad.images[0])}
                 alt={ad.title}
                 className="w-16 h-16 rounded-xl object-cover shadow-sm"
               />

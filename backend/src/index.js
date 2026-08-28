@@ -1,7 +1,7 @@
-import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,16 +9,18 @@ const __dirname = path.dirname(__filename);
 const backendEnv = path.join(process.cwd(), ".env.local");
 const rootEnv = path.join(process.cwd(), "..", ".env.local");
 
-// Load backend .env.local first as it's more specific
 if (fs.existsSync(backendEnv)) {
-  dotenv.config({ path: backendEnv, override: true });
+  const r = dotenv.config({ path: backendEnv, override: true });
+  process.env = { ...r.parsed, ...process.env };
 }
-// Then load root .env.local for shared config
 if (fs.existsSync(rootEnv)) {
-  dotenv.config({ path: rootEnv });
+  const r = dotenv.config({ path: rootEnv });
+  process.env = { ...r.parsed, ...process.env };
 }
-// Load .env file
-dotenv.config();
+const r = dotenv.config();
+process.env = { ...r.parsed, ...process.env };
+
+import jwtConfigBootstrap from "./config/jwt.js";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -49,6 +51,8 @@ import adminMessagesRoutes from "./routes/adminMessages.js";
 import verificationRequestsRoutes from "./routes/verificationRequests.js";
 import tagRoutes from "./routes/tags.js";
 import commissionsRoutes from "./routes/commissions.js";
+import Commission from "./models/Commission.js";
+import BrokerageCampaign from "./models/BrokerageCampaign.js";
 import { connectDB as connectLocal } from "./lib/mongodb.js";
 import adminAdsRoutes from "./routes/adminAds.js";
 import adminSettingsRoutes from "./routes/adminSettings.js";
@@ -231,26 +235,66 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Fallback for missing images in /uploads
-app.use("/uploads", filesRoutes); // إضافة حماية للملفات الحساسة
-app.use("/uploads", (req, res, next) => {
-  // منع الوصول المباشر للمجلدات الحساسة (إذا فشل الـ middleware أعلاه أو تم تجاوز auth)
-  const sensitiveFolders = ["ids", "kyc", "documents", "receipts"];
-  const requestedFolder = req.path.split("/")[1];
-  
-  if (sensitiveFolders.includes(requestedFolder)) {
-    return res.status(403).json({ error: "Access denied to sensitive documents. Use the protected API instead." });
-  }
+function buildGenericErrorSvg(message, subtitle = "") {
+  const safeMsg = String(message).replace(/[<>&"']/g, "");
+  const safeSub = String(subtitle).replace(/[<>&"']/g, "");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <linearGradient id="bgG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef2f2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#fee2e2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bgG)"/>
+  <circle cx="400" cy="230" r="90" fill="#fecaca" stroke="#ef4444" stroke-width="3"/>
+  <text x="400" y="265" font-family="Arial, sans-serif" font-size="110" font-weight="bold" fill="#dc2626" text-anchor="middle">!</text>
+  <text x="400" y="390" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#991b1b" text-anchor="middle">${safeMsg}</text>
+  ${safeSub ? `<text x="400" y="440" font-family="Arial, sans-serif" font-size="22" fill="#7f1d1d" text-anchor="middle">${safeSub}</text>` : ""}
+  <text x="400" y="520" font-family="Arial, sans-serif" font-size="16" fill="#6b7280" text-anchor="middle">منصة سوق • Suqaq Platform</text>
+</svg>`;
+}
 
+function middlewareWantsBrowser(req) {
+  const accept = (req.headers.accept || "").toLowerCase();
+  return accept.includes("text/html") || accept.includes("image/") || accept.includes("*/*");
+}
+
+app.use("/uploads", filesRoutes);
+
+// Fallback for non-sensitive files: serve public uploads + placeholders for missing images
+app.use("/uploads", async (req, res, next) => {
   const filePath = path.join(uploadDir, req.path);
+  const requestedName = path.basename(req.path);
+  const variantMatch = requestedName.match(/^(.*)\.(thumb|med)\.webp$/i);
+  if (!fs.existsSync(filePath) && variantMatch) {
+    const baseName = variantMatch[1];
+    const sourcePath = [".webp", ".jpg", ".jpeg", ".png"]
+      .map(extension => path.join(uploadDir, `${baseName}${extension}`))
+      .find(candidate => fs.existsSync(candidate));
+    if (sourcePath) {
+      return res.sendFile(sourcePath);
+    }
+  }
+  const legacyAvatarPath = req.path.startsWith("/avatars/")
+    ? path.join(uploadDir, req.path.replace(/^\/avatars\//, ""))
+    : null;
+  if (!fs.existsSync(filePath) && legacyAvatarPath && fs.existsSync(legacyAvatarPath)) {
+    return res.sendFile(legacyAvatarPath);
+  }
   if (!fs.existsSync(filePath)) {
     const isCategory = req.path.includes("categories") || req.path.includes("category-");
-    const isAvatar = req.path.includes("avatars") || req.path.includes("avatar-");
-    
-    if (isCategory) {
+    if (isCategory && fs.existsSync(path.join(uploadDir, "category-placeholder.svg"))) {
       return res.sendFile(path.join(uploadDir, "category-placeholder.svg"));
     }
-    return res.sendFile(path.join(uploadDir, "placeholder.svg"));
+    if (fs.existsSync(path.join(uploadDir, "placeholder.svg"))) {
+      return res.sendFile(path.join(uploadDir, "placeholder.svg"));
+    }
+    if (middlewareWantsBrowser(req)) {
+      res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
+      return res.status(404).send(buildGenericErrorSvg("الصورة غير متوفرة", "لم نتمكن من العثور على الملف المطلوب"));
+    }
+    return res.status(404).json({ error: "File not found" });
   }
   next();
 });
@@ -306,45 +350,6 @@ app.use("/api/favorites", favoritesRoutes);
 app.use("/api/follows", followsRoutes);
 app.use("/api/governorates", governorateRoutes);
 app.use("/api/cities", cityRoutes);
-
-// Debug SMTP Connectivity
-app.get("/api/debug/smtp", async (req, res) => {
-  const targetHost = "74.125.69.108";
-  const ports = [465, 587];
-  const results = [];
-  
-  const net = await import("net");
-  
-  for (const port of ports) {
-    const socket = new net.Socket();
-    const promise = new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        socket.destroy();
-        resolve({ port, status: "TIMEOUT", error: "5s timeout exceeded" });
-      }, 5000);
-
-      socket.connect(port, targetHost, () => {
-        clearTimeout(timeout);
-        socket.destroy();
-        resolve({ port, status: "OPEN" });
-      });
-
-      socket.on("error", (err) => {
-        clearTimeout(timeout);
-        resolve({ port, status: "CLOSED", error: err.message });
-      });
-    });
-    results.push(await promise);
-  }
-
-  res.json({
-    host: targetHost,
-    results,
-    advice: results.find(r => r.status === "OPEN") 
-      ? `Port ${results.find(r => r.status === "OPEN").port} is available. Use it.`
-      : "All ports are blocked by Render. You must use a specialized service like Resend or SendGrid."
-  });
-});
 
 app.use("/api/sellers", sellersRoutes);
 app.use("/api/tags", tagRoutes);
@@ -423,10 +428,10 @@ setInterval(async () => {
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// Verify Email Accounts on Startup (Disabled per user request)
-// verifyEmailAccounts().catch(err => {
-//   console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
-// });
+// Verify Email Accounts on Startup
+verifyEmailAccounts().catch(err => {
+  console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
+});
 
 const io = new Server(server, {
   cors: corsOptions
@@ -500,7 +505,12 @@ setInterval(async () => {
     const toApprove = await Ad.find({ status: "pending", scheduledPublishAt: { $lte: now } }).lean();
     if (toApprove.length > 0) {
       const ids = toApprove.map(a => a._id);
-      await Ad.updateMany({ _id: { $in: ids } }, { $set: { status: "approved", publishedAt: now, scheduledPublishAt: null } });
+      await Ad.updateMany({ _id: { $in: ids } }, { $set: {
+        status: "approved",
+        publishedAt: now,
+        expiresAt: new Date(now.getTime() + 40 * 24 * 60 * 60 * 1000),
+        scheduledPublishAt: null
+      } });
       
       for (const a of toApprove) {
         try {
@@ -520,7 +530,7 @@ setInterval(async () => {
     // Expire verification
     await User.updateMany(
       { isVerifiedSeller: true, verificationExpiresAt: { $lte: now } },
-      { $set: { isVerifiedSeller: false, verified: false } }
+      { $set: { isVerifiedSeller: false, verified: false, verificationStatus: "expired" } }
     );
     // Unfeature expired
     await Ad.updateMany(
@@ -534,7 +544,12 @@ setInterval(async () => {
       { $set: { featured: false, featuredUntil: null, featuredExpiresAt: null } }
     );
     // Backfill publishedAt/expiresAt for legacy approved ads
-    const legacy = await Ad.find({ status: "approved", $or: [{ publishedAt: { $exists: false } }, { publishedAt: null }] })
+    const legacy = await Ad.find({ status: "approved", $or: [
+      { publishedAt: { $exists: false } },
+      { publishedAt: null },
+      { expiresAt: { $exists: false } },
+      { expiresAt: null }
+    ] })
       .select("_id createdAt")
       .lean();
     if (legacy.length > 0) {
@@ -649,6 +664,49 @@ setInterval(async () => {
     } catch (err) {
       logger.error({ event: "expire_welcome_promotions_error", message: err.message });
     }
+
+    // Cancel orders that remain unpaid twelve hours after entering the payment stage.
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    const unpaidOrders = await Order.find({
+      status: "AWAITING_PAYMENT",
+      updatedAt: { $lte: twelveHoursAgo }
+    });
+    for (const order of unpaidOrders) {
+      try {
+        order.status = "CANCELLED";
+        order.notes = (order.notes || "") + " [إلغاء تلقائي لعدم الدفع خلال المهلة]";
+        await order.save();
+        await createNotification(app, {
+          userId: order.buyer,
+          title: "تم إلغاء الطلب",
+          body: "تم إلغاء طلبك تلقائياً لعدم إتمام الدفع خلال 12 ساعة.",
+          type: "order",
+          data: { orderId: order._id }
+        });
+        await createNotification(app, {
+          userId: order.seller,
+          title: "تم إلغاء طلب شراء",
+          body: "تم إلغاء الطلب تلقائياً لأن المشتري لم يدفع خلال 12 ساعة.",
+          type: "order",
+          data: { orderId: order._id }
+        });
+      } catch (err) {
+        logger.error({ event: "auto_cancel_order_error", orderId: order._id, message: err.message });
+      }
+    }
+
+    // Mark unpaid commissions overdue after ten days.
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    await Commission.updateMany(
+      { status: "unpaid", soldAt: { $lt: tenDaysAgo } },
+      { $set: { status: "overdue" } }
+    );
+
+    // Keep campaign state consistent with its expiry date.
+    await BrokerageCampaign.updateMany(
+      { state: "ACTIVE", expiresAt: { $lte: now } },
+      { $set: { state: "EXPIRED" } }
+    );
   } catch (e) { logger.error({ event: "cron_error", message: e.message }); if (process.env.SENTRY_DSN) Sentry.captureException(e); }
 }, 60 * 1000);
 

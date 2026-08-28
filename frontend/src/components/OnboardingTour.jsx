@@ -1,32 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBrokerageStatus } from '../store/BrokerageStatusContext';
 
 const OnboardingTour = () => {
   const [show, setShow] = useState(false);
   const [step, setStep] = useState(0);
+  const { enabled: brokerageEnabled } = useBrokerageStatus();
 
-  const steps = [
-    {
-      title: "مرحباً بك في سوقك! 🛒",
-      desc: "منصتك الأولى للتجارة الإلكترونية الآمنة في اليمن. دعنا نأخذك في جولة سريعة.",
-      icon: "👋"
-    },
-    {
-      title: "الشراء الآمن (الوساطة) 🛡️",
-      desc: "نحن نضمن حقك! عند الشراء، يبقى المبلغ لدينا كطرف ثالث حتى تستلم المنتج وتفحصه.",
-      icon: "🔒"
-    },
-    {
-      title: "كن بائعاً موثوقاً ✅",
-      desc: "وثق حسابك بالهوية الشخصية لزيادة ثقة المشترين والحصول على ميزات حصرية.",
-      icon: "🎖️"
-    },
-    {
-      title: "اربح كمسوق 🚀",
-      desc: "لا تملك منتجاً؟ يمكنك تسويق منتجات الآخرين والحصول على عمولة فورية عند البيع.",
-      icon: "💰"
+  const steps = useMemo(() => {
+    const baseSteps = [
+      {
+        title: "مرحباً بك في سوقك! 🛒",
+        desc: "منصتك الأولى للتجارة الإلكترونية الآمنة في اليمن. دعنا نأخذك في جولة سريعة.",
+        icon: "👋"
+      },
+      {
+        title: "الشراء الآمن (الوساطة) 🛡️",
+        desc: "نحن نضمن حقك! عند الشراء، يبقى المبلغ لدينا كطرف ثالث حتى تستلم المنتج وتفحصه.",
+        icon: "🔒"
+      },
+      {
+        title: "كن بائعاً موثوقاً ✅",
+        desc: "وثق حسابك بالهوية الشخصية لزيادة ثقة المشترين والحصول على ميزات حصرية.",
+        icon: "🎖️"
+      }
+    ];
+    
+    if (brokerageEnabled) {
+      baseSteps.push({
+        title: "اربح كمسوق 🚀",
+        desc: "لا تملك منتجاً؟ يمكنك تسويق منتجات الآخرين والحصول على عمولة فورية عند البيع.",
+        icon: "💰"
+      });
     }
-  ];
+    
+    return baseSteps;
+  }, [brokerageEnabled]);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('onboarding_seen');
@@ -35,6 +44,12 @@ const OnboardingTour = () => {
       return () => clearTimeout(timer);
     }
   }, []);
+
+  useEffect(() => {
+    if (step >= steps.length && steps.length > 0) {
+      setStep(steps.length - 1);
+    }
+  }, [steps.length, step]);
 
   const handleNext = () => {
     if (step < steps.length - 1) {

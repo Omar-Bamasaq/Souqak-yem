@@ -768,14 +768,26 @@ router.patch("/commissions/:id/status", async (req, res) => {
       commission.paidAt = new Date();
       commission.commissionStatus = "approved";
       
-      // Cleanup: if this was for a specific ad, find and delete any other 
-      // unpaid/overdue/Pending records for the SAME ad to prevent duplicates in seller's view
       if (commission.adId) {
         await Commission.deleteMany({
           _id: { $ne: commission._id },
           adId: commission.adId,
           status: { $in: ["unpaid", "overdue", "Pending", "Rejected"] }
         });
+      }
+
+      try {
+        await SoldListing.updateOne(
+          { adId: commission.adId },
+          {
+            price: commission.price,
+            currency: commission.currency,
+            commissionAmount: commission.commissionAmount,
+            commissionStatus: "paid"
+          }
+        );
+      } catch (slErr) {
+        console.error("Error syncing SoldListing on commission approval:", slErr);
       }
     } else if (status === "Rejected") {
       commission.rejectReason = reason;

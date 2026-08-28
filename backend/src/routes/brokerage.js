@@ -14,6 +14,7 @@ import BrokerageAchievement from "../models/BrokerageAchievement.js";
 import BrokerageBadge from "../models/BrokerageBadge.js";
 import BrokerageAuditLog from "../models/BrokerageAuditLog.js";
 import BrokerageConfig from "../models/BrokerageConfig.js";
+import SystemSettings from "../models/SystemSettings.js";
 import Ad from "../models/Ad.js";
 import BrokerageEngine from "../engines/BrokerageEngine.js";
 import AuditEngine from "../engines/AuditEngine.js";
@@ -23,6 +24,36 @@ import ConfigEngine from "../engines/ConfigEngine.js";
 import { createNotification } from "../services/notificationService.js";
 
 const router = Router();
+
+const checkBrokerageEnabled = async (req, res, next) => {
+  try {
+    if (req.user?.role === "admin") return next();
+    const settings = await SystemSettings.getSettings();
+    if (settings.brokerageEnabled === false) {
+      return res.status(403).json({ error: "نظام التسويق معطّل حالياً من قبل الإدارة" });
+    }
+    next();
+  } catch (err) {
+    console.error("Check brokerage enabled error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+const checkBrokerageGlobal = async (req, res, next) => {
+  try {
+    if (req.user?.role === "admin") return next();
+    const settings = await SystemSettings.getSettings();
+    if (settings.brokerageEnabled === false) {
+      return res.status(403).json({ error: "نظام التسويق معطّل حالياً من قبل الإدارة" });
+    }
+    next();
+  } catch (err) {
+    console.error("Check brokerage global error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+router.use(checkBrokerageGlobal);
 
 // ------------------------------
 // 1. Broker Profiles
@@ -99,7 +130,7 @@ const createCampaignSchema = Joi.object({
   expiresAt: Joi.date().optional()
 });
 
-router.post("/campaigns", auth, requireRole(["seller"]), validateBody(createCampaignSchema), async (req, res) => {
+router.post("/campaigns", auth, requireRole(["seller"]), checkBrokerageEnabled, validateBody(createCampaignSchema), async (req, res) => {
   try {
     const campaign = await BrokerageEngine.createCampaign(req.body.adId, req.user.id, req.body);
     res.status(201).json(campaign);
@@ -251,7 +282,7 @@ router.patch("/campaigns/:id", auth, requireRole(["seller"]),
 // ------------------------------
 // 3. Brokerage Memberships
 // ------------------------------
-router.post("/campaigns/:id/join", auth, validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })), async (req, res) => {
+router.post("/campaigns/:id/join", auth, checkBrokerageEnabled, validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })), async (req, res) => {
   try {
     const campaign = await BrokerageCampaign.findById(req.params.id).populate("adId");
     if (!campaign) return res.status(404).json({ error: "Campaign not found" });
@@ -317,10 +348,9 @@ router.get("/campaigns/:id/memberships", auth, async (req, res) => {
     const campaign = await BrokerageCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ error: "Campaign not found" });
     console.log("Campaign seller:", campaign.sellerId, "req.user.id:", req.user.id);
-    // Temporarily bypass role check for debugging
-    // if (campaign.sellerId.toString() !== req.user.id && req.user.role !== "admin") {
-    //   return res.status(403).json({ error: "Not authorized" });
-    // }
+    if (campaign.sellerId.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Not authorized" });
+    }
     
     const { state, page = 1, limit = 20 } = req.query;
     const filter = { campaignId: campaign._id };
@@ -418,7 +448,7 @@ const createEvidenceSchema = Joi.object({
   notes: Joi.string().max(500).optional()
 });
 
-router.post("/evidence", auth, validateBody(createEvidenceSchema), async (req, res) => {
+router.post("/evidence", auth, checkBrokerageEnabled, validateBody(createEvidenceSchema), async (req, res) => {
   try {
     const { adId, type, referralCode, metadata, notes } = req.body;
     const evidence = await BrokerageEngine.trackEvidence(
@@ -479,7 +509,7 @@ const createDealSchema = Joi.object({
   primaryEvidenceId: Joi.string().length(24).hex().optional()
 });
 
-router.post("/deals", auth, requireRole(["seller"]), validateBody(createDealSchema), async (req, res) => {
+router.post("/deals", auth, requireRole(["seller"]), checkBrokerageEnabled, validateBody(createDealSchema), async (req, res) => {
   try {
     const deal = await BrokerageEngine.createDeal(
       req.body.adId,

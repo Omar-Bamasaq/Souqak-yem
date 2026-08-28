@@ -1,6 +1,5 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import User from "../models/User.js";
@@ -14,6 +13,12 @@ import Dispute from "../models/Dispute.js";
 import Withdrawal from "../models/Withdrawal.js";
 import Wallet from "../models/Wallet.js";
 import Ad from "../models/Ad.js";
+import {
+  signAccessToken,
+  verifyRefreshToken,
+  JWT_ALGORITHM,
+  inspectJwtClaimsOnly,
+} from "../config/jwt.js";
 
 const router = Router();
 
@@ -511,7 +516,7 @@ router.post("/test-email", async (req, res) => {
     res.json({ message: "Test email sent successfully" });
   } catch (err) {
     console.error("[LOG] Test email failed:", err.message);
-    res.status(503).json({ error: "فشل إرسال البريد التجريبي.", details: err.message });
+    res.status(503).json({ error: "فشل إرسال البريد الإلكتروني.", details: err.message });
   }
 });
 
@@ -668,7 +673,11 @@ router.post("/phone-register", async (req, res) => {
         existing.isDisabled = false;
         await existing.save();
         
-        const token = jwt.sign({ id: existing._id, role: existing.role }, process.env.JWT_SECRET, { expiresIn: "30d" });
+        const token = signAccessToken({ id: existing._id, role: existing.role });
+        const claims = inspectJwtClaimsOnly(token);
+        console.log(
+          `[Auth][register/re-reg] temp token algo=${claims?.header?.alg || "?"} exp=7d (centralized) uid=${existing._id}`
+        );
         return res.status(200).json({
           token,
           requiresActivation: true,
@@ -921,7 +930,14 @@ router.post("/activate-verification", auth, async (req, res) => {
     if (!user?.idDocument) return res.status(400).json({ error: "مطلوب إرفاق وثيقة الهوية أولاً." });
     if (user.identityStatus !== "Approved") return res.status(400).json({ error: "لم يتم الموافقة على الهوية بعد." });
     const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-    const updated = await User.findByIdAndUpdate(req.user.id, { isVerifiedSeller: true, verificationExpiresAt: expires }, { new: true }).lean();
+    const updated = await User.findByIdAndUpdate(req.user.id, {
+      isVerifiedSeller: true,
+      verified: true,
+      verificationStatus: "verified",
+      verificationDate: new Date(),
+      verificationExpiryDate: expires,
+      verificationExpiresAt: expires
+    }, { new: true }).lean();
     res.json({
       id: updated._id,
       isVerifiedSeller: updated.isVerifiedSeller,
@@ -1197,11 +1213,15 @@ router.post("/refresh-token", async (req, res) => {
     const refreshToken = req.cookies?.refreshToken;
     if (!refreshToken) return res.status(401).json({ error: "Unauthorized" });
 
-    const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || "refresh_dev_secret_54321";
-    const payload = jwt.verify(refreshToken, REFRESH_SECRET);
+    const payload = verifyRefreshToken(refreshToken);
+    const claims = inspectJwtClaimsOnly(refreshToken);
+    const alg = claims?.header?.alg || "?";
     
     const user = await User.findById(payload.id);
     if (!user || user.refreshToken !== refreshToken) {
+      console.log(
+        `[Auth][/refresh-token] FAILED invalid refresh (alg=${alg}) uid=${payload.id}`
+      );
       return res.status(401).json({ error: "Unauthorized: Invalid refresh token" });
     }
 
@@ -1209,11 +1229,14 @@ router.post("/refresh-token", async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    // Generate new tokens
     const { accessToken } = await sendAuthResponse(user, res);
     
+    console.log(
+      `[Auth][/refresh-token] OK (alg=${alg}) uid=${user._id} role=${user.role}`
+    );
     res.json({ token: accessToken });
   } catch (err) {
+    console.error(`[Auth][/refresh-token] FAILED: ${err.name} ${err.message}`);
     res.status(401).json({ error: "Unauthorized: Session expired" });
   }
 });

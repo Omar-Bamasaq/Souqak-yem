@@ -333,12 +333,17 @@ export default function CategoryPage() {
         if (sub) categoryId = sub.id;
       }
 
+      const allowedParams = ["q", "page", "limit", "categoryId", "governorateId", "cityId", "cities", "minPrice", "maxPrice", "conditions", "verifiedOnly", "featuredOnly", "lat", "lng", "radiusKm", "sort", "adType", "currency", "isResellEnabled", "subCategoryId", "userLat", "userLng"];
+      const filteredParams = Object.fromEntries(
+        Object.entries({ ...Object.fromEntries(searchParams.entries()) })
+          .filter(([key]) => allowedParams.includes(key) || key.startsWith("attr_"))
+      );
+
       const response = await api.get("/ads", {
         params: {
-          ...Object.fromEntries(searchParams.entries()),
+          ...filteredParams,
           categoryId: categoryId,
           adType: adType,
-          status: "approved",
           limit: isInitialRestore ? page * currentLimit : currentLimit,
           page: isInitialRestore ? 1 : page
         }
@@ -533,44 +538,106 @@ export default function CategoryPage() {
         ))}
       </nav>
 
-      {/* Category Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-4 md:p-8 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
-          <div className="flex-1 text-center md:text-right">
-            <h1 className="text-xl md:text-3xl md:text-5xl font-black mb-2 md:mb-4 leading-tight">
-              {category.name}
-            </h1>
-            {category.description && (
-              <p className="text-blue-50/80 max-w-2xl text-[11px] md:text-sm md:text-base leading-relaxed mb-3 md:mb-6">
-                {category.description}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3">
-              <div className="px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-[11px] md:text-sm font-bold">
-                {totalAds.toLocaleString("ar-EG")} إعلان متاح
+      {/* Category Header - Redesigned Hero (Mobile Compact) */}
+      <div className="relative overflow-hidden rounded-xl md:rounded-3xl bg-blue-600 shadow-xl md:bg-gradient-to-br md:from-blue-600 md:via-indigo-600 md:to-violet-700 md:shadow-2xl">
+        {/* Decorative Background Blobs (smaller on mobile) */}
+        <div className="hidden md:block absolute -top-12 -left-12 w-40 h-40 md:w-72 md:h-72 rounded-full bg-white/10 blur-2xl md:blur-3xl pointer-events-none"></div>
+        <div className="hidden md:block absolute -bottom-12 -right-12 w-40 h-40 md:w-72 md:h-72 rounded-full bg-indigo-400/20 blur-2xl md:blur-3xl pointer-events-none"></div>
+        <div className="hidden md:block absolute top-1/2 right-1/3 w-40 h-40 rounded-full bg-blue-300/10 blur-2xl pointer-events-none"></div>
+        
+        {/* Grid Pattern Overlay */}
+        <div className="hidden md:block absolute inset-0 opacity-[0.07] pointer-events-none"
+             style={{
+               backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+               backgroundSize: '16px 16px'
+             }}></div>
+
+        <div className="relative z-10 p-3 sm:p-5 md:p-8 lg:p-10">
+          <div className="flex flex-row items-center gap-3 sm:gap-6 lg:flex-row lg:items-stretch lg:gap-10">
+            
+            {/* Content Section */}
+            <div className="min-w-0 flex-1 flex flex-col justify-between text-right lg:text-right">
+              
+              {/* Badge (compact mobile) */}
+              <div className="flex justify-start mb-1 md:mb-4">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 md:px-3 md:py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-[9px] sm:text-[10px] md:text-xs font-bold">
+                  <svg className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  فئة مميزة
+                </span>
               </div>
-              <button
-                onClick={() => setShowAdvancedModal(true)}
-                className="px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-white text-blue-600 text-[11px] md:text-sm font-bold shadow-lg hover:bg-blue-50 transition-all active:scale-95"
-              >
-                تصفية النتائج
-              </button>
+
+              {/* Title (smaller on mobile) */}
+              <h1 className="text-lg sm:text-2xl md:text-4xl lg:text-5xl font-black mb-1 sm:mb-3 md:mb-5 leading-[1.15] text-white drop-shadow-sm truncate">
+                {category.name}
+              </h1>
+
+              {/* Description (compact) */}
+              {category.description && (
+                <p className="text-white/80 text-[10px] sm:text-xs md:text-base leading-relaxed mb-2 sm:mb-5 md:mb-7 max-w-2xl mx-0 line-clamp-2 md:line-clamp-none">
+                  {category.description}
+                </p>
+              )}
+
+              {/* Actions Row (stacked on mobile) */}
+              <div className="flex flex-row items-stretch justify-start gap-2 sm:gap-3">
+                
+                {/* Stats Card (compact mobile) */}
+                <div className="flex flex-1 items-center gap-1.5 px-2 py-1.5 md:flex-none md:gap-2 md:px-5 md:py-3.5 rounded-lg md:rounded-2xl bg-white/12 backdrop-blur-md border border-white/20 shadow-md md:shadow-lg">
+                  <div className="hidden sm:flex w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white/20 items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <div className="text-right whitespace-nowrap">
+                    <div className="text-sm sm:text-lg md:text-xl font-black leading-none">{totalAds.toLocaleString("ar-EG")}</div>
+                    <div className="text-[8px] sm:text-[10px] md:text-xs text-white/70 font-bold mt-0.5">إعلان متاح</div>
+                  </div>
+                </div>
+
+                {/* Filter Button (compact mobile) */}
+                <button
+                  onClick={() => setShowAdvancedModal(true)}
+                  className="group flex flex-1 items-center justify-center gap-1 px-2 py-1.5 sm:flex-none sm:gap-2 sm:px-4 sm:py-2.5 md:px-6 md:py-3.5 rounded-lg md:rounded-2xl bg-white text-blue-600 text-[10px] sm:text-sm md:text-base font-black shadow-lg md:shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all active:scale-[0.97] whitespace-nowrap"
+                >
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 transition-transform group-hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  تصفية النتائج
+                </button>
+              </div>
+            </div>
+
+            {/* Image Section (MUCH smaller on mobile) */}
+            <div className="flex-shrink-0 flex items-center justify-center order-last lg:order-last mb-0 lg:mb-0">
+              <div className="relative group">
+                {/* Glow behind image (compact) */}
+                <div className="absolute -inset-2 sm:-inset-3 md:-inset-4 rounded-[1.5rem] sm:rounded-[2rem] md:rounded-[2.5rem] bg-gradient-to-br from-white/30 to-white/5 blur-lg sm:blur-xl opacity-60 group-hover:opacity-80 transition-opacity"></div>
+                
+                {/* Image Container (small on mobile: 80px → 96px → 128px → 256px) */}
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-48 md:h-48 lg:w-64 lg:h-64 rounded-[1.25rem] sm:rounded-[1.5rem] md:rounded-[2rem] lg:rounded-[2.5rem] bg-white/15 backdrop-blur-xl border border-white/25 md:border-2 shadow-lg md:shadow-2xl overflow-hidden p-1.5 sm:p-2 md:p-4">
+                  {category.image ? (
+                    <img
+                      src={uploadsUrl(category.image, "thumb")}
+                      alt={category.name}
+                      className="w-full h-full rounded-xl sm:rounded-[1.25rem] md:rounded-[2rem] object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-xl sm:rounded-[1.25rem] md:rounded-[2rem] bg-white/20 flex items-center justify-center text-3xl sm:text-4xl md:text-6xl lg:text-7xl">
+                      {getCategoryIcon(category)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Floating Icon Badge (compact mobile: 28px → 32px → 56px) */}
+                <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 md:-top-4 md:-right-4 w-7 h-7 sm:w-8 sm:h-8 md:w-14 md:h-14 rounded-xl sm:rounded-2xl bg-white text-blue-600 flex items-center justify-center text-base sm:text-lg md:text-3xl shadow-xl md:shadow-2xl border border-blue-100 md:border-2 rotate-6 hover:rotate-0 transition-transform">
+                  {getCategoryIcon(category)}
+                </div>
+              </div>
             </div>
           </div>
-          {category.image && (
-            <div className="h-20 w-20 md:h-32 md:w-32 md:h-48 md:w-48 rounded-2xl bg-white/10 backdrop-blur-md p-1 md:p-2 flex-shrink-0">
-              <img
-                src={uploadsUrl(category.image, "thumb")}
-                alt={category.name}
-                className="h-full w-full rounded-xl object-cover"
-              />
-            </div>
-          )}
         </div>
-        
-        {/* Decorative elements */}
-        <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-white/5 blur-3xl"></div>
-        <div className="absolute -top-10 -left-10 h-40 w-40 rounded-full bg-blue-400/10 blur-3xl"></div>
       </div>
 
       {/* Horizontal Subcategories - Improved design */}

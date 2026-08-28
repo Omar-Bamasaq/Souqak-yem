@@ -13,6 +13,7 @@ import MainLayout from "./layouts/MainLayout.jsx";
 import AuthLayout from "./layouts/AuthLayout.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
 import { useAuth } from "./store/AuthContext.jsx";
+import { useBrokerageStatus } from "./store/BrokerageStatusContext.jsx";
 
 // Pages
 const Home = lazy(() => import("./pages/Home.jsx"));
@@ -98,6 +99,14 @@ function RequireRole({ role, children }) {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
   if (role && user.role !== role) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireBrokerageEnabled({ children }) {
+  const { enabled, loading } = useBrokerageStatus();
+  const location = useLocation();
+  if (loading) return null;
+  if (!enabled) return <Navigate to="/" replace state={{ from: location }} />;
   return children;
 }
 
@@ -235,13 +244,13 @@ export default function App() {
         <Route path="/pricing" element={<Pricing />} />
         
         {/* Brokerage Routes */}
-        <Route path="/brokerage" element={<RequireRole role={null}><BrokerDashboard /></RequireRole>} />
-        <Route path="/brokerage/campaigns" element={<RequireRole role={null}><BrokerageCampaigns /></RequireRole>} />
-        <Route path="/brokerage/memberships" element={<RequireRole role={null}><BrokerageMemberships /></RequireRole>} />
-        <Route path="/brokerage/deals" element={<RequireRole role={null}><BrokerageDeals /></RequireRole>} />
-        <Route path="/brokerage/achievements" element={<RequireRole role={null}><BrokerageAchievements /></RequireRole>} />
-        <Route path="/brokerage/my-campaigns" element={<RequireRole role={null}><BrokerageSellerCampaigns /></RequireRole>} />
-        <Route path="/brokerage/campaigns/:id" element={<RequireRole role={null}><BrokerageCampaignDetails /></RequireRole>} />
+        <Route path="/brokerage" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerDashboard /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/brokerage/campaigns" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageCampaigns /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/brokerage/memberships" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageMemberships /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/brokerage/deals" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageDeals /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/brokerage/achievements" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageAchievements /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/brokerage/my-campaigns" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageSellerCampaigns /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/brokerage/campaigns/:id" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageCampaignDetails /></RequireRole></RequireBrokerageEnabled>} />
         
         <Route path="*" element={<NotFound />} />
       </Route>

@@ -2,10 +2,38 @@ import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
-import { uploadsUrl } from "../lib/uploads.js";
+import { useAuth } from "../store/AuthContext.jsx";
+
+function uploadsBaseUrl() {
+  let envUrl = import.meta.env.VITE_UPLOADS_URL;
+  if (!envUrl) {
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
+  }
+  if (envUrl.endsWith("/uploads")) return envUrl;
+  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
+}
+const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
+function protectedFileUrl(filename, token) {
+  if (!filename) return "";
+  if (filename.startsWith("http")) return filename;
+  let clean = filename;
+  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
+  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
+  const base = `${uploadsBaseUrl()}/${clean}`;
+  const isSensitive = SENSITIVE_KWS.some(kw => {
+    const c = clean.toLowerCase().replace(/\\/g, "/");
+    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
+  });
+  if (!isSensitive) return base;
+  if (!token) return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
+}
 
 export default function AdminEscrowMonitoring() {
   const api = useApi();
+  const { token: authToken } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -211,7 +239,7 @@ export default function AdminEscrowMonitoring() {
                                 <p className="text-[10px] text-gray-400 font-bold mb-1">رقم العملية {idx + 1}</p>
                                 <p className="text-xs font-black text-gray-900">{p.transactionNumber}</p>
                               </div>
-                              <a href={uploadsUrl(p.receiptImage)} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">معاينة السند</a>
+                              <a href={protectedFileUrl(p.receiptImage, authToken)} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">معاينة السند</a>
                             </div>
                           ))}
                         </div>
@@ -240,7 +268,7 @@ export default function AdminEscrowMonitoring() {
                           </div>
                           {order.shippingDetails.shippingReceipt && (
                             <div className="pt-4 border-t border-gray-200">
-                               <a href={uploadsUrl(order.shippingDetails.shippingReceipt)} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-indigo-100 hover:shadow-md transition-all group">
+                               <a href={protectedFileUrl(order.shippingDetails.shippingReceipt, authToken)} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-indigo-100 hover:shadow-md transition-all group">
                                 <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">📄</div>
                                 <div>
                                   <p className="text-xs font-black text-gray-900">سند الشحن المرفق</p>

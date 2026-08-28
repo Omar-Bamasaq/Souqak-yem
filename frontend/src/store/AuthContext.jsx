@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 
 const AuthContext = createContext(null);
@@ -7,11 +7,72 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const refreshIntervalRef = useRef(null);
+
+  const doSilentRefresh = async () => {
+    try {
+      const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      let base = envBase.replace(/\/$/, "");
+      if (!base.endsWith("/api")) base = `${base}/api`;
+
+      const refreshRes = await axios.post(`${base}/auth/refresh-token`, {}, {
+        withCredentials: true,
+        timeout: 8000
+      });
+
+      const newToken = refreshRes.data.token;
+      if (newToken) {
+        localStorage.setItem("token", newToken);
+        setToken(newToken);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn("[Auth] Proactive silent refresh failed:", err.message);
+      return false;
+    }
+  };
+
+  const fetchUserWithCurrentToken = async (existingToken) => {
+    try {
+      const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      let base = envBase.replace(/\/$/, "");
+      if (!base.endsWith("/api")) {
+        base = `${base}/api`;
+      }
+      base = `${base}/`;
+      
+      console.log(`[Auth] Checking session at: ${base}auth/me`);
+      
+      const res = await axios.get(`${base}auth/me`, {
+        headers: existingToken ? { Authorization: `Bearer ${existingToken}` } : {},
+        withCredentials: true,
+        timeout: 5000
+      });
+      
+      if (res.data) {
+        setUser(res.data);
+        localStorage.setItem("user", JSON.stringify(res.data));
+        if (existingToken) setTokenCookie(existingToken);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn("[Auth] Session check failed:", err.message);
+      if (err.response?.status === 401) {
+        const refreshed = await doSilentRefresh();
+        if (refreshed) {
+          const t = localStorage.getItem("token");
+          if (t) return await fetchUserWithCurrentToken(t);
+        }
+      }
+      return false;
+    }
+  };
 
   useEffect(() => {
     (async () => {
       try {
-        // Load saved user from localStorage first
         const savedUserStr = localStorage.getItem("user");
         const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
         const t = localStorage.getItem("token") || getTokenFromCookie();
@@ -21,53 +82,55 @@ export function AuthProvider({ children }) {
           setToken(t);
         }
         
-        if (!t) {
+        if (!t && !savedUser) {
           setLoading(false);
           return;
         }
-        
-        // Now try to verify with backend
-        const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-          
-          if (envBase.startsWith("mongodb") && !window._api_url_error_logged) {
-            console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI. Check environment variables.");
-            window._api_url_error_logged = true;
-          }
 
-        // Standardize base URL: ensure it ends with /api/
-        let base = envBase.replace(/\/$/, "");
-        if (!base.endsWith("/api")) {
-          base = `${base}/api`;
-        }
-        base = `${base}/`;
-        
-        console.log(`[Auth] Checking session at: ${base}auth/me`);
-        
-        const res = await axios.get(`${base}auth/me`, {
-          headers: { Authorization: `Bearer ${t}` },
-          timeout: 5000 // 5 second timeout
-        });
-        
-        if (res.data) {
-          setUser(res.data);
-          localStorage.setItem("user", JSON.stringify(res.data));
-          setTokenCookie(t);
-        }
-      } catch (err) {
-        console.warn("[Auth] Session check failed, keeping cached user:", err.message);
-        // Don't log out immediately on error! Keep cached user if available
-        const savedUserStr = localStorage.getItem("user");
-        const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
-        const t = localStorage.getItem("token") || getTokenFromCookie();
-        if (savedUser && t) {
-          setUser(savedUser);
-          setToken(t);
-        }
+        await fetchUserWithCurrentToken(t);
+
+        const cachedUser = localStorage.getItem("user");
+        const cachedToken = localStorage.getItem("token");
+        if (cachedUser && !user) setUser(JSON.parse(cachedUser));
+        if (cachedToken && !token) setToken(cachedToken);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!user || !token) {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+      return;
+    }
+
+    if (refreshIntervalRef.current) return;
+
+    const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+    refreshIntervalRef.current = setInterval(() => {
+      console.log("[Auth] Running proactive token refresh (every 6h)...");
+      doSilentRefresh();
+    }, REFRESH_INTERVAL_MS);
+
+    const onFocus = () => {
+      console.log("[Auth] Window regained focus, verifying session freshness.");
+      doSilentRefresh();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [user, token]);
 
   const login = (t, u) => {
     localStorage.setItem("token", t);
@@ -78,6 +141,10 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     clearTokenCookie();
@@ -85,7 +152,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, setUser, token, loading, login, logout }), [user, token, loading]);
+  const value = useMemo(() => ({ user, setUser, token, setToken, loading, login, logout }), [user, token, loading]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

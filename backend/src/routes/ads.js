@@ -73,11 +73,11 @@ const adsSearchQuerySchema = Joi.object({
   adType: Joi.string().valid("sell", "order").optional(),
   currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional(),
   isResellEnabled: Joi.string().valid("true", "false").optional(),
-  subCategoryId: Joi.string().length(24).hex().optional(), // Used in smart-search
-  userLat: Joi.number().optional(), // Used in smart-search
-  userLng: Joi.number().optional() // Used in smart-search
-}).pattern(/^attr_/, Joi.string().max(200)) // السماح بمفاتيح attr_* كقيمة نصية فقط
-  .unknown(false); // رفض أي مفاتيح غير معروفة
+  subCategoryId: Joi.string().length(24).hex().optional(),
+  userLat: Joi.number().optional(),
+  userLng: Joi.number().optional(),
+  status: Joi.string().valid("pending", "approved", "rejected", "sold").optional()
+}).pattern(/^attr_/, Joi.string().max(200));
 
 router.get("/", 
   publicAdsRateLimit, 
@@ -118,6 +118,7 @@ router.get("/",
 
     const filter = { 
       status: "approved", 
+      expiresAt: { $gt: new Date() },
       isArchived: { $ne: true }, 
       sold: { $ne: true },
       isVisible: { $ne: false },
@@ -432,9 +433,10 @@ router.get("/:id", optionalAuth, async (req, res) => {
     if (!ad) return res.status(404).json({ error: "Not found" });
 
     // Logic for restricted ads (only owner or admin can see)
-    if (ad.status !== "approved") {
-      const isAdmin = req.user?.role === "admin";
-      const isOwner = req.user && String(ad.userId?._id || ad.userId) === String(req.user.id);
+    const isAdmin = req.user?.role === "admin";
+    const isOwner = req.user && String(ad.userId?._id || ad.userId) === String(req.user.id);
+    const isExpired = ad.expiresAt && new Date(ad.expiresAt) <= new Date();
+    if (ad.status !== "approved" || isExpired) {
       
       if (!isAdmin && !isOwner) {
         return res.status(404).json({ error: "Not found" });
@@ -492,7 +494,8 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   validateBody(Joi.object({ 
     reason: Joi.string().valid("sold", "archive", "sold_out", "archived").required(),
-    price: Joi.number().min(0).optional() // تجاهل القيمة واستخدام سعر قاعدة البيانات
+    price: Joi.number().min(0).optional(),
+    currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional()
   })),
   async (req, res) => {
   try {
@@ -516,8 +519,9 @@ router.patch(
         const CommissionModel = mongoose.model("Commission");
         let commission = await CommissionModel.findOne({ adId: updatedAd._id });
         
-        // استخدام السعر من قاعدة البيانات حصراً لمنع التلاعب بالعمولات
-        const price = Number(updatedAd.price) || 0;
+        const { price: providedPrice, currency: providedCurrency } = req.body || {};
+        const price = (providedPrice && Number(providedPrice) > 0) ? Number(providedPrice) : (Number(updatedAd.price) || 0);
+        const resolvedCurrency = providedCurrency || updatedAd.currency || "YER_ADEN";
         const commissionAmount = Math.round(price * 0.01);
 
         if (!commission) {
@@ -525,7 +529,7 @@ router.patch(
             adId: updatedAd._id,
             sellerId: updatedAd.userId,
             price: price,
-            currency: updatedAd.currency || "YER_ADEN",
+            currency: resolvedCurrency,
             commissionAmount: commissionAmount,
             status: "unpaid",
             commissionStatus: "pending_payment",
@@ -533,7 +537,6 @@ router.patch(
           });
         }
 
-        // Create SoldListing snapshot
         await SoldListing.findOneAndUpdate(
           { adId: updatedAd._id },
           {
@@ -541,7 +544,7 @@ router.patch(
             sellerId: updatedAd.userId,
             title: updatedAd.title,
             price: price,
-            currency: updatedAd.currency || "YER_ADEN",
+            currency: resolvedCurrency,
             categoryName: updatedAd.categoryId?.name || "N/A",
             images: updatedAd.images || [],
             commissionId: commission._id,
@@ -589,7 +592,7 @@ router.patch("/:id/keep-active", auth, requireRole(["seller"]), async (req, res)
 
 router.patch("/:id/followup-response", auth, requireRole(["seller", "user"]), async (req, res) => {
   try {
-    const { status } = req.body; // 'sold' or 'still_available'
+    const { status } = req.body;
     const ad = await Ad.findById(req.params.id);
     if (!ad) return res.status(404).json({ error: "الإعلان غير موجود" });
     if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "غير مصرح لك بتعديل هذا الإعلان" });
@@ -602,31 +605,31 @@ router.patch("/:id/followup-response", auth, requireRole(["seller", "user"]), as
       ad.soldAt = new Date();
       await ad.save();
 
-      // إنشاء العمولة تلقائياً
       try {
         const CommissionModel = mongoose.model("Commission");
-        const price = Number(ad.price) || 0;
+        const { price: providedPrice, currency: providedCurrency } = req.body || {};
+        const price = (providedPrice && Number(providedPrice) > 0) ? Number(providedPrice) : (Number(ad.price) || 0);
+        const resolvedCurrency = providedCurrency || ad.currency || "YER_ADEN";
         const commissionAmount = Math.round(price * 0.01);
 
         const commission = await CommissionModel.create({
           adId: ad._id,
           sellerId: ad.userId,
           price: price,
-          currency: ad.currency || "YER_ADEN",
+          currency: resolvedCurrency,
           commissionAmount: commissionAmount,
           status: "unpaid",
           commissionStatus: "pending_payment",
           soldAt: ad.soldAt,
         });
 
-        // إنشاء نسخة في SoldListing
         const adWithCategory = await Ad.findById(ad._id).populate("categoryId", "name").lean();
         await SoldListing.create({
           adId: ad._id,
           sellerId: ad.userId,
           title: ad.title,
           price: price,
-          currency: ad.currency || "YER_ADEN",
+          currency: resolvedCurrency,
           categoryName: adWithCategory?.categoryId?.name || "N/A",
           images: ad.images || [],
           commissionId: commission._id,
@@ -641,7 +644,6 @@ router.patch("/:id/followup-response", auth, requireRole(["seller", "user"]), as
 
       return res.json({ success: true, message: "تم تحديث حالة الإعلان إلى مباع، نذكرك بدفع العمولة لضمان استمرارية خدماتنا." });
     } else {
-      // إذا كان لا يزال متاحاً، نقوم بتحديث تاريخ النشر ليعود للمقدمة (اختياري)
       ad.publishedAt = new Date();
       await ad.save();
       return res.json({ success: true, message: "تم تحديث إعلانك ليبقى في المقدمة. هل فكرت في تمييزه لبيعه بشكل أسرع؟" });
@@ -1126,6 +1128,7 @@ router.post(
       status,
       scheduledPublishAt,
       publishedAt,
+      expiresAt: publishedAt ? new Date(publishedAt.getTime() + 40 * 24 * 60 * 60 * 1000) : undefined,
       featured: isFeatured,
       isWelcomePromoted,
       welcomePromotionStartDate,
@@ -1206,6 +1209,8 @@ router.patch(
     ad.status = status;
     ad.scheduledPublishAt = scheduledPublishAt;
     ad.publishedAt = publishedAt;
+    ad.expiresAt = publishedAt ? new Date(publishedAt.getTime() + 40 * 24 * 60 * 60 * 1000) : undefined;
+    ad.expireReminderSent = false;
     await ad.save();
     const updated = await Ad.findById(req.params.id)
       .populate("governorateId", "name")
@@ -1461,6 +1466,7 @@ router.get("/:id/similar", async (req, res) => {
     const query = {
       _id: { $ne: ad._id },
       status: "approved",
+      expiresAt: { $gt: new Date() },
       isArchived: { $ne: true },
       sold: { $ne: true },
       isDeleted: { $ne: true },
@@ -1558,7 +1564,9 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   validateBody(Joi.object({
     buyerId: Joi.string().length(24).hex().required(),
-    buyerType: Joi.string().valid("DIRECT", "SECURE").default("DIRECT")
+    buyerType: Joi.string().valid("DIRECT", "SECURE").default("DIRECT"),
+    price: Joi.number().min(0).optional(),
+    currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional()
   })),
   async (req, res) => {
     try {
@@ -1575,12 +1583,13 @@ router.patch(
       ad.buyerType = buyerType;
       await ad.save();
 
-      // Create Commission and SoldListing snapshot
       try {
         const CommissionModel = mongoose.model("Commission");
         let commission = await CommissionModel.findOne({ adId: ad._id });
         
-        const price = Number(ad.price) || 0;
+        const { price: providedPrice, currency: providedCurrency } = req.body || {};
+        const price = (providedPrice && Number(providedPrice) > 0) ? Number(providedPrice) : (Number(ad.price) || 0);
+        const resolvedCurrency = providedCurrency || ad.currency || "YER_ADEN";
         const commissionAmount = Math.round(price * 0.01);
 
         if (!commission) {
@@ -1589,7 +1598,7 @@ router.patch(
             sellerId: ad.userId,
             buyerId: buyerId,
             price: price,
-            currency: ad.currency || "YER_ADEN",
+            currency: resolvedCurrency,
             commissionAmount: commissionAmount,
             status: "unpaid",
             commissionStatus: "pending_payment",
@@ -1606,7 +1615,7 @@ router.patch(
             buyerId: buyerId,
             title: ad.title,
             price: price,
-            currency: ad.currency || "YER_ADEN",
+            currency: resolvedCurrency,
             categoryName: adWithCategory?.categoryId?.name || "N/A",
             images: ad.images || [],
             commissionId: commission._id,

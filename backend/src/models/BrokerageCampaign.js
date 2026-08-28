@@ -11,8 +11,7 @@ const BrokerageCampaignSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId, 
       ref: "Ad", 
       required: true, 
-      unique: true, 
-      index: true 
+      unique: true 
     },
     sellerId: { 
       type: mongoose.Schema.Types.ObjectId, 

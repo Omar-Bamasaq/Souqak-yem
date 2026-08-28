@@ -5,10 +5,12 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
 import { uploadsUrl } from "../lib/uploads.js";
 import PlatformReviewModal from "../components/PlatformReviewModal.jsx";
+import { useBrokerageStatus } from "../store/BrokerageStatusContext";
 
 export default function SellerDashboard() {
   const api = useApi();
   const { user } = useAuth();
+  const { enabled: brokerageEnabled } = useBrokerageStatus();
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [me, setMe] = useState(user);
@@ -52,7 +54,7 @@ export default function SellerDashboard() {
           if (c.status !== "unpaid") return false;
           const soldDate = new Date(c.soldAt || c.createdAt);
           const diffDays = (Date.now() - soldDate.getTime()) / (1000 * 60 * 60 * 24);
-          return diffDays >= 7;
+          return diffDays >= 10;
         });
         setUnpaidCommissions(overdue);
       } catch {}
@@ -86,101 +88,111 @@ export default function SellerDashboard() {
     <div className="space-y-6">
       <h2 className="ds-title">لوحة البائع</h2>
 
-      {/* Analytics Overview Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Analytics Overview Section - Grid 2x2 on Mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
         {loading && !analytics ? (
-          // Skeletons
+          // Skeletons - square on mobile
           Array(4).fill(0).map((_, i) => (
-            <div key={i} className="ds-card animate-pulse bg-gray-100 dark:bg-gray-800 border-none h-32"></div>
+            <div key={i} className="ds-card animate-pulse bg-gray-100 dark:bg-gray-800 border-none aspect-square md:aspect-auto md:h-32 rounded-2xl md:rounded-3xl"></div>
           ))
         ) : (
           <>
-            {/* Wallet Balance Card */}
-            <div className="ds-card bg-gradient-to-br from-brand-600 to-brand-800 text-white border-none shadow-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-white/80 text-xs font-bold mb-1">الرصيد المتاح</div>
-              <div className="text-2xl font-black">
-                {analytics?.wallet?.availableBalance?.toLocaleString() || 0} 
-                <span className="text-xs font-bold mr-1">{getCurrencySymbol(analytics?.wallet?.currency)}</span>
+            {/* 1. Wallet Balance Card - Square compact */}
+            <div className="ds-card bg-gradient-to-br from-brand-600 to-brand-800 text-white border-none shadow-lg md:shadow-xl rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
+              <div className="flex justify-between items-start flex-1">
+                <div className="flex-1 min-w-0">
+                  <div className="text-white/80 text-[10px] sm:text-xs md:text-xs font-bold mb-0.5 sm:mb-1">الرصيد المتاح</div>
+                  <div className="text-base sm:text-lg md:text-2xl font-black leading-tight break-words">
+                    {analytics?.wallet?.availableBalance?.toLocaleString() || 0} 
+                  </div>
+                  <div className="text-[9px] sm:text-[10px] font-bold text-white/70 mt-0.5 sm:mt-1">{getCurrencySymbol(analytics?.wallet?.currency)}</div>
+                </div>
+                <div className="p-1.5 sm:p-2 md:p-2 bg-white/20 rounded-lg sm:rounded-xl flex-shrink-0 ml-1.5 sm:ml-2">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-5 md:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-white/15 flex justify-between items-center gap-1.5">
+                <div className="text-[9px] sm:text-[10px] text-white/70 font-bold truncate">
+                  معلق: {analytics?.wallet?.pendingBalance?.toLocaleString() || 0}
+                </div>
+                <Link to="/wallet" className="text-[9px] sm:text-[10px] font-black bg-white/20 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg hover:bg-white/30 transition-colors whitespace-nowrap flex-shrink-0">
+                  المحفظة ←
+                </Link>
               </div>
             </div>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-            <div className="text-[10px] text-white/70">الرصيد المعلق: {analytics?.wallet?.pendingBalance?.toLocaleString() || 0}</div>
-            <Link to="/wallet" className="text-[10px] font-black bg-white/20 px-2 py-1 rounded-md hover:bg-white/30 transition-colors">إدارة المحفظة ←</Link>
-          </div>
-        </div>
 
-        {/* Revenue Card */}
-        <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-gray-500 dark:text-gray-400 text-xs font-bold mb-1">إجمالي المبيعات</div>
-              <div className="text-2xl font-black text-emerald-600">
-                {analytics?.orders?.revenue?.toLocaleString() || 0}
-                <span className="text-xs font-bold mr-1 text-emerald-500">{getCurrencySymbol(analytics?.wallet?.currency)}</span>
+            {/* 2. Revenue Card - Square compact */}
+            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
+              <div className="flex justify-between items-start flex-1">
+                <div className="flex-1 min-w-0">
+                  <div className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">إجمالي المبيعات</div>
+                  <div className="text-base sm:text-lg md:text-2xl font-black leading-tight break-words text-emerald-600">
+                    {analytics?.orders?.revenue?.toLocaleString() || 0}
+                  </div>
+                  <div className="text-[9px] sm:text-[10px] font-bold text-emerald-500 mt-0.5 sm:mt-1">{getCurrencySymbol(analytics?.wallet?.currency)}</div>
+                </div>
+                <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg sm:rounded-xl flex-shrink-0 ml-1.5 sm:ml-2">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                <span className="inline-block w-full text-center text-[9px] sm:text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 px-2 py-0.5 sm:py-1 rounded-full truncate">
+                  مكتملة: {analytics?.orders?.completed || 0}
+                </span>
               </div>
             </div>
-            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">الطلبات المكتملة: {analytics?.orders?.completed || 0}</span>
-          </div>
-        </div>
 
-        {/* Ad Views Card */}
-        <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-gray-500 dark:text-gray-400 text-xs font-bold mb-1">مشاهدات الإعلانات</div>
-              <div className="text-2xl font-black text-blue-600">
-                {analytics?.ads?.totalViews?.toLocaleString() || 0}
+            {/* 3. Ad Views Card - Square compact */}
+            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
+              <div className="flex justify-between items-start flex-1">
+                <div className="flex-1 min-w-0">
+                  <div className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">مشاهدات الإعلانات</div>
+                  <div className="text-xl sm:text-2xl md:text-3xl font-black leading-tight break-words text-blue-600">
+                    {analytics?.ads?.totalViews?.toLocaleString() || 0}
+                  </div>
+                </div>
+                <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg sm:rounded-xl flex-shrink-0 ml-1.5 sm:ml-2">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                <span className="inline-block w-full text-center text-[9px] sm:text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 px-2 py-0.5 sm:py-1 rounded-full truncate">
+                  المتابعون: {analytics?.followers || 0}
+                </span>
               </div>
             </div>
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">المتابعون: {analytics?.followers || 0}</span>
-          </div>
-        </div>
 
-        {/* Escrow/Active Orders Card */}
-        <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-gray-500 dark:text-gray-400 text-xs font-bold mb-1">طلبات بانتظار الشحن</div>
-              <div className="text-2xl font-black text-amber-600">
-                {analytics?.orders?.escrow || 0}
+            {/* 4. Escrow/Active Orders Card - Square compact */}
+            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
+              <div className="flex justify-between items-start flex-1">
+                <div className="flex-1 min-w-0">
+                  <div className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">طلبات الشحن</div>
+                  <div className="text-xl sm:text-2xl md:text-3xl font-black leading-tight break-words text-amber-600">
+                    {analytics?.orders?.escrow || 0}
+                  </div>
+                </div>
+                <div className="p-1.5 sm:p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg sm:rounded-xl flex-shrink-0 ml-1.5 sm:ml-2">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                <span className="inline-block w-full text-center text-[9px] sm:text-[10px] font-bold text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full truncate">
+                  {analytics?.orders?.pendingRevenue?.toLocaleString() || 0} {getCurrencySymbol(analytics?.wallet?.currency)}
+                </span>
               </div>
             </div>
-            <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-full">رصيد بانتظار التحرير: {analytics?.orders?.pendingRevenue?.toLocaleString() || 0} {getCurrencySymbol(analytics?.wallet?.currency)}</span>
-          </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
 
       {unpaidCommissions.length > 0 && (
         <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 flex gap-3 items-center animate-pulse">
@@ -200,32 +212,37 @@ export default function SellerDashboard() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        <Link to="/seller" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-            <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        {/* Profile Card - Replace redundant "Seller Dashboard" link */}
+        <Link to={`/s/${user?.id || user?._id || ''}`} className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-violet-100 bg-violet-50/30 dark:bg-violet-900/10 dark:border-violet-900/30">
+          <div className="p-3 bg-violet-100 dark:bg-violet-900/40 rounded-2xl">
+            <svg className="h-6 w-6 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <span className="font-bold text-sm">لوحة البائع</span>
+          <span className="font-bold text-sm text-violet-700 dark:text-violet-400">الملف الشخصي</span>
         </Link>
 
-        <Link to="/brokerage/my-campaigns" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-purple-100 bg-purple-50/30 dark:bg-purple-900/10 dark:border-purple-900/30">
-          <div className="p-3 bg-purple-100 dark:bg-purple-900/40 rounded-2xl">
-            <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
-            </svg>
-          </div>
-          <span className="font-bold text-sm text-purple-700 dark:text-purple-400">حملاتي للوساطة</span>
-        </Link>
+        {brokerageEnabled && (
+          <>
+            <Link to="/brokerage/my-campaigns" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-purple-100 bg-purple-50/30 dark:bg-purple-900/10 dark:border-purple-900/30">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/40 rounded-2xl">
+                <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
+                </svg>
+              </div>
+              <span className="font-bold text-sm text-purple-700 dark:text-purple-400">حملاتي للوساطة</span>
+            </Link>
 
-        <Link to="/brokerage/campaigns" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
-            <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
-            </svg>
-          </div>
-          <span className="font-bold text-sm">الحملات المتاحة</span>
-        </Link>
+            <Link to="/brokerage/campaigns" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
+                <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
+                </svg>
+              </div>
+              <span className="font-bold text-sm">الحملات المتاحة</span>
+            </Link>
+          </>
+        )}
 
         <Link to="/my-ads" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
@@ -263,14 +280,16 @@ export default function SellerDashboard() {
           <span className="font-bold text-sm">دفع عمولة الموقع</span>
         </Link>
 
-        <Link to="/how-to-earn" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-blue-100 bg-blue-50/30 dark:bg-blue-900/10 dark:border-blue-900/30">
-          <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-2xl">
-            <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <span className="font-bold text-sm text-blue-700 dark:text-blue-400">كيف أربح؟</span>
-        </Link>
+        {brokerageEnabled && (
+          <Link to="/how-it-works#reseller" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-blue-100 bg-blue-50/30 dark:bg-blue-900/10 dark:border-blue-900/30">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-2xl">
+              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="font-bold text-sm text-blue-700 dark:text-blue-400">كيف أربح؟</span>
+          </Link>
+        )}
 
         <Link to="/messages" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
           <div className="p-3 bg-sky-50 dark:bg-sky-900/20 rounded-2xl">

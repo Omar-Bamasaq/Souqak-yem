@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Fragment } from "react";
+import React, { useEffect, useRef, useState, Fragment } from "react";
 import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
 import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
@@ -12,6 +12,7 @@ import ProductCard from "../components/ProductCard.jsx";
 import { isConditionEnabled } from "../lib/categoryHelpers.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import SecurePurchaseModal from "../components/SecurePurchaseModal.jsx";
+import SecurePurchaseTutorial from "../components/SecurePurchaseTutorial.jsx";
 
 const REPORT_CONFIG = {
   ad: {
@@ -145,12 +146,12 @@ export default function ProductDetail() {
   const [imageError, setImageError] = useState(false);
   const [followingSeller, setFollowingSeller] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [activeTab, setActiveTab] = useState("specs"); // Default to specs if available, otherwise reviews or comments
+  const [activeTab, setActiveTab] = useState("comments");
 
   useEffect(() => {
     if (p) {
       if (p.attributes?.length > 0) setActiveTab("specs");
-      else setActiveTab("reviews");
+      else setActiveTab("comments");
     }
   }, [p?.attributes?.length]);
 
@@ -178,6 +179,7 @@ export default function ProductDetail() {
 
   const [pledgeOpen, setPledgeOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  const securePurchaseButtonRef = useRef(null);
   const [securePurchaseModalOpen, setSecurePurchaseModalOpen] = useState(false);
 
   const formatCurrency = (currency) => {
@@ -542,6 +544,9 @@ export default function ProductDetail() {
 
   const sellerId = p.userId?._id || p.userId;
   const isMyAd = user && String(sellerId) === String(user?.id);
+  const mainCategoryName = p.parentCategory?.name || p.categoryId?.parentId?.name || "";
+  const securePurchaseExcludedCategories = ["الوظائف", "الخدمات", "طلب شراء", "العقارات", "المركبات"];
+  const canUseSecurePurchase = !securePurchaseExcludedCategories.includes(mainCategoryName.trim()) && p.adType !== "order";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6 pb-12 dark:text-slate-100">
@@ -678,23 +683,24 @@ export default function ProductDetail() {
                       <span className="font-medium">{new Date(p.createdAt).toLocaleDateString("ar-EG")}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-md border border-blue-100 whitespace-nowrap">
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                       <span>{(p.viewCount || p.views || 0).toLocaleString("ar-EG")} مشاهدة</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                      </div>
+                      <div className="flex items-center gap-1.5 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 whitespace-nowrap">
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
                       </svg>
                       <span>
                         {p.contactsCount > 20 
-                          ? "أكثر من 20 شخص تواصلوا مع البائع" 
-                          : `أشخاص تواصلوا مع البائع: ${(p.contactsCount || 0).toLocaleString("ar-EG")}`}
+                            ? "أكثر من 20 تواصل" 
+                            : `${(p.contactsCount || 0).toLocaleString("ar-EG")} تواصل`}
                       </span>
+                          </div>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -730,30 +736,6 @@ export default function ProductDetail() {
                 )}
               </div>
 
-              {/* Mobile Tabs Navigation */}
-              <div className="sm:hidden sticky top-0 z-10 bg-white dark:bg-slate-900 border-y dark:border-slate-800 -mx-4 px-4 overflow-x-auto scrollbar-hide mb-4">
-                <div className="flex whitespace-nowrap">
-                  {[
-                    { id: "specs", label: "المواصفات", show: p.attributes?.length > 0 },
-                    { id: "reviews", label: "التقييمات" },
-                    { id: "comments", label: "التعليقات" }
-                  ].filter(t => t.show !== false).map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${
-                        activeTab === tab.id 
-                          ? "border-blue-600 text-blue-600" 
-                          : "border-transparent text-gray-500 dark:text-slate-400"
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-
             </div>
           </div>
 
@@ -771,6 +753,101 @@ export default function ProductDetail() {
               </div>
             </div>
           )}
+
+          {/* Ad actions */}
+          <div className="rounded-2xl border dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-3">
+            {!isMyAd && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => checkPledge(openConversation)}
+                  disabled={convOpening}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  {convOpening ? "جارٍ التحميل..." : "إرسال رسالة"}
+                </button>
+                {canUseSecurePurchase && (
+                  <button
+                    ref={securePurchaseButtonRef}
+                    onClick={() => setSecurePurchaseModalOpen(true)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-black text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    شراء آمن (وساطة المنصة)
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <button
+                onClick={async () => {
+                  try {
+                    const r = await api.post(`/favorites/${id}`);
+                    const favorited = !!r.data?.favorited;
+                    setFav(favorited);
+                    window.dispatchEvent(new CustomEvent("favorite:updated"));
+                    window.dispatchEvent(new CustomEvent("admin:toast", {
+                      detail: {
+                        message: favorited ? "تمت إضافة الإعلان للمفضلة" : "تمت إزالة الإعلان من المفضلة",
+                        type: "success",
+                        actionLabel: favorited ? "عرض المفضلات" : null,
+                        actionPath: favorited ? "/favorites" : null
+                      }
+                    }));
+                  } catch (err) {
+                    console.error("Favorite error:", err);
+                  }
+                }}
+                className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold transition-all ${
+                  fav ? "bg-red-50 text-red-600 border border-red-100" : "bg-gray-50 text-gray-600 border border-gray-100 hover:bg-gray-100"
+                }`}
+              >
+                <svg className={`h-4 w-4 ${fav ? "fill-current" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                {fav ? "مضاف للمفضلة" : "حفظ الإعلان"}
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-all"
+              >
+                مشاركة
+              </button>
+              <button
+                onClick={() => setReportOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs font-bold text-gray-500 hover:bg-gray-100 transition-all"
+              >
+                إبلاغ
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Tabs Navigation */}
+          <div className="sm:hidden sticky top-0 z-10 bg-white dark:bg-slate-900 border-y dark:border-slate-800 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+            <div className="flex w-full whitespace-nowrap">
+              {[
+                { id: "specs", label: "الخصائص", show: p.attributes?.length > 0 },
+                { id: "comments", label: "التعليقات" },
+                { id: "reviews", label: "التقييمات" }
+              ].filter(t => t.show !== false).map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 px-4 py-3 text-sm font-bold border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 dark:text-slate-400"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Reviews & Ratings Section (Seller Based) */}
           <div className={`rounded-2xl border dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm mb-6 ${activeTab !== 'reviews' ? 'hidden sm:block' : ''}`}>
@@ -1074,7 +1151,7 @@ export default function ProductDetail() {
                   <button 
                     onClick={() => checkPledge(openConversation)}
                     disabled={convOpening}
-                    className="w-full flex items-center justify-center gap-3 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
+                    className="hidden w-full items-center justify-center gap-3 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
                   >
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -1113,20 +1190,10 @@ export default function ProductDetail() {
                     )}
                   </div>
 
-                  {/* Secure Purchase Button */}
-                  <button 
-                    onClick={() => setSecurePurchaseModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-6 py-4 text-sm font-black text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 active:scale-95 ring-4 ring-emerald-50"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    شراء آمن (وساطة المنصة)
-                  </button>
                 </div>
               )}
 
-              <div className="flex items-center gap-2 w-full pt-2">
+              <div className="hidden flex items-center gap-2 w-full pt-2">
                 <button 
                   onClick={async () => {
                     try {
@@ -1474,6 +1541,11 @@ export default function ProductDetail() {
       )}
 
       {/* Secure Purchase Modal */}
+      <SecurePurchaseTutorial
+        user={user && !isMyAd ? user : null}
+        buttonRef={securePurchaseButtonRef}
+        onTrySecurePurchase={() => setSecurePurchaseModalOpen(true)}
+      />
       <SecurePurchaseModal 
         isOpen={securePurchaseModalOpen}
         onClose={() => setSecurePurchaseModalOpen(false)}

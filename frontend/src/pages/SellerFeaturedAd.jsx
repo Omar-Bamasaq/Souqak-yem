@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
+import { uploadsUrl } from "../lib/uploads.js";
 
 export default function SellerFeaturedAd() {
   const api = useApi();
@@ -385,9 +386,16 @@ export default function SellerFeaturedAd() {
                     />
                     {ad.images?.[0] && (
                       <img 
-                        src={`${import.meta.env.VITE_API_URL}/uploads/${ad.images[0]}`} 
+                        src={uploadsUrl(ad.images[0], "thumb")}
                         alt="" 
                         className="w-12 h-12 rounded-xl object-cover shadow-sm"
+                        onError={(e) => {
+                          if (e.currentTarget.src !== uploadsUrl(ad.images[0], "full")) {
+                            e.currentTarget.src = uploadsUrl(ad.images[0], "full");
+                          } else {
+                            e.currentTarget.style.display = "none";
+                          }
+                        }}
                       />
                     )}
                     <div className="flex-1">

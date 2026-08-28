@@ -114,7 +114,7 @@ export default function Register() {
           setRegData(res.data);
           setIsSuccess(true);
           const msg = encodeURIComponent(`مرحباً سوقك، أرغب بتفعيل حسابي.\nالاسم: ${name.trim()}\nالرقم: ${phone.trim()}`);
-          setTgLink(`https://t.me/+967737338834?text=${msg}`); 
+          setTgLink(`https://wa.me/967737462126?text=${msg}`); 
           return;
         }
         localStorage.setItem("token", res.data.token);
@@ -194,7 +194,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-2 sm:p-4 lg:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-0 sm:p-4 lg:p-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.08)_0%,_transparent_50%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(99,102,241,0.06)_0%,_transparent_50%)] pointer-events-none" />
 
@@ -222,10 +222,10 @@ export default function Register() {
         </div>
 
         <div className="w-full lg:w-[48%] flex flex-col items-center justify-center">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-gray-200/80 dark:border-slate-700 p-4 sm:p-8 lg:p-10 shadow-xl shadow-gray-200/50 dark:shadow-slate-900/50 backdrop-blur-sm flex flex-col">
+          <div className="w-full max-w-md min-h-screen sm:min-h-0 bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-slate-700 p-5 sm:p-8 lg:p-10 shadow-xl shadow-gray-200/50 dark:shadow-slate-900/50 backdrop-blur-sm flex flex-col justify-center">
             <div className="flex justify-center w-full mb-4 sm:mb-8">
               <Link to="/" className="hover:opacity-80 transition-opacity shrink-0">
-                <div className="scale-75 sm:scale-100"><Logo /></div>
+                <div className="scale-100 sm:scale-100"><Logo iconSize="h-10 sm:h-10" /></div>
               </Link>
             </div>
 
@@ -260,7 +260,7 @@ export default function Register() {
                   </button>
                   {isEmailDisabled && (
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                      متاح قريباً (مغلق حالياً للفترة التجريبية)
+                      متاح قريباً
                     </div>
                   )}
                 </div>
@@ -293,12 +293,12 @@ export default function Register() {
                             <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">خطوة واحدة متبقية!</h2>
                             <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">لقد قمنا بإنشاء حسابك. الآن، يرجى الضغط على الزر أدناه لإرسال طلب التفعيل عبر تليجرام.</p>
                           </div>
-                          <div className="px-4 pt-2">
-                            <a href={tgLink} target="_blank" rel="noreferrer" onClick={() => setTgSent(true)} className="flex items-center justify-center gap-3 w-full bg-[#0088cc] hover:bg-[#0077b5] text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98]">
+                            <div className="px-4 pt-2">
+                            <a href={tgLink} target="_blank" rel="noreferrer" onClick={() => setTgSent(true)} className="flex items-center justify-center gap-3 w-full bg-[#25D366] hover:bg-[#1DA851] text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98]">
                               <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.52-1.4.51-.46-.01-1.35-.26-2.01-.48-.81-.27-1.46-.42-1.4-.88.03-.24.38-.49 1.07-.75 4.19-1.82 6.98-3.02 8.37-3.6 3.95-1.63 4.77-1.91 5.31-1.92.12 0 .38.03.55.17.14.12.18.28.2.4.02.08.02.24.01.3z"/>
+                                <path d="M20.52 3.48A11.95 11.95 0 0012 .01C5.37.01 0 5.38 0 12.01c0 2.11.55 4.17 1.6 5.99L0 24l6.28-1.57A11.94 11.94 0 0012 24c6.63 0 12-5.37 12-11.99 0-3.21-1.25-6.22-3.48-8.53zM16.6 14.1c-.25-.13-1.48-.73-1.71-.81-.23-.08-.39-.12-.55.13-.16.25-.62.81-.76.98-.14.16-.28.18-.53.06-.25-.13-1.05-.39-2-1.22-.74-.66-1.24-1.48-1.38-1.73-.14-.25-.02-.38.11-.51.11-.11.25-.28.38-.42.12-.13.16-.22.25-.37.08-.13.04-.25-.02-.38-.06-.12-.55-1.33-.76-1.82-.2-.48-.41-.41-.56-.42l-.48-.01c-.16 0-.42.06-.64.31-.22.25-.84.82-.84 2 0 1.18.86 2.33.98 2.49.12.16 1.69 2.66 4.1 3.63 2.41.98 2.41.65 2.84.61.43-.04 1.4-.57 1.6-1.12.2-.55.2-1.02.14-1.12-.06-.1-.24-.16-.5-.29z"/>
                               </svg>
-                              تفعيل الحساب عبر Telegram
+                              تفعيل الحساب عبر واتساب
                             </a>
                           </div>
                         </>
