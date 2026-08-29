@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin || 'https://api.souqak-yem.com';
 
 export default function AdminNotificationBell() {
   const api = useApi();
@@ -39,6 +39,7 @@ export default function AdminNotificationBell() {
 
     // Setup Socket.IO
     socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
       withCredentials: true,
     });
 

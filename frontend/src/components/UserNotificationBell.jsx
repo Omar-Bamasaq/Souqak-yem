@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApi } from '../api/axios.js';
-import { io } from 'socket.io-client';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Link } from 'react-router-dom';

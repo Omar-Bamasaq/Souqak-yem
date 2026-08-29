@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext.jsx";
 import { useApi } from "../api/axios.js";
 
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin || "https://api.souqak-yem.com";
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
@@ -32,18 +33,11 @@ export function ChatProvider({ children }) {
 
   useEffect(() => {
     if (!socket && user) {
-      const envUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      
-      if (envUrl.startsWith("mongodb")) {
-        console.error("CRITICAL ERROR: VITE_API_URL is set to a MongoDB URI.");
-      }
-
-      const socketUrl = envUrl.endsWith("/api") ? envUrl.replace("/api", "") : envUrl;
-      
-      const newSocket = io(socketUrl, { 
-        withCredentials: true
+      const newSocket = io(SOCKET_URL, {
+        transports: ["websocket", "polling"],
+        withCredentials: true,
       });
-      
+
       newSocket.on("connect", () => {
         const uid = user?.id || user?._id;
         if (uid) {
