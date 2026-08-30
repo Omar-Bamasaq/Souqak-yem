@@ -19,33 +19,6 @@ const htmlEscape = (value = '') =>
 
 const ensureDir = (dir) => fs.mkdirSync(dir, { recursive: true });
 
-let viteAssets = {
-  body: '',
-  head: '',
-  moduleScripts: ''
-};
-
-const readViteAssets = () => {
-  const indexFile = path.join(distDir, 'index.html');
-  const source = fs.readFileSync(indexFile, 'utf8');
-  const bodyMatch = source.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
-  const headMatch = source.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i);
-
-  if (!bodyMatch || !headMatch) {
-    throw new Error(`Unable to extract Vite app shell from ${indexFile}`);
-  }
-
-  const moduleScriptPattern = /<script\b(?=[^>]*\btype\s*=\s*["']module["'])[^>]*>[\s\S]*?<\/script>/gi;
-  const moduleScripts = source.match(moduleScriptPattern) || [];
-  const headAssets = headMatch[1].match(/<link\b(?=[^>]*\brel\s*=\s*["'](?:stylesheet|modulepreload)["'])[^>]*\/?>/gi) || [];
-
-  viteAssets = {
-    body: bodyMatch[1].replace(moduleScriptPattern, '').trim(),
-    head: headAssets.join('\n    '),
-    moduleScripts: moduleScripts.join('\n    ')
-  };
-};
-
 const makePageHtml = ({
   title,
   description,
@@ -87,13 +60,15 @@ const makePageHtml = ({
     <meta name="twitter:description" content="${safeDescription}" />
     <meta name="twitter:image" content="${safeImage}" />
     ${structured ? `<script type="application/ld+json">${structured}</script>` : ''}
-    ${viteAssets.head}
     <link rel="icon" href="${siteBase}/favicon.ico" type="image/x-icon" />
     <link rel="manifest" href="${siteBase}/manifest.json" />
   </head>
   <body>
-    ${viteAssets.body}
-    ${viteAssets.moduleScripts}
+    <main style="max-width: 900px; margin: 40px auto; padding: 24px; font-family: Tahoma, Arial, sans-serif; line-height: 1.7; color: #111827;">
+      <h1>${safeTitle}</h1>
+      <p>${safeDescription}</p>
+      <p><a href="${safeCanonical}">${safeCanonical}</a></p>
+    </main>
   </body>
 </html>`;
 };
@@ -350,7 +325,6 @@ const writeHtml = (routePath, html) => {
 
 const main = async () => {
   ensureDir(distDir);
-  readViteAssets();
 
   for (const page of publicRoutes) {
     const html = makePageHtml({
