@@ -1,0 +1,1682 @@
+[
+  {
+    "_id": "69c3b8a875b50d62ae6c3122",
+    "name": "صنعاء (العاصمة)",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.655Z",
+    "updatedAt": "2026-03-25T10:27:52.655Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3125",
+    "name": "بني مطر",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.659Z",
+    "updatedAt": "2026-03-25T10:27:52.659Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3128",
+    "name": "سنحان",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.663Z",
+    "updatedAt": "2026-03-25T10:27:52.663Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c312b",
+    "name": "همدان",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.666Z",
+    "updatedAt": "2026-03-25T10:27:52.666Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c312e",
+    "name": "الحيمة الداخلية",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.669Z",
+    "updatedAt": "2026-03-25T10:27:52.669Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3131",
+    "name": "الحيمة الخارجية",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.672Z",
+    "updatedAt": "2026-03-25T10:27:52.672Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3134",
+    "name": "أرحب",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.675Z",
+    "updatedAt": "2026-03-25T10:27:52.675Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3137",
+    "name": "بني حشيش",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.677Z",
+    "updatedAt": "2026-03-25T10:27:52.677Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c313a",
+    "name": "الطيال",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.680Z",
+    "updatedAt": "2026-03-25T10:27:52.680Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c313d",
+    "name": "مناخة",
+    "governorateId": "69c3b8a875b50d62ae6c311d",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.683Z",
+    "updatedAt": "2026-03-25T10:27:52.683Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3144",
+    "name": "كريتر",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.691Z",
+    "updatedAt": "2026-03-25T10:27:52.691Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3147",
+    "name": "المعلا",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.694Z",
+    "updatedAt": "2026-03-25T10:27:52.694Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c314a",
+    "name": "التواهي",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.697Z",
+    "updatedAt": "2026-03-25T10:27:52.697Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c314d",
+    "name": "خور مكسر",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.699Z",
+    "updatedAt": "2026-03-25T10:27:52.699Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3150",
+    "name": "الشيخ عثمان",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.702Z",
+    "updatedAt": "2026-03-25T10:27:52.702Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3153",
+    "name": "المنصورة",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.705Z",
+    "updatedAt": "2026-03-25T10:27:52.705Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3156",
+    "name": "دار سعد",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.707Z",
+    "updatedAt": "2026-03-25T10:27:52.707Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3159",
+    "name": "البريقة",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.709Z",
+    "updatedAt": "2026-03-25T10:27:52.709Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c315c",
+    "name": "صيرة",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.711Z",
+    "updatedAt": "2026-03-25T10:27:52.711Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c315f",
+    "name": "الشعب",
+    "governorateId": "69c3b8a875b50d62ae6c3140",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.712Z",
+    "updatedAt": "2026-03-25T10:27:52.712Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3166",
+    "name": "تعز",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.718Z",
+    "updatedAt": "2026-03-25T10:27:52.718Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3169",
+    "name": "المخا",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.720Z",
+    "updatedAt": "2026-03-25T10:27:52.720Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c316c",
+    "name": "الشمايتين",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.723Z",
+    "updatedAt": "2026-03-25T10:27:52.723Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c316f",
+    "name": "التربة",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.725Z",
+    "updatedAt": "2026-03-25T10:27:52.725Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3172",
+    "name": "جبل حبشي",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.727Z",
+    "updatedAt": "2026-03-25T10:27:52.727Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3175",
+    "name": "ماوية",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.729Z",
+    "updatedAt": "2026-03-25T10:27:52.729Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3178",
+    "name": "موزع",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.731Z",
+    "updatedAt": "2026-03-25T10:27:52.731Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c317b",
+    "name": "الوازعية",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.733Z",
+    "updatedAt": "2026-03-25T10:27:52.733Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c317e",
+    "name": "المسراخ",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.735Z",
+    "updatedAt": "2026-03-25T10:27:52.735Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3181",
+    "name": "صبر الموادم",
+    "governorateId": "69c3b8a875b50d62ae6c3162",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.737Z",
+    "updatedAt": "2026-03-25T10:27:52.737Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3188",
+    "name": "المكلا",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.742Z",
+    "updatedAt": "2026-03-25T10:27:52.742Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c318b",
+    "name": "سيئون",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.744Z",
+    "updatedAt": "2026-03-25T10:27:52.744Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c318e",
+    "name": "تريم",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.747Z",
+    "updatedAt": "2026-03-25T10:27:52.747Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3191",
+    "name": "الشحر",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.751Z",
+    "updatedAt": "2026-03-25T10:27:52.751Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3194",
+    "name": "القطن",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.754Z",
+    "updatedAt": "2026-03-25T10:27:52.754Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3197",
+    "name": "شبام",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.756Z",
+    "updatedAt": "2026-03-25T10:27:52.756Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c319a",
+    "name": "الديس الشرقية",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.758Z",
+    "updatedAt": "2026-03-25T10:27:52.758Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c319d",
+    "name": "غيل باوزير",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.760Z",
+    "updatedAt": "2026-03-25T10:27:52.760Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31a0",
+    "name": "الريدة وقصيعر",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.762Z",
+    "updatedAt": "2026-03-25T10:27:52.762Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31a3",
+    "name": "حجر",
+    "governorateId": "69c3b8a875b50d62ae6c3184",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.764Z",
+    "updatedAt": "2026-03-25T10:27:52.764Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31aa",
+    "name": "إب",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.770Z",
+    "updatedAt": "2026-03-25T10:27:52.770Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31ad",
+    "name": "جبلة",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.772Z",
+    "updatedAt": "2026-03-25T10:27:52.772Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31b0",
+    "name": "العدين",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.774Z",
+    "updatedAt": "2026-03-25T10:27:52.774Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31b3",
+    "name": "يريم",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.776Z",
+    "updatedAt": "2026-03-25T10:27:52.776Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31b6",
+    "name": "السدة",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.779Z",
+    "updatedAt": "2026-03-25T10:27:52.779Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31b9",
+    "name": "الرضمة",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.781Z",
+    "updatedAt": "2026-03-25T10:27:52.781Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31bc",
+    "name": "حبيش",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.783Z",
+    "updatedAt": "2026-03-25T10:27:52.783Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31bf",
+    "name": "ذي السفال",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.786Z",
+    "updatedAt": "2026-03-25T10:27:52.786Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31c2",
+    "name": "القفر",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.788Z",
+    "updatedAt": "2026-03-25T10:27:52.788Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31c5",
+    "name": "فرع العدين",
+    "governorateId": "69c3b8a875b50d62ae6c31a6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.790Z",
+    "updatedAt": "2026-03-25T10:27:52.790Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31cc",
+    "name": "الحديدة",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.795Z",
+    "updatedAt": "2026-03-25T10:27:52.795Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31cf",
+    "name": "باجل",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.797Z",
+    "updatedAt": "2026-03-25T10:27:52.797Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31d2",
+    "name": "زبيد",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.799Z",
+    "updatedAt": "2026-03-25T10:27:52.799Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31d5",
+    "name": "بيت الفقيه",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.801Z",
+    "updatedAt": "2026-03-25T10:27:52.801Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31d8",
+    "name": "الدريهمي",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.803Z",
+    "updatedAt": "2026-03-25T10:27:52.803Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31db",
+    "name": "التحيتا",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.805Z",
+    "updatedAt": "2026-03-25T10:27:52.805Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31de",
+    "name": "الخوخة",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.807Z",
+    "updatedAt": "2026-03-25T10:27:52.807Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31e1",
+    "name": "اللحية",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.809Z",
+    "updatedAt": "2026-03-25T10:27:52.809Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31e4",
+    "name": "المنيرة",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.811Z",
+    "updatedAt": "2026-03-25T10:27:52.811Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31e7",
+    "name": "الصليف",
+    "governorateId": "69c3b8a875b50d62ae6c31c8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.813Z",
+    "updatedAt": "2026-03-25T10:27:52.813Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31ee",
+    "name": "مأرب",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.818Z",
+    "updatedAt": "2026-03-25T10:27:52.818Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31f1",
+    "name": "صرواح",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.820Z",
+    "updatedAt": "2026-03-25T10:27:52.820Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31f4",
+    "name": "الوادي",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.822Z",
+    "updatedAt": "2026-03-25T10:27:52.822Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31f7",
+    "name": "مدغل",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.824Z",
+    "updatedAt": "2026-03-25T10:27:52.824Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31fa",
+    "name": "حريب",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.826Z",
+    "updatedAt": "2026-03-25T10:27:52.826Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31fd",
+    "name": "الجوبة",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.828Z",
+    "updatedAt": "2026-03-25T10:27:52.828Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3200",
+    "name": "رغوان",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.830Z",
+    "updatedAt": "2026-03-25T10:27:52.830Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3203",
+    "name": "ماهلية",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.832Z",
+    "updatedAt": "2026-03-25T10:27:52.832Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3206",
+    "name": "رحبة",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.834Z",
+    "updatedAt": "2026-03-25T10:27:52.834Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3209",
+    "name": "العبدية",
+    "governorateId": "69c3b8a875b50d62ae6c31ea",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.837Z",
+    "updatedAt": "2026-03-25T10:27:52.837Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3210",
+    "name": "الحزم",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.842Z",
+    "updatedAt": "2026-03-25T10:27:52.842Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3213",
+    "name": "خب والشعف",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.843Z",
+    "updatedAt": "2026-03-25T10:27:52.843Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3216",
+    "name": "برط العنان",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.845Z",
+    "updatedAt": "2026-03-25T10:27:52.845Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3219",
+    "name": "الغيل",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.846Z",
+    "updatedAt": "2026-03-25T10:27:52.846Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c321c",
+    "name": "المتون",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.847Z",
+    "updatedAt": "2026-03-25T10:27:52.847Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c321f",
+    "name": "المصلوب",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.849Z",
+    "updatedAt": "2026-03-25T10:27:52.849Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3222",
+    "name": "الزاهر",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.850Z",
+    "updatedAt": "2026-03-25T10:27:52.850Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3225",
+    "name": "الرجوزة",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.851Z",
+    "updatedAt": "2026-03-25T10:27:52.851Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3228",
+    "name": "الحزم (مركز)",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.853Z",
+    "updatedAt": "2026-03-25T10:27:52.853Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c322b",
+    "name": "اليتمة",
+    "governorateId": "69c3b8a875b50d62ae6c320c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.854Z",
+    "updatedAt": "2026-03-25T10:27:52.854Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3232",
+    "name": "صعدة",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.857Z",
+    "updatedAt": "2026-03-25T10:27:52.857Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3235",
+    "name": "رازح",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.859Z",
+    "updatedAt": "2026-03-25T10:27:52.859Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3238",
+    "name": "باقم",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.860Z",
+    "updatedAt": "2026-03-25T10:27:52.860Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c323b",
+    "name": "سحار",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.861Z",
+    "updatedAt": "2026-03-25T10:27:52.861Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c323e",
+    "name": "ساقين",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.863Z",
+    "updatedAt": "2026-03-25T10:27:52.863Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3241",
+    "name": "حيدان",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.864Z",
+    "updatedAt": "2026-03-25T10:27:52.864Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3244",
+    "name": "الظاهر",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.866Z",
+    "updatedAt": "2026-03-25T10:27:52.866Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3247",
+    "name": "مجز",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.867Z",
+    "updatedAt": "2026-03-25T10:27:52.867Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c324a",
+    "name": "شدا",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.868Z",
+    "updatedAt": "2026-03-25T10:27:52.868Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c324d",
+    "name": "غمر",
+    "governorateId": "69c3b8a875b50d62ae6c322e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.870Z",
+    "updatedAt": "2026-03-25T10:27:52.870Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3254",
+    "name": "عمران",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.874Z",
+    "updatedAt": "2026-03-25T10:27:52.874Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3257",
+    "name": "خمر",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.875Z",
+    "updatedAt": "2026-03-25T10:27:52.875Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c325a",
+    "name": "حوث",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.877Z",
+    "updatedAt": "2026-03-25T10:27:52.877Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c325d",
+    "name": "حرف سفيان",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.878Z",
+    "updatedAt": "2026-03-25T10:27:52.878Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3260",
+    "name": "ثلاء",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.880Z",
+    "updatedAt": "2026-03-25T10:27:52.880Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3263",
+    "name": "عيال سريح",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.881Z",
+    "updatedAt": "2026-03-25T10:27:52.881Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3266",
+    "name": "جبل عيال يزيد",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.883Z",
+    "updatedAt": "2026-03-25T10:27:52.883Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3269",
+    "name": "المدان",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.885Z",
+    "updatedAt": "2026-03-25T10:27:52.885Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c326c",
+    "name": "القفلة",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.887Z",
+    "updatedAt": "2026-03-25T10:27:52.887Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c326f",
+    "name": "السودة",
+    "governorateId": "69c3b8a875b50d62ae6c3250",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.888Z",
+    "updatedAt": "2026-03-25T10:27:52.888Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3276",
+    "name": "ذمار",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.892Z",
+    "updatedAt": "2026-03-25T10:27:52.892Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3279",
+    "name": "معبر",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.893Z",
+    "updatedAt": "2026-03-25T10:27:52.893Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c327c",
+    "name": "عنس",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.895Z",
+    "updatedAt": "2026-03-25T10:27:52.895Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c327f",
+    "name": "وصاب العالي",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.896Z",
+    "updatedAt": "2026-03-25T10:27:52.896Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3282",
+    "name": "وصاب السافل",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.897Z",
+    "updatedAt": "2026-03-25T10:27:52.897Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3285",
+    "name": "جهران",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.899Z",
+    "updatedAt": "2026-03-25T10:27:52.899Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3288",
+    "name": "عتمة",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.901Z",
+    "updatedAt": "2026-03-25T10:27:52.901Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c328b",
+    "name": "ميفعة عنس",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.902Z",
+    "updatedAt": "2026-03-25T10:27:52.902Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c328e",
+    "name": "الحداء",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.904Z",
+    "updatedAt": "2026-03-25T10:27:52.904Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3291",
+    "name": "المنار",
+    "governorateId": "69c3b8a875b50d62ae6c3272",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.906Z",
+    "updatedAt": "2026-03-25T10:27:52.906Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3298",
+    "name": "البيضاء",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.910Z",
+    "updatedAt": "2026-03-25T10:27:52.910Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c329b",
+    "name": "رداع",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.911Z",
+    "updatedAt": "2026-03-25T10:27:52.911Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c329e",
+    "name": "ذي ناعم",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.913Z",
+    "updatedAt": "2026-03-25T10:27:52.913Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32a1",
+    "name": "الطفة",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.914Z",
+    "updatedAt": "2026-03-25T10:27:52.914Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32a4",
+    "name": "الزاهر",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.916Z",
+    "updatedAt": "2026-03-25T10:27:52.916Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32a7",
+    "name": "الصومعة",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.917Z",
+    "updatedAt": "2026-03-25T10:27:52.917Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32aa",
+    "name": "السوادية",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.919Z",
+    "updatedAt": "2026-03-25T10:27:52.919Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32ad",
+    "name": "ناطع",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.920Z",
+    "updatedAt": "2026-03-25T10:27:52.920Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32b0",
+    "name": "العرش",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.922Z",
+    "updatedAt": "2026-03-25T10:27:52.922Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32b3",
+    "name": "مكيراس",
+    "governorateId": "69c3b8a875b50d62ae6c3294",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.923Z",
+    "updatedAt": "2026-03-25T10:27:52.923Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32ba",
+    "name": "الحوطة",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.927Z",
+    "updatedAt": "2026-03-25T10:27:52.927Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32bd",
+    "name": "تبن",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.928Z",
+    "updatedAt": "2026-03-25T10:27:52.928Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32c0",
+    "name": "طور الباحة",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.929Z",
+    "updatedAt": "2026-03-25T10:27:52.929Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32c3",
+    "name": "ردفان",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.931Z",
+    "updatedAt": "2026-03-25T10:27:52.931Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32c6",
+    "name": "القبيطة",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.932Z",
+    "updatedAt": "2026-03-25T10:27:52.932Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32c9",
+    "name": "المسيمير",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.934Z",
+    "updatedAt": "2026-03-25T10:27:52.934Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32cc",
+    "name": "الملاح",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.936Z",
+    "updatedAt": "2026-03-25T10:27:52.936Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32cf",
+    "name": "كرش",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.937Z",
+    "updatedAt": "2026-03-25T10:27:52.937Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32d2",
+    "name": "المضاربة",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.938Z",
+    "updatedAt": "2026-03-25T10:27:52.938Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32d5",
+    "name": "يافع",
+    "governorateId": "69c3b8a875b50d62ae6c32b6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.940Z",
+    "updatedAt": "2026-03-25T10:27:52.940Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32dc",
+    "name": "زنجبار",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.944Z",
+    "updatedAt": "2026-03-25T10:27:52.944Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32df",
+    "name": "خنفر (جعار)",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.946Z",
+    "updatedAt": "2026-03-25T10:27:52.946Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32e2",
+    "name": "لودر",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.948Z",
+    "updatedAt": "2026-03-25T10:27:52.948Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32e5",
+    "name": "مودية",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.949Z",
+    "updatedAt": "2026-03-25T10:27:52.949Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32e8",
+    "name": "أحور",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.951Z",
+    "updatedAt": "2026-03-25T10:27:52.951Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32eb",
+    "name": "الوضيع",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.953Z",
+    "updatedAt": "2026-03-25T10:27:52.953Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32ee",
+    "name": "المحفد",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.954Z",
+    "updatedAt": "2026-03-25T10:27:52.954Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32f1",
+    "name": "رصد",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.955Z",
+    "updatedAt": "2026-03-25T10:27:52.955Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32f4",
+    "name": "سباح",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.957Z",
+    "updatedAt": "2026-03-25T10:27:52.957Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32f7",
+    "name": "سرار",
+    "governorateId": "69c3b8a875b50d62ae6c32d8",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.959Z",
+    "updatedAt": "2026-03-25T10:27:52.959Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32fe",
+    "name": "عتق",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.964Z",
+    "updatedAt": "2026-03-25T10:27:52.964Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3301",
+    "name": "بيحان",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.965Z",
+    "updatedAt": "2026-03-25T10:27:52.965Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3304",
+    "name": "عسيلان",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.967Z",
+    "updatedAt": "2026-03-25T10:27:52.967Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3307",
+    "name": "نصاب",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.968Z",
+    "updatedAt": "2026-03-25T10:27:52.968Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c330a",
+    "name": "حبان",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.969Z",
+    "updatedAt": "2026-03-25T10:27:52.969Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c330d",
+    "name": "رضوم",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.971Z",
+    "updatedAt": "2026-03-25T10:27:52.971Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3310",
+    "name": "مرخة العليا",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.973Z",
+    "updatedAt": "2026-03-25T10:27:52.973Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3313",
+    "name": "مرخة السفلى",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.975Z",
+    "updatedAt": "2026-03-25T10:27:52.975Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3316",
+    "name": "الصعيد",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.977Z",
+    "updatedAt": "2026-03-25T10:27:52.977Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3319",
+    "name": "الطلح",
+    "governorateId": "69c3b8a875b50d62ae6c32fa",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.979Z",
+    "updatedAt": "2026-03-25T10:27:52.979Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3320",
+    "name": "الغيضة",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.983Z",
+    "updatedAt": "2026-03-25T10:27:52.983Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3323",
+    "name": "قشن",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.984Z",
+    "updatedAt": "2026-03-25T10:27:52.984Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3326",
+    "name": "سيحوت",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.986Z",
+    "updatedAt": "2026-03-25T10:27:52.986Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3329",
+    "name": "حوف",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.987Z",
+    "updatedAt": "2026-03-25T10:27:52.987Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c332c",
+    "name": "المسيلة",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.988Z",
+    "updatedAt": "2026-03-25T10:27:52.988Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c332f",
+    "name": "حصوين",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.990Z",
+    "updatedAt": "2026-03-25T10:27:52.990Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3332",
+    "name": "منعر",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.991Z",
+    "updatedAt": "2026-03-25T10:27:52.991Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3335",
+    "name": "شحن",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.993Z",
+    "updatedAt": "2026-03-25T10:27:52.993Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3338",
+    "name": "حات",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.994Z",
+    "updatedAt": "2026-03-25T10:27:52.994Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c333b",
+    "name": "شحن الساحل",
+    "governorateId": "69c3b8a875b50d62ae6c331c",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.996Z",
+    "updatedAt": "2026-03-25T10:27:52.996Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3342",
+    "name": "الضالع",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.999Z",
+    "updatedAt": "2026-03-25T10:27:52.999Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3345",
+    "name": "قعطبة",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.000Z",
+    "updatedAt": "2026-03-25T10:27:53.000Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3348",
+    "name": "الحصين",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.001Z",
+    "updatedAt": "2026-03-25T10:27:53.001Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c334b",
+    "name": "الشعيب",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.003Z",
+    "updatedAt": "2026-03-25T10:27:53.003Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c334e",
+    "name": "الأزارق",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.004Z",
+    "updatedAt": "2026-03-25T10:27:53.004Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3351",
+    "name": "جحاف",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.006Z",
+    "updatedAt": "2026-03-25T10:27:53.006Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3354",
+    "name": "دمت",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.008Z",
+    "updatedAt": "2026-03-25T10:27:53.008Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3357",
+    "name": "الحشاء",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.010Z",
+    "updatedAt": "2026-03-25T10:27:53.010Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c335a",
+    "name": "سناح",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.012Z",
+    "updatedAt": "2026-03-25T10:27:53.012Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c335d",
+    "name": "جبن",
+    "governorateId": "69c3b8a875b50d62ae6c333e",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.013Z",
+    "updatedAt": "2026-03-25T10:27:53.013Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3364",
+    "name": "الجبين",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.018Z",
+    "updatedAt": "2026-03-25T10:27:53.018Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3367",
+    "name": "السلفية",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.019Z",
+    "updatedAt": "2026-03-25T10:27:53.019Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c336a",
+    "name": "كسمة",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.021Z",
+    "updatedAt": "2026-03-25T10:27:53.021Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c336d",
+    "name": "مزهر",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.023Z",
+    "updatedAt": "2026-03-25T10:27:53.023Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3370",
+    "name": "بلاد الطعام",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.024Z",
+    "updatedAt": "2026-03-25T10:27:53.024Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3373",
+    "name": "الجعفرية",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.026Z",
+    "updatedAt": "2026-03-25T10:27:53.026Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3376",
+    "name": "السخنة",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.027Z",
+    "updatedAt": "2026-03-25T10:27:53.027Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3379",
+    "name": "بني الضبيبي",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.028Z",
+    "updatedAt": "2026-03-25T10:27:53.028Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c337c",
+    "name": "مزهر (مركز)",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.030Z",
+    "updatedAt": "2026-03-25T10:27:53.030Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c337f",
+    "name": "كسمة (مناطق)",
+    "governorateId": "69c3b8a975b50d62ae6c3360",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.032Z",
+    "updatedAt": "2026-03-25T10:27:53.032Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3386",
+    "name": "حجة",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.036Z",
+    "updatedAt": "2026-03-25T10:27:53.036Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3389",
+    "name": "عبس",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.037Z",
+    "updatedAt": "2026-03-25T10:27:53.037Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c338c",
+    "name": "كشر",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.039Z",
+    "updatedAt": "2026-03-25T10:27:53.039Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c338f",
+    "name": "مبين",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.040Z",
+    "updatedAt": "2026-03-25T10:27:53.040Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3392",
+    "name": "المحابشة",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.042Z",
+    "updatedAt": "2026-03-25T10:27:53.042Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3395",
+    "name": "الشغادرة",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.043Z",
+    "updatedAt": "2026-03-25T10:27:53.043Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3398",
+    "name": "نجرة",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.044Z",
+    "updatedAt": "2026-03-25T10:27:53.044Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c339b",
+    "name": "أسلم",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.046Z",
+    "updatedAt": "2026-03-25T10:27:53.046Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c339e",
+    "name": "المفتاح",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.047Z",
+    "updatedAt": "2026-03-25T10:27:53.047Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33a1",
+    "name": "أفلح الشام",
+    "governorateId": "69c3b8a975b50d62ae6c3382",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.048Z",
+    "updatedAt": "2026-03-25T10:27:53.048Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33a8",
+    "name": "المحويت",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.053Z",
+    "updatedAt": "2026-03-25T10:27:53.053Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33ab",
+    "name": "الطويلة",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.054Z",
+    "updatedAt": "2026-03-25T10:27:53.054Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33ae",
+    "name": "حفاش",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.056Z",
+    "updatedAt": "2026-03-25T10:27:53.056Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33b1",
+    "name": "ملحان",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.057Z",
+    "updatedAt": "2026-03-25T10:27:53.057Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33b4",
+    "name": "الرجم",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.058Z",
+    "updatedAt": "2026-03-25T10:27:53.058Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33b7",
+    "name": "الخبت",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.060Z",
+    "updatedAt": "2026-03-25T10:27:53.060Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33ba",
+    "name": "بني سعد",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.062Z",
+    "updatedAt": "2026-03-25T10:27:53.062Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33bd",
+    "name": "شبام كوكبان",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.063Z",
+    "updatedAt": "2026-03-25T10:27:53.063Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33c0",
+    "name": "مناخة",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.064Z",
+    "updatedAt": "2026-03-25T10:27:53.064Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33c3",
+    "name": "بني مطر (جزء)",
+    "governorateId": "69c3b8a975b50d62ae6c33a4",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.066Z",
+    "updatedAt": "2026-03-25T10:27:53.066Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33ca",
+    "name": "حديبو",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.069Z",
+    "updatedAt": "2026-03-25T10:27:53.069Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33cd",
+    "name": "قلنسية",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.071Z",
+    "updatedAt": "2026-03-25T10:27:53.071Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33d0",
+    "name": "عبد الكوري",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.072Z",
+    "updatedAt": "2026-03-25T10:27:53.072Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33d3",
+    "name": "قشين",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.074Z",
+    "updatedAt": "2026-03-25T10:27:53.074Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33d6",
+    "name": "نوجد",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.075Z",
+    "updatedAt": "2026-03-25T10:27:53.075Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33d9",
+    "name": "مومي",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.077Z",
+    "updatedAt": "2026-03-25T10:27:53.077Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33dc",
+    "name": "ديكسم",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.079Z",
+    "updatedAt": "2026-03-25T10:27:53.079Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33df",
+    "name": "حلة",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.081Z",
+    "updatedAt": "2026-03-25T10:27:53.081Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33e2",
+    "name": "سقطرى الساحل",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.082Z",
+    "updatedAt": "2026-03-25T10:27:53.082Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33e5",
+    "name": "سقطرى الجبال",
+    "governorateId": "69c3b8a975b50d62ae6c33c6",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.084Z",
+    "updatedAt": "2026-03-25T10:27:53.084Z"
+  }
+]

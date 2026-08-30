@@ -5,6 +5,7 @@ import { t } from "../i18n/index.js";
 import CountdownTimer from "../components/CountdownTimer.jsx";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 import { useSearchParams, Link } from "react-router-dom";
+import { prepareFilesForUpload } from "../lib/imageCompression.js";
 
 export default function Pricing() {
   const api = useApi();
@@ -20,6 +21,7 @@ export default function Pricing() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [processingReceipt, setProcessingReceipt] = useState(false);
   const [trialEligibility, setTrialEligibility] = useState(null);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [activatingTrial, setActivatingTrial] = useState(false);
@@ -48,6 +50,31 @@ export default function Pricing() {
   useEffect(() => {
     load();
   }, [user]);
+
+  const handleReceiptFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setReceiptFile(null);
+      return;
+    }
+
+    try {
+      setProcessingReceipt(true);
+      const [prepared] = await prepareFilesForUpload([file], {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: 1800,
+        initialQuality: 0.85,
+      });
+      setReceiptFile(prepared);
+      setErr("");
+    } catch (error) {
+      console.error("Receipt compression failed:", error);
+      setErr("تعذر تجهيز صورة السند. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.");
+      setReceiptFile(null);
+    } finally {
+      setProcessingReceipt(false);
+    }
+  };
 
   const activateTrial = async (adId) => {
     const targetAdId = adId || selectedAd;
@@ -496,7 +523,7 @@ export default function Pricing() {
                         {receiptFile ? "✅" : "📄"}
                       </div>
                       <p className="text-sm font-black text-gray-900">
-                        {receiptFile ? receiptFile.name : "اضغط هنا لرفع سند الدفع"}
+                        {processingReceipt ? "جاري تجهيز السند..." : receiptFile ? receiptFile.name : "اضغط هنا لرفع سند الدفع"}
                       </p>
                       <p className="text-xs font-bold text-gray-400 mt-1">PNG, JPG, PDF (Max 5MB)</p>
                     </div>
@@ -513,7 +540,7 @@ export default function Pricing() {
 
               <button
                 type="submit"
-                disabled={loading || !receiptFile}
+                disabled={loading || processingReceipt || !receiptFile}
                 className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] text-base font-black shadow-2xl shadow-gray-200 hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
               >
                 {loading ? (

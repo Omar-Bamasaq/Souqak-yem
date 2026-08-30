@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import MobileSelect from "../components/MobileSelect.jsx";
+import { prepareFilesForUpload } from "../lib/imageCompression.js";
 
 export default function SellerVerification() {
   const api = useApi();
@@ -25,8 +26,25 @@ export default function SellerVerification() {
   const [occupation, setOccupation] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [processingDocs, setProcessingDocs] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+
+  const processDocFile = async (file, setter, fieldName) => {
+    if (!file) return null;
+    try {
+      const [prepared] = await prepareFilesForUpload([file], {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: 1800,
+        initialQuality: 0.85,
+      });
+      setter(prepared);
+      return prepared;
+    } catch (error) {
+      console.error(`Verification document compression failed for ${fieldName}:`, error);
+      throw new Error("تعذر تجهيز إحدى صور الوثيقة. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,7 +56,12 @@ export default function SellerVerification() {
     }
 
     setLoading(true);
+    setProcessingDocs(true);
     try {
+      const preparedFront = await processDocFile(idFront, setIdFront, "idFrontImage");
+      const preparedBack = idBack ? await processDocFile(idBack, setIdBack, "idBackImage") : null;
+      const preparedSelfie = selfie ? await processDocFile(selfie, setSelfie, "selfieImage") : null;
+
       const fd = new FormData();
       fd.append("fullName", fullName);
       fd.append("idNumber", idNumber);
@@ -46,9 +69,9 @@ export default function SellerVerification() {
       fd.append("country", country);
       fd.append("phone", phone);
       fd.append("docType", docType);
-      fd.append("idFrontImage", idFront);
-      if (idBack) fd.append("idBackImage", idBack);
-      if (selfie) fd.append("selfieImage", selfie);
+      fd.append("idFrontImage", preparedFront || idFront);
+      if (preparedBack || idBack) fd.append("idBackImage", preparedBack || idBack);
+      if (preparedSelfie || selfie) fd.append("selfieImage", preparedSelfie || selfie);
       if (address) fd.append("address", address);
       if (occupation) fd.append("occupation", occupation);
 
@@ -60,9 +83,11 @@ export default function SellerVerification() {
         setSuccess(true);
       }
     } catch (e) {
-      setError(e.response?.data?.error || e.message || "فشل إرسال الطلب");
+      const message = e?.message || e?.response?.data?.error || e?.message || "فشل إرسال الطلب";
+      setError(message);
     } finally {
       setLoading(false);
+      setProcessingDocs(false);
     }
   };
 
@@ -195,7 +220,13 @@ export default function SellerVerification() {
             رفع الوثائق
           </h3>
           
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {(processingDocs || loading) && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900">
+            {processingDocs ? "جاري تجهيز وثائق الهوية..." : "جارٍ إرسال الطلب..."}
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <label className="block text-[10px] sm:text-xs font-black text-gray-400 uppercase tracking-widest px-1">صورة الهوية (الأمامية) *</label>
               <div className="relative group aspect-[16/10] sm:aspect-[4/3] rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-4 hover:border-blue-500 transition-all cursor-pointer overflow-hidden">

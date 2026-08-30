@@ -1,0 +1,170 @@
+[
+  {
+    "_id": "69c3b8a875b50d62ae6c311d",
+    "name": "صنعاء",
+    "slug": "صنعاء",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.644Z",
+    "updatedAt": "2026-03-25T10:27:52.644Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3140",
+    "name": "عدن",
+    "slug": "عدن",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.688Z",
+    "updatedAt": "2026-03-25T10:27:52.688Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3162",
+    "name": "تعز",
+    "slug": "تعز",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.716Z",
+    "updatedAt": "2026-03-25T10:27:52.716Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3184",
+    "name": "حضرموت",
+    "slug": "حضرموت",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.740Z",
+    "updatedAt": "2026-03-25T10:27:52.740Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31a6",
+    "name": "إب",
+    "slug": "إب",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.768Z",
+    "updatedAt": "2026-03-25T10:27:52.768Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31c8",
+    "name": "الحديدة",
+    "slug": "الحديدة",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.793Z",
+    "updatedAt": "2026-03-25T10:27:52.793Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c31ea",
+    "name": "مأرب",
+    "slug": "مأرب",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.816Z",
+    "updatedAt": "2026-03-25T10:27:52.816Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c320c",
+    "name": "الجوف",
+    "slug": "الجوف",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.840Z",
+    "updatedAt": "2026-03-25T10:27:52.840Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c322e",
+    "name": "صعدة",
+    "slug": "صعدة",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.856Z",
+    "updatedAt": "2026-03-25T10:27:52.856Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3250",
+    "name": "عمران",
+    "slug": "عمران",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.872Z",
+    "updatedAt": "2026-03-25T10:27:52.872Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3272",
+    "name": "ذمار",
+    "slug": "ذمار",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.890Z",
+    "updatedAt": "2026-03-25T10:27:52.890Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c3294",
+    "name": "البيضاء",
+    "slug": "البيضاء",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.908Z",
+    "updatedAt": "2026-03-25T10:27:52.908Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32b6",
+    "name": "لحج",
+    "slug": "لحج",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.925Z",
+    "updatedAt": "2026-03-25T10:27:52.925Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32d8",
+    "name": "أبين",
+    "slug": "أبين",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.943Z",
+    "updatedAt": "2026-03-25T10:27:52.943Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c32fa",
+    "name": "شبوة",
+    "slug": "شبوة",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.962Z",
+    "updatedAt": "2026-03-25T10:27:52.962Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c331c",
+    "name": "المهرة",
+    "slug": "المهرة",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.981Z",
+    "updatedAt": "2026-03-25T10:27:52.981Z"
+  },
+  {
+    "_id": "69c3b8a875b50d62ae6c333e",
+    "name": "الضالع",
+    "slug": "الضالع",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:52.997Z",
+    "updatedAt": "2026-03-25T10:27:52.997Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3360",
+    "name": "ريمة",
+    "slug": "ريمة",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.016Z",
+    "updatedAt": "2026-03-25T10:27:53.016Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c3382",
+    "name": "حجة",
+    "slug": "حجة",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.033Z",
+    "updatedAt": "2026-03-25T10:27:53.033Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33a4",
+    "name": "المحويت",
+    "slug": "المحويت",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.051Z",
+    "updatedAt": "2026-03-25T10:27:53.051Z"
+  },
+  {
+    "_id": "69c3b8a975b50d62ae6c33c6",
+    "name": "سقطرى",
+    "slug": "سقطرى",
+    "isActive": true,
+    "createdAt": "2026-03-25T10:27:53.068Z",
+    "updatedAt": "2026-03-25T10:27:53.068Z"
+  }
+]

@@ -3,6 +3,7 @@ import { useApi } from "../api/axios.js";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { uploadsUrl } from "../lib/uploads.js";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
+import { prepareFilesForUpload } from "../lib/imageCompression.js";
 
 function useQuery() {
   const { search } = useLocation();
@@ -32,6 +33,7 @@ export default function CommissionPay() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [processingReceipt, setProcessingReceipt] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
@@ -73,6 +75,31 @@ export default function CommissionPay() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleReceiptChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setReceipt(null);
+      return;
+    }
+
+    try {
+      setProcessingReceipt(true);
+      const [prepared] = await prepareFilesForUpload([file], {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: 1800,
+        initialQuality: 0.85,
+      });
+      setReceipt(prepared);
+      setErr("");
+    } catch (error) {
+      console.error("Receipt compression failed:", error);
+      setErr("تعذر تجهيز صورة السند. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.");
+      setReceipt(null);
+    } finally {
+      setProcessingReceipt(false);
+    }
   };
 
   const submit = async (e) => {
@@ -230,8 +257,8 @@ export default function CommissionPay() {
                   type="file" 
                   id="receipt"
                   className="hidden" 
-                  accept=".jpg,.jpeg,.png,.pdf" 
-                  onChange={(e) => setReceipt(e.target.files?.[0] || null)} 
+                  accept="image/*,.pdf" 
+                  onChange={handleReceiptChange} 
                 />
                 <label 
                   htmlFor="receipt"
@@ -239,7 +266,7 @@ export default function CommissionPay() {
                 >
                   <svg className="w-6 h-6 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   <span className="text-sm sm:text-base break-all px-2">
-                    {receipt ? receipt.name : "رفع صورة السند"}
+                    {processingReceipt ? "جاري تجهيز السند..." : receipt ? receipt.name : "رفع صورة السند أو PDF"}
                   </span>
                 </label>
               </div>

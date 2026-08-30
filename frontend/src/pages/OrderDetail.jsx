@@ -6,6 +6,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
+import { prepareFilesForUpload } from "../lib/imageCompression.js";
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -16,6 +17,7 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [processingPaymentFiles, setProcessingPaymentFiles] = useState(false);
   const [convOpening, setConvOpening] = useState(false);
 
   // Payment Form State
@@ -43,6 +45,44 @@ export default function OrderDetail() {
     comment: "",
     images: []
   });
+
+  const handleReceiptSelection = async (index, file) => {
+    if (!file) return;
+    try {
+      setProcessingPaymentFiles(true);
+      const [prepared] = await prepareFilesForUpload([file], {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: 1800,
+        initialQuality: 0.85,
+      });
+      const next = [...receiptFiles];
+      next[index] = prepared;
+      setReceiptFiles(next);
+    } catch (error) {
+      console.error("Payment receipt compression failed:", error);
+      alert("تعذر تجهيز صورة السند. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.");
+    } finally {
+      setProcessingPaymentFiles(false);
+    }
+  };
+
+  const handleShippingReceiptSelection = async (file) => {
+    if (!file) return;
+    try {
+      setProcessingPaymentFiles(true);
+      const [prepared] = await prepareFilesForUpload([file], {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: 1800,
+        initialQuality: 0.85,
+      });
+      setShippingReceipt(prepared);
+    } catch (error) {
+      console.error("Shipping receipt compression failed:", error);
+      alert("تعذر تجهيز صورة إيصال الشحن. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.");
+    } finally {
+      setProcessingPaymentFiles(false);
+    }
+  };
 
   const handlePostReview = async () => {
     if (reviewData.comment.length < 10) {
@@ -539,11 +579,16 @@ export default function OrderDetail() {
                                 <div className="relative group">
                                   <input
                                     type="file"
-                                    accept="image/*"
-                                    onChange={e => {
-                                      const newFiles = [...receiptFiles];
-                                      newFiles[idx] = e.target.files?.[0] || null;
-                                      setReceiptFiles(newFiles);
+                                    accept="image/*,.pdf"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0] || null;
+                                      if (file) {
+                                        await handleReceiptSelection(idx, file);
+                                      } else {
+                                        const newFiles = [...receiptFiles];
+                                        newFiles[idx] = null;
+                                        setReceiptFiles(newFiles);
+                                      }
                                     }}
                                     className="hidden"
                                     id={`receipt-upload-${idx}`}
@@ -649,8 +694,15 @@ export default function OrderDetail() {
                       <div className="relative group">
                         <input
                           type="file"
-                          accept="image/*"
-                          onChange={e => setShippingReceipt(e.target.files?.[0] || null)}
+                          accept="image/*,.pdf"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0] || null;
+                            if (file) {
+                              await handleShippingReceiptSelection(file);
+                            } else {
+                              setShippingReceipt(null);
+                            }
+                          }}
                           className="hidden"
                           id="shipping-receipt-upload"
                         />

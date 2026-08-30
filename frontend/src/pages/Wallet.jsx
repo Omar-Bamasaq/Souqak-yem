@@ -3,6 +3,7 @@ import { useApi } from "../api/axios.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import OrdersList from "../components/OrdersList.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
+import { prepareFilesForUpload } from "../lib/imageCompression.js";
 
 const MINIMUM_WITHDRAWAL_BY_CURRENCY = {
   YER: 1000,
@@ -41,6 +42,7 @@ export default function Wallet() {
   const [systemSettings, setSystemSettings] = useState(null);
   const [showAddAccountForm, setShowAddAccountForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [processingIdentity, setProcessingIdentity] = useState(false);
 
   const loadData = async () => {
     try {
@@ -114,6 +116,30 @@ export default function Wallet() {
       alert(err.response?.data?.error || "فشل إضافة الحساب");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleIdentityChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setIdentityImage(null);
+      return;
+    }
+
+    try {
+      setProcessingIdentity(true);
+      const [prepared] = await prepareFilesForUpload([file], {
+        maxSizeMB: 0.9,
+        maxWidthOrHeight: 1800,
+        initialQuality: 0.85,
+      });
+      setIdentityImage(prepared);
+    } catch (error) {
+      console.error("Identity image compression failed:", error);
+      alert("تعذر تجهيز صورة الهوية. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.");
+      setIdentityImage(null);
+    } finally {
+      setProcessingIdentity(false);
     }
   };
 
@@ -578,7 +604,7 @@ export default function Wallet() {
                         </div>
                         <button
                           onClick={handleAddUserAccount}
-                          disabled={submitting}
+                          disabled={submitting || processingIdentity}
                           className="w-full py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
                         >
                           {submitting ? "جاري الحفظ..." : "حفظ وإضافة الحساب"}
@@ -681,14 +707,14 @@ export default function Wallet() {
                       <div className="relative group">
                         <input 
                           type="file" 
-                          accept="image/*" 
-                          onChange={e => setIdentityImage(e.target.files[0])}
+                          accept="image/*,.pdf" 
+                          onChange={handleIdentityChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
                         <div className={`w-full rounded-xl border-2 border-dashed p-4 text-center transition-all ${identityImage ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50 group-hover:border-blue-300'}`}>
                           {identityImage ? (
                             <div className="flex items-center justify-center gap-2">
-                              <span className="text-xs font-black text-blue-600 truncate max-w-[200px]">{identityImage.name}</span>
+                              <span className="text-xs font-black text-blue-600 truncate max-w-[200px]">{processingIdentity ? "جاري تجهيز الصورة..." : identityImage.name}</span>
                               <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                             </div>
                           ) : (

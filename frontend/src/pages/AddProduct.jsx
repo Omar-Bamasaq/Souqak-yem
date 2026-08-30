@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import imageCompression from "browser-image-compression";
 import { useApi } from "../api/axios.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -51,6 +52,8 @@ export default function AddProduct() {
   const [err, setErr] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [isPreparingImages, setIsPreparingImages] = useState(false);
+  const [prepareStatus, setPrepareStatus] = useState("");
   const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [attrs, setAttrs] = useState({});
@@ -197,6 +200,53 @@ export default function AddProduct() {
     setPreviews(urls);
   };
 
+  const isWebPSupported = () => {
+    const canvas = document.createElement("canvas");
+    return canvas.toDataURL("image/webp").startsWith("data:image/webp");
+  };
+
+  const prepareFilesForUpload = async (selectedFiles) => {
+    if (!selectedFiles?.length) return [];
+
+    const preparedFiles = [];
+    const webpSupported = isWebPSupported();
+
+    for (let index = 0; index < selectedFiles.length; index += 1) {
+      const file = selectedFiles[index];
+      const isHeic = /heic|heif/i.test(file.type || "");
+      const shouldCompress = file.size > 500 * 1024 || isHeic;
+
+      setPrepareStatus(`جاري تجهيز الصور ${index + 1} من ${selectedFiles.length}...`);
+
+      if (!shouldCompress) {
+        preparedFiles.push(file);
+        continue;
+      }
+
+      try {
+        const compressed = await imageCompression(file, {
+          maxSizeMB: 0.9,
+          maxWidthOrHeight: 1600,
+          maxIteration: 10,
+          useWebWorker: true,
+          initialQuality: 0.82,
+          fileType: webpSupported ? "image/webp" : "image/jpeg",
+          alwaysKeepResolution: false,
+          onProgress: (progress) => {
+            setPrepareStatus(`جاري تجهيز الصور ${index + 1} من ${selectedFiles.length} (${Math.round(progress)}%)...`);
+          }
+        });
+
+        preparedFiles.push(compressed);
+      } catch (error) {
+        console.error("Image compression failed for file:", file.name, error);
+        throw new Error("تعذر تجهيز إحدى الصور. يرجى اختيار صورة أخرى أو تحويلها إلى JPG/PNG ثم المحاولة مرة أخرى.");
+      }
+    }
+
+    return preparedFiles;
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -339,7 +389,17 @@ export default function AddProduct() {
     if (!validateForm()) return;
 
     setLoading(true);
+    setPrepareStatus("");
+    let preparedFiles = [];
+
     try {
+      if ((files || []).length > 0) {
+        setIsPreparingImages(true);
+        setPrepareStatus("جاري تجهيز الصور...");
+        preparedFiles = await prepareFilesForUpload(files);
+        setPrepareStatus("جاري نشر الإعلان...");
+      }
+
       const form = new FormData();
       form.append("title", title);
       form.append("description", description);
@@ -366,7 +426,7 @@ export default function AddProduct() {
         form.append("whatsapp", normalizedWhatsApp);
       }
       selectedTags.forEach((tagId) => form.append("tags", tagId));
-      (files || []).forEach((file) => form.append("images", file));
+      preparedFiles.forEach((file) => form.append("images", file));
       
       // Add category attributes
       const attributes = Object.entries(attributeValues).map(([attributeId, value]) => ({
@@ -402,9 +462,13 @@ export default function AddProduct() {
       setShowAfterPublishModal(true);
     }
     } catch (e) {
+      console.error("Ad creation failed:", e);
       const status = e?.response?.status;
       const data = e?.response?.data;
-      if (status === 401) {
+
+      if (e?.message === "تعذر تجهيز إحدى الصور. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.") {
+        setErr(e.message);
+      } else if (status === 401) {
         setErr("يرجى تسجيل الدخول أولاً");
       } else if (status === 403) {
         setErr("هذا الإجراء متاح للبائعين فقط");
@@ -416,7 +480,6 @@ export default function AddProduct() {
           errorMsg = data.error;
         }
 
-        // إذا كان الخطأ يحتوي على أحرف إنجليزية (غالباً من Joi أو Backend)، نستبدله برسالة عربية
         if (/[a-zA-Z]/.test(errorMsg)) {
           const lowerError = errorMsg.toLowerCase();
           if (lowerError.includes("is required")) {
@@ -430,17 +493,20 @@ export default function AddProduct() {
           } else if (lowerError.includes("attributes")) {
             setErr("يرجى التأكد من تعبئة خصائص الفئة بشكل صحيح.");
           } else {
-            // إظهار الخطأ الأصلي مع رسالة توضيحية بدلاً من رسالة عامة غامضة
             setErr(`خطأ في البيانات: ${errorMsg}`);
           }
         } else {
           setErr(errorMsg || t("addProduct.error"));
         }
+      } else if (e?.code === "ERR_NETWORK") {
+        setErr("فشل الاتصال بالشبكة أثناء رفع الإعلان. يرجى التحقق من الإنترنت ثم المحاولة مرة أخرى.");
       } else {
         setErr(t("addProduct.error"));
       }
     } finally {
       setLoading(false);
+      setIsPreparingImages(false);
+      setPrepareStatus("");
     }
   };
 
@@ -1123,13 +1189,19 @@ export default function AddProduct() {
         </div>
       )}
 
+      {(prepareStatus || isPreparingImages || loading) && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900">
+          {prepareStatus || (loading ? "جارٍ النشر..." : "جارٍ تجهيز الصور...")}
+        </div>
+      )}
+
       {/* Submit Button */}
       <button 
         className="w-full h-16 rounded-[2rem] bg-gray-900 text-white font-black text-lg hover:bg-black disabled:opacity-50 transition-all shadow-2xl active:scale-[0.98]" 
-        disabled={loading || !!blockErr} 
+        disabled={loading || isPreparingImages || !!blockErr} 
         onClick={submit}
       >
-        {loading ? "جارٍ النشر..." : "نشر الإعلان الآن"}
+        {isPreparingImages ? "جارٍ تجهيز الصور..." : loading ? "جارٍ النشر..." : "نشر الإعلان الآن"}
       </button>
       {showAfterPublishModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
