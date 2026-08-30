@@ -219,11 +219,16 @@ export default function SellerFeaturedAd() {
                       <svg width="100%" height="100%"><pattern id={`grid-plan-${plan._id}`} width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill={`url(#grid-plan-${plan._id})`} /></svg>
                     </div>
 
-                    {isPopular && (
-                      <div className="absolute top-4 right-4 z-20">
+                    <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
+                      {isPopular && (
                         <span className="bg-white text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-widest">الأكثر طلباً</span>
-                      </div>
-                    )}
+                      )}
+                      {plan.isSaleRunning && plan.saleLabel && (
+                        <span className="bg-orange-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
+                          {plan.saleLabel}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="p-8 pt-12 flex-1 flex flex-col relative z-10">
                       <div className="text-center mb-8">
@@ -235,10 +240,25 @@ export default function SellerFeaturedAd() {
                       </div>
 
                       <div className="bg-white/10 rounded-3xl p-6 mb-8 text-center border border-white/20 backdrop-blur-sm">
-                        <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-4xl font-black">{plan.price.toLocaleString()}</span>
-                          <span className="text-xs font-black text-white/70">{plan.currency === "SAR" ? "ر.س" : plan.currency === "USD" ? "$" : "ر.ي"}</span>
-                        </div>
+                        {plan.isSaleRunning ? (
+                          <>
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                              <span className="text-sm font-bold text-white/50 line-through">{plan.originalPrice?.toLocaleString?.() ?? plan.price?.toLocaleString?.() ?? 0}</span>
+                              <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-orange-400">
+                                وفر {plan.discountPercent}%
+                              </span>
+                            </div>
+                            <div className="flex items-baseline justify-center gap-1">
+                              <span className="text-4xl font-black">{plan.finalPrice?.toLocaleString?.() ?? plan.price?.toLocaleString?.() ?? 0}</span>
+                              <span className="text-xs font-black text-white/70">{plan.currency === "SAR" ? "ر.س" : plan.currency === "USD" ? "$" : "ر.ي"}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-baseline justify-center gap-1">
+                            <span className="text-4xl font-black">{plan.price?.toLocaleString?.() ?? 0}</span>
+                            <span className="text-xs font-black text-white/70">{plan.currency === "SAR" ? "ر.س" : plan.currency === "USD" ? "$" : "ر.ي"}</span>
+                          </div>
+                        )}
                         <div className="mt-2 text-[10px] font-black text-white/50 uppercase tracking-tighter">صلاحية لمدة {plan.durationInDays} يوم</div>
                       </div>
 
