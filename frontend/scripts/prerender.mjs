@@ -124,6 +124,135 @@ const routePages = [
   }
 ];
 
+const privateRoutePages = [
+  {
+    path: '/login',
+    title: 'تسجيل الدخول | سوقك',
+    description: 'تسجيل الدخول إلى حسابك في سوقك.',
+    canonical: '/login',
+    noIndex: true
+  },
+  {
+    path: '/register',
+    title: 'إنشاء حساب | سوقك',
+    description: 'إنشاء حساب جديد في سوقك.',
+    canonical: '/register',
+    noIndex: true
+  },
+  {
+    path: '/forgot-password',
+    title: 'استعادة كلمة المرور | سوقك',
+    description: 'استعادة كلمة المرور لحسابك في سوقك.',
+    canonical: '/forgot-password',
+    noIndex: true
+  },
+  {
+    path: '/verify-email',
+    title: 'تأكيد البريد الإلكتروني | سوقك',
+    description: 'تأكيد البريد الإلكتروني الخاص بك في سوقك.',
+    canonical: '/verify-email',
+    noIndex: true
+  },
+  {
+    path: '/admin',
+    title: 'لوحة الإدارة | سوقك',
+    description: 'لوحة الإدارة الداخلية لسوقك.',
+    canonical: '/admin',
+    noIndex: true
+  },
+  {
+    path: '/seller',
+    title: 'لوحة البائع | سوقك',
+    description: 'لوحة البائع الخاصة بك في سوقك.',
+    canonical: '/seller',
+    noIndex: true
+  },
+  {
+    path: '/messages',
+    title: 'الرسائل | سوقك',
+    description: 'رسائلك داخل سوقك.',
+    canonical: '/messages',
+    noIndex: true
+  },
+  {
+    path: '/notifications',
+    title: 'الإشعارات | سوقك',
+    description: 'الإشعارات الخاصة بك في سوقك.',
+    canonical: '/notifications',
+    noIndex: true
+  },
+  {
+    path: '/favorites',
+    title: 'المفضلة | سوقك',
+    description: 'عناصرك المفضلة في سوقك.',
+    canonical: '/favorites',
+    noIndex: true
+  },
+  {
+    path: '/following',
+    title: 'المتابعة | سوقك',
+    description: 'المتابعات الخاصة بك في سوقك.',
+    canonical: '/following',
+    noIndex: true
+  },
+  {
+    path: '/wallet',
+    title: 'المحفظة | سوقك',
+    description: 'محفظتك الإلكترونية في سوقك.',
+    canonical: '/wallet',
+    noIndex: true
+  },
+  {
+    path: '/account-settings',
+    title: 'إعدادات الحساب | سوقك',
+    description: 'إعدادات حسابك الشخصية في سوقك.',
+    canonical: '/account-settings',
+    noIndex: true
+  },
+  {
+    path: '/my-ads',
+    title: 'إعلاناتي | سوقك',
+    description: 'قائمة إعلاناتك في سوقك.',
+    canonical: '/my-ads',
+    noIndex: true
+  },
+  {
+    path: '/orders',
+    title: 'الطلبات | سوقك',
+    description: 'الطلبات الحالية والسابقة في سوقك.',
+    canonical: '/orders',
+    noIndex: true
+  },
+  {
+    path: '/chat',
+    title: 'الدردشة | سوقك',
+    description: 'صفحة الدردشة الخاصة بك في سوقك.',
+    canonical: '/chat',
+    noIndex: true
+  },
+  {
+    path: '/add-product',
+    title: 'إضافة إعلان | سوقك',
+    description: 'إضافة إعلان جديد في سوقك.',
+    canonical: '/add-product',
+    noIndex: true
+  },
+  {
+    path: '/choose-add-type',
+    title: 'اختيار نوع الإعلان | سوقك',
+    description: 'اختيار نوع الإعلان الذي تريد إضافته في سوقك.',
+    canonical: '/choose-add-type',
+    noIndex: true
+  },
+  {
+    path: '/commission/pay',
+    title: 'دفع العمولة | سوقك',
+    description: 'صفحة دفع العمولة داخل سوقك.',
+    canonical: '/commission/pay',
+    noIndex: true
+  }
+];
+
 const publicRoutes = [];
 for (const route of routePages) {
   publicRoutes.push({
@@ -132,6 +261,12 @@ for (const route of routePages) {
     image: `${siteBase}/logo-full.svg`
   });
 }
+
+const privateRoutes = privateRoutePages.map((route) => ({
+  ...route,
+  url: `${siteBase}${route.canonical}`,
+  image: `${siteBase}/logo-full.svg`
+}));
 
 const fetchJson = async (url) => {
   const response = await fetch(url, { headers: { accept: 'application/json' } });
@@ -199,6 +334,19 @@ const main = async () => {
       canonical: page.url,
       image: page.image,
       type: 'website'
+    });
+    writeHtml(page.path, html);
+  }
+
+  for (const page of privateRoutes) {
+    const html = makePageHtml({
+      title: page.title,
+      description: page.description,
+      url: page.url,
+      canonical: page.url,
+      image: page.image,
+      type: 'website',
+      noIndex: true
     });
     writeHtml(page.path, html);
   }
