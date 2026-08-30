@@ -111,6 +111,46 @@ function RequireBrokerageEnabled({ children }) {
 }
 
 export default function App() {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const noIndexPaths = [
+      '/login',
+      '/register',
+      '/forgot-password',
+      '/verify-email',
+      '/seller',
+      '/add-product',
+      '/choose-add-type',
+      '/commission/pay',
+      '/messages',
+      '/notifications',
+      '/favorites',
+      '/following',
+      '/wallet',
+      '/my-ads',
+      '/account-settings',
+      '/orders',
+      '/admin',
+      '/search',
+      '/tag',
+      '/user',
+      '/s'
+    ];
+
+    const isNoIndex = noIndexPaths.some((path) =>
+      path === location.pathname || location.pathname.startsWith(`${path}/`) || location.pathname.startsWith('/admin')
+    );
+
+    let robotsMeta = document.querySelector('meta[name="robots"]');
+    if (!robotsMeta) {
+      robotsMeta = document.createElement('meta');
+      robotsMeta.setAttribute('name', 'robots');
+      document.head.appendChild(robotsMeta);
+    }
+    robotsMeta.setAttribute('content', isNoIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1');
+  }, [location.pathname]);
+
   return (
     <>
       <PushSubscriptionManager />

@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    { "source": "/robots.txt", "destination": "/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/favicon.ico", "destination": "/favicon.ico" },
+    { "source": "/apple-touch-icon.png", "destination": "/apple-touch-icon.png" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

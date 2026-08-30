@@ -373,13 +373,34 @@ app.use((err, req, res, next) => {
 });
 
 app.get("/robots.txt", (req, res) => {
-  const host = req.headers.host || "localhost:5000";
-  res.type("text/plain").send(`User-agent: *\nAllow: /\nSitemap: http://${host}/sitemap.xml`);
+  const host = req.headers.host || "souqak-yem.com";
+  const baseUrl = `https://${host.replace(/^www\./i, "")}`;
+  const lines = [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /login",
+    "Disallow: /register",
+    "Disallow: /forgot-password",
+    "Disallow: /verify-email",
+    "Disallow: /seller",
+    "Disallow: /messages",
+    "Disallow: /notifications",
+    "Disallow: /favorites",
+    "Disallow: /following",
+    "Disallow: /wallet",
+    "Disallow: /account-settings",
+    "Disallow: /my-ads",
+    "Disallow: /orders",
+    `Sitemap: ${baseUrl}/sitemap.xml`
+  ];
+  res.type("text/plain").send(lines.join("\n"));
 });
 
 app.get("/sitemap.xml", async (req, res) => {
   try {
-    const host = req.headers.host || "localhost:5000";
+    const host = req.headers.host || "souqak-yem.com";
+    const siteUrl = `https://${host.replace(/^www\./i, "")}`;
     const ads = await Ad.find({ status: "approved", isArchived: { $ne: true }, sold: { $ne: true } })
       .select("title updatedAt")
       .sort({ updatedAt: -1 })
@@ -392,19 +413,36 @@ app.get("/sitemap.xml", async (req, res) => {
         .replace(/[^a-z0-9\u0600-\u06FF\-]+/g, "")
         .replace(/\-+/g, "-")
         .replace(/^\-+|\-+$/g, "");
-    const urls = ads
-      .map((a) => {
-        const slug = slugify(a.title) || "ad";
-        const loc = `http://${host}/ad/${a._id}/${slug}`;
-        const lastmod = new Date(a.updatedAt || Date.now()).toISOString();
-        return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`;
+
+    const staticUrls = [
+      "",
+      "/categories",
+      "/how-it-works",
+      "/secure-deal-explanation",
+      "/terms",
+      "/privacy",
+      "/platform-reviews",
+      "/pricing"
+    ];
+
+    const urls = staticUrls
+      .map((path) => {
+        const loc = `${siteUrl}${path || "/"}`;
+        const lastmod = new Date().toISOString();
+        return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq><priority>${path ? "0.7" : "1.0"}</priority></url>`;
       })
+      .concat(
+        ads.map((a) => {
+          const slug = slugify(a.title) || "ad";
+          const loc = `${siteUrl}/ad/${a._id}/${slug}`;
+          const lastmod = new Date(a.updatedAt || Date.now()).toISOString();
+          return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`;
+        })
+      )
       .join("");
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` +
-      `<url><loc>http://${host}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>` +
-      urls +
-      `</urlset>`;
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`;
     res.type("application/xml").send(xml);
   } catch {
     res.status(500).type("text/plain").send("error");

@@ -577,9 +577,12 @@ export default function ProductDetail() {
             title={p.title} 
             description={p.description} 
             image={p.images?.[0] ? uploadsUrl(p.images[0]) : null}
+            url={`/ad/${p._id}/${baseSlugify(p.title)}`}
+            canonicalUrl={`/ad/${p._id}/${baseSlugify(p.title)}`}
             type="product"
             price={p.price}
             currency={p.currency}
+            indexable={p.status === 'approved' && !p.isArchived && !p.sold}
           />
         )}
         {/* Left Column: Images and Details */}

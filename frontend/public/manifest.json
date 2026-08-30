@@ -1,7 +1,7 @@
 {
   "name": "سوقك",
   "short_name": "سوقك",
-  "description": "سوقك هو رفيقك الأول للبيع والشراء في اليمن. سيارات، عقارات، إلكترونيات وأكثر.",
+  "description": "سوقك هو منصة يمنية للإعلانات المبوبة والبيع والشراء مع ميزة الشراء الآمن.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -60,7 +60,7 @@
       "sizes": "1024x1024",
       "type": "image/svg+xml",
       "form_factor": "wide",
-      "label": "Home Page of Suqaq"
+      "label": "سوقك الصفحة الرئيسية"
     }
   ]
 }
