@@ -205,24 +205,41 @@ router.get("/mine", auth, async (req, res) => {
 router.get("/status-summary", auth, async (req, res) => {
   try {
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    
-    // Auto-update status first
+
     await Commission.updateMany(
       { sellerId: req.user.id, status: "unpaid", soldAt: { $lt: tenDaysAgo } },
       { $set: { status: "overdue" } }
     );
 
-    const unpaid = await Commission.find({ 
-      sellerId: req.user.id, 
-      status: { $in: ["unpaid", "overdue"] } 
+    const blocking = await Commission.find({
+      sellerId: req.user.id,
+      $or: [
+        { status: { $in: ["unpaid", "overdue", "Pending", "Rejected"] } },
+        { commissionStatus: { $in: ["pending_payment", "pending_review", "rejected"] } }
+      ],
+      isDeleted: { $ne: true }
     }).lean();
 
+    const unpaidCount = blocking.filter(c => String(c.status || "").toLowerCase() === "unpaid").length;
+    const overdueCount = blocking.filter(c => String(c.status || "").toLowerCase() === "overdue").length;
+    const pendingReviewCount = blocking.filter(c => {
+      const status = String(c.status || "").toLowerCase();
+      const commissionStatus = String(c.commissionStatus || "").toLowerCase();
+      return ["pending", "rejected"].includes(status) || ["pending_payment", "pending_review", "rejected"].includes(commissionStatus);
+    }).length;
+
     const summary = {
-      unpaidCount: unpaid.filter(c => c.status === "unpaid").length,
-      overdueCount: unpaid.filter(c => c.status === "overdue").length,
-      totalUnpaidAmount: unpaid.reduce((sum, c) => sum + (c.commissionAmount || 0), 0),
-      currency: unpaid.length > 0 ? unpaid[0].currency : "YER_ADEN",
-      firstUnpaidAdId: unpaid.length === 1 ? unpaid[0].adId : null
+      unpaidCount,
+      overdueCount,
+      pendingReviewCount,
+      blockingCount: blocking.length,
+      totalUnpaidAmount: blocking.reduce((sum, c) => sum + (c.commissionAmount || 0), 0),
+      currency: blocking.length > 0 ? blocking[0].currency : "YER_ADEN",
+      firstUnpaidAdId: blocking.find((c) => {
+        const status = String(c.status || "").toLowerCase();
+        const commissionStatus = String(c.commissionStatus || "").toLowerCase();
+        return ["unpaid", "overdue"].includes(status) || ["pending_payment", "pending_review", "rejected"].includes(commissionStatus);
+      })?.adId || null
     };
 
     res.json(summary);

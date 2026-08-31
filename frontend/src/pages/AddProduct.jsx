@@ -73,6 +73,7 @@ export default function AddProduct() {
   const [commissionAgreed, setCommissionAgreed] = useState(adType === "order");
   const [nowTs, setNowTs] = useState(Date.now());
   const [blockErr, setBlockErr] = useState("");
+  const [pendingCommissionPayLink, setPendingCommissionPayLink] = useState("/seller/commissions");
   const [selectedMainCategoryName, setSelectedMainCategoryName] = useState("");
 
   const CONDITION_ENABLED_CATEGORIES = [
@@ -282,11 +283,23 @@ export default function AddProduct() {
     if (user) {
       api.get("/commissions/status-summary")
         .then(res => {
-          if (res.data?.overdueCount > 0) {
-            setBlockErr("قبل نشر إعلان جديد يجب سداد العمولة السابقة المتأخرة.");
+          const blockingCount = Number(res.data?.blockingCount || 0);
+          const firstUnpaidAdId = res.data?.firstUnpaidAdId?._id || res.data?.firstUnpaidAdId || null;
+
+          if (blockingCount > 0) {
+            setBlockErr("لا يمكنك إضافة إعلان حتى تقوم بدفع عمولة المنصة.");
+            setPendingCommissionPayLink(
+              firstUnpaidAdId ? `/commission/pay?adId=${firstUnpaidAdId}` : "/seller/commissions"
+            );
+          } else {
+            setBlockErr("");
+            setPendingCommissionPayLink("/seller/commissions");
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setBlockErr("");
+          setPendingCommissionPayLink("/seller/commissions");
+        });
     }
   }, [user, api]);
 
@@ -615,13 +628,16 @@ export default function AddProduct() {
             </div>
           </div>
           <h2 className="mb-4 text-2xl font-black text-gray-900">نشر الإعلان محجوب</h2>
-          <p className="mb-10 text-gray-600 font-bold leading-relaxed">{blockErr}</p>
+          <p className="mb-3 text-gray-600 font-bold leading-relaxed">{blockErr}</p>
+          <p className="mb-8 text-sm font-bold leading-relaxed text-amber-700">
+            بعد الموافقة على طلب الدفع من الإدارة، سيتم تفعيل إضافة الإعلان تلقائيًا.
+          </p>
           <div className="flex flex-col gap-3">
             <Link
-              to="/seller"
+              to={pendingCommissionPayLink}
               className="w-full rounded-2xl bg-brand-600 py-4 text-base font-black text-white transition-all hover:bg-brand-700 shadow-xl shadow-brand-100"
             >
-              دفع العمولة المتأخرة
+              دفع الآن
             </Link>
             <Link
               to="/"

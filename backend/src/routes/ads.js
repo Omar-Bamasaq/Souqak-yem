@@ -29,6 +29,7 @@ import SmartSearchService from "../services/smartSearchService.js";
 import Favorite from "../models/Favorite.js";
 import { logActivity } from "../services/activityLogService.js";
 import { protectSensitiveFields } from "../middleware/protectSensitiveFields.js";
+import { hasOutstandingCommission } from "../utils/commissionAccess.js";
 
 const router = Router();
 
@@ -1060,6 +1061,21 @@ router.post(
       showPhone, phone, showWhatsApp, whatsapp, negotiable, priceOnContact, adType,
       isResellEnabled, commissionType, commissionValue, maxResellPrice, allowAutoApproval, maxResellers
     } = req.body || {};
+
+    const unpaidCommissions = await Commission.find({
+      sellerId: req.user.id,
+      $or: [
+        { status: { $in: ["unpaid", "overdue"] } },
+        { commissionStatus: { $in: ["pending_payment", "pending_review", "rejected"] } }
+      ],
+      isDeleted: { $ne: true }
+    }).lean();
+
+    if (hasOutstandingCommission(unpaidCommissions)) {
+      return res.status(403).json({
+        error: "لا يمكنك إضافة إعلان حتى تقوم بدفع عمولة المنصة."
+      });
+    }
 
     // Business Logic Protection: Duplicate Ad Check
     const duplicateAd = await Ad.findOne({

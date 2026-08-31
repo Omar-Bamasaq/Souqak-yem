@@ -83,14 +83,14 @@ export default function CommissionReminderBar() {
             : "bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-white"
         } shadow-xl`}
       >
-        <div className="relative max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-5">
+        <div className="relative max-w-6xl mx-auto px-2 sm:px-6 py-2 sm:py-4 flex items-center gap-2 sm:gap-5">
           <div
-            className={`flex-shrink-0 w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center ${
+            className={`flex-shrink-0 w-9 h-9 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center ${
               isSevere ? "bg-white/20" : "bg-white/20"
             } backdrop-blur-sm border border-white/30`}
           >
             <svg
-              className="w-6 h-6 sm:w-7 sm:h-7"
+              className="w-5 h-5 sm:w-7 sm:h-7"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -105,8 +105,8 @@ export default function CommissionReminderBar() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5 sm:mb-1 flex-wrap">
-              <h3 className="text-[13px] sm:text-base font-black tracking-tight leading-tight">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
+              <h3 className="text-[11px] sm:text-base font-black tracking-tight leading-tight">
                 {isOverdueOnly
                   ? `تحذير: لديك ${overdueCount} عمولة متأخرة يجب سدادها فوراً`
                   : overdueCount > 0
@@ -114,7 +114,7 @@ export default function CommissionReminderBar() {
                   : `تذكير: لديك ${unpaidCount} عمولة مستحقة الدفع`}
               </h3>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-xl text-[10px] font-black border ${
+                className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[10px] font-black border ${
                   isSevere
                     ? "bg-white/25 border-white/40"
                     : "bg-white/20 border-white/30"
@@ -124,7 +124,7 @@ export default function CommissionReminderBar() {
                 {getCurrencySymbol(currency)}
               </span>
             </div>
-            <p className="text-[11px] sm:text-xs font-bold opacity-95 leading-relaxed">
+            <p className="hidden sm:block text-[11px] sm:text-xs font-bold opacity-95 leading-relaxed">
               {isSevere
                 ? "تأخير سداد العمولة قد يؤدي إلى تعليق خدمات نشر الإعلانات والمزايا الخاصة بك. يرجى سداد المبلغ المستحق لضمان استمرارية حسابك."
                 : "سداد العمولة يدعم استمرارية المنصة ويضمن لك الحفاظ على صلاحيات البائع الكاملة ورفع نسبة ثقتك مع المشترين."}
