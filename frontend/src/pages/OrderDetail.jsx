@@ -6,6 +6,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
+import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
 import { prepareFilesForUpload } from "../lib/imageCompression.js";
 
 export default function OrderDetail() {
@@ -45,6 +46,8 @@ export default function OrderDetail() {
     comment: "",
     images: []
   });
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
 
   const handleReceiptSelection = async (index, file) => {
     if (!file) return;
@@ -312,6 +315,12 @@ export default function OrderDetail() {
     COMPLETED: { label: "مكتمل", color: "bg-gray-100 text-gray-700", step: 5 },
     DISPUTED: { label: "نزاع مفتوح", color: "bg-red-100 text-red-700", step: 0 },
     CANCELLED: { label: "ملغي", color: "bg-red-50 text-red-400", step: 0 }
+  };
+
+  const openPreview = (src, title = "معاينة المستند") => {
+    if (!src) return;
+    setPreviewTitle(title);
+    setPreviewDoc(src);
   };
 
   return (
@@ -638,13 +647,13 @@ export default function OrderDetail() {
                                   <p className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">حوالة #{idx + 1}</p>
                                   <p className="text-xs font-black text-gray-900 dark:text-white truncate">رقم: {p.transactionNumber}</p>
                                 </div>
-                                <a
-                                  href={uploadsUrl(p.receiptImage)}
-                                  rel="noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => openPreview(uploadsUrl(p.receiptImage), `سند الدفع ${idx + 1}`)}
                                   className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-all"
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                </a>
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -761,9 +770,9 @@ export default function OrderDetail() {
                     {order.shippingDetails?.shippingReceipt && (
                       <div className="mt-4 pt-4 border-t border-indigo-200/50">
                         <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">سند الشحن المرفق:</p>
-                        <a
-                          href={uploadsUrl(order.shippingDetails.shippingReceipt)}
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => openPreview(uploadsUrl(order.shippingDetails.shippingReceipt), "سند الشحن")}
                           className="inline-flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-indigo-100 dark:border-slate-800 hover:shadow-lg transition-all group"
                         >
                           <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">📄</div>
@@ -771,7 +780,7 @@ export default function OrderDetail() {
                             <p className="text-xs font-black text-gray-900 dark:text-white">عرض صورة السند</p>
                             <p className="text-[9px] text-gray-400 font-bold uppercase">اضغط للمعاينة</p>
                           </div>
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -877,6 +886,8 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+
+      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
 
       {/* Seller Review Modal */}
       {showReviewModal && (
