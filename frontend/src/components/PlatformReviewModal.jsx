@@ -57,7 +57,7 @@ const PlatformReviewModal = ({ isOpen, onClose }) => {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-800"
+          className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100 dark:border-slate-800"
         >
           {submitted ? (
             <div className="p-8 md:p-12 text-center">
@@ -83,8 +83,8 @@ const PlatformReviewModal = ({ isOpen, onClose }) => {
                   </svg>
                 </button>
                 <div className="flex flex-col items-center text-center mt-2">
-                  <div className="p-2 md:p-3 bg-brand-50 dark:bg-brand-900/20 rounded-2xl mb-3">
-                    <svg className="w-6 h-6 md:w-8 md:h-8 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="p-2 md:p-3 bg-violet-50 dark:bg-violet-900/20 rounded-2xl mb-3">
+                    <svg className="w-6 h-6 md:w-8 md:h-8 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                     </svg>
                   </div>
@@ -94,7 +94,7 @@ const PlatformReviewModal = ({ isOpen, onClose }) => {
                   <Link 
                     to="/platform-reviews"
                     onClick={onClose}
-                    className="mt-2 text-[9px] md:text-[10px] font-black text-brand-600 hover:underline uppercase tracking-widest"
+                    className="mt-2 text-[9px] md:text-[10px] font-black text-violet-600 hover:underline uppercase tracking-widest"
                   >
                     رؤية تقييمات الآخرين
                   </Link>

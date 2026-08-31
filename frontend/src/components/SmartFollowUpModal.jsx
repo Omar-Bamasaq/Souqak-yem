@@ -62,14 +62,14 @@ export default function SmartFollowUpModal() {
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl border border-blue-100 dark:border-slate-800 animate-in zoom-in-95 duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100 dark:border-slate-800 animate-in zoom-in-95 duration-300">
         <div className="text-center space-y-4">
-          <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center text-4xl mx-auto animate-bounce-subtle">
+          <div className="w-20 h-20 bg-violet-50 dark:bg-violet-900/20 rounded-full flex items-center justify-center text-4xl mx-auto animate-bounce-subtle">
             🤔
           </div>
           <h3 className="text-xl font-black text-gray-900 dark:text-white">هل تم بيع إعلانك؟</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 font-bold leading-relaxed">
-            مرت 7 أيام على نشر إعلانك <span className="text-blue-600">"{currentAd.title}"</span>. نود الاطمئنان على حالة البيع لمساعدتك بشكل أفضل.
+            مرت 7 أيام على نشر إعلانك <span className="text-violet-600">"{currentAd.title}"</span>. نود الاطمئنان على حالة البيع لمساعدتك بشكل أفضل.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function SmartFollowUpModal() {
           <button
             disabled={loading}
             onClick={() => handleResponse("sold")}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-lg shadow-emerald-100 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white font-black rounded-2xl shadow-lg shadow-violet-100 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? "جاري التحديث..." : "✅ نعم، تم البيع بحمد الله"}
           </button>

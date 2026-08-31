@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import User from "../models/User.js";
+import { resolveInlineFileHeaders } from "../utils/filePreview.js";
 import Order from "../models/Order.js";
 import VerificationRequest from "../models/VerificationRequest.js";
 import Withdrawal from "../models/Withdrawal.js";
@@ -271,7 +272,20 @@ router.get(
         );
       }
 
-      res.sendFile(filePath);
+      const { contentType, contentDisposition, filename: previewFilename } = resolveInlineFileHeaders(filePath);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", contentDisposition);
+      res.setHeader("Cache-Control", "private, no-store, max-age=0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Frame-Options", "SAMEORIGIN");
+      res.setHeader("Content-Security-Policy", "frame-ancestors 'self';");
+      res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+      }
+      res.sendFile(filePath, { headers: { "Content-Disposition": contentDisposition, "X-Content-Type-Options": "nosniff" } });
     } catch (error) {
       console.error("File access error:", error);
       return sendErrorResponse(req, res, 500,

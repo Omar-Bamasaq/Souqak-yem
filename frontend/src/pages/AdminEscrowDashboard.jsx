@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
@@ -40,6 +40,11 @@ export default function AdminEscrowDashboard() {
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
+  const [previewReceipt, setPreviewReceipt] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
+  const [isDraggingPreview, setIsDraggingPreview] = useState(false);
+  const previewDragStartRef = useRef(null);
 
   const formatCurrency = (currency) => {
     const map = {
@@ -74,6 +79,45 @@ export default function AdminEscrowDashboard() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const openReceiptPreview = (image) => {
+    if (!image) return;
+    setPreviewReceipt(protectedFileUrl(image, authToken));
+    setPreviewScale(1);
+    setPreviewOffset({ x: 0, y: 0 });
+    setIsDraggingPreview(false);
+    previewDragStartRef.current = null;
+  };
+
+  const closeReceiptPreview = () => {
+    setPreviewReceipt(null);
+    setPreviewScale(1);
+    setPreviewOffset({ x: 0, y: 0 });
+    setIsDraggingPreview(false);
+    previewDragStartRef.current = null;
+  };
+
+  const handlePreviewMouseDown = (event) => {
+    if (previewScale <= 1) return;
+    setIsDraggingPreview(true);
+    previewDragStartRef.current = {
+      x: event.clientX - previewOffset.x,
+      y: event.clientY - previewOffset.y,
+    };
+  };
+
+  const handlePreviewMouseMove = (event) => {
+    if (!isDraggingPreview || previewScale <= 1 || !previewDragStartRef.current) return;
+    setPreviewOffset({
+      x: event.clientX - previewDragStartRef.current.x,
+      y: event.clientY - previewDragStartRef.current.y,
+    });
+  };
+
+  const handlePreviewMouseUp = () => {
+    setIsDraggingPreview(false);
+    previewDragStartRef.current = null;
+  };
 
   const handleConfirmPayment = async (orderId) => {
     if (!confirm("تأكيد استلام الحوالة البنكية؟ سيتم تحويل حالة الطلب إلى 'تم الدفع'.")) return;
@@ -290,15 +334,14 @@ export default function AdminEscrowDashboard() {
                           <p className="text-xs font-black text-gray-700 bg-gray-100 px-2 py-1 rounded-md inline-block">🏦 {o.paymentDetails?.bankName}</p>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {o.paymentDetails?.payments?.map((p, idx) => (
-                              <a 
+                              <button
                                 key={idx}
-                                href={protectedFileUrl(p.receiptImage, authToken)} 
-                                target="_blank" 
-                                rel="noreferrer" 
+                                type="button"
+                                onClick={() => openReceiptPreview(p.receiptImage)}
                                 className="px-2 py-1 bg-white border border-blue-100 text-blue-600 text-[9px] font-black rounded-md shadow-sm hover:bg-blue-50 transition-all"
                               >
                                 سند {idx + 1}
-                              </a>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -386,10 +429,9 @@ export default function AdminEscrowDashboard() {
                               <p className="text-[10px] font-black text-gray-500 uppercase tracking-tighter mb-0.5">رقم العملية</p>
                               <p className="text-xs font-black text-blue-900 truncate">#{p.transactionNumber}</p>
                             </div>
-                            <a 
-                              href={protectedFileUrl(p.receiptImage, authToken)} 
-                              target="_blank" 
-                              rel="noreferrer" 
+                            <button
+                              type="button"
+                              onClick={() => openReceiptPreview(p.receiptImage)}
                               className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black shadow-md shadow-blue-100 active:scale-95"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -397,7 +439,7 @@ export default function AdminEscrowDashboard() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
                               عرض السند
-                            </a>
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -574,7 +616,6 @@ export default function AdminEscrowDashboard() {
                           <div className="space-y-1.5">
                             <a 
                               href={protectedFileUrl(w.bankDetails.identityImage, authToken)} 
-                              target="_blank" 
                               rel="noreferrer" 
                               className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
                             >
@@ -642,8 +683,8 @@ export default function AdminEscrowDashboard() {
                           {w.status === 'COMPLETED' && w.transactionProof && (
                             <a 
                               href={protectedFileUrl(w.transactionProof, authToken)} 
-                              target="_blank" 
                               rel="noreferrer"
+                              onClick={(e) => { e.preventDefault(); openReceiptPreview(w.transactionProof); }}
                               className="px-4 py-2.5 bg-green-50 text-green-700 border-2 border-green-100 rounded-xl text-[10px] font-black hover:bg-green-100 transition-all active:scale-95 flex items-center gap-1.5"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -848,7 +889,7 @@ export default function AdminEscrowDashboard() {
                     </a>
 
                     {w.bankDetails?.identityImage ? (
-                      <a href={protectedFileUrl(w.bankDetails.identityImage, authToken)} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 rounded-2xl p-3 hover:from-emerald-100 transition-all">
+                      <a href={protectedFileUrl(w.bankDetails.identityImage, authToken)} rel="noreferrer" onClick={(e) => { e.preventDefault(); openReceiptPreview(w.bankDetails.identityImage); }} className="flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 rounded-2xl p-3 hover:from-emerald-100 transition-all">
                         <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </div>
@@ -880,7 +921,7 @@ export default function AdminEscrowDashboard() {
 
                   {/* Transaction Proof (when COMPLETED) */}
                   {w.status === 'COMPLETED' && w.transactionProof && (
-                    <a href={protectedFileUrl(w.transactionProof, authToken)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-2xl border-2 border-green-100 text-[11px] font-black hover:from-green-100 transition-all">
+                    <a href={protectedFileUrl(w.transactionProof, authToken)} rel="noreferrer" onClick={(e) => { e.preventDefault(); openReceiptPreview(w.transactionProof); }} className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-2xl border-2 border-green-100 text-[11px] font-black hover:from-green-100 transition-all">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       عرض إثبات التحويل البنكي
                     </a>
@@ -923,6 +964,87 @@ export default function AdminEscrowDashboard() {
               })}
             </div>
           </>
+        )}
+
+        {previewReceipt && (
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-3 sm:p-6"
+            onClick={closeReceiptPreview}
+            onMouseMove={handlePreviewMouseMove}
+            onMouseUp={handlePreviewMouseUp}
+            onMouseLeave={handlePreviewMouseUp}
+          >
+            <div
+              className="relative w-full max-w-5xl max-h-[92vh] overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl backdrop-blur-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-black/30 px-4 py-3 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeReceiptPreview}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                    title="إغلاق"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewScale(prev => Math.min(prev + 0.5, 4))}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-30"
+                    disabled={previewScale >= 4}
+                    title="تكبير"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewScale(prev => {
+                        const next = Math.max(prev - 0.5, 1);
+                        if (next === 1) setPreviewOffset({ x: 0, y: 0 });
+                        return next;
+                      });
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-30"
+                    disabled={previewScale <= 1}
+                    title="تصغير"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPreviewScale(1); setPreviewOffset({ x: 0, y: 0 }); }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                    title="إعادة ضبط"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex h-[92vh] max-h-[92vh] items-center justify-center overflow-hidden bg-black/40 p-6 pt-16">
+                <div
+                  className={`relative flex max-h-full max-w-full items-center justify-center select-none transition-transform duration-200 ease-out ${isDraggingPreview ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  onMouseDown={handlePreviewMouseDown}
+                  onMouseUp={handlePreviewMouseUp}
+                  style={{
+                    transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`,
+                  }}
+                >
+                  <img
+                    src={previewReceipt}
+                    alt="معاينة السند"
+                    className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'disputes' && (

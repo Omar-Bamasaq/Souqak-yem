@@ -153,7 +153,6 @@ export default function SupportChatFAB() {
           <a
             key={i}
             href={part}
-            target="_blank"
             rel="noopener noreferrer"
             className={`${isMe ? 'text-blue-100 underline hover:text-white' : 'text-blue-600 underline hover:text-blue-800'} break-all`}
             onClick={(e) => e.stopPropagation()}
@@ -252,7 +251,7 @@ export default function SupportChatFAB() {
                   {msg.images && msg.images.length > 0 && (
                     <div className={`mt-2 grid gap-2 ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       {msg.images.map((img, idx) => (
-                        <a key={idx} href={uploadsUrl(img)} target="_blank" rel="noopener noreferrer">
+                        <a key={idx} href={uploadsUrl(img)} rel="noopener noreferrer">
                           <img 
                             src={uploadsUrl(img)} 
                             alt="attachment" 

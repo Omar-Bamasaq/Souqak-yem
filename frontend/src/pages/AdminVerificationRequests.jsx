@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
 import axios from "axios";
 
 function uploadsBaseUrl() {
@@ -70,6 +71,8 @@ export default function AdminVerificationRequests() {
   const [rejectingId, setRejectingId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
 
   const load = async () => {
     setLoading(true);
@@ -142,6 +145,12 @@ export default function AdminVerificationRequests() {
   };
 
   const req = requests.find((r) => r._id === openId);
+
+  const openPreview = (src, title) => {
+    if (!src) return;
+    setPreviewTitle(title);
+    setPreviewDoc(src);
+  };
 
   return (
     <div className="space-y-6">
@@ -244,6 +253,8 @@ export default function AdminVerificationRequests() {
           <p className="text-gray-400 font-bold mt-2">جرب تغيير الفلتر أو كلمة البحث</p>
         </div>
       )}
+
+      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
 
       {/* Details Modal */}
       {openId && req && (
@@ -351,29 +362,29 @@ export default function AdminVerificationRequests() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 sm:gap-6">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">الهوية (الوجه الأمامي)</p>
-                    <a href={protectedFileUrl(req.idFrontImage, authToken)} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
+                    <button type="button" onClick={() => openPreview(protectedFileUrl(req.idFrontImage, authToken), "الهوية (الوجه الأمامي)")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
                       <img src={protectedFileUrl(req.idFrontImage, authToken)} alt="ID Front" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" onError={(e) => { e.target.onerror = null; e.target.src = ID_PLACEHOLDER; }} />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
-                    </a>
+                    </button>
                   </div>
 
                   {req.idBackImage && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">الهوية (الوجه الخلفي)</p>
-                      <a href={protectedFileUrl(req.idBackImage, authToken)} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
+                      <button type="button" onClick={() => openPreview(protectedFileUrl(req.idBackImage, authToken), "الهوية (الوجه الخلفي)")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
                         <img src={protectedFileUrl(req.idBackImage, authToken)} alt="ID Back" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" onError={(e) => { e.target.onerror = null; e.target.src = ID_PLACEHOLDER; }} />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
-                      </a>
+                      </button>
                     </div>
                   )}
 
                   {req.selfieImage && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">صورة سيلفي مع الهوية</p>
-                      <a href={protectedFileUrl(req.selfieImage, authToken)} target="_blank" rel="noreferrer" className="block rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto">
+                      <button type="button" onClick={() => openPreview(protectedFileUrl(req.selfieImage, authToken), "صورة selfie مع الهوية")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
                         <img src={protectedFileUrl(req.selfieImage, authToken)} alt="Selfie" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" onError={(e) => { e.target.onerror = null; e.target.src = ID_PLACEHOLDER; }} />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>

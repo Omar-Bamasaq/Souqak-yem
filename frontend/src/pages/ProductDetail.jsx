@@ -1167,7 +1167,7 @@ export default function ProductDetail() {
                       <button 
                         onClick={() => checkPledge(() => {
                           trackClick("whatsapp");
-                          window.open(`https://wa.me/${p.contactInfo.whatsapp?.replace(/\D/g, '')}`, "_blank");
+                          window.location.href = `https://wa.me/${p.contactInfo.whatsapp?.replace(/\D/g, '')}`;
                         })}
                         className="flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-3 text-sm font-bold text-white hover:bg-green-600 transition-all shadow-lg shadow-green-100 active:scale-95"
                       >

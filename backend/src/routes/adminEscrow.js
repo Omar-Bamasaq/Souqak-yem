@@ -19,6 +19,7 @@ import {
 import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
 import { createNotification } from "../services/notificationService.js";
+import { clearRejectedPaymentDetails } from "../utils/orderPaymentState.js";
 
 const router = Router();
 
@@ -172,20 +173,26 @@ router.patch(
   validateBody(Joi.object({ reason: Joi.string().required() })),
   async (req, res) => {
     try {
-      const order = await Order.findOneAndUpdate(
-        { _id: req.params.id, status: "AWAITING_PAYMENT_CONFIRMATION" },
-        { 
-          status: "AWAITING_PAYMENT", // إعادة الطلب لحالة بانتظار الدفع
+      const currentOrder = await Order.findOne({
+        _id: req.params.id,
+        status: "AWAITING_PAYMENT_CONFIRMATION"
+      }).lean();
+
+      if (!currentOrder) return res.status(400).json({ error: "الطلب غير موجود أو معالج مسبقاً." });
+
+      const order = await Order.findByIdAndUpdate(
+        req.params.id,
+        {
+          status: "AWAITING_PAYMENT",
           verifiedByAdminId: req.user.id,
           verifiedAt: new Date(),
-          $set: { 
-            notes: `رفض الدفع: ${req.body.reason}` 
+          $set: {
+            notes: `رفض الدفع: ${req.body.reason}`,
+            paymentDetails: clearRejectedPaymentDetails(currentOrder.paymentDetails || {})
           }
         },
         { new: true }
       );
-
-      if (!order) return res.status(400).json({ error: "الطلب غير موجود أو معالج مسبقاً." });
 
       await AdminEscrowLog.create({
         admin: req.user.id,

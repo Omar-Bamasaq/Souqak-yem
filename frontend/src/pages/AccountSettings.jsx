@@ -449,8 +449,7 @@ export default function AccountSettings() {
               <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">تابعنا على منصات التواصل</h2>
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <a 
-                  href="https://www.facebook.com/share/1GGvSFnu8Q/" 
-                  target="_blank" 
+                  href="https://www.facebook.com/share/1GGvSFnu8Q/"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center p-4 rounded-3xl bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 transition-all active:scale-95 group"
                 >
@@ -463,8 +462,7 @@ export default function AccountSettings() {
                 </a>
 
                 <a 
-                  href="https://www.instagram.com/souqak.ye?igsh=dWlpa215M2x1MWxz" 
-                  target="_blank" 
+                  href="https://www.instagram.com/souqak.ye?igsh=dWlpa215M2x1MWxz"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center p-4 rounded-3xl bg-rose-50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-900/30 transition-all active:scale-95 group"
                 >
@@ -478,7 +476,6 @@ export default function AccountSettings() {
 
                 <a
                   href="https://whatsapp.com/channel/0029VbDWxY0BlHplgBSNoc12"
-                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-3xl bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-900/30 transition-all active:scale-95 group"
                 >

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
 
 function uploadsBaseUrl() {
   let envUrl = import.meta.env.VITE_UPLOADS_URL;
@@ -39,6 +40,8 @@ export default function AdminSoldAds() {
   const [rejectReason, setRejectReason] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
 
   const load = async () => {
     setLoading(true);
@@ -82,6 +85,12 @@ export default function AdminSoldAds() {
     } catch {
       window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تعذر التحديث", type: "error" } }));
     }
+  };
+
+  const openPreview = (src, title = "معاينة المستند") => {
+    if (!src) return;
+    setPreviewTitle(title);
+    setPreviewDoc(src);
   };
 
   const getCurrencySymbol = (code) => {
@@ -321,6 +330,8 @@ export default function AdminSoldAds() {
       </div>
 
       {/* تفاصيل الطلب - Modal (Matching featured-requests design) */}
+      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
+
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
           <div 
@@ -340,10 +351,9 @@ export default function AdminSoldAds() {
                 {selectedItem.adId ? (
                   <a 
                     href={`/product/${selectedItem.adId._id}`} 
-                    target="_blank" 
                     rel="noreferrer" 
                     className="font-black text-blue-600 hover:underline truncate max-w-[200px]"
-                    title="فتح الإعلان في صفحة جديدة"
+                    title="فتح الإعلان"
                   >
                     {selectedItem.adId.title}
                   </a>
@@ -375,28 +385,26 @@ export default function AdminSoldAds() {
               {selectedItem.paymentReceipt && (
                 <div className="flex justify-between border-b pb-2 items-center">
                   <span className="text-gray-500 font-bold">صورة السند:</span>
-                  <a 
-                    href={protectedFileUrl(selectedItem.paymentReceipt, authToken)} 
-                    target="_blank" 
-                    rel="noreferrer" 
+                  <button 
+                    type="button" 
+                    onClick={() => openPreview(protectedFileUrl(selectedItem.paymentReceipt, authToken), "سند الدفع")}
                     className="text-blue-600 hover:underline font-black"
                   >
                     عرض السند
-                  </a>
+                  </button>
                 </div>
               )}
 
               {selectedItem.adImage && (
                 <div className="flex justify-between border-b pb-2 items-center">
                   <span className="text-gray-500 font-bold">صورة الإعلان:</span>
-                  <a 
-                    href={protectedFileUrl(selectedItem.adImage, authToken)} 
-                    target="_blank" 
-                    rel="noreferrer" 
+                  <button 
+                    type="button" 
+                    onClick={() => openPreview(protectedFileUrl(selectedItem.adImage, authToken), "صورة الإعلان")}
                     className="text-blue-600 hover:underline font-black"
                   >
                     عرض الصورة
-                  </a>
+                  </button>
                 </div>
               )}
             </div>

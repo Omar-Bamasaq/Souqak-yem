@@ -74,7 +74,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
   if (success) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm p-10 text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl">
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm p-10 text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100">
           <div className="h-24 w-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto text-green-500 animate-bounce">
             <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -91,7 +91,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-md overflow-hidden shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
         <div className="px-5 py-4 border-b dark:border-slate-800 flex items-start justify-between relative">
           <button onClick={onClose} className="absolute left-4 top-4 h-8 w-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-slate-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,13 +115,13 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 text-right flex flex-col justify-center bg-blue-50/80 dark:bg-blue-900/20 px-2 py-1.5 rounded-xl border border-blue-100/50 dark:border-blue-800/30 shadow-sm">
-              <span className="text-[9px] font-black text-blue-700 dark:text-blue-400 leading-none">{Number(finalPrice).toLocaleString()}</span>
-              <span className="text-[7px] font-bold text-blue-500/70 leading-none mt-0.5">{formatCurrency(currency)}</span>
+            <div className="flex-shrink-0 text-right flex flex-col justify-center bg-violet-50/80 dark:bg-violet-900/20 px-2 py-1.5 rounded-xl border border-violet-100/50 dark:border-violet-800/30 shadow-sm">
+              <span className="text-[9px] font-black text-violet-700 dark:text-violet-400 leading-none">{Number(finalPrice).toLocaleString()}</span>
+              <span className="text-[7px] font-bold text-violet-500/70 leading-none mt-0.5">{formatCurrency(currency)}</span>
             </div>
             <div className="min-w-0">
               <h3 className="text-lg font-black text-gray-900 dark:text-white leading-none truncate">طلب شراء آمن</h3>
-              <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mt-1">وساطة منصة سوقك</p>
+              <p className="text-[9px] font-bold text-violet-600 uppercase tracking-widest mt-1">وساطة منصة سوقك</p>
             </div>
           </div>
         </div>
@@ -174,7 +174,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
                       setShippingPayer(type);
                       if (type === "none") setShippingFee(0);
                     }}
-                    className={`py-2.5 rounded-xl text-[11px] font-black border-2 transition-all ${shippingPayer === type ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100" : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-800 text-gray-500"}`}
+                    className={`py-2.5 rounded-xl text-[11px] font-black border-2 transition-all ${shippingPayer === type ? "bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-100" : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-800 text-gray-500"}`}
                   >
                     {type === "buyer" ? "المشتري" : type === "seller" ? "البائع" : "لا يوجد"}
                   </button>
@@ -189,7 +189,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
                   <div className="col-span-2">
                     <input 
                       type="number" 
-                      className="w-full rounded-xl border-2 border-blue-100 dark:border-blue-900/30 bg-blue-50/30 dark:bg-blue-900/10 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-blue-300"
+                      className="w-full rounded-xl border-2 border-violet-100 dark:border-violet-900/30 bg-violet-50/30 dark:bg-violet-900/10 px-4 py-3 text-sm font-bold outline-none focus:border-violet-500 focus:bg-white transition-all placeholder:text-violet-300"
                       value={shippingFee}
                       onChange={(e) => setShippingFee(e.target.value)}
                       placeholder="أدخل المبلغ..."
@@ -244,13 +244,13 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
               <div className="border-t border-dashed border-gray-200 dark:border-slate-700 pt-3 flex justify-between items-center">
                 <span className="text-sm font-black text-gray-900 dark:text-white">المبلغ الإجمالي</span>
                 <div className="text-left">
-                  <div className="text-lg font-black text-blue-600 leading-tight">
+                  <div className="text-lg font-black text-violet-600 leading-tight">
                     {currency === (shippingPayer === "buyer" ? shippingCurrency : currency) ? (
                       `${totalAmount.toLocaleString()} ${formatCurrency(currency)}`
                     ) : (
                       <div className="flex flex-col items-end">
                         <span className="text-lg">{(Number(finalPrice) + buyerProtectionFee).toLocaleString()} {formatCurrency(currency)}</span>
-                        <span className="text-xs text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-md mt-1 font-black">
+                        <span className="text-xs text-violet-500 bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-md mt-1 font-black">
                           + {Number(shippingFee).toLocaleString()} {formatCurrency(shippingCurrency)} (توصيل)
                         </span>
                       </div>

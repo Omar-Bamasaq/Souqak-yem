@@ -208,7 +208,6 @@ export default function AdminSupportInbox() {
           <a
             key={i}
             href={part}
-            target="_blank"
             rel="noopener noreferrer"
             className={`${isMe ? 'text-blue-100 underline hover:text-white' : 'text-blue-600 underline hover:text-blue-800'} break-all`}
             onClick={(e) => e.stopPropagation()}
@@ -353,7 +352,7 @@ export default function AdminSupportInbox() {
                     {msg.images && msg.images.length > 0 && (
                       <div className={`mt-3 grid gap-2 ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {msg.images.map((img, idx) => (
-                          <a key={idx} href={uploadsUrl(img)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-gray-100/10">
+                          <a key={idx} href={uploadsUrl(img)} rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-gray-100/10">
                             <img 
                               src={uploadsUrl(img)} 
                               alt="attachment" 

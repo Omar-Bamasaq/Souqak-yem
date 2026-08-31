@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 
 function uploadsBaseUrl() {
@@ -40,6 +41,8 @@ export default function AdminEscrowMonitoring() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
 
   const statusMap = {
     PENDING_SELLER_APPROVAL: { label: "بانتظار موافقة البائع", color: "bg-amber-100 text-amber-700" },
@@ -90,6 +93,12 @@ export default function AdminEscrowMonitoring() {
       "USD": "دولار أمريكي"
     };
     return map[currency] || currency;
+  };
+
+  const openPreview = (src, title = "معاينة المستند") => {
+    if (!src) return;
+    setPreviewDoc(src);
+    setPreviewTitle(title);
   };
 
   return (
@@ -239,7 +248,7 @@ export default function AdminEscrowMonitoring() {
                                 <p className="text-[10px] text-gray-400 font-bold mb-1">رقم العملية {idx + 1}</p>
                                 <p className="text-xs font-black text-gray-900">{p.transactionNumber}</p>
                               </div>
-                              <a href={protectedFileUrl(p.receiptImage, authToken)} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">معاينة السند</a>
+                              <button type="button" onClick={() => openPreview(protectedFileUrl(p.receiptImage, authToken), `سند الدفع ${idx + 1}`)} className="px-4 py-2 bg-white text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">معاينة السند</button>
                             </div>
                           ))}
                         </div>
@@ -268,13 +277,13 @@ export default function AdminEscrowMonitoring() {
                           </div>
                           {order.shippingDetails.shippingReceipt && (
                             <div className="pt-4 border-t border-gray-200">
-                               <a href={protectedFileUrl(order.shippingDetails.shippingReceipt, authToken)} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-indigo-100 hover:shadow-md transition-all group">
+                               <button type="button" onClick={() => openPreview(protectedFileUrl(order.shippingDetails.shippingReceipt, authToken), "سند الشحن")} className="flex w-full items-center gap-3 p-3 bg-white rounded-2xl border border-indigo-100 hover:shadow-md transition-all group text-right">
                                 <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">📄</div>
                                 <div>
                                   <p className="text-xs font-black text-gray-900">سند الشحن المرفق</p>
                                   <p className="text-[9px] text-gray-400 font-bold">اضغط للمعاينة</p>
                                 </div>
-                              </a>
+                              </button>
                             </div>
                           )}
                         </div>
@@ -307,6 +316,8 @@ export default function AdminEscrowMonitoring() {
           ))
         )}
       </div>
+
+      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
 
       {/* Pagination */}
       {pages > 1 && (

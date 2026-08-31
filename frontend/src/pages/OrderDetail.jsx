@@ -640,7 +640,6 @@ export default function OrderDetail() {
                                 </div>
                                 <a
                                   href={uploadsUrl(p.receiptImage)}
-                                  target="_blank"
                                   rel="noreferrer"
                                   className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-all"
                                 >
@@ -764,7 +763,6 @@ export default function OrderDetail() {
                         <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">سند الشحن المرفق:</p>
                         <a
                           href={uploadsUrl(order.shippingDetails.shippingReceipt)}
-                          target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-indigo-100 dark:border-slate-800 hover:shadow-lg transition-all group"
                         >

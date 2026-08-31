@@ -587,7 +587,6 @@ export default function Messages() {
           <a
             key={i}
             href={part}
-            target="_blank"
             rel="noopener noreferrer"
             className={`${text.includes('📍 موقعي الحالي') ? 'underline font-black text-blue-100 hover:text-white' : 'text-blue-600 underline hover:text-blue-800'} break-all`}
             onClick={(e) => e.stopPropagation()}

@@ -72,7 +72,7 @@ const OnboardingTour = () => {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl border dark:border-slate-800"
+            className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100 dark:border-slate-800"
           >
             <div className="p-8 text-center space-y-6">
               <div className="text-6xl mb-4 animate-bounce">
@@ -109,7 +109,7 @@ const OnboardingTour = () => {
                 </button>
                 <button
                   onClick={handleNext}
-                  className="flex-[2] px-6 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all"
+                  className="flex-[2] px-6 py-4 bg-violet-600 text-white rounded-2xl font-black shadow-lg shadow-violet-500/20 hover:bg-violet-700 active:scale-95 transition-all"
                 >
                   {step === steps.length - 1 ? 'ابدأ الآن' : 'التالي'}
                 </button>

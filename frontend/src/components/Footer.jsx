@@ -18,8 +18,7 @@ export default function Footer() {
             {/* Social Media Links */}
             <div className="flex items-center gap-4 mt-2">
               <a 
-                href="https://www.facebook.com/share/1GGvSFnu8Q/" 
-                target="_blank" 
+                href="https://www.facebook.com/share/1GGvSFnu8Q/"
                 rel="noopener noreferrer"
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm hover:scale-110 active:scale-95"
                 title="فيسبوك"
@@ -29,8 +28,7 @@ export default function Footer() {
                 </svg>
               </a>
               <a 
-                href="https://www.instagram.com/souqak.ye?igsh=dWlpa215M2x1MWxz" 
-                target="_blank" 
+                href="https://www.instagram.com/souqak.ye?igsh=dWlpa215M2x1MWxz"
                 rel="noopener noreferrer"
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 text-white hover:opacity-90 transition-all shadow-sm hover:scale-110 active:scale-95"
                 title="انستقرام"
@@ -41,7 +39,6 @@ export default function Footer() {
               </a>
               <a
                 href="https://whatsapp.com/channel/0029VbDWxY0BlHplgBSNoc12"
-                target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-all shadow-sm hover:scale-110 active:scale-95"
                 title="واتساب"

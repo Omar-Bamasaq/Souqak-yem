@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
 import axios from "axios";
 
 const RECEIPT_PLACEHOLDER = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#f9fafb"/><circle cx="400" cy="200" r="60" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/><text x="400" y="230" font-family="Arial,sans-serif" font-size="72" font-weight="bold" fill="#dc2626" text-anchor="middle">!</text><text x="400" y="320" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#7f1d1d" text-anchor="middle">السند غير متوفر</text><text x="400" y="370" font-family="Arial,sans-serif" font-size="16" fill="#991b1b" text-anchor="middle">تعذر تحميل صورة السند</text></svg>`);
@@ -66,6 +67,8 @@ export default function AdminFeaturedRequests() {
   const [rejectingId, setRejectingId] = useState(null);
   const [receiptBlobUrl, setReceiptBlobUrl] = useState(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState("معاينة السند");
   const blobUrlRef = useRef(null);
   const lastLoadedReceiptRef = useRef(null);
   const loadIdRef = useRef(0);
@@ -150,6 +153,12 @@ export default function AdminFeaturedRequests() {
     const r = requests.find(x => x._id === openId);
     return r?.paymentReceipt || null;
   }, [openId, requests]);
+
+  const openReceiptPreview = (receiptPath, title = "معاينة السند") => {
+    if (!receiptPath) return;
+    setPreviewTitle(title);
+    setPreviewDoc(protectedFileUrl(receiptPath, authToken));
+  };
 
   useEffect(() => {
     if (!openId) {
@@ -300,9 +309,9 @@ export default function AdminFeaturedRequests() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     {r.paymentReceipt && (
-                      <a href={protectedFileUrl(r.paymentReceipt, authToken)} target="_blank" rel="noreferrer" className="inline-flex p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all border border-blue-100">
+                      <button type="button" onClick={() => openReceiptPreview(r.paymentReceipt, `سند الدفع - ${r.user?.name || "مستخدم"}`)} className="inline-flex p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all border border-blue-100">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      </a>
+                      </button>
                     )}
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -379,10 +388,10 @@ export default function AdminFeaturedRequests() {
 
               <div className="flex gap-2 pt-2">
                 {r.paymentReceipt && (
-                  <a href={protectedFileUrl(r.paymentReceipt, authToken)} target="_blank" rel="noreferrer" className="flex-1 py-3.5 bg-gray-50 text-gray-600 border border-gray-100 rounded-2xl text-xs font-black flex items-center justify-center gap-2">
+                  <button type="button" onClick={() => openReceiptPreview(r.paymentReceipt, `سند الدفع - ${r.user?.name || "مستخدم"}`)} className="flex-1 py-3.5 bg-gray-50 text-gray-600 border border-gray-100 rounded-2xl text-xs font-black flex items-center justify-center gap-2">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     السند
-                  </a>
+                  </button>
                 )}
                 {r.status === "Pending" && (
                   <button onClick={() => setOpenId(r._id)} className="flex-[2] py-3.5 bg-blue-600 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-100 active:scale-95">مراجعة الطلب</button>
@@ -397,6 +406,8 @@ export default function AdminFeaturedRequests() {
           )}
         </div>
       </div>
+
+      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
 
       {/* Modal */}
       {openId && req && (
@@ -437,7 +448,7 @@ export default function AdminFeaturedRequests() {
               {req.paymentReceipt && (
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">مرفق الدفع (السند)</p>
-                  <a href={protectedFileUrl(req.paymentReceipt, authToken)} target="_blank" rel="noreferrer" className="block relative group overflow-hidden rounded-3xl border-2 border-dashed border-gray-100 hover:border-blue-200 transition-colors aspect-video bg-gray-50">
+                  <button type="button" onClick={() => openReceiptPreview(req.paymentReceipt, `سند الدفع - ${req.user?.name || "مستخدم"}`)} className="block w-full relative group overflow-hidden rounded-3xl border-2 border-dashed border-gray-100 hover:border-blue-200 transition-colors aspect-video bg-gray-50 text-left">
                     {receiptLoading ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/90 z-10">
                         <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
@@ -457,7 +468,7 @@ export default function AdminFeaturedRequests() {
                     <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 flex items-center justify-center transition-all">
                       <span className="px-4 py-2 bg-white text-blue-600 rounded-xl text-xs font-black shadow-xl opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">عرض الحجم الكامل</span>
                     </div>
-                  </a>
+                  </button>
                 </div>
               )}
 

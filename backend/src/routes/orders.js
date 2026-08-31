@@ -12,6 +12,7 @@ import { releaseBalance } from "../services/walletService.js";
 import { createNotification } from "../services/notificationService.js";
 import AdminNotification from "../models/AdminNotification.js";
 import User from "../models/User.js";
+import { buildReplacementPaymentDetails } from "../utils/orderPaymentState.js";
 import { sendAdminEmail } from "../utils/sendEmail.js";
 import { sendSafePurchaseNotification } from "../utils/emailSender.js";
 
@@ -268,18 +269,9 @@ router.patch(
 
       // تحديث الحالة
       order.status = "AWAITING_PAYMENT_CONFIRMATION";
-      
-      // استخدام الطريقة الأكثر أماناً لتحديث الحقول المتداخلة في Mongoose
-      const existingPayments = (order.paymentDetails && Array.isArray(order.paymentDetails.payments)) 
-        ? order.paymentDetails.payments 
-        : [];
 
-      // إعادة بناء كائن paymentDetails بالكامل لتجنب أي تعارض مع الهيكل القديم
-      const updatedPaymentDetails = {
-        bankName: String(bankName).trim(),
-        payments: [...existingPayments, ...newPayments].slice(0, 5), // Allow more than 2 if needed
-        submittedAt: new Date()
-      };
+      // استبدال كامل لسندات الدفع السابقة بدلاً من إلحاقها، حتى إذا تم رفض الطلب سابقاً
+      const updatedPaymentDetails = buildReplacementPaymentDetails(bankName, newPayments, order.paymentDetails?.payments || []);
 
       console.log("Updating order with paymentDetails:", JSON.stringify(updatedPaymentDetails, null, 2));
       order.set('paymentDetails', updatedPaymentDetails);

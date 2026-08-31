@@ -112,13 +112,12 @@ export default function NotificationPrompt() {
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 100 }}
-          className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl border border-gray-100 dark:border-slate-800 text-center relative overflow-hidden"
+          className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100 dark:border-slate-800 text-center relative overflow-hidden"
         >
-          {/* Background decoration */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
           
           <div className="relative z-10">
-            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-3xl flex items-center justify-center mx-auto mb-6 text-4xl shadow-sm border border-blue-100 dark:border-blue-900/30 animate-bounce">
+            <div className="w-20 h-20 bg-violet-50 dark:bg-violet-900/20 rounded-3xl flex items-center justify-center mx-auto mb-6 text-4xl shadow-sm border border-violet-100 dark:border-violet-900/30 animate-bounce">
               🔔
             </div>
             
@@ -131,7 +130,7 @@ export default function NotificationPrompt() {
               <button
                 disabled={loading}
                 onClick={() => updatePrefs(true)}
-                className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-4 bg-violet-600 text-white font-black rounded-2xl shadow-lg shadow-violet-200 dark:shadow-none hover:bg-violet-700 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -148,7 +147,7 @@ export default function NotificationPrompt() {
               <button
                 disabled={loading}
                 onClick={handleDismiss}
-                className="w-full py-4 bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 font-black rounded-2xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50"
+                className="w-full py-4 bg-gray-50 hover:bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 font-black rounded-2xl transition-all active:scale-95 disabled:opacity-50"
               >
                 ليس الآن
               </button>
