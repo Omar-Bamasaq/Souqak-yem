@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import dns from "dns";
+import { getFrontendBaseUrl } from "./siteUrl.js";
 
 const ipv4Lookup = (hostname, options, callback) => {
   return dns.lookup(hostname, { family: 4 }, callback);
@@ -237,7 +238,7 @@ export async function sendSafePurchaseNotification(to, sellerName, adTitle, orde
           <div style="font-size: 14px; color: #666;">رسوم التوصيل: ${shippingFee} ${shippingCurrency}</div>
         </div>
         <p style="color: #666; font-size: 14px; margin-bottom: 25px;">يرجى التوجه إلى حسابك للموافقة على الطلب أو رفضه.</p>
-        <a href="http://localhost:5173/profile/orders" style="background: #0b89ed; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">مراجعة الطلب</a>
+        <a href="${getFrontendBaseUrl()}/profile/orders" style="background: #0b89ed; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">مراجعة الطلب</a>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 25px;">
         <p style="color: #999; font-size: 12px; margin-top: 10px;">تحياتنا،<br>فريق منصة سوقك</p>
       </div>

@@ -110,7 +110,7 @@ router.post("/", auth, requireRole(["seller"]), uploadReceipt, async (req, res) 
                   <p style="margin: 5px 0;"><strong>نوع الباقة:</strong> ${plan.name}</p>
                 </div>
                 <div style="text-align: center; margin-top: 30px;">
-                  <a href="http://localhost:5173/admin" style="background-color: #d97706; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">فتح لوحة تحكم الأدمن</a>
+                  <a href="${process.env.FRONTEND_URL || "https://souqak-yem.com"}/admin" style="background-color: #d97706; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">فتح لوحة تحكم الأدمن</a>
                 </div>
               </div>
             </div>

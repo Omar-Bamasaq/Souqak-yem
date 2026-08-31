@@ -13,6 +13,7 @@ import ConfigEngine from "./ConfigEngine.js";
 import ReputationEngine from "./ReputationEngine.js";
 import { v4 as uuidv4 } from "uuid";
 import { customAlphabet } from "nanoid";
+import { getFrontendBaseUrl } from "../utils/siteUrl.js";
 
 const nanoid = customAlphabet("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz", 8);
 
@@ -123,7 +124,7 @@ export default class BrokerageEngine {
         // Generate new referral code if needed
         if (!existingMembership.referralCode) {
           existingMembership.referralCode = nanoid();
-          existingMembership.referralLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/ads/${adId}?ref=${existingMembership.referralCode}`;
+          existingMembership.referralLink = `${getFrontendBaseUrl()}/ads/${adId}?ref=${existingMembership.referralCode}`;
         }
         
         await existingMembership.save();
@@ -161,7 +162,7 @@ export default class BrokerageEngine {
 
     const referralCode = nanoid();
     const initialState = campaign.type === "AUTO_JOIN" ? "AUTO_ACTIVE" : "REQUEST_SENT";
-    const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const baseUrl = getFrontendBaseUrl();
 
     const membership = await BrokerageMembership.create({
       campaignId: campaign._id,

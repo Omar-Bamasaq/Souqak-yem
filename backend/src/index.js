@@ -92,11 +92,14 @@ import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { verifyEmailAccounts } from "./utils/emailSender.js";
 import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
+import { getBackendBaseUrl } from "./utils/siteUrl.js";
 
 const app = express();
 app.set("trust proxy", 1);
 
 const allowedOrigins = [
+  "https://souqak-yem.com",
+  "https://www.souqak-yem.com",
   "https://souqak-beta.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174"
@@ -153,7 +156,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: process.env.BACKEND_URL || "http://localhost:5000",
+        url: getBackendBaseUrl(),
         description: "Development Server",
       },
     ],
@@ -183,7 +186,7 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
   app.use(Sentry.Handlers.requestHandler());
 }
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = getBackendBaseUrl();
 const WS_URL = BACKEND_URL.replace(/^http/, "ws");
 
 // تمت إزالة helmet المكرر هنا لأنه يتم تطبيقه في securityHeaders بالأعلى مع إعدادات CSP المتقدمة

@@ -105,7 +105,7 @@ router.post("/", auth, requireRole(["seller", "user"]), uploadVerificationDocs, 
                 <p style="margin: 5px 0;"><strong>رقم الهاتف:</strong> ${phone}</p>
               </div>
               <div style="text-align: center; margin-top: 30px;">
-                <a href="http://localhost:5173/admin/verification-requests" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">عرض الطلبات</a>
+                <a href="${process.env.FRONTEND_URL || "https://souqak-yem.com"}/admin/verification-requests" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">عرض الطلبات</a>
               </div>
             </div>
           </div>

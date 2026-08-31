@@ -354,7 +354,7 @@ router.patch(
                 </div>
 
                 <div style="text-align: center;">
-                  <a href="http://localhost:5173/admin/escrow" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 16px 40px; border-radius: 16px; text-decoration: none; font-weight: 900; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);">مراجعة الطلب الآن</a>
+                  <a href="${process.env.FRONTEND_URL || "https://souqak-yem.com"}/admin/escrow" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 16px 40px; border-radius: 16px; text-decoration: none; font-weight: 900; font-size: 16px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);">مراجعة الطلب الآن</a>
                   <p style="margin-top: 20px; color: #94a3b8; font-size: 11px;">هذا إيميل آلي، يرجى عدم الرد عليه.</p>
                 </div>
               </div>

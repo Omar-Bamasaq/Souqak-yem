@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import NodeCache from "node-cache";
+import { getBackendBaseUrl } from "../utils/siteUrl.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,8 +22,8 @@ export const securityHeaders = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://souqak-beta.vercel.app", "https://souqak-beta.onrender.com"],
-      connectSrc: ["'self'", "https://souqak-beta.vercel.app", "https://souqak-beta.onrender.com", "http://localhost:5000", "ws://localhost:5000"],
+      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://souqak-yem.com", "https://www.souqak-yem.com", "https://souqak-beta.vercel.app", "https://souqak-beta.onrender.com"],
+      connectSrc: ["'self'", "https://souqak-yem.com", "https://www.souqak-yem.com", "https://souqak-beta.vercel.app", "https://souqak-beta.onrender.com", getBackendBaseUrl(), "ws://localhost:5000"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],

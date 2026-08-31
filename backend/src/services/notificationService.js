@@ -3,6 +3,7 @@ import AdminNotification from "../models/AdminNotification.js";
 import User from "../models/User.js";
 import { sendPushNotification } from "./pushService.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { getFrontendBaseUrl } from "../utils/siteUrl.js";
 
 /**
  * Global notification helper to handle Database storage, Socket.io emission, and Push notifications.
@@ -75,7 +76,7 @@ export const createNotification = async (app, { userId, type, title, body, data,
               <p style="font-size: 16px; color: #333;">مرحباً <strong>${user.name}</strong>،</p>
               <p style="font-size: 16px; color: #333; line-height: 1.6;">${body.replace(/\n/g, '<br>')}</p>
               <div style="text-align: center; margin-top: 30px;">
-                <a href="http://localhost:5173/notifications" style="background: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">عرض الإشعارات</a>
+                <a href="${getFrontendBaseUrl()}/notifications" style="background: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">عرض الإشعارات</a>
               </div>
               <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
               <p style="color: #999; font-size: 12px; margin-top: 10px;">تحياتنا،<br>فريق منصة سوقك</p>

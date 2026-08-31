@@ -117,8 +117,8 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
         }
       }
 
-      const receiptUrl = `http://localhost:5000/uploads/${created.paymentReceipt}`;
-      const adImageUrl = adMainImage ? `http://localhost:5000/uploads/${adMainImage}` : null;
+      const receiptUrl = `${process.env.BACKEND_URL || "https://souqak-yem.com"}/uploads/${created.paymentReceipt}`;
+      const adImageUrl = adMainImage ? `${process.env.BACKEND_URL || "https://souqak-yem.com"}/uploads/${adMainImage}` : null;
 
       sendEmail({
         subject: "طلب دفع عمولة جديد",
@@ -161,7 +161,7 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
               </div>
 
               <div style="text-align: center; margin-top: 30px;">
-                <a href="http://localhost:5173/admin/sold-ads" style="background-color: #16a34a; color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2);">مراجعة الطلبات في لوحة التحكم</a>
+                <a href="${process.env.FRONTEND_URL || "https://souqak-yem.com"}/admin/sold-ads" style="background-color: #16a34a; color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2);">مراجعة الطلبات في لوحة التحكم</a>
               </div>
             </div>
           </div>
