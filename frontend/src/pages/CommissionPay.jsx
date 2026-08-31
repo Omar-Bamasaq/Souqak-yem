@@ -24,7 +24,7 @@ export default function CommissionPay() {
   const navigate = useNavigate();
   const [name, setName] = useState(q.get("name") || "");
   const [phone, setPhone] = useState(q.get("phone") || "");
-  const [salePrice, setSalePrice] = useState(String(q.get("salePrice") || ""));
+  const [salePrice, setSalePrice] = useState(q.get("salePrice") || "");
   const [currency, setCurrency] = useState(q.get("currency") || "YER_ADEN");
   const [adId] = useState(q.get("adId") || "");
   const [adData, setAdData] = useState(null);
@@ -43,9 +43,6 @@ export default function CommissionPay() {
         .then(res => {
           if (res.data) {
             setAdData(res.data);
-            if (!salePrice && res.data.price) {
-              setSalePrice(String(res.data.price));
-            }
             if (!q.get("currency") && res.data.currency) {
               setCurrency(res.data.currency);
             } else if (res.data.currency) {

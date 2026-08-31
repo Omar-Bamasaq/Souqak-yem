@@ -26,18 +26,13 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
 
     if (adId && adId.length === 24) {
       const ad = await Ad.findById(adId).lean();
-      if (ad) {
-        if (!salePrice || Number(salePrice) <= 0) {
-          salePrice = ad.price;
-        }
-        if (!currency) {
-          currency = ad.currency;
-        }
+      if (ad && !currency) {
+        currency = ad.currency;
       }
     }
 
     // Validate manually since multipart/form-data can be tricky with Joi and multer sometimes
-    if (!name || !phone || !salePrice) {
+    if (!name || !phone || !salePrice || Number(salePrice) <= 0) {
       return res.status(400).json({ error: "Name, phone and salePrice are required" });
     }
 
