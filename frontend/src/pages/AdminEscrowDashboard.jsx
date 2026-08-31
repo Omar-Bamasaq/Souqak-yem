@@ -614,14 +614,14 @@ export default function AdminEscrowDashboard() {
                       <td className="px-5 py-5">
                         {w.bankDetails?.identityImage ? (
                           <div className="space-y-1.5">
-                            <a 
-                              href={protectedFileUrl(w.bankDetails.identityImage, authToken)} 
-                              rel="noreferrer" 
+                            <button
+                              type="button"
+                              onClick={() => openReceiptPreview(w.bankDetails.identityImage)}
                               className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
                             >
                               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               <span className="text-[10px] font-black uppercase tracking-tighter">عرض</span>
-                            </a>
+                            </button>
                             <p className="text-[8px] font-bold text-emerald-600 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                               مرفقة ✅
@@ -681,15 +681,14 @@ export default function AdminEscrowDashboard() {
                             </button>
                           )}
                           {w.status === 'COMPLETED' && w.transactionProof && (
-                            <a 
-                              href={protectedFileUrl(w.transactionProof, authToken)} 
-                              rel="noreferrer"
-                              onClick={(e) => { e.preventDefault(); openReceiptPreview(w.transactionProof); }}
+                            <button
+                              type="button"
+                              onClick={() => openReceiptPreview(w.transactionProof)}
                               className="px-4 py-2.5 bg-green-50 text-green-700 border-2 border-green-100 rounded-xl text-[10px] font-black hover:bg-green-100 transition-all active:scale-95 flex items-center gap-1.5"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               إثبات التحويل
-                            </a>
+                            </button>
                           )}
                         </div>
                       </td>
@@ -889,7 +888,7 @@ export default function AdminEscrowDashboard() {
                     </a>
 
                     {w.bankDetails?.identityImage ? (
-                      <a href={protectedFileUrl(w.bankDetails.identityImage, authToken)} rel="noreferrer" onClick={(e) => { e.preventDefault(); openReceiptPreview(w.bankDetails.identityImage); }} className="flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 rounded-2xl p-3 hover:from-emerald-100 transition-all">
+                      <button type="button" onClick={() => openReceiptPreview(w.bankDetails.identityImage)} className="flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 rounded-2xl p-3 hover:from-emerald-100 transition-all w-full text-right">
                         <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </div>
@@ -897,7 +896,7 @@ export default function AdminEscrowDashboard() {
                           <p className="text-[9px] uppercase tracking-wider font-black text-emerald-500">الهوية</p>
                           <p className="text-[11px] font-black text-emerald-700 truncate leading-tight">مرفقة ✅</p>
                         </div>
-                      </a>
+                      </button>
                     ) : (
                       <div className="flex items-center gap-2 bg-gray-50 border-2 border-gray-100 rounded-2xl p-3">
                         <div className="h-9 w-9 rounded-xl bg-gray-200 text-gray-400 flex items-center justify-center shrink-0">
@@ -921,10 +920,10 @@ export default function AdminEscrowDashboard() {
 
                   {/* Transaction Proof (when COMPLETED) */}
                   {w.status === 'COMPLETED' && w.transactionProof && (
-                    <a href={protectedFileUrl(w.transactionProof, authToken)} rel="noreferrer" onClick={(e) => { e.preventDefault(); openReceiptPreview(w.transactionProof); }} className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-2xl border-2 border-green-100 text-[11px] font-black hover:from-green-100 transition-all">
+                    <button type="button" onClick={() => openReceiptPreview(w.transactionProof)} className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-2xl border-2 border-green-100 text-[11px] font-black hover:from-green-100 transition-all">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       عرض إثبات التحويل البنكي
-                    </a>
+                    </button>
                   )}
 
                   {/* Action Buttons */}
