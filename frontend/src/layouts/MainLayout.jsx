@@ -15,6 +15,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 export default function MainLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const isMessagesRoute = location.pathname.startsWith("/messages");
   const showBack = location.pathname !== "/" && !location.pathname.startsWith("/admin");
 
   const [toast, setToast] = useState({ open: false, message: "", type: "info" });
@@ -30,7 +31,7 @@ export default function MainLayout() {
   }, []);
   
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 pb-20 pt-[60px] md:pb-0 md:pt-[70px] dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className={`relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 ${isMessagesRoute ? "overflow-hidden pt-[60px] md:pt-[70px]" : "pb-20 pt-[60px] md:pb-0 md:pt-[70px]"} dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-blue-600/10 to-transparent" />
       {loading && (
         <div className="fixed top-20 right-4 z-50">
@@ -54,8 +55,8 @@ export default function MainLayout() {
         </>
       )}
 
-      <main className="relative mx-auto max-w-6xl px-4 py-6 min-h-[calc(100vh-160px)]">
-        {showBack && (
+      <main className={`relative mx-auto ${isMessagesRoute ? "h-[calc(100vh-120px)] w-full max-w-none px-0 py-0" : "max-w-6xl px-4 py-6 min-h-[calc(100vh-160px)]"}`}>
+        {showBack && !isMessagesRoute && (
           <div className="mb-6">
             <button 
               onClick={() => window.history.back()}
@@ -71,10 +72,12 @@ export default function MainLayout() {
         <Outlet />
       </main>
 
-      <div className={location.pathname === "/account-settings" ? "" : "hidden md:block"}>
-        <Footer />
-      </div>
-      <BottomNavBar />
+      {!isMessagesRoute && (
+        <div className={location.pathname === "/account-settings" ? "" : "hidden md:block"}>
+          <Footer />
+        </div>
+      )}
+      {!isMessagesRoute && <BottomNavBar />}
 
       {toast.open && (
         <div className="fixed bottom-24 md:bottom-10 right-4 left-4 md:right-10 md:left-auto z-[9999] animate-in fade-in slide-in-from-bottom duration-300 pointer-events-none">

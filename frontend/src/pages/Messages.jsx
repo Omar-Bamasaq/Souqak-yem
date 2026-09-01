@@ -600,7 +600,7 @@ export default function Messages() {
   };
 
   return (
-    <div className={`grid grid-cols-1 gap-0 ${direct ? "" : "md:grid-cols-12"} h-[calc(100vh-64px)] sm:h-[calc(100vh-80px)] overflow-hidden bg-white relative`}>
+    <div className={`grid grid-cols-1 gap-0 ${direct ? "" : "md:grid-cols-12"} h-full w-full overflow-hidden bg-white relative`}>
       {!direct && (
       <div className={`md:col-span-4 lg:col-span-3 flex flex-col overflow-hidden border-l border-gray-100 ${selectedId || selectedAdminId ? "hidden md:flex" : "flex"}`}>
         <div className="border-b px-4 py-4 flex items-center justify-between bg-gray-50/50">
@@ -946,7 +946,7 @@ export default function Messages() {
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar bg-gray-50/20">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 custom-scrollbar bg-gray-50/20">
               {/* الشراء الآمن ترويج داخل الدردشة */}
               {selectedConv && !isSeller && (
                 <div className="max-w-md mx-auto mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-800/30 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
@@ -999,7 +999,7 @@ export default function Messages() {
                       </div>
                     )}
 
-                    <div className={`flex items-end gap-2 max-w-[92%] sm:max-w-[85%] ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                    <div className={`flex items-end gap-1.5 max-w-[88%] sm:max-w-[80%] ${isMe ? "flex-row-reverse" : "flex-row"}`}>
                       {!isMe && (
                         <div 
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex-shrink-0 mb-1 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-white shadow-sm transition-all hover:scale-110 overflow-hidden ${showAvatar ? "opacity-100" : "opacity-0"} ${isAdmin ? "bg-red-600 text-white" : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600"}`}
@@ -1015,7 +1015,7 @@ export default function Messages() {
                         </div>
                       )}
                       <div
-                        className={`relative rounded-2xl px-4 py-2.5 text-sm sm:text-base shadow-sm border transition-all ${
+                        className={`relative rounded-2xl px-2.5 py-1.5 text-[13px] leading-snug shadow-sm border transition-all ${
                           isMe
                             ? "bg-brand-600 border-brand-500 text-white rounded-br-none shadow-brand-100"
                             : isAdmin
@@ -1145,7 +1145,7 @@ export default function Messages() {
                 </button>
               </div>
             ) : (
-              <div className="bg-white border-t p-4 sm:p-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <div className="bg-white border-t px-2 pb-1.5 pt-2 sm:px-3 sm:pb-1.5 sm:pt-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               {/* Quick Replies Row */}
               {showQuickReplies && !selectedConv?.isClosed && !getAdInfo(selectedConv).sold && getAdInfo(selectedConv).status !== "expired" && selectedConv?.type !== 'DISPUTE' && (
                 <div className="flex flex-col gap-2 mb-3 animate-in slide-in-from-top-2 duration-200">
@@ -1196,7 +1196,7 @@ export default function Messages() {
               )}
 
               {/* Quick Actions Bar */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-3 no-scrollbar border-b border-gray-50">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 no-scrollbar border-b border-gray-50">
                 {!selectedConv?.isClosed && !getAdInfo(selectedConv).sold && getAdInfo(selectedConv).status !== "expired" && selectedConv?.type !== 'DISPUTE' && (
                   <button
                     className={`flex-shrink-0 flex items-center gap-1.5 rounded-full border transition-all px-3 py-1.5 text-[11px] font-black shadow-sm ${
@@ -1264,7 +1264,7 @@ export default function Messages() {
                     : (selectedConv?.isClosed || selectedConv?.adId?.sold ? "تم إغلاق المحادثة لأن السلعة تم بيعها" : "المحادثة مغلقة لأن الإعلان انتهى")}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {files.length > 0 && (
                     <div className="flex flex-wrap gap-2 pb-2">
                       {files.map((f, i) => (
@@ -1287,7 +1287,7 @@ export default function Messages() {
                         <input type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
                       </label>
                       <textarea 
-                        className="flex-1 bg-transparent border-none focus:ring-0 rounded-2xl px-2 py-2.5 text-sm font-medium transition-all resize-none min-h-[44px] max-h-32 custom-scrollbar" 
+                        className="flex-1 bg-transparent border-none focus:ring-0 rounded-2xl px-2 py-1.5 text-sm font-medium transition-all resize-none min-h-[36px] max-h-24 custom-scrollbar" 
                         placeholder="اكتب رسالة..." 
                         rows={1}
                         value={text} 
@@ -1301,7 +1301,7 @@ export default function Messages() {
                       />
                     </div>
                     <button 
-                      className={`h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-2xl transition-all shadow-md mb-[1px] ${
+                      className={`h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-2xl transition-all shadow-md mb-[1px] ${
                         text.trim() || files.length > 0 
                           ? "bg-brand-600 text-white hover:bg-brand-700 scale-105" 
                           : "bg-gray-200 text-gray-400 cursor-not-allowed"

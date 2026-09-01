@@ -1060,24 +1060,6 @@ export default function AddProduct() {
             </div>
           )}
 
-          {adType === "sell" && !priceOnContact && Number(price) > 0 && (
-            <>
-              <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-center text-sm text-blue-900">
-                <div className="font-semibold">عمولة المنصة على هذا الإعلان</div>
-                <div className="text-xs">نسبة العمولة: 1%</div>
-                <div className="mt-1 text-xs">العمولة المتوقعة:</div>
-                <div className="mt-0.5 text-xl font-bold">
-                  {Math.round(Number(price) * 0.01)}{" "}
-                  {currency === "USD" ? "$" : currency === "SAR" ? "ر.س" : currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
-                </div>
-              </div>
-              {(currency === "YER_ADEN" || currency === "YER_SANAA" || currency === "YER") && Math.round(Number(price) * 0.01) < 1000 && (
-                <div className="mt-1 text-center text-[12px] text-amber-700 font-bold">
-                  إذا كانت العمولة أقل من 1000 ريال يمني (عدن) فيُستحب التصدق بها.
-                </div>
-              )}
-            </>
-          )}
         </div>
         <div className="space-y-1">
           <MobileSelect
@@ -1095,6 +1077,23 @@ export default function AddProduct() {
           />
         </div>
       </div>
+
+      {adType === "sell" && !priceOnContact && Number(price) > 0 && (
+        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-center text-sm text-blue-900">
+          <div className="font-semibold">عمولة المنصة على هذا الإعلان</div>
+          <div className="text-xs">نسبة العمولة: 1%</div>
+          <div className="mt-1 text-xs">العمولة المتوقعة:</div>
+          <div className="mt-0.5 text-xl font-bold">
+            {Math.round(Number(price) * 0.01)}{" "}
+            {currency === "USD" ? "$" : currency === "SAR" ? "ر.س" : currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
+          </div>
+          {(currency === "YER_ADEN" || currency === "YER_SANAA" || currency === "YER") && Math.round(Number(price) * 0.01) < 1000 && (
+            <div className="mt-1 text-center text-[12px] text-amber-700 font-bold">
+              إذا كانت العمولة أقل من 1000 ريال يمني (عدن) فيُستحب التصدق بها.
+            </div>
+          )}
+        </div>
+      )}
       
       <div ref={formRefs.files} className="space-y-1">
         <label className="block text-sm font-bold text-gray-700">
