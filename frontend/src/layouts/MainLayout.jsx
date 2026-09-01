@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Footer from "../components/Footer.jsx";
 import NavBar from "../components/NavBar.jsx";
 import BottomNavBar from "../components/BottomNavBar.jsx";
@@ -12,11 +12,45 @@ import SmartFollowUpModal from "../components/SmartFollowUpModal.jsx";
 import FloatingAdhkar from "../components/FloatingAdhkar.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 
+const getOrCreateVisitorId = () => {
+  const key = "souqak_visitor_id";
+
+  try {
+    let currentValue = localStorage.getItem(key);
+
+    if (!currentValue) {
+      const cookieMatch = document.cookie
+        .split("; ")
+        .find((entry) => entry.startsWith(`${key}=`));
+      if (cookieMatch) {
+        currentValue = decodeURIComponent(cookieMatch.split("=")[1]);
+      }
+    }
+
+    if (!currentValue) {
+      const nextValue = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : `v-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+      localStorage.setItem(key, nextValue);
+      document.cookie = `${key}=${encodeURIComponent(nextValue)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+      return nextValue;
+    }
+
+    localStorage.setItem(key, currentValue);
+    document.cookie = `${key}=${encodeURIComponent(currentValue)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    return currentValue;
+  } catch (error) {
+    return null;
+  }
+};
+
 export default function MainLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const isMessagesRoute = location.pathname.startsWith("/messages");
   const showBack = location.pathname !== "/" && !location.pathname.startsWith("/admin");
+  const trackedVisitorRef = useRef(false);
 
   const [toast, setToast] = useState({ open: false, message: "", type: "info" });
 
@@ -28,6 +62,23 @@ export default function MainLayout() {
     };
     window.addEventListener("app:toast", handler);
     return () => window.removeEventListener("app:toast", handler);
+  }, []);
+
+  useEffect(() => {
+    if (trackedVisitorRef.current) return;
+    trackedVisitorRef.current = true;
+
+    const apiBase = (import.meta.env.VITE_API_URL || `${window.location.origin}/api`).replace(/\/$/, "");
+    fetch(`${apiBase}/admin/analytics/visitors/track`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userAgent: navigator.userAgent
+      })
+    }).catch(() => {});
   }, []);
   
   return (

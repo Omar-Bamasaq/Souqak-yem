@@ -1,19 +1,179 @@
 import { Router } from "express";
+import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Order from "../models/Order.js";
 import Transaction from "../models/Transaction.js";
 import Ad from "../models/Ad.js";
 import User from "../models/User.js";
+import DailyVisitor from "../models/DailyVisitor.js";
 import Dispute from "../models/Dispute.js";
 import Commission from "../models/Commission.js";
 import PurchaseRequest from "../models/PurchaseRequest.js";
 import dayjs from "dayjs";
 
 const router = Router();
+const VISITOR_KEY_SALT = process.env.VISITOR_KEY_SALT || "souqak-visitor-v1";
+
+const getAdenDateKey = (date = new Date()) => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Aden",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date).replace(/\//g, "-");
+};
+
+const getAdenDayWindow = (date = new Date()) => {
+  const dateKey = getAdenDateKey(date);
+  return {
+    dateKey,
+    start: new Date(`${dateKey}T00:00:00+03:00`),
+    end: new Date(`${dateKey}T23:59:59.999+03:00`)
+  };
+};
+
+const getServerGuestIdentity = (req, res) => {
+  const existing = typeof req.cookies?.souqak_visitor_id === "string" ? req.cookies.souqak_visitor_id.trim() : "";
+  const allowed = /^[A-Fa-f0-9]{64}$/.test(existing) ? existing : "";
+
+  if (allowed) return allowed;
+
+  const generated = crypto.randomBytes(32).toString("hex");
+  res.cookie("souqak_visitor_id", generated, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+    path: "/"
+  });
+
+  return generated;
+};
+
+const getVisitorKey = ({ userId, visitorIdentity, ip, userAgent }) => {
+  if (typeof userId === "string" && /^[a-fA-F0-9]{24}$/.test(userId.trim())) {
+    return `user:${userId.trim()}`;
+  }
+
+  const trustedIdentity = typeof visitorIdentity === "string" ? visitorIdentity.trim() : "";
+  const rawIdentity = trustedIdentity || `${ip || "unknown"}:${userAgent || "unknown"}`;
+  return `guest:${crypto.createHash("sha256").update(`${VISITOR_KEY_SALT}:${rawIdentity}`).digest("hex")}`;
+};
+
+const visitorTrackRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const trustedUserId = req.user?.id || null;
+    if (trustedUserId) return `uid:${trustedUserId}`;
+
+    const ipKey = req.clientIp || req.ip || "unknown";
+    const guestCookie = typeof req.cookies?.souqak_visitor_id === "string" ? req.cookies.souqak_visitor_id.trim() : "guest-no-cookie";
+    return `ip:${ipKey}:${guestCookie}`;
+  },
+  message: {
+    error: "Too many requests. Please wait a moment before refreshing the page."
+  }
+});
+
+router.post("/visitors/track", visitorTrackRateLimit, async (req, res) => {
+  try {
+    const trustedUserId = req.user?.id || null;
+    const userAgent = typeof req.get("user-agent") === "string" ? req.get("user-agent") : "";
+    const ip = req.clientIp || req.ip || "";
+
+    const trustedVisitorIdentity = getServerGuestIdentity(req, res);
+    const { dateKey } = getAdenDayWindow();
+
+    const visitorKey = getVisitorKey({
+      userId: trustedUserId,
+      visitorIdentity: trustedVisitorIdentity,
+      ip,
+      userAgent
+    });
+
+    await DailyVisitor.findOneAndUpdate(
+      { dateKey, visitorKey },
+      {
+        $setOnInsert: {
+          dateKey,
+          visitorKey,
+          userId: trustedUserId || null,
+          ipHash: ip ? crypto.createHash("sha256").update(String(ip)).digest("hex") : null,
+          userAgentHash: userAgent ? crypto.createHash("sha256").update(String(userAgent)).digest("hex") : null,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true, new: true }
+    ).catch((err) => {
+      if (err?.code !== 11000) {
+        throw err;
+      }
+    });
+
+    const todayVisitors = await DailyVisitor.countDocuments({ dateKey });
+    res.json({ counted: true, todayVisitors });
+  } catch (error) {
+    console.error("Visitor tracking error:", error);
+    res.status(500).json({ error: "فشل في تسجيل الزائر" });
+  }
+});
 
 // Middleware: Admin only
 router.use(auth, requireRole(["admin"]));
+
+router.get("/summary", async (req, res) => {
+  try {
+    const { dateKey, start: todayStart, end: todayEnd } = getAdenDayWindow();
+
+    const [
+      onlineUsers,
+      totalUsers,
+      totalAds,
+      todayAds,
+      totalOrders,
+      todayOrders,
+      totalAdViews,
+      todayVisitors
+    ] = await Promise.all([
+      User.countDocuments({ isOnline: true }),
+      User.countDocuments(),
+      Ad.countDocuments(),
+      Ad.countDocuments({
+        status: "approved",
+        isArchived: false,
+        sold: false,
+        isDeleted: { $ne: true },
+        isVisible: { $ne: false },
+        publishedAt: { $gte: todayStart, $lt: todayEnd }
+      }),
+      Order.countDocuments(),
+      Order.countDocuments({ createdAt: { $gte: todayStart, $lt: todayEnd } }),
+      Ad.aggregate([{ $group: { _id: null, total: { $sum: "$viewCount" } } }]),
+      DailyVisitor.countDocuments({ dateKey })
+    ]);
+
+    const totalAdViewsValue = totalAdViews?.[0]?.total || 0;
+
+    res.json({
+      onlineUsers,
+      totalUsers,
+      todayVisitors,
+      todayAds,
+      totalAds,
+      todayOrders,
+      totalOrders,
+      totalAdViews: totalAdViewsValue
+    });
+  } catch (error) {
+    console.error("Admin summary analytics error:", error);
+    res.status(500).json({ error: "فشل في جلب ملخص الإحصائيات" });
+  }
+});
 
 /**
  * GET /api/admin/analytics/overview
