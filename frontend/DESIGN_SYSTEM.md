@@ -13,7 +13,7 @@
   - success.600, warning.600, danger.600 with light .50 backgrounds for badges
 
 ## 2. Typography
-- Family: Tajawal (RTL-first), fallback system sans
+- Family: IBM Plex Sans Arabic (primary), with Noto Sans Arabic, Cairo, Tajawal, then sans-serif fallback
 - Scale (Tailwind text):
   - Title: text-3xl (hero), text-2xl (section)
   - Body: text-sm default, text-xs for meta

@@ -66,7 +66,7 @@ html, body {
 }
 
 body {
-  font-family: "Tajawal", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Cairo", "Tajawal", sans-serif;
   @apply bg-surface-50 text-gray-900;
   direction: rtl;
   text-align: right;

@@ -240,7 +240,7 @@ const VerifyEmail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12 font-cairo">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="bg-blue-600 px-8 py-10 text-center text-white">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">

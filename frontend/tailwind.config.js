@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Tajawal"', "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Helvetica Neue", "Arial"]
+        sans: ['"IBM Plex Sans Arabic"', '"Noto Sans Arabic"', '"Cairo"', '"Tajawal"', 'sans-serif']
       },
       colors: {
         brand: {

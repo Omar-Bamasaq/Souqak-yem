@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { Router } from "express";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
@@ -28,6 +29,8 @@ import ConversationMessage from "../models/ConversationMessage.js";
 import Review from "../models/Review.js";
 import Joi from "joi";
 import { validateQuery } from "../middleware/validate.js";
+import PasswordResetRequest from "../models/PasswordResetRequest.js";
+import { generateTemporaryPassword, normalizePhone } from "../utils/securityRules.js";
 
 import { createNotification } from "../services/notificationService.js";
 import { logActivity } from "../services/activityLogService.js";
@@ -1117,6 +1120,96 @@ router.patch("/seller-reports/:id/status", async (req, res) => {
 });
 
 // Admin Notifications Routes
+router.get("/password-reset-requests", async (req, res) => {
+  try {
+    const requests = await PasswordResetRequest.find().sort({ createdAt: -1 }).lean();
+    res.json(requests.map((item) => ({
+      ...item,
+      id: item._id,
+      _id: item._id,
+      username: item.username,
+      phone: item.phone,
+      status: item.status,
+      requestedAt: item.requestedAt || item.createdAt,
+      reviewedAt: item.reviewedAt,
+      adminNote: item.adminNote || ""
+    })));
+  } catch (error) {
+    console.error("Error fetching password reset requests:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.patch("/password-reset-requests/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body || {};
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: "الحالة غير صالحة." });
+    }
+
+    const request = await PasswordResetRequest.findById(id);
+    if (!request) return res.status(404).json({ error: "الطلب غير موجود." });
+
+    const user = await User.findOne({ name: request.username, phone: request.phone });
+    if (!user) return res.status(404).json({ error: "المستخدم المرتبط بهذا الطلب غير موجود." });
+
+    request.status = status;
+    request.reviewedAt = new Date();
+    request.reviewedBy = req.user.id;
+    request.adminNote = String(note || "").trim();
+
+    if (status === "approved") {
+      const tempPassword = generateTemporaryPassword(18);
+      const hash = await bcrypt.hash(tempPassword, 10);
+
+      user.password = hash;
+      user.mustResetPassword = true;
+      user.temporaryPassword = tempPassword;
+      user.temporaryPasswordExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await user.save();
+
+      request.temporaryPassword = tempPassword;
+      await request.save();
+
+      const waPhone = normalizePhone(user.phone || request.phone);
+      const message = `تمت الموافقة على طلب استعادة كلمة المرور\nاسم المستخدم: ${user.name}\nكلمة المرور المؤقتة: ${tempPassword}\nيرجى تسجيل الدخول ثم تعيين كلمة مرور جديدة.`;
+      const waLink = `https://wa.me/967${waPhone}?text=${encodeURIComponent(message)}`;
+
+      await createNotification(req.app, {
+        type: "new_user",
+        title: "طلب استعادة كلمة المرور",
+        message: `تمت الموافقة على طلب ${user.name} واستلام كلمة مرور مؤقتة.`,
+        link: "/admin/password-reset-requests",
+        data: { userId: String(user._id), requestId: String(request._id), tempPassword }
+      });
+
+      return res.json({ ok: true, status: "approved", tempPassword, waLink, message });
+    }
+
+    request.temporaryPassword = null;
+    await request.save();
+
+    const waPhone = normalizePhone(user.phone || request.phone);
+    const message = `تم رفض طلب استعادة كلمة المرور\nاسم المستخدم: ${user.name}\nإذا كنت بحاجة إلى المساعدة، تواصل مع الإدارة.`;
+    const waLink = `https://wa.me/967${waPhone}?text=${encodeURIComponent(message)}`;
+
+    await createNotification(req.app, {
+      type: "new_user",
+      title: "طلب استعادة كلمة المرور مرفوض",
+      message: `تم رفض طلب استعادة كلمة المرور الخاص بـ ${user.name}.`,
+      link: "/admin/password-reset-requests",
+      data: { userId: String(user._id), requestId: String(request._id) }
+    });
+
+    await user.save();
+    return res.json({ ok: true, status: "rejected", waLink, message });
+  } catch (error) {
+    console.error("Error updating password reset request:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/notifications", async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;

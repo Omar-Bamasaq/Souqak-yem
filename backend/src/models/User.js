@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema(
     lastSeen: { type: Date, default: Date.now },
     isOnline: { type: Boolean, default: false },
     socketId: { type: String },
+    mustResetPassword: { type: Boolean, default: false },
+    temporaryPassword: { type: String, default: null },
+    temporaryPasswordExpiresAt: { type: Date, default: null },
+    passwordResetRequestedAt: { type: Date, default: null },
     notificationPrefs: {
       type: {
         message: {

@@ -20,6 +20,7 @@ const Home = lazy(() => import("./pages/Home.jsx"));
 const Login = lazy(() => import("./pages/Login.jsx"));
 const Register = lazy(() => import("./pages/Register.jsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.jsx"));
+const PhoneForgotPassword = lazy(() => import("./pages/PhoneForgotPassword.jsx"));
 const SellerDashboard = lazy(() => import("./pages/SellerDashboard.jsx"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard.jsx"));
 const AdminAds = lazy(() => import("./pages/AdminAds.jsx"));
@@ -59,6 +60,8 @@ const AdminFeaturedRequests = lazy(() => import("./pages/AdminFeaturedRequests.j
 const AdminVerificationRequests = lazy(() => import("./pages/AdminVerificationRequests.jsx"));
 const SellerSubscriptions = lazy(() => import("./pages/SellerSubscriptions.jsx"));
 const AdminPhoneUsers = lazy(() => import("./pages/AdminPhoneUsers.jsx"));
+const AdminPasswordResetRequests = lazy(() => import("./pages/AdminPasswordResetRequests.jsx"));
+const SetNewPassword = lazy(() => import("./pages/SetNewPassword.jsx"));
 const ChooseAddType = lazy(() => import("./pages/ChooseAddType.jsx"));
 const CommissionPay = lazy(() => import("./pages/CommissionPay.jsx"));
 const AdminSoldAds = lazy(() => import("./pages/AdminSoldAds.jsx"));
@@ -165,6 +168,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/phone-forgot-password" element={<PhoneForgotPassword />} />
+        <Route path="/set-new-password" element={<SetNewPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
       </Route>
 
@@ -203,6 +208,7 @@ export default function App() {
           <Route path="verification-requests" element={<AdminVerificationRequests />} />
           <Route path="sold-ads" element={<AdminSoldAds />} />
           <Route path="phone-users" element={<AdminPhoneUsers />} />
+          <Route path="password-reset-requests" element={<AdminPasswordResetRequests />} />
           <Route path="finance-hub" element={<AdminFinanceHub />} />
           <Route path="support-inbox" element={<AdminSupportInbox />} />
           <Route path="messaging" element={<AdminMessaging />} />

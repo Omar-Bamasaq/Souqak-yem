@@ -103,6 +103,7 @@ export default function AdminLayout() {
       links: [
         { to: "/admin/users", label: "المستخدمون" },
         { to: "/admin/phone-users", label: "مستخدمو الرقم" },
+        { to: "/admin/password-reset-requests", label: "طلبات استعادة كلمة المرور" },
         { to: "/admin/deleted-users", label: "الحسابات المحذوفة" }
       ]
     },

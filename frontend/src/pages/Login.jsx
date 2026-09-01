@@ -52,17 +52,17 @@ export default function Login() {
   const [activeBox, setActiveBox] = useState("email"); // Default to email for admin
   const [isEmailDisabled] = useState(false); // Enable email login
   const [showFeatures, setShowFeatures] = useState(false);
-  const [loginName, setLoginName] = useState("");
-  const [loginPhone, setLoginPhone] = useState("");
-  const [loginNameErr, setLoginNameErr] = useState("");
-  const [loginPhoneErr, setLoginPhoneErr] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginIdentifierErr, setLoginIdentifierErr] = useState("");
+  const [loginPasswordErr, setLoginPasswordErr] = useState("");
 
-  const validateLoginPhone = () => {
+  const validatePhoneLogin = () => {
     let ok = true;
-    setLoginNameErr("");
-    setLoginPhoneErr("");
-    if (!loginName.trim()) { setLoginNameErr("الاسم مطلوب"); ok = false; }
-    if (!loginPhone.trim()) { setLoginPhoneErr("رقم الهاتف مطلوب"); ok = false; }
+    setLoginIdentifierErr("");
+    setLoginPasswordErr("");
+    if (!loginIdentifier.trim()) { setLoginIdentifierErr("اسم المستخدم أو رقم الهاتف مطلوب"); ok = false; }
+    if (!loginPassword.trim()) { setLoginPasswordErr("كلمة المرور مطلوبة"); ok = false; }
     return ok;
   };
 
@@ -77,11 +77,22 @@ export default function Login() {
 
   const phoneLogin = async (e) => {
     e.preventDefault();
-    if (!validateLoginPhone()) return;
+    if (!validatePhoneLogin()) return;
     setError("");
     setLoading(true);
     try {
-      const res = await api.post("/auth/phone-login", { name: loginName.trim(), phone: loginPhone.trim(), deviceType: getDeviceType() });
+      const res = await api.post("/auth/phone-login", {
+        identifier: loginIdentifier.trim(),
+        password: loginPassword,
+        deviceType: getDeviceType()
+      });
+
+      if (res.data.requiresPasswordReset) {
+        login(res.data.token, res.data.user);
+        navigate("/set-new-password", { replace: true });
+        return;
+      }
+
       login(res.data.token, res.data.user);
       const from = location.state?.from?.pathname || (res.data.user?.role === "admin" ? "/admin" : "/");
       navigate(from, { replace: true });
@@ -210,14 +221,17 @@ export default function Login() {
               {activeBox === "phone" && (
                 <form onSubmit={phoneLogin} className="space-y-3 sm:space-y-5">
                   <div>
-                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold text-right">اسم المستخدم</label>
-                    <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="اسم المستخدم" value={loginName} onChange={(e) => setLoginName(e.target.value)} required />
-                    {loginNameErr && <div className="mt-1 text-[10px] text-red-600 font-medium text-right">{loginNameErr}</div>}
+                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold text-right">اسم المستخدم أو رقم الهاتف</label>
+                    <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="اسم المستخدم أو 7xxxxxxx" value={loginIdentifier} onChange={(e) => setLoginIdentifier(e.target.value)} required />
+                    {loginIdentifierErr && <div className="mt-1 text-[10px] text-red-600 font-medium text-right">{loginIdentifierErr}</div>}
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold text-right">رقم الهاتف</label>
-                    <input type="tel" className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-left dir-ltr" placeholder="7xxxxxxx" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} required />
-                    {loginPhoneErr && <div className="mt-1 text-[10px] text-red-600 font-medium text-right">{loginPhoneErr}</div>}
+                    <div className="flex justify-between items-center mb-1 sm:mb-2">
+                      <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 font-semibold text-right">كلمة المرور</label>
+                      <Link to="/phone-forgot-password" title="استعادة كلمة المرور عبر الهاتف" className="text-[10px] sm:text-xs text-blue-600 hover:underline font-medium">هل نسيت كلمة المرور؟</Link>
+                    </div>
+                    <input type="password" className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
+                    {loginPasswordErr && <div className="mt-1 text-[10px] text-red-600 font-medium text-right">{loginPasswordErr}</div>}
                   </div>
                   <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
                     {loading ? "جاري التحقق..." : "دخول"}
