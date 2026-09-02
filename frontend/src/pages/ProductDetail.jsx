@@ -977,15 +977,15 @@ export default function ProductDetail() {
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">(أسئلة حول الإعلان)</span>
             </div>
             <div className="space-y-6">
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input 
-                  className="flex-1 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 dark:text-slate-100 transition-all" 
+                  className="flex-1 w-full rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 dark:text-slate-100 transition-all" 
                   placeholder="لديك استفسار؟ اكتبه هنا..." 
                   value={commentText} 
                   onChange={(e) => setCommentText(e.target.value)} 
                 />
                 <button 
-                  className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-100" 
+                  className="w-full rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-100 sm:w-auto" 
                   disabled={commentSubmitting} 
                   onClick={() => checkPledge(postComment)}
                 >
