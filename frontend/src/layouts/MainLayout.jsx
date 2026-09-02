@@ -68,7 +68,7 @@ export default function MainLayout() {
     if (trackedVisitorRef.current) return;
     trackedVisitorRef.current = true;
 
-    const apiBase = (import.meta.env.VITE_API_URL || `${window.location.origin}/api`).replace(/\/$/, "");
+    const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
     fetch(`${apiBase}/admin/analytics/visitors/track`, {
       method: "POST",
       credentials: "include",

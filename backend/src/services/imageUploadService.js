@@ -31,14 +31,14 @@ class ImageUploadService {
 
   getFileFilter() {
     return (req, file, cb) => {
-      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
       const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-      const mimetype = allowedTypes.test(file.mimetype);
+      const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'image/svg+xml';
       
       if (mimetype && extname) {
         cb(null, true);
       } else {
-        cb(new Error('Only image files (JPEG, JPG, PNG, GIF, WebP) are allowed'));
+        cb(new Error('Only image files (JPEG, JPG, PNG, GIF, WebP, SVG) are allowed'));
       }
     };
   }
@@ -100,6 +100,10 @@ class ImageUploadService {
     if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return true;
     // WebP signature
     if (buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return true;
+    // SVG signature: XML declaration or root <svg> tag
+    if (buffer.toString('utf8', 0, 1024).includes('<svg') || buffer.toString('utf8', 0, 1024).includes('<?xml')) {
+      return true;
+    }
     
     return false;
   }
