@@ -12,6 +12,7 @@ const notificationSchema = new mongoose.Schema(
         "commission_reminder", 
         "resell_request", "resell_status", "resell_sold", 
         "order", "wallet",
+        "admin_message",
         // Brokerage types
         "broker_request", "broker_approved", "broker_rejected",
         "deal_pending", "deal_confirmed",

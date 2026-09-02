@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/roles.js";
 import AdminMessage from "../models/AdminMessage.js";
 import User from "../models/User.js";
 import adminAudit from "../middleware/adminAudit.js";
+import { createNotification } from "../services/notificationService.js";
 
 const router = Router();
 
@@ -32,6 +33,24 @@ router.post("/", auth, requireRole(["admin"]), adminAudit(), async (req, res) =>
       content,
       isPinned: isPinned !== undefined ? isPinned : true
     });
+
+    const recipientQuery = targetType === "specific"
+      ? { _id: { $in: recipients } }
+      : {};
+    const users = await User.find(recipientQuery).select("_id").lean();
+
+    await Promise.allSettled(users.map((user) => createNotification(req.app, {
+      userId: user._id,
+      type: "admin_message",
+      title,
+      body: content,
+      data: {
+        adminMessageId: newMessage._id,
+        url: "/messages"
+      },
+      push: true,
+      email: false
+    })));
 
     res.status(201).json(newMessage);
   } catch (error) {

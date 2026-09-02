@@ -271,6 +271,13 @@ app.use("/uploads", async (req, res, next) => {
   const requestedName = path.basename(req.path);
   const variantMatch = requestedName.match(/^(.*)\.(thumb|med)\.webp$/i);
   if (!fs.existsSync(filePath) && variantMatch) {
+    if (variantMatch[2].toLowerCase() === "thumb") {
+      const placeholderPath = path.join(uploadDir, "placeholder.svg");
+      if (fs.existsSync(placeholderPath)) {
+        return res.sendFile(placeholderPath);
+      }
+      return res.status(404).json({ error: "Thumbnail not found" });
+    }
     const baseName = variantMatch[1];
     const sourcePath = [".webp", ".jpg", ".jpeg", ".png"]
       .map(extension => path.join(uploadDir, `${baseName}${extension}`))

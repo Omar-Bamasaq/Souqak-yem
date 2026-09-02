@@ -23,7 +23,7 @@ import SystemSettings from "../models/SystemSettings.js";
 import Commission from "../models/Commission.js";
 import Joi from "joi";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
-import processImages from "../middleware/processImages.js";
+import processImages, { validateProcessedImages } from "../middleware/processImages.js";
 import ListingService from "../services/listingService.js";
 import SmartSearchService from "../services/smartSearchService.js";
 import Favorite from "../models/Favorite.js";
@@ -1016,6 +1016,7 @@ router.post(
   createAdRateLimit,
   uploadImages.array("images", 10),
   processImages(),
+  validateProcessedImages,
   parseJsonAttributes,
   validateBody(
     Joi.object({
@@ -1244,6 +1245,7 @@ router.patch(
   protectSensitiveFields,
   uploadImages.array("images", 10),
   processImages(),
+  validateProcessedImages,
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   parseJsonAttributes,
   validateBody(
