@@ -96,7 +96,8 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: data.icon || "/pwa/icon-192x192.png",
     badge: data.badge || "/pwa/icon-96x96.png",
-    vibrate: [100, 50, 100],
+    silent: data.silent === true,
+    vibrate: Array.isArray(data.vibrate) ? data.vibrate : [100, 50, 100],
     data: {
       url: data.data?.url || "/",
       ...data.data

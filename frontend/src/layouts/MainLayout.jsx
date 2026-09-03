@@ -49,6 +49,10 @@ export default function MainLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const isMessagesRoute = location.pathname.startsWith("/messages");
+  const [isChatRoom, setIsChatRoom] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return Boolean(params.get("c") || params.get("am") || params.get("direct"));
+  });
   const showBack = location.pathname !== "/" && !location.pathname.startsWith("/admin");
   const trackedVisitorRef = useRef(false);
 
@@ -63,6 +67,25 @@ export default function MainLayout() {
     window.addEventListener("app:toast", handler);
     return () => window.removeEventListener("app:toast", handler);
   }, []);
+
+  useEffect(() => {
+    if (!isMessagesRoute) {
+      setIsChatRoom(false);
+      return undefined;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    setIsChatRoom(Boolean(params.get("c") || params.get("am") || params.get("direct")));
+
+    const handleConversationActive = () => setIsChatRoom(true);
+    const handleConversationClear = () => setIsChatRoom(false);
+    window.addEventListener("conversation:active", handleConversationActive);
+    window.addEventListener("conversation:clear", handleConversationClear);
+    return () => {
+      window.removeEventListener("conversation:active", handleConversationActive);
+      window.removeEventListener("conversation:clear", handleConversationClear);
+    };
+  }, [isMessagesRoute, location.search]);
 
   useEffect(() => {
     if (trackedVisitorRef.current) return;
@@ -82,7 +105,7 @@ export default function MainLayout() {
   }, []);
   
   return (
-    <div className={`relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 ${isMessagesRoute ? "overflow-hidden pt-[60px] md:pt-[70px]" : "pb-20 pt-[60px] md:pb-0 md:pt-[70px]"} dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`}>
+    <div className={`relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 ${isChatRoom ? "overflow-hidden pt-[60px] md:pt-[70px]" : "pb-20 pt-[60px] md:pb-0 md:pt-[70px]"} dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-blue-600/10 to-transparent" />
       {loading && (
         <div className="fixed top-20 right-4 z-50">
@@ -106,8 +129,8 @@ export default function MainLayout() {
         </>
       )}
 
-      <main className={`relative mx-auto ${isMessagesRoute ? "h-[calc(100vh-120px)] w-full max-w-none px-0 py-0" : "max-w-6xl px-4 py-6 min-h-[calc(100vh-160px)]"}`}>
-        {showBack && !isMessagesRoute && (
+      <main className={`relative mx-auto ${isChatRoom ? "h-[calc(100vh-120px)] w-full max-w-none px-0 py-0" : "max-w-6xl px-4 py-6 min-h-[calc(100vh-160px)]"}`}>
+        {showBack && !isChatRoom && (
           <div className="mb-6">
             <button 
               onClick={() => window.history.back()}
@@ -123,12 +146,12 @@ export default function MainLayout() {
         <Outlet />
       </main>
 
-      {!isMessagesRoute && (
+      {!isChatRoom && (
         <div className={location.pathname === "/account-settings" ? "" : "hidden md:block"}>
           <Footer />
         </div>
       )}
-      {!isMessagesRoute && <BottomNavBar />}
+      {!isChatRoom && <BottomNavBar />}
 
       {toast.open && (
         <div className="fixed bottom-24 md:bottom-10 right-4 left-4 md:right-10 md:left-auto z-[9999] animate-in fade-in slide-in-from-bottom duration-300 pointer-events-none">

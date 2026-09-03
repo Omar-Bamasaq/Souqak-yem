@@ -2,6 +2,10 @@ import { Router } from "express";
 import auth from "../middleware/auth.js";
 import Favorite from "../models/Favorite.js";
 import Ad from "../models/Ad.js";
+import Conversation from "../models/Conversation.js";
+import Block from "../models/Block.js";
+import User from "../models/User.js";
+import { createNotification } from "../services/notificationService.js";
 
 const router = Router();
 
@@ -83,7 +87,65 @@ router.post("/:adId", auth, async (req, res) => {
       await Ad.findByIdAndUpdate(adId, { $inc: { "promotionStats.favorites": 1 } });
     }
 
-    res.json({ favorited: true });
+    if (String(ad.userId) !== String(req.user.id)) {
+      const blocked = await Block.findOne({
+        $or: [
+          { blockerId: ad.userId, blockedId: req.user.id },
+          { blockerId: req.user.id, blockedId: ad.userId }
+        ]
+      }).lean();
+
+      if (!blocked) {
+        let conversation = await Conversation.findOne({
+          adId,
+          adModel: "Ad",
+          participants: { $all: [req.user.id, ad.userId] }
+        });
+
+        if (!conversation) {
+          conversation = await Conversation.create({
+            adId,
+            adModel: "Ad",
+            participants: [req.user.id, ad.userId],
+            lastMessage: ""
+          });
+          await Ad.findByIdAndUpdate(adId, { $inc: { contactsCount: 1 } });
+        }
+
+        const actor = await User.findById(req.user.id).select("name").lean();
+        const messageText = `أضاف ${actor?.name || "مستخدم"} الإعلان إلى قائمة المفضلات.`;
+        conversation.favoriteNotice = {
+          text: messageText,
+          actorName: actor?.name || "مستخدم",
+          createdAt: new Date()
+        };
+        conversation.deletedBy = [];
+        await conversation.save();
+
+        const conversationUrl = `/messages?c=${conversation._id}&direct=1`;
+        await createNotification(req.app, {
+          userId: ad.userId,
+          type: "favorite",
+          title: "تمت إضافة إعلانك للمفضلة",
+          body: `${actor?.name || "مستخدم"} أضاف إعلانك «${ad.title || "بدون عنوان"}» إلى قائمة المفضلات.`,
+          data: { conversationId: conversation._id, adId, url: conversationUrl },
+          push: true,
+          email: true
+        });
+
+        const io = req.app.get("io");
+        if (io) {
+          io.to(`user:${ad.userId}`).emit("conversation:favorite_notice", {
+            conversationId: String(conversation._id),
+            favoriteNotice: conversation.favoriteNotice
+          });
+        }
+
+        return res.json({ favorited: true, conversationId: conversation._id });
+      }
+    }
+
+    res.json({ favorited: true, conversationId: null });
   } catch (error) {
     console.error("Toggle favorite error:", error);
     res.status(500).json({ error: "Server error" });

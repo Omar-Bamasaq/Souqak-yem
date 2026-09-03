@@ -451,6 +451,7 @@ export default function Messages() {
     setSelectedConv(null);
     setSelectedAdminMsg(null);
     setMsgs([]);
+    window.dispatchEvent(new CustomEvent("conversation:clear"));
     // Remove query params from URL without refreshing
     const url = new URL(window.location);
     url.searchParams.delete("c");
@@ -947,6 +948,17 @@ export default function Messages() {
             </div>
             
             <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 custom-scrollbar bg-gray-50/20">
+              {selectedConv?.favoriteNotice?.text && (
+                <div className="mx-auto mb-5 flex max-w-md items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-right shadow-sm dark:border-blue-900/40 dark:bg-blue-950/20">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-[11px] font-bold leading-relaxed text-blue-700 dark:text-blue-300">{selectedConv.favoriteNotice.text}</p>
+                </div>
+              )}
+
               {/* الشراء الآمن ترويج داخل الدردشة */}
               {selectedConv && !isSeller && (
                 <div className="max-w-md mx-auto mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-800/30 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
@@ -967,6 +979,7 @@ export default function Messages() {
 
               {showMsgsSpinner && <div className="flex items-center justify-center py-10"><LoadingSpinner /></div>}
               {!showMsgsSpinner && msgs.map((m, idx) => {
+                if (m.text?.includes("الإعلان إلى قائمة المفضلات")) return null;
                 const isMe = String(m.senderId?._id || m.senderId) === String(user?.id || user?._id);
                 const showAvatar = idx === 0 || String(msgs[idx-1].senderId?._id || msgs[idx-1].senderId) !== String(m.senderId?._id || m.senderId);
                 const isAdmin = m.senderId?.role === "admin";

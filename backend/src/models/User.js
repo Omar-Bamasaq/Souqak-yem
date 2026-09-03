@@ -57,6 +57,13 @@ const userSchema = new mongoose.Schema(
           ),
           default: () => ({ inApp: true, push: true, email: true })
         },
+        favorite: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: true, push: true, email: true })
+        },
         ad_status: {
           type: new mongoose.Schema(
             { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
@@ -82,6 +89,7 @@ const userSchema = new mongoose.Schema(
       default: () => ({
         message: { inApp: true, push: true, email: true },
         comment: { inApp: true, push: true, email: true },
+        favorite: { inApp: true, push: true, email: true },
         ad_status: { inApp: true, push: true, email: true },
         order: { inApp: true, push: true, email: true },
         wallet: { inApp: true, push: true, email: true }

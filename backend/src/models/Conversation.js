@@ -8,6 +8,11 @@ const conversationSchema = new mongoose.Schema(
     title: { type: String },
     disputeId: { type: mongoose.Schema.Types.ObjectId, ref: "Dispute", index: true },
     adId: { type: mongoose.Schema.Types.ObjectId, required: false, ref: "Ad", index: true },
+    favoriteNotice: {
+      text: { type: String },
+      actorName: { type: String },
+      createdAt: { type: Date }
+    },
     lastMessage: { type: String },
     mutedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", index: true }],
     pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", index: true }],

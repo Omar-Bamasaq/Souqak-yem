@@ -33,6 +33,8 @@ export const sendPushNotification = async (userId, payload) => {
       body: payload.body || "",
       icon: payload.icon || "/pwa/icon-192x192.png",
       badge: "/pwa/icon-96x96.png",
+      silent: false,
+      vibrate: [100, 50, 100],
       data: {
         url: payload.url || "/",
         ...payload.data

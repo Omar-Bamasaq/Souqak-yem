@@ -788,6 +788,10 @@ export default function ProductDetail() {
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <button
                 onClick={async () => {
+                  if (!user) {
+                    navigate("/login", { state: { from: window.location.pathname } });
+                    return;
+                  }
                   try {
                     const r = await api.post(`/favorites/${id}`);
                     const favorited = !!r.data?.favorited;
@@ -1199,6 +1203,10 @@ export default function ProductDetail() {
               <div className="hidden flex items-center gap-2 w-full pt-2">
                 <button 
                   onClick={async () => {
+                    if (!user) {
+                      navigate("/login", { state: { from: window.location.pathname } });
+                      return;
+                    }
                     try {
                       const r = await api.post(`/favorites/${id}`);
                       const favorited = !!r.data?.favorited;
