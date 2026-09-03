@@ -130,7 +130,7 @@ router.post("/:adId", auth, async (req, res) => {
           body: `${actor?.name || "مستخدم"} أضاف إعلانك «${ad.title || "بدون عنوان"}» إلى قائمة المفضلات.`,
           data: { conversationId: conversation._id, adId, url: conversationUrl },
           push: true,
-          email: true
+          email: false
         });
 
         const io = req.app.get("io");
