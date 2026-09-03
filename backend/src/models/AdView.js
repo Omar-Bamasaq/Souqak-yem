@@ -10,7 +10,13 @@ const AdViewSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
-AdViewSchema.index({ adId: 1, userId: 1 }, { unique: true, sparse: true });
-AdViewSchema.index({ adId: 1, ip: 1 }, { unique: true, sparse: true });
+AdViewSchema.index(
+  { adId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { userId: { $exists: true } } }
+);
+AdViewSchema.index(
+  { adId: 1, ip: 1 },
+  { unique: true, partialFilterExpression: { ip: { $exists: true } } }
+);
 
 export default mongoose.model("AdView", AdViewSchema);

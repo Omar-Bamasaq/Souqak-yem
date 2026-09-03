@@ -72,6 +72,7 @@ import categoryAttributeRoutes from "./routes/categoryAttributes.js";
 import supportRoutes from "./routes/support.js";
 import platformReviewRoutes from "./routes/platformReviews.js";
 import reviewRoutes from "./routes/reviews.js";
+import AdView from "./models/AdView.js";
 import walletRoutes from "./routes/wallets.js";
 import adminEscrowRoutes from "./routes/adminEscrow.js";
 import adminAnalyticsRoutes from "./routes/adminAnalytics.js";
@@ -219,6 +220,9 @@ app.use(
 app.use(morgan("dev"));
 
 connectLocal()
+  .then(() => {
+    return AdView.syncIndexes();
+  })
   .then(() => {
     const maskedUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + "..." : "NONE";
     logger.info({ event: "db_connected", uri: maskedUri });

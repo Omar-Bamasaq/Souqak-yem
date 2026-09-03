@@ -949,8 +949,8 @@ router.post(
       let ad = await Ad.findById(adId);
       if (!ad) return res.status(404).json({ error: "الإعلان غير موجود" });
 
-      // Record the new view
-      await AdView.create({ adId, userId, ip });
+      const viewIdentity = userId ? { adId, userId } : { adId, ip };
+      await AdView.create(viewIdentity);
 
       // Increment view count in ad model
       const updateObj = { $inc: { viewCount: 1 } };
