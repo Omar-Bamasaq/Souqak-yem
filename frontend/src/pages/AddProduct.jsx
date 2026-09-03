@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import imageCompression from "browser-image-compression";
 import { useApi } from "../api/axios.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
@@ -12,6 +13,7 @@ import { useBrokerageApi } from "../api/brokerage.js";
 import { useBrokerageStatus } from "../store/BrokerageStatusContext.jsx";
 
 export default function AddProduct() {
+  const { data: governoratesData = [] } = useGovernorates();
   const api = useApi();
   const brokerageApi = useBrokerageApi();
   const { enabled: brokerageEnabled } = useBrokerageStatus();
@@ -271,13 +273,12 @@ export default function AddProduct() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/governorates?active=true");
-        setGovernorates(res.data || []);
+        setGovernorates(governoratesData);
       } catch {
         setGovernorates([]);
       }
     })();
-  }, []);
+  }, [governoratesData]);
 
   useEffect(() => {
     if (user) {

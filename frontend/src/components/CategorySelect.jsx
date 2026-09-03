@@ -1,21 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useCategoryApi } from "../api/categories.js";
+import { useMainCategories } from "../hooks/useMainCategories.js";
 import MobileSelect from "./MobileSelect.jsx";
 
 export default function CategorySelect({ value, onChange, onMainChange, required = false }) {
-  const [mainCategories, setMainCategories] = useState([]);
+  const { data: mainCategories = [], isLoading: loading } = useMainCategories();
   const [subCategories, setSubCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [loadingSub, setLoadingSub] = useState(false);
   const [selectedMain, setSelectedMain] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
   const pendingSubIdRef = useRef(null);
   const categoryApi = useCategoryApi();
-
-  // Load main categories on mount
-  useEffect(() => {
-    loadMainCategories();
-  }, []);
 
   // Load subcategories when main category changes
   useEffect(() => {
@@ -32,18 +27,6 @@ export default function CategorySelect({ value, onChange, onMainChange, required
       initFromValue(value);
     }
   }, [value, mainCategories]);
-
-  const loadMainCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await categoryApi.getMainCategories();
-      setMainCategories(response.data);
-    } catch (error) {
-      console.error("Error loading main categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadSubCategories = async (mainId) => {
     try {

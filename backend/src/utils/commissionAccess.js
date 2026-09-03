@@ -42,7 +42,7 @@ export function getBlockingCommissionSummary(items = []) {
     const { status, commissionStatus } = normalizeCommissionStatus(item?.status, item?.commissionStatus);
     const isOutstanding = ["unpaid", "overdue"].includes(status) || ["pending_payment", "pending_review", "rejected"].includes(commissionStatus);
     return isOutstanding && item?.adId;
-  })?.adId || null;
+  })?.adId;
 
   return {
     hasOutstanding: blockingItems.length > 0,

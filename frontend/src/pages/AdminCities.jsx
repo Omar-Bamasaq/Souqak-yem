@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 
 export default function AdminCities() {
+  const { data: governoratesData = [] } = useGovernorates();
   const api = useApi();
   const [cities, setCities] = useState([]);
   const [governorates, setGovernorates] = useState([]);
@@ -21,8 +23,7 @@ export default function AdminCities() {
 
   const loadGovernorates = async () => {
     try {
-      const res = await api.get("/governorates?active=true");
-      setGovernorates(res.data || []);
+      setGovernorates(governoratesData);
     } catch {
       setGovernorates([]);
     }
@@ -43,7 +44,7 @@ export default function AdminCities() {
   useEffect(() => {
     loadGovernorates();
     loadCities();
-  }, []);
+  }, [governoratesData]);
 
   const resetForm = () => {
     setEditing(null);

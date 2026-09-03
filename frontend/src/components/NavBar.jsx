@@ -12,6 +12,7 @@ import PWAInstallButton from "./PWAInstallButton.jsx";
 import { useTheme } from "../store/ThemeContext";
 import { useBrokerageStatus } from "../store/BrokerageStatusContext";
 import { uploadsUrl } from "../lib/uploads.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
@@ -20,7 +21,7 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [governorateId, setGovernorateId] = useState("");
-  const [governorates, setGovernorates] = useState([]);
+  const { data: governorates = [] } = useGovernorates();
   const [unreadNotif, setUnreadNotif] = useState(0);
   const [favCount, setFavCount] = useState(0);
   const [activeConvId, setActiveConvId] = useState("");
@@ -40,16 +41,6 @@ export default function NavBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get("/governorates", { params: { active: true } });
-        setGovernorates(res.data || []);
-      } catch {
-        setGovernorates([]);
-      }
-    })();
-  }, []);
   useEffect(() => {
     (async () => {
       if (!user) return setUnreadNotif(0);

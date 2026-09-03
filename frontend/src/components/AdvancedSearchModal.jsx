@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useCategoryApi } from "../api/categories.js";
 import { useApi } from "../api/axios.js";
+import { useMainCategories } from "../hooks/useMainCategories.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 import MobileSelect from "./MobileSelect.jsx";
 
 function buildFilters(initialFilters = {}, preSelectedCategory = null) {
@@ -33,20 +35,15 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
   const navigate = useNavigate();
   const categoryApi = useCategoryApi();
   const api = useApi();
+  const { data: categories = [] } = useMainCategories();
+  const { data: governorates = [] } = useGovernorates();
   
   const [filters, setFilters] = useState(buildFilters(initialFilters, preSelectedCategory));
 
-  const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
-  const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [categoryAttributes, setCategoryAttributes] = useState([]);
   const [attributeValues, setAttributeValues] = useState({});
-
-  useEffect(() => {
-    loadCategories();
-    loadGovernorates();
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -72,15 +69,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
     }
   }, [filters.governorateId]);
 
-  const loadCategories = async () => {
-    try {
-      const res = await api.get("/categories/main");
-      setCategories(res.data || []);
-    } catch (error) {
-      console.error("Error loading categories:", error);
-    }
-  };
-
   const loadSubCategories = async (parentId) => {
     try {
       const selectedCat = categories.find(c => (c._id || c.id) === parentId);
@@ -94,15 +82,6 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
       setSubCategories(res.data || []);
     } catch (error) {
       console.error("Error loading subcategories:", error);
-    }
-  };
-
-  const loadGovernorates = async () => {
-    try {
-      const res = await api.get("/governorates", { params: { active: true } });
-      setGovernorates(res.data || []);
-    } catch (error) {
-      console.error("Error loading governorates:", error);
     }
   };
 

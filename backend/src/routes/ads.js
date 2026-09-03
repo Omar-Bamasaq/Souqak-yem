@@ -250,6 +250,7 @@ router.get("/",
     }
     
     baseQuery = Ad.find(filter)
+      .select("_id title price currency priceOnContact images condition adType categoryId governorateId cityId userId featured isWelcomePromoted viewCount views contactsCount createdAt publishedAt expiresAt")
       .populate("governorateId", "name")
       .populate("cityId", "name")
       .populate({
@@ -260,7 +261,7 @@ router.get("/",
           select: "name"
         }
       })
-      .populate("userId", "name avatar isVerifiedSeller sellerRating sellerReviewsCount")
+      .populate("userId", "name avatar verificationStatus role isVerifiedSeller isTrustedReseller sellerRating resellerRating sellerReviewsCount")
       .sort(sortSpec)
       .skip((p - 1) * l)
       .limit(l)
@@ -1493,6 +1494,7 @@ router.get("/:id/similar", async (req, res) => {
 
     // جلب المرشحين (نفس الفئة)
     let similarAds = await Ad.find(query)
+      .select("_id title price currency priceOnContact images condition adType categoryId governorateId cityId userId featured isWelcomePromoted viewCount views contactsCount createdAt publishedAt expiresAt")
       .populate("governorateId", "name")
       .populate("cityId", "name")
       .populate({
@@ -1503,7 +1505,7 @@ router.get("/:id/similar", async (req, res) => {
           select: "name"
         }
       })
-      .populate("userId", "name avatar isVerifiedSeller")
+      .populate("userId", "name avatar verificationStatus role isVerifiedSeller isTrustedReseller sellerRating resellerRating sellerReviewsCount")
       .limit(50)
       .lean();
 

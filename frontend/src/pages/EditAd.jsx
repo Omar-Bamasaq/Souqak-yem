@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 import { uploadsUrl } from "../lib/uploads.js";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { t } from "../i18n/index.js";
@@ -10,6 +11,7 @@ import { useBrokerageApi } from "../api/brokerage.js";
 import { useBrokerageStatus } from "../store/BrokerageStatusContext.jsx";
 
 export default function EditAd() {
+  const { data: governoratesData = [] } = useGovernorates();
   const { id } = useParams();
   const api = useApi();
   const brokerageApi = useBrokerageApi();
@@ -111,13 +113,12 @@ export default function EditAd() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/governorates?active=true");
-        setGovernorates(res.data || []);
+        setGovernorates(governoratesData);
       } catch {
         setGovernorates([]);
       }
     })();
-  }, []);
+  }, [governoratesData]);
   useEffect(() => {
     if (!governorateId) {
       setCities([]);

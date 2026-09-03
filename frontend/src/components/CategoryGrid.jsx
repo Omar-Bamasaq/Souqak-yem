@@ -1,31 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useCategoryApi } from "../api/categories.js";
+import React, { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
+import { useMainCategories } from "../hooks/useMainCategories.js";
 import { uploadsUrl } from "../lib/uploads.js";
 
 export default function CategoryGrid({ isHome = false }) {
   const { prefetchCategoryAds } = useAdsQuery();
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const categoryApi = useCategoryApi();
+  const { data: categories = [], isLoading: loading } = useMainCategories();
   const scrollRef = useRef(null);
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await categoryApi.getMainCategories();
-      setCategories(response.data);
-    } catch (error) {
-      console.error("Error loading categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const scroll = (direction) => {
     if (scrollRef.current) {

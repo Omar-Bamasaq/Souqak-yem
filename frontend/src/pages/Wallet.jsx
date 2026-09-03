@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import OrdersList from "../components/OrdersList.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
@@ -14,6 +15,7 @@ const MINIMUM_WITHDRAWAL_BY_CURRENCY = {
 };
 
 export default function Wallet() {
+  const { data: governoratesData = [] } = useGovernorates();
   const api = useApi();
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -47,19 +49,17 @@ export default function Wallet() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [wRes, tRes, bRes, ubRes, govRes, settingsRes] = await Promise.all([
+      const [wRes, tRes, bRes, ubRes, settingsRes] = await Promise.all([
         api.get("/wallets/me"),
         api.get("/wallets/transactions"),
         api.get("/bank-accounts"),
         api.get("/user-bank-accounts"),
-        api.get("/governorates?active=true"),
         api.get("/admin/settings/public").catch(() => ({ data: null })) // Public settings
       ]);
       setWallet(wRes.data);
       setTransactions(tRes.data);
       setBanks(bRes.data || []);
       setUserBankAccounts(ubRes.data || []);
-      setGovernorates(govRes.data || []);
       setSystemSettings(settingsRes.data);
       
       if (wRes.data?.balances?.length > 0) {
@@ -78,6 +78,10 @@ export default function Wallet() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setGovernorates(governoratesData);
+  }, [governoratesData]);
 
   useEffect(() => {
     if (wallet?.balances && withdrawCurrency) {

@@ -1,27 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { useCategoryApi } from "../api/categories.js";
+import { useMainCategories } from "../hooks/useMainCategories.js";
 
 import { uploadsUrl } from "../lib/uploads.js";
 
 export default function Categories() {
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const categoryApi = useCategoryApi();
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await categoryApi.getMainCategories();
-        setCategories(res.data || []);
-      } catch (err) {
-        console.error("Error loading categories:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { data: categories = [], isLoading: loading } = useMainCategories();
 
   if (loading) {
     return (

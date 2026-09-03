@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, Fragment } from "react";
 import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
 import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
@@ -46,6 +47,7 @@ function getCurrencySymbol(code) {
 }
 
 export default function ProductDetail() {
+  const { data: governoratesData = [] } = useGovernorates();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const refId = searchParams.get("ref");
@@ -314,13 +316,12 @@ export default function ProductDetail() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/governorates", { params: { active: true } });
-        setGovernorates(res.data || []);
+        setGovernorates(governoratesData);
       } catch {
         setGovernorates([]);
       }
     })();
-  }, []);
+  }, [governoratesData]);
   useEffect(() => {
     if (!p?.governorateId) {
       setCities([]);

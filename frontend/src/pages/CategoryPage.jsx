@@ -5,6 +5,7 @@ import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import { useApi } from "../api/axios.js";
 import { uploadsUrl } from "../lib/uploads.js";
 import ProductCard from "../components/ProductCard.jsx";
+import { useMainCategories } from "../hooks/useMainCategories.js";
 import CategoryTree from "../components/CategoryTree.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
 
@@ -42,6 +43,9 @@ export default function CategoryPage() {
   const isFirstLoad = useRef(true);
 
   const currentSlug = slug;
+  const { data: orderMainCategories = [] } = useMainCategories("order", {
+    enabled: currentSlug === "purchase-orders"
+  });
 
   // Helper to get category icon based on name/slug
   const getCategoryIcon = (cat) => {
@@ -266,9 +270,7 @@ export default function CategoryPage() {
 
       // If this is Purchase Orders, fetch all other main categories to show as subcategories
       if (cat.slug === "purchase-orders") {
-        const mainRes = await categoryApi.getMainCategories("order");
-        const allMains = mainRes.data || [];
-        setPurchaseOrderMainCategories(allMains.filter(c => c.slug !== "purchase-orders"));
+        setPurchaseOrderMainCategories(orderMainCategories.filter(c => c.slug !== "purchase-orders"));
       }
     } catch (error) {
       setError(error.response?.data?.error || "تعذر تحميل الفئة");
@@ -276,6 +278,12 @@ export default function CategoryPage() {
       // Don't set loading false here, loadAds will do it
     }
   }, [categoryApi, currentSlug, loadCategoryAttributes]);
+
+  useEffect(() => {
+    if (category?.slug === "purchase-orders") {
+      setPurchaseOrderMainCategories(orderMainCategories.filter(c => c.slug !== "purchase-orders"));
+    }
+  }, [category, orderMainCategories]);
 
   const loadBreadcrumbs = useCallback(async () => {
     if (!category) return;

@@ -18,6 +18,12 @@ export function useAdsQuery() {
     return res.data;
   };
 
+  const prefetchOptions = { staleTime: 1000 * 60 * 5 };
+  const hasFreshData = (queryKey) => {
+    const state = queryClient.getQueryState(queryKey);
+    return state?.dataUpdatedAt && Date.now() - state.dataUpdatedAt < prefetchOptions.staleTime;
+  };
+
   return useMemo(() => ({
     // Hook for fetching ads with filters
     useAds: (params) => {
@@ -33,23 +39,32 @@ export function useAdsQuery() {
       queryClient.prefetchQuery({
         queryKey: ["ads", { q: categorySlug, limit: 12 }],
         queryFn: () => fetchAds({ q: categorySlug, limit: 12 }),
+        ...prefetchOptions,
       });
     },
 
     // Prefetch single ad details
     prefetchAdDetails: (adId) => {
-      queryClient.prefetchQuery({
-        queryKey: ["ad", adId],
-        queryFn: () => fetchAdDetails(adId),
-      });
+      const adQueryKey = ["ad", adId];
+      if (!hasFreshData(adQueryKey)) {
+        queryClient.prefetchQuery({
+          queryKey: adQueryKey,
+          queryFn: () => fetchAdDetails(adId),
+          ...prefetchOptions,
+        });
+      }
       // Prefetch similar ads when hovering
-      queryClient.prefetchQuery({
-        queryKey: ["similar-ads", adId],
-        queryFn: async () => {
-          const res = await api.get(`/ads/${adId}/similar?limit=8`);
-          return res.data;
-        },
-      });
+      const similarQueryKey = ["similar-ads", adId];
+      if (!hasFreshData(similarQueryKey)) {
+        queryClient.prefetchQuery({
+          queryKey: similarQueryKey,
+          queryFn: async () => {
+            const res = await api.get(`/ads/${adId}/similar?limit=8`);
+            return res.data;
+          },
+          ...prefetchOptions,
+        });
+      }
     },
 
     // Hook for similar ads
@@ -73,6 +88,7 @@ export function useAdsQuery() {
         queryClient.prefetchQuery({
           queryKey: ["ads", nextParams],
           queryFn: () => fetchAds(nextParams),
+          ...prefetchOptions,
         });
       }
     }

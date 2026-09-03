@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useApi } from "../api/axios.js";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
+import { useGovernorates } from "../hooks/useGovernorates.js";
 import ProductCard from "../components/ProductCard.jsx";
 import CategoryGrid from "../components/CategoryGrid.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
@@ -14,6 +15,7 @@ export default function Home() {
   const { user } = useAuth();
   const api = useApi();
   const { prefetchCategoryAds, prefetchNextPage } = useAdsQuery();
+  const { data: governoratesData = [] } = useGovernorates();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -35,11 +37,7 @@ export default function Home() {
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [platformStats, setPlatformStats] = useState({ avgRating: 0, totalCount: 0 });
 
-  // 1. Prefetch Top Categories on Mount
   useEffect(() => {
-    const topCategories = ["سيارات", "عقارات", "إلكترونيات"];
-    topCategories.forEach(cat => prefetchCategoryAds(cat));
-    
     // Load recently viewed from localStorage
     const recent = JSON.parse(localStorage.getItem("recentlyViewed") || "[]");
     
@@ -134,15 +132,8 @@ export default function Home() {
   }, [load]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get("/governorates", { params: { active: true } });
-        setGovernorates(res.data || []);
-      } catch {
-        setGovernorates([]);
-      }
-    })();
-  }, []);
+    setGovernorates(governoratesData);
+  }, [governoratesData]);
 
   useEffect(() => {
     if (!governorateId) {
