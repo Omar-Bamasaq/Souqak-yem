@@ -792,10 +792,13 @@ export default function AddProduct() {
           placeholder={t("addProduct.labels.titlePh")} 
           value={title} 
           onChange={(e) => {
-            setTitle(e.target.value);
-            if (e.target.value.trim()) setValidationErrors(prev => ({ ...prev, title: null }));
+            const nextTitle = e.target.value.slice(0, 30);
+            setTitle(nextTitle);
+            if (nextTitle.trim()) setValidationErrors(prev => ({ ...prev, title: null }));
           }} 
+          maxLength={30}
         />
+        <div className="text-left text-xs font-bold text-gray-400" dir="ltr">{title.length}/30</div>
         {validationErrors.title && <p className="text-xs text-red-600 font-bold">{validationErrors.title}</p>}
       </div>
       
@@ -971,7 +974,15 @@ export default function AddProduct() {
         <label className="block text-sm font-medium text-gray-700">
           {t("addProduct.labels.description")}
         </label>
-        <textarea className="ds-input" rows="4" placeholder={t("addProduct.labels.descriptionPh")} value={description} onChange={(e) => setDescription(e.target.value)} />
+        <textarea
+          className="ds-input"
+          rows="4"
+          placeholder={t("addProduct.labels.descriptionPh")}
+          value={description}
+          onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
+          maxLength={1000}
+        />
+        <div className="text-left text-xs font-bold text-gray-400" dir="ltr">{description.length}/1000</div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

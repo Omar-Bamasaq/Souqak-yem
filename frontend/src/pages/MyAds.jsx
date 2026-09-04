@@ -131,7 +131,13 @@ export default function MyAds() {
               ))}
             {!loading && ads.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-xs text-gray-500">لا توجد إعلانات.</td>
+                <td colSpan={11} className="px-3 py-8 text-center">
+                  <p className="text-sm font-bold text-gray-500">ليس لديك أي إعلانات</p>
+                  <Link to="/choose-add-type" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition-colors hover:bg-blue-700">
+                    <span>أضف إعلانك الآن</span>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                  </Link>
+                </td>
               </tr>
             )}
             {!loading && ads.map((a) => (
@@ -330,7 +336,11 @@ export default function MyAds() {
           ))}
         {!loading && ads.length === 0 && (
           <div className="bg-white p-8 text-center rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-sm text-gray-500 font-bold">لا توجد إعلانات حالياً.</p>
+            <p className="text-sm text-gray-500 font-bold">ليس لديك أي إعلانات</p>
+            <Link to="/choose-add-type" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-sm transition-colors hover:bg-blue-700">
+              <span>أضف إعلانك الآن</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+            </Link>
           </div>
         )}
         {!loading && ads.map((a) => (

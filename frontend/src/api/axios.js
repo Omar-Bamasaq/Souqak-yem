@@ -81,12 +81,14 @@ export function useApi() {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+        const requestUrl = originalRequest?.url || "";
+        const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");
         
         if (error.response?.status === 404) {
           console.error(`[API 404] Failed request to: ${error.config.baseURL}${error.config.url}`);
         }
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !isLoginRequest && !originalRequest._retry) {
           if (isRefreshing) {
             return new Promise((resolve, reject) => {
               failedQueue.push({ resolve, reject });
@@ -133,7 +135,7 @@ export function useApi() {
           }
         }
 
-        if (error.response?.status === 401 && originalRequest._retry) {
+        if (error.response?.status === 401 && !isLoginRequest && originalRequest._retry) {
           logout();
           window.location.href = "/login";
         }

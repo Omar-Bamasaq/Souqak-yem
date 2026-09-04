@@ -64,6 +64,7 @@ export default function Register() {
   const [regData, setRegData] = useState(null); 
   const pollIntervalRef = React.useRef(null);
   const [checkingNow, setCheckingNow] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(4);
 
   const checkStatus = async () => {
     if (!phone || pollStatus !== "Pending") return;
@@ -103,6 +104,25 @@ export default function Register() {
     };
   }, [isSuccess, tgSent, pollStatus, regData]);
 
+  useEffect(() => {
+    if (!isSuccess || tgSent || !tgLink) return undefined;
+
+    setRedirectCountdown(4);
+    const redirectTimer = setInterval(() => {
+      setRedirectCountdown((current) => {
+        if (current <= 1) {
+          clearInterval(redirectTimer);
+          setTgSent(true);
+          window.location.assign(tgLink);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(redirectTimer);
+  }, [isSuccess, tgSent, tgLink]);
+
   const submitPhone = async (e) => {
     e.preventDefault();
     setError("");
@@ -132,6 +152,7 @@ export default function Register() {
         password: phonePassword
       });
       if (res.data.token) {
+        localStorage.setItem("souqak_new_user_welcome", "true");
         if (res.data.requiresActivation) {
           setRegData(res.data);
           setIsSuccess(true);
@@ -333,14 +354,14 @@ export default function Register() {
                         <>
                           <div className="space-y-2">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">خطوة واحدة متبقية!</h2>
-                            <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">لقد قمنا بإنشاء حسابك. الآن، يرجى الضغط على الزر أدناه لإرسال طلب التفعيل عبر تليجرام.</p>
+                            <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">تم إنشاء حسابك. سيتم فتح واتساب تلقائياً خلال {redirectCountdown} ثوانٍ لإرسال رسالة التفعيل الجاهزة.</p>
                           </div>
                             <div className="px-4 pt-2">
                             <a href={tgLink} rel="noreferrer" onClick={() => setTgSent(true)} className="flex items-center justify-center gap-3 w-full bg-[#25D366] hover:bg-[#1DA851] text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98]">
                               <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
                                 <path d="M20.52 3.48A11.95 11.95 0 0012 .01C5.37.01 0 5.38 0 12.01c0 2.11.55 4.17 1.6 5.99L0 24l6.28-1.57A11.94 11.94 0 0012 24c6.63 0 12-5.37 12-11.99 0-3.21-1.25-6.22-3.48-8.53zM16.6 14.1c-.25-.13-1.48-.73-1.71-.81-.23-.08-.39-.12-.55.13-.16.25-.62.81-.76.98-.14.16-.28.18-.53.06-.25-.13-1.05-.39-2-1.22-.74-.66-1.24-1.48-1.38-1.73-.14-.25-.02-.38.11-.51.11-.11.25-.28.38-.42.12-.13.16-.22.25-.37.08-.13.04-.25-.02-.38-.06-.12-.55-1.33-.76-1.82-.2-.48-.41-.41-.56-.42l-.48-.01c-.16 0-.42.06-.64.31-.22.25-.84.82-.84 2 0 1.18.86 2.33.98 2.49.12.16 1.69 2.66 4.1 3.63 2.41.98 2.41.65 2.84.61.43-.04 1.4-.57 1.6-1.12.2-.55.2-1.02.14-1.12-.06-.1-.24-.16-.5-.29z"/>
                               </svg>
-                              تفعيل الحساب عبر واتساب
+                              فتح واتساب وإرسال الطلب الآن
                             </a>
                           </div>
                         </>

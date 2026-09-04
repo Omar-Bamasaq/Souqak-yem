@@ -11,12 +11,13 @@ export default function FirstVisitSessionIntro() {
   const isAuthPage = authPages.includes(location.pathname);
 
   useEffect(() => {
-    if (loading || user) {
+    if (loading || !user || localStorage.getItem("souqak_new_user_welcome") !== "true") {
       setIsVisible(false);
       return undefined;
     }
 
-    const timer = setTimeout(() => setIsVisible(true), 10000);
+    localStorage.removeItem("souqak_new_user_welcome");
+    const timer = setTimeout(() => setIsVisible(true), 250);
     return () => clearTimeout(timer);
   }, [loading, user]);
 
@@ -68,12 +69,11 @@ export default function FirstVisitSessionIntro() {
             </div>
 
             <h2 id="guest-welcome-title" className="text-2xl font-black text-slate-900 dark:text-white">أهلاً بك في سوقك</h2>
-            <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">هل لديك حساب؟ سجّل دخولك، أو أنشئ حسابًا جديدًا وابدأ البيع والشراء بسهولة.</p>
+            <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">حسابك جاهز. ماذا تريد أن تفعل الآن؟</p>
 
             <div className="mt-6 grid gap-3">
-              <Link to="/login" onClick={closeModal} className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700">لدي حساب</Link>
-              <Link to="/register" onClick={closeModal} className="rounded-xl border-2 border-blue-600 px-4 py-3 text-sm font-black text-blue-700 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40">ليس لدي حساب، إنشاء حساب جديد</Link>
-              <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-white">التسجيل لاحقًا</button>
+              <Link to="/choose-add-type" onClick={closeModal} className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700">أضف إعلانك الآن</Link>
+              <Link to="/" onClick={closeModal} className="rounded-xl border-2 border-blue-600 px-4 py-3 text-sm font-black text-blue-700 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40">تصفح السوق</Link>
             </div>
           </motion.div>
         </motion.div>

@@ -199,6 +199,15 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <Link
+              to="/choose-add-type"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-blue-700 shadow-lg shadow-blue-950/15 transition-all hover:bg-blue-50 active:scale-95"
+            >
+              <span>أضف إعلانك الآن</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+            </Link>
           </div>
         </div>
       </section>
