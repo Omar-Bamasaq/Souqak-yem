@@ -4,18 +4,19 @@ import sharp from "sharp";
 import { fileURLToPath } from "url";
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const watermarkPath = path.join(backendRoot, "src", "assets", "souqak-watermark.png");
+const watermarkPath = path.join(backendRoot, "src", "assets", "souqak-watermark.svg");
 
-async function createWatermark(width, height = width) {
+async function createWatermark(width) {
   if (!fs.existsSync(watermarkPath)) {
     throw new Error(`Watermark logo not found: ${watermarkPath}`);
   }
+  const logoWidth = Math.max(60, Math.min(160, Math.round(width * 0.16)));
   const logo = await sharp(watermarkPath)
-    .resize(Math.max(180, Math.round(width * 0.42)), null, { fit: "inside" })
+    .resize(logoWidth, null, { fit: "inside" })
     .png()
     .toBuffer();
   const logoData = logo.toString("base64");
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><image href="data:image/png;base64,${logoData}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMax yMax meet" opacity="0.2"/></svg>`);
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${logoWidth}" height="${Math.round(logoWidth * 0.36)}"><image href="data:image/png;base64,${logoData}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMax yMin meet" opacity="0.72"/></svg>`);
 }
 
 export default function processImages(type = "ads") {
@@ -75,7 +76,7 @@ export default function processImages(type = "ads") {
               fit: "inside",
               withoutEnlargement: true
             })
-            .composite([{ input: fullWatermark, gravity: "southeast" }])
+            .composite([{ input: fullWatermark, gravity: "northeast" }])
             .webp({ quality: 80, effort: 6 })
             .toFile(webpPath);
 
@@ -88,7 +89,7 @@ export default function processImages(type = "ads") {
               fit: "inside",
               withoutEnlargement: true
             })
-            .composite([{ input: medWatermark, gravity: "southeast" }])
+            .composite([{ input: medWatermark, gravity: "northeast" }])
             .webp({ quality: 70, effort: 6 })
             .toFile(medPath);
 
@@ -101,7 +102,7 @@ export default function processImages(type = "ads") {
               fit: "cover", // Thumbnails usually look better cropped
               position: "center"
             })
-            .composite([{ input: thumbWatermark, gravity: "southeast" }])
+            .composite([{ input: thumbWatermark, gravity: "northeast" }])
             .webp({ quality: 60, effort: 6 })
             .toFile(thumbPath);
             

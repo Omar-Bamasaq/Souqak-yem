@@ -12,13 +12,14 @@ const logoPath = path.join(process.cwd(), "src", "assets", "souqak-watermark.svg
 const watermarkCache = new Map();
 
 async function getWatermark(width) {
-  const targetWidth = Math.max(180, Math.round(width * 0.42));
+  const targetWidth = Math.max(60, Math.min(160, Math.round(width * 0.16)));
   if (!watermarkCache.has(targetWidth)) {
     const logo = await sharp(logoPath)
       .resize(targetWidth, null, { fit: "inside" })
       .png()
       .toBuffer();
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${width}"><image href="data:image/png;base64,${logo.toString("base64")}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMax yMax meet" opacity="0.2"/></svg>`;
+    const logoHeight = Math.round(targetWidth * 0.36);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${targetWidth}" height="${logoHeight}"><image href="data:image/png;base64,${logo.toString("base64")}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMax yMin meet" opacity="0.72"/></svg>`;
     watermarkCache.set(targetWidth, Buffer.from(svg));
   }
   return watermarkCache.get(targetWidth);
@@ -47,7 +48,7 @@ async function processVariant(sourcePath, outputPath, width, height, watermark) 
   await sharp(sourcePath)
     .rotate()
     .resize(width, height, { fit: width === 300 ? "cover" : "inside", withoutEnlargement: true, position: "center" })
-    .composite([{ input: watermark, gravity: "southeast" }])
+    .composite([{ input: watermark, gravity: "northeast" }])
     .webp({ quality: width === 300 ? 60 : width === 600 ? 70 : 80, effort: 6 })
     .toFile(temporaryPath);
   await fs.rename(temporaryPath, outputPath);
