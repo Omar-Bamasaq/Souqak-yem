@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { canInstallPWA, installPWA } from "../utils/pwaInstall.js";
 
 export default function PWAInstallButton({ mobile = false }) {
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
-    // Check if we can already install (event might have fired before component mount)
-    // In a real app, you might use a Context for this, but events work too.
-    const handleCanInstall = () => setCanInstall(true);
+    const updateInstallState = () => setCanInstall(canInstallPWA());
+    const handleCanInstall = () => updateInstallState();
     const handleInstalled = () => setCanInstall(false);
 
     window.addEventListener("pwa:can-install", handleCanInstall);
     window.addEventListener("pwa:installed", handleInstalled);
 
-    // Initial check: if already in standalone mode, don't show
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setCanInstall(false);
-    }
+    updateInstallState();
 
     return () => {
       window.removeEventListener("pwa:can-install", handleCanInstall);
@@ -25,7 +21,7 @@ export default function PWAInstallButton({ mobile = false }) {
   }, []);
 
   const handleClick = () => {
-    window.dispatchEvent(new CustomEvent("pwa:request-install"));
+    installPWA();
   };
 
   if (!canInstall) return null;
