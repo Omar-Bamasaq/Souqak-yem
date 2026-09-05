@@ -10,6 +10,19 @@ import { ThemeProvider } from "./store/ThemeContext.jsx";
 import { BrokerageStatusProvider } from "./store/BrokerageStatusContext.jsx";
 import "./index.css";
 
+const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
+
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  if (sessionStorage.getItem(PRELOAD_RECOVERY_KEY) === "1") return;
+  sessionStorage.setItem(PRELOAD_RECOVERY_KEY, "1");
+  window.location.reload();
+});
+
+window.addEventListener("load", () => {
+  sessionStorage.removeItem(PRELOAD_RECOVERY_KEY);
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

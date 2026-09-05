@@ -1,7 +1,5 @@
-const CACHE_NAME = "suqaq-pwa-v4";
+const CACHE_NAME = "suqaq-pwa-v6";
 const ASSETS_TO_CACHE = [
-  "/",
-  "/index.html",
   "/favicon.svg",
   "/icon-cart.svg",
   "/manifest.json"
@@ -44,36 +42,47 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2. Strategy: Stale-While-Revalidate for most assets
-  // This is best for Yemen's weak internet as it shows content immediately 
-  // from cache while updating it in the background.
-  event.respondWith(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.match(event.request).then((cachedResponse) => {
-        const fetchedResponse = fetch(event.request).then((networkResponse) => {
-          // Only cache successful responses
-          if (networkResponse && networkResponse.status === 200) {
-            cache.put(event.request, networkResponse.clone());
+  // Cache only versioned JavaScript and CSS files, never the app shell.
+  const isVersionedAsset = url.pathname.startsWith("/assets/") && /\.(js|css)$/.test(url.pathname);
+  if (isVersionedAsset) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) return cachedResponse;
+
+        try {
+          const networkResponse = await fetch(event.request);
+          const contentType = networkResponse.headers.get("content-type") || "";
+          const isJavaScript = url.pathname.endsWith(".js") && /javascript|ecmascript/i.test(contentType);
+          const isStylesheet = url.pathname.endsWith(".css") && /text\/css/i.test(contentType);
+          if (networkResponse.ok && (isJavaScript || isStylesheet)) {
+            await cache.put(event.request, networkResponse.clone());
           }
           return networkResponse;
-        }).catch(() => {
-          // If network fails and no cache, return offline fallback
-          if (event.request.mode === "navigate") {
-            return caches.match("/index.html").then((fallback) =>
-              fallback || new Response("Offline", {
-                status: 503,
-                statusText: "Offline",
-                headers: { "Content-Type": "text/plain; charset=utf-8" }
-              })
-            );
-          }
-          return new Response("", { status: 503, statusText: "Service Unavailable" });
-        });
+        } catch {
+          return new Response("Asset unavailable", {
+            status: 503,
+            statusText: "Asset Unavailable",
+            headers: { "Content-Type": "text/plain; charset=utf-8" }
+          });
+        }
+      })
+    );
+    return;
+  }
 
-        return cachedResponse || fetchedResponse;
-      });
-    })
-  );
+  // Always fetch navigations first so the app shell cannot become stale.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        new Response("Offline", {
+          status: 503,
+          statusText: "Offline",
+          headers: { "Content-Type": "text/plain; charset=utf-8" }
+        })
+      )
+    );
+  }
 });
 
 // Push Event - Handle incoming push notifications

@@ -1,10 +1,21 @@
 {
+  "headers": [
+    {
+      "source": "/assets/(.*\\.(js|css))",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/robots.txt", "destination": "/robots.txt" },
     { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
     { "source": "/manifest.json", "destination": "/manifest.json" },
     { "source": "/favicon.ico", "destination": "/favicon.ico" },
     { "source": "/apple-touch-icon.png", "destination": "/apple-touch-icon.png" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!assets/.*\\.(js|css)$).*)", "destination": "/index.html" }
   ]
 }

@@ -8,6 +8,7 @@ import FirstVisitSessionIntro from "./components/FirstVisitSessionIntro.jsx";
 import SupportChatFAB from "./components/SupportChatFAB.jsx";
 import OnboardingTour from "./components/OnboardingTour.jsx";
 import LoadingSpinner from "./components/LoadingSpinner.jsx";
+import RouteErrorBoundary from "./components/RouteErrorBoundary.jsx";
 import PushSubscriptionManager from "./components/PushSubscriptionManager.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
 import AuthLayout from "./layouts/AuthLayout.jsx";
@@ -99,7 +100,7 @@ const BrokerageCampaignDetails = lazy(() => import("./pages/BrokerageCampaignDet
 function RequireRole({ role, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return null;
+  if (loading) return <LoadingSpinner fullPage />;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
   if (role && user.role !== role) return <Navigate to="/login" replace />;
   return children;
@@ -108,7 +109,7 @@ function RequireRole({ role, children }) {
 function RequireBrokerageEnabled({ children }) {
   const { enabled, loading } = useBrokerageStatus();
   const location = useLocation();
-  if (loading) return null;
+  if (loading) return <LoadingSpinner fullPage />;
   if (!enabled) return <Navigate to="/" replace state={{ from: location }} />;
   return children;
 }
@@ -162,8 +163,9 @@ export default function App() {
       <SupportChatFAB />
       <WelcomePromotionSummary />
       <OnboardingTour />
-      <Suspense fallback={<LoadingSpinner fullPage />}>
-        <Routes>
+      <RouteErrorBoundary>
+        <Suspense fallback={<LoadingSpinner fullPage />}>
+          <Routes>
           <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -300,8 +302,9 @@ export default function App() {
         
         <Route path="*" element={<NotFound />} />
       </Route>
-    </Routes>
-    </Suspense>
+          </Routes>
+        </Suspense>
+      </RouteErrorBoundary>
     </>
   );
 }
