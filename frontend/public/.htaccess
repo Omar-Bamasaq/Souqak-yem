@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Give crawlers an ad-specific Open Graph page before the SPA fallback.
+RewriteRule ^ad/([a-fA-F0-9]{24})(?:/[^/]+)?/?$ share-preview.php?id=$1 [L,QSA]
+
+# Keep client-side routing working for all other frontend pages.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
