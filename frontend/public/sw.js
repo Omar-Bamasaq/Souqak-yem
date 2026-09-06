@@ -87,10 +87,6 @@ self.addEventListener("fetch", (event) => {
 
 // Push Event - Handle incoming push notifications
 self.addEventListener("push", (event) => {
-  if (!(self.Notification && self.Notification.permission === "granted")) {
-    return;
-  }
-
   let data = {};
   if (event.data) {
     try {

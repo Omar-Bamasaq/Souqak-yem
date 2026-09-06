@@ -11,6 +11,7 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/emailSen
 import { normalizePhone, isValidPhoneNumber, isValidPassword, generateTemporaryPassword, buildPasswordResetRequestMessage } from "../utils/securityRules.js";
 import PasswordResetRequest from "../models/PasswordResetRequest.js";
 import { createAdminNotification } from "../services/notificationService.js";
+import { isPushConfigured } from "../services/pushService.js";
 import Order from "../models/Order.js";
 import Dispute from "../models/Dispute.js";
 import Withdrawal from "../models/Withdrawal.js";
@@ -1117,6 +1118,9 @@ router.post("/unsubscribe", auth, async (req, res) => {
 });
 
 router.get("/vapid-public-key", (req, res) => {
+  if (!isPushConfigured || !process.env.VAPID_PUBLIC_KEY) {
+    return res.status(503).json({ error: "Push notifications are not configured" });
+  }
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 

@@ -21,32 +21,51 @@ export const subscribeToPush = async (api) => {
 
     const registration = await navigator.serviceWorker.ready;
 
+    // Fetch the current key before reusing a browser subscription. A key
+    // rotation makes the old subscription unusable by the production server.
+    const { data } = await api.get("/auth/vapid-public-key");
+    const vapidPublicKey = data?.publicKey;
+    if (!vapidPublicKey) {
+      throw new Error("Push notifications are not configured on the server");
+    }
+    const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+
     // 2. Check if already subscribed
-    const existingSubscription = await registration.pushManager.getSubscription();
+    let existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription) {
+      const storedVapidKey = localStorage.getItem("souqak-push-vapid-key");
+      const subscriptionKey = existingSubscription.options?.applicationServerKey;
+      const hasKeyChanged = !storedVapidKey || storedVapidKey !== vapidPublicKey;
+      const hasKnownDifferentKey = subscriptionKey && !sameBytes(subscriptionKey, applicationServerKey);
+
+      if (hasKeyChanged || hasKnownDifferentKey) {
+        await existingSubscription.unsubscribe();
+        existingSubscription = null;
+      }
+    }
+
     if (existingSubscription) {
       // Send to backend just in case it's not saved there
       await api.post("/auth/subscribe", {
         subscription: existingSubscription,
         deviceType: getDeviceType()
       });
+      localStorage.setItem("souqak-push-vapid-key", vapidPublicKey);
       return;
     }
 
-    // 3. Get VAPID public key
-    const { data } = await api.get("/auth/vapid-public-key");
-    const vapidPublicKey = data.publicKey;
-
-    // 4. Subscribe
+    // 3. Subscribe
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      applicationServerKey
     });
 
-    // 5. Send to backend
+    // 4. Send to backend
     await api.post("/auth/subscribe", {
       subscription,
       deviceType: getDeviceType()
     });
+    localStorage.setItem("souqak-push-vapid-key", vapidPublicKey);
 
     console.log("User subscribed to push notifications");
   } catch (error) {
@@ -82,4 +101,10 @@ function urlBase64ToUint8Array(base64String) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+function sameBytes(first, second) {
+  const firstBytes = new Uint8Array(first);
+  if (firstBytes.length !== second.length) return false;
+  return firstBytes.every((value, index) => value === second[index]);
 }

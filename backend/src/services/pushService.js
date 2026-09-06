@@ -5,12 +5,19 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Configure web-push with VAPID keys
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY?.trim();
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY?.trim();
+const vapidEmail = process.env.VAPID_EMAIL?.trim() || "mailto:non.reply.yourplatform@gmail.com";
+export const isPushConfigured = Boolean(vapidPublicKey && vapidPrivateKey);
+
+if (isPushConfigured) {
   webPush.setVapidDetails(
-    process.env.VAPID_EMAIL || "mailto:non.reply.yourplatform@gmail.com",
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
+    vapidEmail,
+    vapidPublicKey,
+    vapidPrivateKey
   );
+} else {
+  console.error("Push notifications are disabled: VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required.");
 }
 
 /**
@@ -20,6 +27,10 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
  */
 export const sendPushNotification = async (userId, payload) => {
   try {
+    if (!isPushConfigured) {
+      return { success: false, reason: "Push service is not configured" };
+    }
+
     const user = await User.findById(userId).select("pushSubscriptions notificationPrefs");
     if (!user || !user.pushSubscriptions || user.pushSubscriptions.length === 0) {
       return { success: false, reason: "No active subscriptions" };
@@ -42,8 +53,8 @@ export const sendPushNotification = async (userId, payload) => {
     });
 
     const results = await Promise.allSettled(
-      user.pushSubscriptions.map(sub => 
-        webPush.sendNotification(
+      user.pushSubscriptions.map(async (sub) => {
+        await webPush.sendNotification(
           {
             endpoint: sub.endpoint,
             keys: {
@@ -52,14 +63,31 @@ export const sendPushNotification = async (userId, payload) => {
             }
           },
           notificationPayload
-        )
-      )
+        );
+        return sub.endpoint;
+      })
     );
 
-    // Clean up expired subscriptions
-    const expiredEndpoints = results
-      .filter(r => r.status === 'rejected' && (r.reason.statusCode === 410 || r.reason.statusCode === 404))
-      .map((r, i) => user.pushSubscriptions[i].endpoint);
+    // Remove subscriptions rejected by the push provider, including ones
+    // invalidated after a VAPID key rotation.
+    const resultsWithSubscriptions = results.map((result, index) => ({
+      result,
+      endpoint: user.pushSubscriptions[index].endpoint
+    }));
+    const expiredEndpoints = resultsWithSubscriptions
+      .filter(({ result }) => {
+        const statusCode = result.status === "rejected" ? result.reason?.statusCode : null;
+        return statusCode === 401 || statusCode === 403 || statusCode === 404 || statusCode === 410;
+      })
+      .map(({ endpoint }) => endpoint);
+
+    const failedResults = resultsWithSubscriptions.filter(({ result }) => result.status === "rejected");
+    failedResults.forEach(({ result, endpoint }) => {
+      console.error("Push delivery failed:", {
+        statusCode: result.reason?.statusCode,
+        endpoint
+      });
+    });
 
     if (expiredEndpoints.length > 0) {
       await User.findByIdAndUpdate(userId, {
