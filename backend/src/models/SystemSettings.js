@@ -47,6 +47,24 @@ const SystemSettingsSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    referralProgram: {
+      programEnabled: { type: Boolean, default: true },
+      defaultReferralRate: { type: Number, min: 0, max: 100, default: 10 },
+      saleReferralRate: { type: Number, min: 0, max: 100, default: 10 },
+      safePurchaseReferralRate: { type: Number, min: 0, max: 100, default: 10 },
+      promotionReferralRate: { type: Number, min: 0, max: 100, default: 10 },
+      minimumWithdrawal: {
+        YER: { type: Number, default: 1000 },
+        YER_ADEN: { type: Number, default: 1000 },
+        YER_SANAA: { type: Number, default: 1000 },
+        SAR: { type: Number, default: 2.5 },
+        USD: { type: Number, default: 1 }
+      },
+      pendingPeriod: { type: Number, min: 0, default: 7 },
+      maxDailyReferralRewards: { type: Number, min: 0, default: 0 },
+      maxDailyWithdrawals: { type: Number, min: 0, default: 0 },
+      fraudReviewEnabled: { type: Boolean, default: true }
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
@@ -57,11 +75,11 @@ const SystemSettingsSchema = new mongoose.Schema(
 
 // Ensure only one settings document exists
 SystemSettingsSchema.statics.getSettings = async function() {
-  let settings = await this.findOne();
-  if (!settings) {
-    settings = await this.create();
-  }
-  return settings;
+  return this.findOneAndUpdate(
+    {},
+    { $setOnInsert: {} },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
 };
 
 export default mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);

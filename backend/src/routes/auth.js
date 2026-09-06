@@ -16,6 +16,7 @@ import Dispute from "../models/Dispute.js";
 import Withdrawal from "../models/Withdrawal.js";
 import Wallet from "../models/Wallet.js";
 import Ad from "../models/Ad.js";
+import ReferralEngine from "../engines/ReferralEngine.js";
 import {
   signAccessToken,
   verifyRefreshToken,
@@ -264,6 +265,8 @@ router.post("/verify-email", async (req, res) => {
         verified: false,
         verifiedAt: null
       });
+      await ReferralEngine.ensureProfile(user._id);
+      await ReferralEngine.claimAttribution(user._id, req.cookies?.souqak_referral);
     } else {
       user.isEmailVerified = true;
       user.verified = false;
@@ -549,6 +552,8 @@ router.post("/register", uploadIdDoc.single("idDocument"), async (req, res) => {
       identityStatus: idDocument ? "Pending" : undefined,
       isVerifiedSeller: false
     });
+    await ReferralEngine.ensureProfile(user._id);
+    await ReferralEngine.claimAttribution(user._id, req.cookies?.souqak_referral);
     res.status(201).json({
       id: user._id,
       name: user.name,
@@ -624,6 +629,7 @@ router.post("/login", async (req, res) => {
     }
     
     await user.save();
+    await ReferralEngine.ensureProfile(user._id);
 
     // Generate tokens and set cookies
     const { accessToken } = await sendAuthResponse(user, res);
@@ -729,6 +735,8 @@ router.post("/phone-register", async (req, res) => {
       temporaryPassword: null,
       temporaryPasswordExpiresAt: null
     });
+    await ReferralEngine.ensureProfile(user._id);
+    await ReferralEngine.claimAttribution(user._id, req.cookies?.souqak_referral);
 
     const { accessToken } = await sendAuthResponse(user, res);
 

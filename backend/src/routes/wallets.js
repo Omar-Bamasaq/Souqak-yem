@@ -2,7 +2,10 @@ import { Router } from "express";
 import path from "path";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
-import { getOrCreateWallet, deductAvailableBalance } from "../services/walletService.js";
+import { getOrCreateWallet, deductAvailableBalance, refundAvailableBalance } from "../services/walletService.js";
+import { reserveReferralCommissions } from "../services/referralService.js";
+import ReferralCommission from "../models/ReferralCommission.js";
+import ReferralProfile from "../models/ReferralProfile.js";
 import Transaction from "../models/Transaction.js";
 import Withdrawal from "../models/Withdrawal.js";
 import SystemSettings from "../models/SystemSettings.js";
@@ -21,7 +24,7 @@ const MINIMUM_WITHDRAWAL_BY_CURRENCY = {
   YER_ADEN: 1000,
   YER_SANAA: 1000,
   SAR: 2.5,
-  USD: 0.75
+  USD: 1
 };
 
 // عرض المحفظة (الرصيد)
@@ -90,7 +93,11 @@ router.post(
       const wallet = await getOrCreateWallet(req.user.id);
       
       const balanceObj = wallet.balances.find(b => b.currency === currency);
-      if (!balanceObj || balanceObj.availableBalance < numAmount) {
+      const frozen = await ReferralCommission.aggregate([{ $match: { referrerUserId: req.user.id, currency, status: "FROZEN" } }, { $group: { _id: null, total: { $sum: "$commissionAmount" } } }]);
+      const frozenAmount = frozen[0]?.total || 0;
+      const profile = await ReferralProfile.findOne({ userId: req.user.id }).lean();
+      const recoveryAmount = profile?.recoveryBalances?.find(item => item.currency === currency)?.amount || 0;
+      if (!balanceObj || balanceObj.availableBalance - frozenAmount - recoveryAmount < numAmount) {
           return res.status(400).json({ error: "رصيدك المتاح لهذه العملة غير كافٍ." });
       }
 
@@ -133,6 +140,13 @@ router.post(
           identityImage: identityImagePath
         }
       });
+      try {
+        await reserveReferralCommissions(req.user.id, numAmount, currency, withdrawal._id);
+      } catch (reserveError) {
+        await Withdrawal.deleteOne({ _id: withdrawal._id, status: "PENDING" });
+        await refundAvailableBalance(req.user.id, numAmount, "إلغاء حجز السحب غير المكتمل", currency);
+        throw reserveError;
+      }
 
       // إشعار للمستخدم
       await createNotification(req.app, {

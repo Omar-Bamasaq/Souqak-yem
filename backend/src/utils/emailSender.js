@@ -48,8 +48,8 @@ function createTransporter(account, port = 465) {
     tls: {
       rejectUnauthorized: false
     },
-    debug: true,
-    logger: true
+    debug: process.env.NODE_ENV !== "production",
+    logger: process.env.NODE_ENV !== "production"
   });
 
   console.log(`[TRANSPORTER CREATED] for ${account.user} on port ${port}`);

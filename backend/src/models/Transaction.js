@@ -7,7 +7,7 @@ const transactionSchema = new mongoose.Schema(
     order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", index: true },
     type: {
       type: String,
-      enum: ["PAYMENT", "FEE", "RELEASE", "WITHDRAWAL", "WITHDRAW_FEE", "REFUND", "ADMIN_ADJUSTMENT"],
+      enum: ["PAYMENT", "FEE", "RELEASE", "WITHDRAWAL", "WITHDRAW_FEE", "REFUND", "ADMIN_ADJUSTMENT", "ORDER_PAYMENT", "ORDER_CANCEL", "REFERRAL_REWARD", "REFERRAL_REVERSAL"],
       required: true
     },
     amount: { type: Number, required: true },
@@ -26,6 +26,12 @@ const transactionSchema = new mongoose.Schema(
       default: "COMPLETED",
       index: true
     }
+    ,referralCommissionId: { type: mongoose.Schema.Types.ObjectId, ref: "ReferralCommission", index: true },
+    sourceType: { type: String, index: true },
+    sourceId: { type: mongoose.Schema.Types.ObjectId, index: true },
+    idempotencyKey: { type: String, unique: true, sparse: true, index: true },
+    reversalOf: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction", default: null },
+    withdrawalId: { type: mongoose.Schema.Types.ObjectId, ref: "Withdrawal", index: true }
   },
   { timestamps: true }
 );

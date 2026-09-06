@@ -58,6 +58,18 @@ router.patch(
         endDate: Joi.date().allow(null).optional()
       }).optional(),
       brokerageEnabled: Joi.boolean().optional()
+      ,referralProgram: Joi.object({
+        programEnabled: Joi.boolean().optional(),
+        defaultReferralRate: Joi.number().min(0).max(100).optional(),
+        saleReferralRate: Joi.number().min(0).max(100).optional(),
+        safePurchaseReferralRate: Joi.number().min(0).max(100).optional(),
+        promotionReferralRate: Joi.number().min(0).max(100).optional(),
+        minimumWithdrawal: Joi.object().optional(),
+        pendingPeriod: Joi.number().min(0).optional(),
+        maxDailyReferralRewards: Joi.number().min(0).optional(),
+        maxDailyWithdrawals: Joi.number().min(0).optional(),
+        fraudReviewEnabled: Joi.boolean().optional()
+      }).optional()
     })
   ),
   async (req, res) => {
@@ -69,7 +81,8 @@ router.patch(
         withdrawalIdentityThresholdUsd,
         exchangeRates,
         welcomePromotion,
-        brokerageEnabled
+        brokerageEnabled,
+        referralProgram
       } = req.body;
       
       // Get existing settings first
@@ -92,6 +105,16 @@ router.patch(
       }
       if (brokerageEnabled !== undefined) {
         updateData.brokerageEnabled = brokerageEnabled;
+      }
+      if (referralProgram) {
+        updateData.referralProgram = {
+          ...settings.referralProgram?.toObject?.() || settings.referralProgram,
+          ...referralProgram,
+          minimumWithdrawal: {
+            ...settings.referralProgram?.minimumWithdrawal?.toObject?.() || settings.referralProgram?.minimumWithdrawal,
+            ...referralProgram.minimumWithdrawal
+          }
+        };
       }
       
       // Update and return new document

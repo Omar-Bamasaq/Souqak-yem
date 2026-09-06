@@ -253,6 +253,15 @@ export default function SellerDashboard() {
           <span className="font-bold text-sm">إعلاناتي</span>
         </Link>
 
+        <Link to="/referrals" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-emerald-100 bg-emerald-50/30 dark:bg-emerald-900/10 dark:border-emerald-900/30">
+          <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 rounded-2xl">
+            <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm13-3h-6m3-3v6" />
+            </svg>
+          </div>
+          <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">سفراء سوقك</span>
+        </Link>
+
         <Link to="/favorites" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
           <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl">
             <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

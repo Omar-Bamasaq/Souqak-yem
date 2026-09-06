@@ -18,7 +18,7 @@ function loadDotenvIfNeeded() {
   for (const c of candidates) {
     if (fs.existsSync(c)) {
       try {
-        const r = dotenv.config({ path: c, override: true });
+        const r = dotenv.config({ path: c });
         process.env = { ...r.parsed, ...process.env };
       } catch (e) {
         /* ignore */

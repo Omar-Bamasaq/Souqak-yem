@@ -96,6 +96,9 @@ const BrokerageDeals = lazy(() => import("./pages/BrokerageDeals.jsx"));
 const BrokerageAchievements = lazy(() => import("./pages/BrokerageAchievements.jsx"));
 const BrokerageSellerCampaigns = lazy(() => import("./pages/BrokerageSellerCampaigns.jsx"));
 const BrokerageCampaignDetails = lazy(() => import("./pages/BrokerageCampaignDetails.jsx"));
+const ReferralDashboard = lazy(() => import("./pages/ReferralDashboard.jsx"));
+const AdminReferrals = lazy(() => import("./pages/AdminReferrals.jsx"));
+const ReferralRedirect = lazy(() => import("./pages/ReferralRedirect.jsx"));
 
 function RequireRole({ role, children }) {
   const { user, loading } = useAuth();
@@ -226,6 +229,7 @@ export default function App() {
           <Route path="deleted-ads" element={<AdminDeletedAds />} />
           <Route path="archived-ads" element={<AdminArchivedAds />} />
           <Route path="brokerage" element={<AdminBrokerage />} />
+          <Route path="referrals" element={<AdminReferrals />} />
         </Route>
         <Route path="/categories" element={<Categories />} />
         <Route path="/category/:slug" element={<CategoryPage />} />
@@ -293,6 +297,8 @@ export default function App() {
         
         {/* Brokerage Routes */}
         <Route path="/brokerage" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerDashboard /></RequireRole></RequireBrokerageEnabled>} />
+        <Route path="/referrals" element={<RequireRole role={null}><ReferralDashboard /></RequireRole>} />
+        <Route path="/r/:code" element={<ReferralRedirect />} />
         <Route path="/brokerage/campaigns" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageCampaigns /></RequireRole></RequireBrokerageEnabled>} />
         <Route path="/brokerage/memberships" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageMemberships /></RequireRole></RequireBrokerageEnabled>} />
         <Route path="/brokerage/deals" element={<RequireBrokerageEnabled><RequireRole role={null}><BrokerageDeals /></RequireRole></RequireBrokerageEnabled>} />

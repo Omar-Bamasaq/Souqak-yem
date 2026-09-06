@@ -13,6 +13,7 @@ import { uploadReceipt, processImage } from "../middleware/upload.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { getFinalPrice } from "../utils/planUtils.js";
 import SystemSettings from "../models/SystemSettings.js";
+import ReferralEngine from "../engines/ReferralEngine.js";
 
 const router = Router();
 
@@ -137,6 +138,9 @@ router.patch("/:id/approve", auth, requireRole(["admin"]), async (req, res) => {
     if (pr.status === "Approved") return res.json(pr);
     const plan = pr.plan;
     const updatedPR = await PurchaseRequest.findByIdAndUpdate(pr._id, { status: "Approved" }, { new: true }).lean();
+    if (plan.type === "featured") {
+      await ReferralEngine.createPromotionCommission(updatedPR);
+    }
     if (plan.type === "verification") {
       const expires = new Date(Date.now() + plan.durationInDays * 24 * 60 * 60 * 1000);
       await User.findByIdAndUpdate(pr.user, { 

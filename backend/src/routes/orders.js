@@ -15,6 +15,7 @@ import User from "../models/User.js";
 import { buildReplacementPaymentDetails } from "../utils/orderPaymentState.js";
 import { sendAdminEmail } from "../utils/sendEmail.js";
 import { sendSafePurchaseNotification } from "../utils/emailSender.js";
+import ReferralEngine from "../engines/ReferralEngine.js";
 
 const router = Router();
 
@@ -462,6 +463,7 @@ router.patch(
         if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
           await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
         }
+          await ReferralEngine.createSafePurchaseCommission(order);
       } catch (walletErr) {
         console.error("Wallet balance release failed:", walletErr);
         // نرجع حالة الطلب كما كانت إذا فشل تحرير الرصيد

@@ -34,6 +34,7 @@ import { generateTemporaryPassword, normalizePhone } from "../utils/securityRule
 
 import { createNotification } from "../services/notificationService.js";
 import { logActivity } from "../services/activityLogService.js";
+import ReferralEngine from "../engines/ReferralEngine.js";
 
 import processImages from "../middleware/processImages.js";
 
@@ -797,6 +798,20 @@ router.patch("/commissions/:id/status", async (req, res) => {
       commission.commissionStatus = "rejected";
     }
     await commission.save();
+
+    if (status === "paid") {
+      const settings = await ReferralEngine.getSettings();
+      await ReferralEngine.createCommission({
+        sourceType: "SALE",
+        sourceId: commission._id,
+        referredUserId: commission.sellerId,
+        rewardType: "SALE",
+        platformRevenueAmount: commission.commissionAmount,
+        platformRevenueType: "SALE_COMMISSION",
+        currency: commission.currency,
+        rate: settings.saleRate
+      });
+    }
 
     // Send notification to seller
     const title = status === "paid" ? "تم قبول عمولة الموقع" : "تم رفض عمولة الموقع";

@@ -10,7 +10,7 @@ const backendEnv = path.join(process.cwd(), ".env.local");
 const rootEnv = path.join(process.cwd(), "..", ".env.local");
 
 if (fs.existsSync(backendEnv)) {
-  const r = dotenv.config({ path: backendEnv, override: true });
+  const r = dotenv.config({ path: backendEnv });
   process.env = { ...r.parsed, ...process.env };
 }
 if (fs.existsSync(rootEnv)) {
@@ -78,6 +78,10 @@ import adminEscrowRoutes from "./routes/adminEscrow.js";
 import adminAnalyticsRoutes from "./routes/adminAnalytics.js";
 import sellerAnalyticsRoutes from "./routes/sellerAnalytics.js";
 import brokerageRoutes from "./routes/brokerage.js";
+import referralRoutes from "./routes/referrals.js";
+import adminReferralRoutes from "./routes/adminReferrals.js";
+import publicReferralRoutes from "./routes/publicReferral.js";
+import ReferralEngine from "./engines/ReferralEngine.js";
 import User from "./models/User.js";
 import Ad from "./models/Ad.js";
 import Order from "./models/Order.js";
@@ -268,6 +272,7 @@ function middlewareWantsBrowser(req) {
 }
 
 app.use("/uploads", filesRoutes);
+app.use("/", publicReferralRoutes);
 
 // Fallback for non-sensitive files: serve public uploads + placeholders for missing images
 app.use("/uploads", async (req, res, next) => {
@@ -374,6 +379,8 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/platform-reviews", platformReviewRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/brokerage", brokerageRoutes);
+app.use("/api/referrals", referralRoutes);
+app.use("/api/admin/referrals", adminReferralRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -476,6 +483,14 @@ setInterval(async () => {
     logger.error({ event: "notifications_cleanup_failed", error: err.message });
   }
 }, 24 * 60 * 60 * 1000);
+
+setInterval(async () => {
+  try {
+    await ReferralEngine.processDueCommissions();
+  } catch (err) {
+    logger.error({ event: "referral_commission_processing_failed", error: err.message });
+  }
+}, 60 * 60 * 1000);
 
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -687,6 +702,7 @@ setInterval(async () => {
         if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
           await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
         }
+        await ReferralEngine.createSafePurchaseCommission(order);
 
         // Notification to seller
         await createNotification(app, {

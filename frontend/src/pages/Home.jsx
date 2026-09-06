@@ -408,27 +408,27 @@ export default function Home() {
                 {/* External Deal Banner - Inserted after 8 products (or first row on mobile) */}
                 {index === 8 && (
                   <div className="col-span-2 lg:col-span-3 xl:col-span-4 mb-6">
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20 border border-white/10">
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-emerald-500/20 border border-white/10">
                       <div className="flex items-center gap-5">
                         <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
                           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm13-3h-6m3-3v6" />
                           </svg>
                         </div>
                         <div>
                           <h3 className="text-lg sm:text-xl font-black mb-1">
-                            وجدت منتجاً خارج سوقك؟ اشتره بأمان
+                            كن سفيرًا لسوقك واربح من دعواتك
                           </h3>
-                          <p className="text-sm text-blue-100 font-medium">
-                            حوّل أي صفقة خارجية إلى شراء آمن داخل سوقك واستفد من نظام الضمان
+                          <p className="text-sm text-emerald-100 font-medium">
+                            شارك رابطك الخاص واحصل على 10% من العمولات والرسوم المؤهلة التي تحصل عليها سوقك
                           </p>
                         </div>
                       </div>
                       <Link
-                        to="/secure-deal-explanation"
-                        className="w-full md:w-auto px-10 py-3 bg-white text-blue-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 text-center shadow-lg"
+                        to="/referrals"
+                        className="w-full md:w-auto px-10 py-3 bg-white text-emerald-700 rounded-xl font-black transition-all hover:scale-105 active:scale-95 text-center shadow-lg"
                       >
-                        اعرف المزيد
+                        اكتشف سفراء سوقك
                       </Link>
                     </div>
                   </div>

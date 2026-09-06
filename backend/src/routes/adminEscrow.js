@@ -20,6 +20,8 @@ import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
 import { createNotification } from "../services/notificationService.js";
 import { clearRejectedPaymentDetails } from "../utils/orderPaymentState.js";
+import ReferralEngine from "../engines/ReferralEngine.js";
+import { finalizeWithdrawalFinancials } from "../services/referralService.js";
 
 const router = Router();
 
@@ -108,11 +110,11 @@ router.patch(
         
         // 1. إضافة رصيد المنتج
         const productAmount = Number(order.sellerAmount) || 0;
-        await addPendingBalance(order.seller, productAmount, order._id, order.currency, "PRODUCT");
+        await addPendingBalance(order.seller, productAmount, `إضافة رصيد معلق للمنتج #${order._id}`, order.currency, order._id);
         
         // 2. إضافة رصيد الشحن (كعملية منفصلة دائماً إذا كان المشتري هو من يدفعه)
         if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-          await addPendingBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
+          await addPendingBalance(order.seller, order.shippingFee, `إضافة رصيد شحن معلق للطلب #${order._id}`, order.shippingCurrency, order._id);
         }
       } catch (walletErr) {
         console.error("Wallet pending balance update failed:", walletErr);
@@ -297,42 +299,19 @@ router.patch(
 
       const amount = withdrawal.amount;
       const withdrawFee = 0; // العمولة مخصومة مسبقاً من البداية
-      const finalAmount = amount;
+      const finalAmount = withdrawal.finalAmount || amount;
 
-      withdrawal.status = "COMPLETED";
-      withdrawal.transactionProof = req.body.transactionProof;
-      withdrawal.adminNotes = req.body.adminNotes;
-      withdrawal.feeAmount = withdrawFee;
-      withdrawal.finalAmount = finalAmount;
-      withdrawal.processedAt = new Date();
-      await withdrawal.save();
+      const completedWithdrawal = await finalizeWithdrawalFinancials(withdrawal._id, true, {
+        transactionProof: req.body.transactionProof,
+        adminNotes: req.body.adminNotes
+      });
 
       await AdminEscrowLog.create({
         admin: req.user.id,
         actionType: "COMPLETE_WITHDRAWAL",
         targetType: "Withdrawal",
-        targetId: withdrawal._id,
+        targetId: completedWithdrawal._id,
         ipAddress: req.ip
-      });
-
-      // تسجيل العمليات في Ledger
-      // تحديث المعاملة المعلقة الأصلية (التي تم إنشاؤها عند طلب السحب)
-      try {
-        await Transaction.findOneAndUpdate(
-          { user: withdrawal.user, type: "WITHDRAWAL", status: "PENDING", amount: -amount },
-          { status: "FAILED", description: `تم استبدالها بمعاملات الصافي والعمولة لطلب #${withdrawal._id}` }
-        );
-      } catch (e) { console.error("Update pending tx failed:", e); }
-
-      // 1. عملية السحب (المبلغ الصافي)
-      await Transaction.create({
-        user: withdrawal.user,
-        type: "WITHDRAWAL",
-        amount: -finalAmount,
-        currency: withdrawal.currency || "YER",
-        balanceType: "available",
-        description: `سحب رصيد (صافي) - طلب #${withdrawal._id}`,
-        status: "COMPLETED"
       });
 
       // 2. عملية العمولة (0% لأنها خصمت عند الطلب)
@@ -350,14 +329,14 @@ router.patch(
 
       // إشعار للمستخدم
       await createNotification(req.app, {
-        userId: withdrawal.user,
+        userId: completedWithdrawal.user,
         title: "تم إكمال طلب السحب ✅",
         body: `تم تحويل مبلغ ${amount.toLocaleString()} ${withdrawal.currency || "YER"} إلى حسابك بنجاح. شكراً لثقتك بسوقك!`,
         type: "wallet",
-        data: { withdrawalId: withdrawal._id }
+        data: { withdrawalId: completedWithdrawal._id }
       });
 
-      res.json(withdrawal);
+      res.json(completedWithdrawal);
     } catch (err) {
       console.error("Complete withdrawal error:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم." });
@@ -373,48 +352,29 @@ router.patch(
   async (req, res) => {
     try {
       // الرفض متاح من حالة PENDING أو PROCESSING
-      const withdrawal = await Withdrawal.findOneAndUpdate(
-        { _id: req.params.id, status: { $in: ["PENDING", "PROCESSING"] } },
-        { 
-          status: "REJECTED",
-          adminNotes: req.body.adminNotes,
-          processedAt: new Date()
-        },
-        { new: true }
-      );
-
+      const withdrawal = await Withdrawal.findOne({ _id: req.params.id, status: { $in: ["PENDING", "PROCESSING"] } });
       if (!withdrawal) return res.status(400).json({ error: "طلب السحب غير موجود أو معالج مسبقاً." });
+      const rejectedWithdrawal = await finalizeWithdrawalFinancials(withdrawal._id, false, { adminNotes: req.body.adminNotes });
 
       await AdminEscrowLog.create({
         admin: req.user.id,
         actionType: "REJECT_WITHDRAWAL",
         targetType: "Withdrawal",
-        targetId: withdrawal._id,
+        targetId: rejectedWithdrawal._id,
         details: { reason: req.body.adminNotes },
         ipAddress: req.ip
       });
 
-      // إعادة الرصيد للمحفظة
-      await refundAvailableBalance(withdrawal.user, withdrawal.amount, `إعادة رصيد لرفض طلب السحب: ${req.body.adminNotes}`, withdrawal.currency);
-
-      // تحديث المعاملة المعلقة الأصلية لتصبح فشلت
-      try {
-        await Transaction.findOneAndUpdate(
-          { user: withdrawal.user, type: "WITHDRAWAL", status: "PENDING", amount: -withdrawal.amount, currency: withdrawal.currency },
-          { status: "FAILED", description: `تم رفض السحب: ${req.body.adminNotes}` }
-        );
-      } catch (e) { console.error("Update pending tx failed on reject:", e); }
-
       // إشعار للمستخدم
       await createNotification(req.app, {
-        userId: withdrawal.user,
+        userId: rejectedWithdrawal.user,
         title: "تم رفض طلب السحب",
         body: `تم رفض طلب السحب الخاص بك. السبب: ${req.body.adminNotes}. تم إعادة الرصيد لمحفظتك.`,
         type: "wallet",
-        data: { withdrawalId: withdrawal._id }
+        data: { withdrawalId: rejectedWithdrawal._id }
       });
 
-      res.json(withdrawal);
+      res.json(rejectedWithdrawal);
     } catch (err) {
       console.error("Admin reject withdrawal error:", err);
       res.status(500).json({ error: "حدث خطأ في الخادم أثناء رفض طلب السحب." });
@@ -550,6 +510,7 @@ router.patch(
       if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
         await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
       }
+      await ReferralEngine.createSafePurchaseCommission(order);
 
       res.json(order);
     } catch (err) {
@@ -599,6 +560,7 @@ router.patch(
             if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
               await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
             }
+            await ReferralEngine.createSafePurchaseCommission(order);
           } catch (walletErr) {
             console.error("Resolve dispute releaseBalance failed:", walletErr);
             // Revert status
@@ -629,11 +591,12 @@ router.patch(
             // إزالة الرصيد المعلق من البائع (لأنه تم إلغاء الطلب بعد تأكيد الدفع)
             const productAmount = Number(order.sellerAmount) || 0;
             if (productAmount > 0) {
-              await removePendingBalance(order.seller, productAmount, order._id, order.currency, "PRODUCT");
+              await removePendingBalance(order.seller, productAmount, `إزالة رصيد المنتج المعلق للطلب #${order._id}`, order.currency, order._id);
             }
             if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-              await removePendingBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
+              await removePendingBalance(order.seller, order.shippingFee, `إزالة رصيد الشحن المعلق للطلب #${order._id}`, order.shippingCurrency, order._id);
             }
+            await ReferralEngine.reverseForSource("SAFE_PURCHASE", order._id, "استرداد الطلب لصالح المشتري");
           } catch (walletErr) {
             console.error("Resolve dispute refund/remove pending failed:", walletErr);
             // Revert status
