@@ -30,6 +30,7 @@ import Favorite from "../models/Favorite.js";
 import { logActivity } from "../services/activityLogService.js";
 import { protectSensitiveFields } from "../middleware/protectSensitiveFields.js";
 import { hasOutstandingCommission } from "../utils/commissionAccess.js";
+import { getFrontendBaseUrl } from "../utils/siteUrl.js";
 
 const router = Router();
 
@@ -419,6 +420,62 @@ router.get("/pending-followups", auth, requireRole(["seller", "user"]), async (r
   } catch (error) {
     console.error("Pending followups error:", error);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/share/:id", async (req, res) => {
+  try {
+    const ad = await Ad.findById(req.params.id).select("title description images price currency status isArchived sold isVisible expiresAt").lean();
+    const isUnavailable = !ad || ad.status !== "approved" || ad.isArchived || ad.sold || ad.isVisible === false || (ad.expiresAt && new Date(ad.expiresAt) <= new Date());
+    if (isUnavailable) return res.status(404).send("Not found");
+
+    const frontendBase = getFrontendBaseUrl();
+    const backendBase = (process.env.BACKEND_URL || "https://api.souqak-yem.com").replace(/\/+$/, "");
+    const adUrl = `${frontendBase}/ad/${ad._id}`;
+    const image = ad.images?.[0];
+    const imageUrl = image
+      ? (String(image).startsWith("http")
+        ? String(image)
+        : `${backendBase}/uploads/${String(image).replace(/^\/?uploads\//, "")}`)
+      : `${frontendBase}/logo.png`;
+    const title = ad.title || "إعلان في سوقك";
+    const description = String(ad.description || `شاهد هذا الإعلان على سوقك: ${title}`)
+      .replace(/<[^>]*>/g, "")
+      .trim()
+      .slice(0, 160);
+    const escapeHtml = (value) => String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+    const safe = {
+      title: escapeHtml(`${title} | سوقك`),
+      description: escapeHtml(description),
+      url: escapeHtml(adUrl),
+      image: escapeHtml(imageUrl)
+    };
+
+    res.type("html").send(`<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta property="og:type" content="product" />
+    <meta property="og:url" content="${safe.url}" />
+    <meta property="og:title" content="${safe.title}" />
+    <meta property="og:description" content="${safe.description}" />
+    <meta property="og:image" content="${safe.image}" />
+    <meta property="og:image:alt" content="${safe.title}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="${safe.image}" />
+    <meta http-equiv="refresh" content="0;url=${safe.url}" />
+    <title>${safe.title}</title>
+  </head>
+  <body><a href="${safe.url}">فتح الإعلان</a></body>
+</html>`);
+  } catch (error) {
+    console.error("Ad share preview error:", error);
+    res.status(500).send("Server error");
   }
 });
 

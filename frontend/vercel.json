@@ -11,6 +11,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/ad/:id/:slug*", "destination": "https://api.souqak-yem.com/api/ads/share/:id" },
     { "source": "/robots.txt", "destination": "/robots.txt" },
     { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
     { "source": "/manifest.json", "destination": "/manifest.json" },
