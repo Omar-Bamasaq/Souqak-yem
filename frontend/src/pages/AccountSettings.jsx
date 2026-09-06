@@ -58,20 +58,14 @@ export default function AccountSettings() {
   const [pwError, setPwError] = useState("");
 
   // Notification States
-  const [notifPrefs, setNotifPrefs] = useState(user?.notificationPrefs || {
-    message: { inApp: true, push: true, email: true },
-    comment: { inApp: true, push: true, email: true },
-    ad_status: { inApp: true, push: true, email: true },
-    order: { inApp: true, push: true, email: true },
-    wallet: { inApp: true, push: true, email: true },
-    broker_request: { inApp: true, push: true, email: true },
-    broker_approved: { inApp: true, push: true, email: true },
-    broker_rejected: { inApp: true, push: true, email: true },
-    deal_pending: { inApp: true, push: true, email: true },
-    deal_confirmed: { inApp: true, push: true, email: true },
-    complaint_received: { inApp: true, push: true, email: true },
-    complaint_resolved: { inApp: true, push: true, email: true }
-  });
+  const defaultAdminPushPrefs = { inApp: false, push: true, email: false };
+  const [notifPrefs, setNotifPrefs] = useState(() => ({
+    ...(user?.notificationPrefs || {}),
+    admin_message: {
+      ...defaultAdminPushPrefs,
+      ...(user?.notificationPrefs?.admin_message || {})
+    }
+  }));
   const [notifLoading, setNotifLoading] = useState(false);
 
   const NotificationToggle = ({ label, checked, onChange, loading }) => (
@@ -775,6 +769,22 @@ export default function AccountSettings() {
                     label="تنبيهات البريد الإلكتروني" 
                     checked={notifPrefs.message?.email} 
                     onChange={() => toggleNotif('message', 'email')} 
+                    loading={notifLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Category: Admin Push */}
+              <div className="space-y-3 sm:space-y-4 pt-6 border-t border-gray-50 dark:border-slate-800/50">
+                <div className="flex items-center gap-3 px-1">
+                  <span className="text-xl">📣</span>
+                  <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">إشعارات سوقك العامة</h4>
+                </div>
+                <div className="grid gap-2">
+                  <NotificationToggle
+                    label="إشعارات الهاتف (Push)"
+                    checked={notifPrefs.admin_message?.push}
+                    onChange={() => toggleNotif('admin_message', 'push')}
                     loading={notifLoading}
                   />
                 </div>

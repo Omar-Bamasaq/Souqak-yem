@@ -4,13 +4,16 @@ import { useApi } from "../api/axios.js";
 export default function AdminMessaging() {
   const api = useApi();
   const [messages, setMessages] = useState([]);
+  const [pushCampaigns, setPushCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [channel, setChannel] = useState("push");
 
   // Form state
   const [targetType, setTargetType] = useState("all");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [targetPage, setTargetPage] = useState("home");
   const [isPinned, setIsPinned] = useState(true);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [userSearch, setUserSearch] = useState("");
@@ -19,6 +22,7 @@ export default function AdminMessaging() {
 
   useEffect(() => {
     loadMessages();
+    loadPushCampaigns();
   }, []);
 
   useEffect(() => {
@@ -41,6 +45,15 @@ export default function AdminMessaging() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPushCampaigns = async () => {
+    try {
+      const res = await api.get("/admin-messages/push/list");
+      setPushCampaigns(res.data || []);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -75,25 +88,30 @@ export default function AdminMessaging() {
 
     setIsSending(true);
     try {
-      await api.post("/admin-messages", {
+      const payload = {
         targetType,
         title,
         content,
-        isPinned,
         recipients: targetType === "specific" ? selectedUsers.map((u) => u._id) : [],
-      });
+      };
+      if (channel === "push") {
+        await api.post("/admin-messages/push", { ...payload, targetPage });
+      } else {
+        await api.post("/admin-messages", { ...payload, isPinned });
+      }
       
       // Reset form
       setTitle("");
       setContent("");
       setSelectedUsers([]);
       setTargetType("all");
+      setTargetPage("home");
       
       // Refresh list
-      loadMessages();
+      await Promise.all([loadMessages(), loadPushCampaigns()]);
       
       window.dispatchEvent(new CustomEvent("admin:toast", { 
-        detail: { message: "تم إرسال الرسالة بنجاح", type: "success" } 
+        detail: { message: channel === "push" ? "تم إرسال إشعار Push بنجاح" : "تم إرسال الرسالة بنجاح", type: "success" } 
       }));
     } catch (err) {
       console.error(err);
@@ -130,7 +148,7 @@ export default function AdminMessaging() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-        <h1 className="text-xl font-black text-gray-900">مراسلة المستخدمين</h1>
+        <h1 className="text-xl font-black text-gray-900">الإشعارات والمراسلة العامة</h1>
         <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -138,11 +156,28 @@ export default function AdminMessaging() {
         </div>
       </div>
 
+      <div className="flex gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setChannel("push")}
+          className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition-colors ${channel === "push" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}
+        >
+          إشعار Push خارجي
+        </button>
+        <button
+          type="button"
+          onClick={() => setChannel("message")}
+          className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition-colors ${channel === "message" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}
+        >
+          المراسلة العامة
+        </button>
+      </div>
+
       {/* New Message Form */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
-          <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">إرسال رسالة جديدة</h2>
+          <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">{channel === "push" ? "إرسال إشعار Push" : "إرسال رسالة جديدة"}</h2>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -158,7 +193,7 @@ export default function AdminMessaging() {
                 <option value="specific">مستخدمين محددين</option>
               </select>
             </div>
-            <div className="flex items-end pb-3">
+            {channel === "message" && <div className="flex items-end pb-3">
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div className="relative">
                   <input
@@ -172,8 +207,52 @@ export default function AdminMessaging() {
                 </div>
                 <span className="text-xs font-black text-gray-600 group-hover:text-gray-900 transition-colors">تثبيت في أعلى الرسائل</span>
               </label>
-            </div>
+            </div>}
           </div>
+
+          {channel === "push" && (
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">الصفحة عند الضغط على الإشعار</label>
+              <select
+                className="block w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-sm font-bold text-gray-700 transition-all focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-600/5"
+                value={targetPage}
+                onChange={(e) => setTargetPage(e.target.value)}
+              >
+                <option value="home">الصفحة الرئيسية</option>
+                <optgroup label="التصفح والإعلانات">
+                  <option value="categories">الأقسام</option>
+                  <option value="search">البحث</option>
+                  <option value="myAds">إعلاناتي</option>
+                  <option value="favorites">المفضلة</option>
+                  <option value="following">المتابعة</option>
+                </optgroup>
+                <optgroup label="حساب المستخدم">
+                  <option value="messages">الرسائل والمحادثات</option>
+                  <option value="notifications">الإشعارات</option>
+                  <option value="accountSettings">إعدادات الحساب</option>
+                  <option value="wallet">المحفظة</option>
+                  <option value="pricing">الباقات والأسعار</option>
+                </optgroup>
+                <optgroup label="سفراء سوقك والوساطة">
+                  <option value="referrals">سفراء سوقك</option>
+                  <option value="brokerage">الوساطة</option>
+                  <option value="brokerageCampaigns">حملات الوساطة</option>
+                  <option value="brokerageMemberships">عضويات الوساطة</option>
+                  <option value="brokerageDeals">صفقات الوساطة</option>
+                  <option value="brokerageAchievements">إنجازات الوساطة</option>
+                  <option value="brokerageMyCampaigns">حملاتي التسويقية</option>
+                </optgroup>
+                <optgroup label="معلومات المنصة">
+                  <option value="platformReviews">تقييمات المنصة</option>
+                  <option value="howItWorks">كيف يعمل سوقك</option>
+                  <option value="secureDeals">الصفقة الآمنة</option>
+                  <option value="refundEscrow">الاسترداد والوساطة</option>
+                  <option value="terms">الشروط والأحكام</option>
+                  <option value="privacy">الخصوصية</option>
+                </optgroup>
+              </select>
+            </div>
+          )}
 
           {targetType === "specific" && (
             <div className="space-y-3 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
@@ -237,11 +316,11 @@ export default function AdminMessaging() {
           )}
 
           <div className="space-y-2">
-            <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">عنوان الرسالة</label>
+            <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">{channel === "push" ? "عنوان الإشعار" : "عنوان الرسالة"}</label>
             <input
               type="text"
               required
-              placeholder="مثال: تحديث شروط الاستخدام"
+              placeholder={channel === "push" ? "مثال: عرض جديد من سوقك" : "مثال: تحديث شروط الاستخدام"}
               className="block w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-sm font-bold text-gray-700 transition-all focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-600/5"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -249,11 +328,11 @@ export default function AdminMessaging() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">محتوى الرسالة</label>
+            <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-1">{channel === "push" ? "نص الإشعار" : "محتوى الرسالة"}</label>
             <textarea
               required
               rows="4"
-              placeholder="اكتب تفاصيل الرسالة هنا..."
+              placeholder={channel === "push" ? "اكتب نص الإشعار هنا..." : "اكتب تفاصيل الرسالة هنا..."}
               className="block w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-sm font-bold text-gray-700 transition-all focus:bg-white focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-600/5 resize-none"
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -276,13 +355,35 @@ export default function AdminMessaging() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
-                  <span>إرسال الرسالة</span>
+                  <span>{channel === "push" ? "إرسال الإشعار" : "إرسال الرسالة"}</span>
                 </>
               )}
             </button>
           </div>
         </form>
       </div>
+
+      {pushCampaigns.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-gray-50 bg-gray-50/30 px-6 py-4 flex items-center justify-between">
+            <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">سجل إشعارات Push</h2>
+            <span className="text-[10px] font-black text-gray-400 bg-white px-2.5 py-1 rounded-lg border border-gray-100">{pushCampaigns.length} إشعار</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {pushCampaigns.map((campaign) => (
+              <div key={campaign._id} className="px-6 py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-black text-gray-900">{campaign.title}</div>
+                  <div className="text-[10px] font-bold text-gray-400 mt-1">{campaign.content}</div>
+                </div>
+                <div className="text-[10px] font-black text-gray-500 sm:text-left">
+                  أرسل: {campaign.sentCount} | متخطى: {campaign.skippedCount} | فشل: {campaign.failedCount}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* History List */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">

@@ -23,7 +23,7 @@ if (isPushConfigured) {
 /**
  * Send push notification to a specific user
  * @param {string} userId - ID of the user to notify
- * @param {object} payload - Notification data { title, body, icon, url, data }
+ * @param {object} payload - Notification data { title, body, icon, url, data, preferenceKey }
  */
 export const sendPushNotification = async (userId, payload) => {
   try {
@@ -36,8 +36,10 @@ export const sendPushNotification = async (userId, payload) => {
       return { success: false, reason: "No active subscriptions" };
     }
 
-    // Check notification preferences if needed
-    // if (user.notificationPrefs && user.notificationPrefs.message.push === false) return;
+    const preferenceKey = payload.preferenceKey;
+    if (preferenceKey && user.notificationPrefs?.[preferenceKey]?.push === false) {
+      return { success: false, reason: "Push disabled by user preference" };
+    }
 
     const notificationPayload = JSON.stringify({
       title: payload.title || "سوقك",

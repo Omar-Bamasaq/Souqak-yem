@@ -84,6 +84,13 @@ const userSchema = new mongoose.Schema(
             { _id: false }
           ),
           default: () => ({ inApp: true, push: true, email: true })
+        },
+        admin_message: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: false }, push: { type: Boolean, default: true }, email: { type: Boolean, default: false } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: false, push: true, email: false })
         }
       },
       default: () => ({
@@ -92,7 +99,8 @@ const userSchema = new mongoose.Schema(
         favorite: { inApp: true, push: true, email: true },
         ad_status: { inApp: true, push: true, email: true },
         order: { inApp: true, push: true, email: true },
-        wallet: { inApp: true, push: true, email: true }
+        wallet: { inApp: true, push: true, email: true },
+        admin_message: { inApp: false, push: true, email: false }
       })
     },
     isDisabled: { type: Boolean, default: false },

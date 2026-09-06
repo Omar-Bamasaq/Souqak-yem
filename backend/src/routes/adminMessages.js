@@ -3,10 +3,39 @@ import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import AdminMessage from "../models/AdminMessage.js";
 import User from "../models/User.js";
+import AdminPushNotification from "../models/AdminPushNotification.js";
 import adminAudit from "../middleware/adminAudit.js";
 import { createNotification } from "../services/notificationService.js";
+import { sendPushNotification } from "../services/pushService.js";
 
 const router = Router();
+
+const PUSH_TARGET_PAGES = {
+  home: "/",
+  categories: "/categories",
+  search: "/search",
+  messages: "/messages",
+  notifications: "/notifications",
+  favorites: "/favorites",
+  following: "/following",
+  myAds: "/my-ads",
+  accountSettings: "/account-settings",
+  wallet: "/wallet",
+  pricing: "/pricing",
+  platformReviews: "/platform-reviews",
+  referrals: "/referrals",
+  brokerage: "/brokerage",
+  brokerageCampaigns: "/brokerage/campaigns",
+  brokerageMemberships: "/brokerage/memberships",
+  brokerageDeals: "/brokerage/deals",
+  brokerageAchievements: "/brokerage/achievements",
+  brokerageMyCampaigns: "/brokerage/my-campaigns",
+  howItWorks: "/how-it-works",
+  secureDeals: "/secure-deal-explanation",
+  refundEscrow: "/refund-escrow",
+  terms: "/terms",
+  privacy: "/privacy"
+};
 
 /**
  * ADMIN ROUTES
@@ -55,6 +84,73 @@ router.post("/", auth, requireRole(["admin"]), adminAudit(), async (req, res) =>
     res.status(201).json(newMessage);
   } catch (error) {
     console.error("Error sending admin message:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Send a Push-only notification. It is intentionally not stored in Notification.
+router.post("/push", auth, requireRole(["admin"]), adminAudit(), async (req, res) => {
+  try {
+    const { targetType, recipients, title, content, targetPage } = req.body;
+    const targetUrl = PUSH_TARGET_PAGES[targetPage];
+
+    if (!title || !content || !targetUrl) {
+      return res.status(400).json({ error: "Title, content, and a valid target page are required" });
+    }
+
+    if (targetType === "specific" && (!Array.isArray(recipients) || recipients.length === 0)) {
+      return res.status(400).json({ error: "Recipients are required for specific targeting" });
+    }
+
+    const recipientQuery = targetType === "specific" ? { _id: { $in: recipients } } : {};
+    const users = await User.find(recipientQuery).select("_id").lean();
+    const results = await Promise.all(users.map(async (user) => {
+      const result = await sendPushNotification(user._id, {
+        title,
+        body: content,
+        url: targetUrl,
+        preferenceKey: "admin_message",
+        data: { type: "admin_push", targetPage }
+      });
+      return result;
+    }));
+
+    const sentCount = results.filter((result) => result.success && result.sentCount > 0).length;
+    const skippedCount = results.filter((result) => !result.success && [
+      "No active subscriptions",
+      "Push disabled by user preference"
+    ].includes(result.reason)).length;
+    const failedCount = results.length - sentCount - skippedCount;
+
+    const campaign = await AdminPushNotification.create({
+      senderId: req.user.id,
+      targetType: targetType || "all",
+      recipients: targetType === "specific" ? recipients : [],
+      title,
+      content,
+      targetPage,
+      targetUrl,
+      sentCount,
+      skippedCount,
+      failedCount
+    });
+
+    res.status(201).json(campaign);
+  } catch (error) {
+    console.error("Error sending admin Push notification:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/push/list", auth, requireRole(["admin"]), async (req, res) => {
+  try {
+    const campaigns = await AdminPushNotification.find()
+      .populate("senderId", "name email")
+      .populate("recipients", "name email phone")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json(campaigns);
+  } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
 });
