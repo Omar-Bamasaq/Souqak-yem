@@ -1070,7 +1070,7 @@ const createAdRateLimit = rateLimit({
 router.post(
   "/",
   auth,
-  requireRole(["seller"]),
+  requireRole(["seller", "user"]),
   createAdRateLimit,
   uploadImages.array("images", 10),
   processImages(),
