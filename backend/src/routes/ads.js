@@ -377,7 +377,7 @@ router.get("/search-suggestions", async (req, res) => {
   }
 });
 
-router.get("/:id/owner", auth, requireRole(["seller"]), async (req, res) => {
+router.get("/:id/owner", auth, requireRole(["seller", "user"]), async (req, res) => {
   try {
     const ad = await Ad.findById(req.params.id)
       .populate("governorateId", "name")
@@ -391,6 +391,132 @@ router.get("/:id/owner", auth, requireRole(["seller"]), async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+router.patch(
+  "/:id",
+  auth,
+  requireRole(["seller", "user"]),
+  protectSensitiveFields,
+  uploadImages.array("images", 10),
+  processImages(),
+  validateProcessedImages,
+  validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
+  parseJsonAttributes,
+  validateBody(
+    Joi.object({
+      title: Joi.string().trim().min(3).max(120).optional(),
+      description: Joi.string().allow("").max(2000).optional(),
+      price: Joi.number().min(0).optional(),
+      currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional(),
+      governorateId: Joi.string().length(24).hex().optional(),
+      cityId: Joi.string().length(24).hex().optional(),
+      categoryId: Joi.string().length(24).hex().optional(),
+      lat: Joi.number().optional(),
+      lng: Joi.number().optional(),
+      tags: Joi.array().items(Joi.string().length(24).hex()).optional(),
+      tagNames: Joi.array().items(Joi.string()).optional(),
+      condition: Joi.string().valid("new", "used", "like_new").optional(),
+      negotiable: Joi.boolean().optional(),
+      priceOnContact: Joi.boolean().optional(),
+      showPhone: Joi.boolean().optional(),
+      phone: Joi.string().optional(),
+      showWhatsApp: Joi.boolean().optional(),
+      whatsapp: Joi.string().optional(),
+      attributes: Joi.array()
+        .items(
+          Joi.object({
+            attributeId: Joi.string().length(24).hex().required(),
+            value: Joi.alternatives(Joi.string(), Joi.number(), Joi.boolean()).required()
+          })
+        )
+        .optional()
+    })
+  ),
+  async (req, res) => {
+    try {
+      const {
+        title, description, price, currency, attributes, governorateId, cityId, categoryId, lat, lng, tags, tagNames,
+        condition, showPhone, phone, showWhatsApp, whatsapp, negotiable, priceOnContact
+      } = req.body || {};
+      const ad = await Ad.findById(req.params.id);
+
+      if (!ad) return res.status(404).json({ error: "Not found" });
+      if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "Forbidden" });
+
+      if (governorateId || cityId) {
+        const resolvedGovernorateId = governorateId || String(ad.governorateId);
+        const resolvedCityId = cityId || String(ad.cityId);
+        const city = await City.findById(resolvedCityId).lean();
+        if (!city) return res.status(400).json({ error: "Invalid city" });
+        if (String(city.governorateId) !== String(resolvedGovernorateId)) {
+          return res.status(400).json({ error: "City does not belong to governorate" });
+        }
+      }
+
+      if (typeof title !== "undefined") ad.title = title;
+      if (typeof description !== "undefined") ad.description = description;
+      if (typeof price !== "undefined") ad.price = price;
+      if (typeof currency !== "undefined") ad.currency = currency;
+      if (typeof governorateId !== "undefined") ad.governorateId = governorateId;
+      if (typeof cityId !== "undefined") ad.cityId = cityId;
+      if (typeof categoryId !== "undefined") ad.categoryId = categoryId || null;
+      if (typeof lat !== "undefined" && typeof lng !== "undefined" && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+        ad.location = { type: "Point", coordinates: [Number(lng), Number(lat)] };
+      }
+      if (typeof condition !== "undefined") ad.condition = condition;
+      if (typeof tags !== "undefined") ad.tags = tags;
+      if (typeof tagNames !== "undefined") ad.tagNames = tagNames;
+      if (typeof showPhone !== "undefined") ad.contactInfo.showPhone = showPhone;
+      if (typeof phone !== "undefined") ad.contactInfo.phone = phone;
+      if (typeof showWhatsApp !== "undefined") ad.contactInfo.showWhatsApp = showWhatsApp;
+      if (typeof whatsapp !== "undefined") ad.contactInfo.whatsapp = whatsapp;
+      if (typeof negotiable !== "undefined") ad.negotiable = !!negotiable;
+      if (typeof priceOnContact !== "undefined") ad.priceOnContact = !!priceOnContact;
+
+      const filenames = (req.files || []).map((file) => file.optimizedFilename || file.filename);
+      if (filenames.length > 0) ad.images = [...(ad.images || []), ...filenames];
+
+      if (ad.status === "rejected" || ad.status === "expired") {
+        ad.status = "pending";
+        ad.publishedAt = undefined;
+        ad.expiresAt = undefined;
+        ad.expireReminderSent = false;
+
+        const settings = await SystemSettings.getSettings();
+        const contentToSearch = `${ad.title} ${ad.description || ""} ${(ad.tagNames || []).join(" ")}`.toLowerCase();
+        const hasProhibited = settings.prohibitedKeywords.some((keyword) => contentToSearch.includes(keyword.toLowerCase()));
+
+        if (!hasProhibited && settings.adReviewMode === "auto") {
+          if (settings.adReviewDelayMinutes === 0) {
+            ad.status = "approved";
+            ad.publishedAt = new Date();
+          } else {
+            let delay = settings.adReviewDelayMinutes;
+            if (delay === -1) {
+              const options = [5, 10, 15];
+              delay = options[Math.floor(Math.random() * options.length)];
+            }
+            ad.scheduledPublishAt = new Date(Date.now() + delay * 60 * 1000);
+          }
+        }
+      }
+
+      await ad.save();
+      if (Array.isArray(attributes) && attributes.length > 0) {
+        await ListingService.saveAttributeValues(ad._id, attributes);
+      }
+
+      const updated = await Ad.findById(ad._id)
+        .populate("governorateId", "name")
+        .populate("cityId", "name")
+        .lean();
+      res.json(updated);
+    } catch (error) {
+      console.error("Update ad error:", error);
+      res.status(400).json({ error: error?.message || "Update error" });
+    }
+  }
+);
 
 router.patch("/:id/unfeature", auth, requireRole(["seller"]), async (req, res) => {
   try {
@@ -1296,145 +1422,10 @@ router.patch(
     res.status(500).json({ error: "Server error" });
   }
 });
-router.patch(
-  "/:id",
-  auth,
-  requireRole(["seller"]),
-  protectSensitiveFields,
-  uploadImages.array("images", 10),
-  processImages(),
-  validateProcessedImages,
-  validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
-  parseJsonAttributes,
-  validateBody(
-    Joi.object({
-      title: Joi.string().trim().min(3).max(120).optional(),
-      description: Joi.string().allow("").max(2000).optional(),
-      price: Joi.number().min(0).optional(),
-      currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional(),
-      governorateId: Joi.string().length(24).hex().optional(),
-      cityId: Joi.string().length(24).hex().optional(),
-      categoryId: Joi.string().length(24).hex().optional(),
-      lat: Joi.number().optional(),
-      lng: Joi.number().optional(),
-      tags: Joi.array().items(Joi.string().length(24).hex()).optional(),
-      tagNames: Joi.array().items(Joi.string()).optional(),
-      condition: Joi.string().valid("new", "used", "like_new").optional(),
-      negotiable: Joi.boolean().optional(),
-      priceOnContact: Joi.boolean().optional(),
-      showPhone: Joi.boolean().optional(),
-      phone: Joi.string().optional(),
-      showWhatsApp: Joi.boolean().optional(),
-      whatsapp: Joi.string().optional(),
-      isResellEnabled: Joi.boolean().optional(),
-      commissionType: Joi.string().valid("fixed", "percentage").optional(),
-      commissionValue: Joi.number().min(0).optional(),
-      maxResellPrice: Joi.number().min(0).optional().allow(null, ""),
-      allowAutoApproval: Joi.boolean().optional(),
-      maxResellers: Joi.number().min(1).optional(),
-      attributes: Joi.array()
-        .items(
-          Joi.object({
-            attributeId: Joi.string().length(24).hex().required(),
-            value: Joi.alternatives(Joi.string(), Joi.number(), Joi.boolean()).required()
-          })
-        )
-        .optional()
-    })
-  ),
-  async (req, res) => {
-  try {
-    const { 
-      title, description, price, currency, attributes, governorateId, cityId, categoryId, lat, lng, tags, tagNames, condition, 
-      showPhone, phone, showWhatsApp, whatsapp, negotiable, priceOnContact,
-      isResellEnabled, commissionType, commissionValue, maxResellPrice, allowAutoApproval, maxResellers
-    } = req.body || {};
-    const ad = await Ad.findById(req.params.id);
-    if (!ad) return res.status(404).json({ error: "Not found" });
-    if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "Forbidden" });
-    if (governorateId && cityId) {
-      const city = await City.findById(cityId).lean();
-      if (!city) return res.status(400).json({ error: "Invalid city" });
-      if (String(city.governorateId) !== String(governorateId)) {
-        return res.status(400).json({ error: "City does not belong to governorate" });
-      }
-    }
-    if (title) ad.title = title;
-    if (typeof description !== "undefined") ad.description = description;
-    if (price) ad.price = price;
-    if (currency) ad.currency = currency;
-    if (governorateId) ad.governorateId = governorateId;
-    if (cityId) ad.cityId = cityId;
-    if (categoryId !== undefined) ad.categoryId = categoryId || null;
-    if (typeof lat !== "undefined" && typeof lng !== "undefined" && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
-      ad.location = { type: "Point", coordinates: [Number(lng), Number(lat)] };
-    }
-    if (condition) ad.condition = condition;
-    if (tags) ad.tags = tags;
-    if (tagNames) ad.tagNames = tagNames;
-    if (typeof showPhone !== "undefined") ad.contactInfo.showPhone = showPhone;
-    if (phone) ad.contactInfo.phone = phone;
-    if (typeof showWhatsApp !== "undefined") ad.contactInfo.showWhatsApp = showWhatsApp;
-    if (whatsapp) ad.contactInfo.whatsapp = whatsapp;
-    if (typeof negotiable !== "undefined") ad.negotiable = !!negotiable;
-    if (typeof priceOnContact !== "undefined") ad.priceOnContact = !!priceOnContact;
-    
-    // Update Resell fields
-    if (typeof isResellEnabled !== "undefined") ad.isResellEnabled = isResellEnabled === true || isResellEnabled === "true";
-    if (commissionType) ad.commissionType = commissionType;
-    if (typeof commissionValue !== "undefined") ad.commissionValue = Number(commissionValue);
-    if (typeof maxResellPrice !== "undefined") ad.maxResellPrice = (maxResellPrice && maxResellPrice !== "") ? Number(maxResellPrice) : undefined;
-    if (typeof allowAutoApproval !== "undefined") ad.allowAutoApproval = allowAutoApproval !== false && allowAutoApproval !== "false";
-    if (maxResellers) ad.maxResellers = Number(maxResellers);
-
-    const filenames = (req.files || []).map((f) => f.optimizedFilename || f.filename);
-    if (filenames.length > 0) {
-      ad.images = [...(ad.images || []), ...filenames];
-    }
-    if (ad.status === "rejected" || ad.status === "expired") {
-      ad.status = "pending";
-      ad.publishedAt = undefined;
-      ad.expiresAt = undefined;
-      ad.expireReminderSent = false;
-      
-      // Auto-approval logic for edited ads that go back to pending
-      const settings = await SystemSettings.getSettings();
-      const contentToSearch = `${ad.title} ${ad.description || ""} ${ad.tagNames.join(" ")}`.toLowerCase();
-      const hasProhibited = settings.prohibitedKeywords.some(keyword => contentToSearch.includes(keyword.toLowerCase()));
-
-      if (!hasProhibited && settings.adReviewMode === "auto") {
-        if (settings.adReviewDelayMinutes === 0) {
-          ad.status = "approved";
-          ad.publishedAt = new Date();
-        } else {
-          let delay = settings.adReviewDelayMinutes;
-          if (delay === -1) {
-            const options = [5, 10, 15];
-            delay = options[Math.floor(Math.random() * options.length)];
-          }
-          ad.scheduledPublishAt = new Date(Date.now() + delay * 60 * 1000);
-        }
-      }
-    }
-    await ad.save();
-    if (Array.isArray(attributes) && attributes.length > 0) {
-      // Save attributes using the consolidated system
-      await ListingService.saveAttributeValues(ad._id, attributes);
-    }
-    const updated = await Ad.findById(req.params.id)
-      .populate("governorateId", "name")
-      .populate("cityId", "name")
-      .lean();
-    res.json(updated);
-  } catch (e) {
-    res.status(400).json({ error: e && e.message ? e.message : "Update error" });
-  }
-});
-
 router.delete(
   "/:id/images/:filename",
   auth,
-  requireRole(["seller"]),
+  requireRole(["seller", "user"]),
   validateParams(
     Joi.object({
       id: Joi.string().length(24).hex().required(),
