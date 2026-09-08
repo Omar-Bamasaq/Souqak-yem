@@ -37,6 +37,7 @@ export default function OrderDetail() {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDetails, setDisputeDetails] = useState("");
   const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [showDisputeConfirmation, setShowDisputeConfirmation] = useState(false);
   const [isReviewed, setIsReviewed] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewData, setReviewData] = useState({
@@ -256,10 +257,15 @@ export default function OrderDetail() {
 
   const handleDispute = async () => {
     if (!disputeReason) return alert("يرجى تحديد سبب النزاع");
+    setShowDisputeConfirmation(true);
+  };
+
+  const handleConfirmDispute = async () => {
     try {
       setSubmitting(true);
       await api.post(`/orders/${id}/dispute`, { reason: disputeReason, details: disputeDetails });
       setShowDisputeModal(false);
+      setShowDisputeConfirmation(false);
       loadOrder();
     } catch (err) {
       alert(err.response?.data?.error || "حدث خطأ ما");
@@ -871,7 +877,7 @@ export default function OrderDetail() {
                 </svg>
                 {convOpening ? "جاري الفتح..." : "محادثة الطرف الآخر"}
               </button>
-              {order.status !== 'DISPUTED' && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
+              {['PAID_CONFIRMED', 'SHIPPED'].includes(order.status) && (
                 <button onClick={() => setShowDisputeModal(true)} className="w-full py-2 text-red-500 text-[10px] font-black uppercase tracking-widest hover:underline transition-all">فتح نزاع أو شكوى مالية</button>
               )}
             </div>
@@ -1031,9 +1037,37 @@ export default function OrderDetail() {
             </div>
             <div className="flex flex-col gap-3 pb-6 sm:pb-0">
               <button onClick={handleDispute} disabled={submitting} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-red-100 hover:bg-red-700 transition-all active:scale-[0.98]">
-                {submitting ? "جاري الإرسال..." : "تأكيد فتح النزاع"}
+                متابعة فتح النزاع
               </button>
-              <button onClick={() => setShowDisputeModal(false)} className="w-full py-4 bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-2xl font-black text-sm hover:bg-gray-100 transition-all">إلغاء وإغلاق</button>
+              <button onClick={() => { setShowDisputeModal(false); setShowDisputeConfirmation(false); }} className="w-full py-4 bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-2xl font-black text-sm hover:bg-gray-100 transition-all">إلغاء والرجوع</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDisputeConfirmation && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-7 sm:p-8 space-y-6 shadow-2xl border border-gray-100 dark:border-slate-800">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 shrink-0 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 flex items-center justify-center">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m0 3.75h.008M10.29 3.86l-8.1 14a2 2 0 001.73 3h16.16a2 2 0 001.73-3l-8.1-14a2 2 0 00-3.46 0z" />
+                </svg>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">تأكيد فتح النزاع</h3>
+                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 leading-relaxed">
+                  هل أنت متأكد من فتح نزاع على هذا الطلب؟ سيتم إيقاف العملية مؤقتًا وإحالتها إلى الإدارة للمراجعة.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button onClick={handleConfirmDispute} disabled={submitting} className="w-full py-4 bg-red-600 text-white rounded-2xl font-black text-sm hover:bg-red-700 transition-all disabled:opacity-50">
+                {submitting ? "جاري فتح النزاع..." : "نعم، أوافق وأفتح النزاع"}
+              </button>
+              <button onClick={() => setShowDisputeConfirmation(false)} disabled={submitting} className="w-full py-4 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all disabled:opacity-50">
+                إلغاء والرجوع
+              </button>
             </div>
           </div>
         </div>

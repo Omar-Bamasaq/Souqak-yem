@@ -34,7 +34,7 @@ export default function SellerSubscriptions() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 sm:py-10 space-y-6 sm:space-y-10 pb-24">
+    <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10 space-y-6 sm:space-y-10 pb-24">
       {/* Header with Back Button */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
@@ -44,8 +44,8 @@ export default function SellerSubscriptions() {
             </svg>
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900">الاشتراكات والخدمات</h2>
-            <p className="text-[10px] sm:text-xs font-bold text-gray-400 mt-0.5">طور حسابك وزد مبيعاتك مع خدمات سوقك</p>
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900">خدمات سوقك</h2>
+            <p className="text-[10px] sm:text-xs font-bold text-gray-400 mt-0.5">كل الأدوات التي تساعدك على النمو والبيع بثقة</p>
           </div>
         </div>
         <button 
@@ -59,9 +59,9 @@ export default function SellerSubscriptions() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {/* تمييز الإعلانات */}
-        <section className="group relative overflow-hidden rounded-[2rem] border-2 border-gray-50 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-blue-100/50 dark:hover:shadow-none">
+        <section className="group relative overflow-hidden rounded-[2rem] border-2 border-gray-50 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-blue-100/50 dark:hover:shadow-none h-full">
           <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-50 dark:bg-blue-900/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
           
           <div className="relative space-y-4">
@@ -105,7 +105,7 @@ export default function SellerSubscriptions() {
         </section>
 
         {/* توثيق الحساب */}
-        <section className="group relative overflow-hidden rounded-[2rem] border-2 border-gray-50 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-emerald-100/50 dark:hover:shadow-none">
+        <section className="group relative overflow-hidden rounded-[2rem] border-2 border-gray-50 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-emerald-100/50 dark:hover:shadow-none h-full">
           <div className="absolute -top-10 -left-10 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
           
           <div className="relative space-y-4">
@@ -169,6 +169,25 @@ export default function SellerSubscriptions() {
           </div>
         </section>
 
+        {/* سفراء سوقك */}
+        <Link to="/brokerage" className="group relative overflow-hidden rounded-[2rem] border-2 border-emerald-100 dark:border-emerald-900/40 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-emerald-100/50 dark:hover:shadow-none h-full">
+          <div className="absolute -top-10 -left-10 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="relative flex h-full flex-col gap-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-50 rounded-xl text-xl sm:text-2xl">🤝</div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white">سفراء سوقك</h3>
+              </div>
+              <span className="shrink-0 bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-1 rounded-lg border border-blue-100">جديد</span>
+            </div>
+            <p className="text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 leading-relaxed">شارك روابط منتجاتك مع الآخرين واحصل على مكافآت عند إتمام عمليات البيع من خلالك.</p>
+            <span className="mt-auto flex items-center justify-center gap-2 w-full rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-black text-white group-hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 dark:shadow-none">
+              اكتشف سفراء سوقك
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            </span>
+          </div>
+        </Link>
+
         {/* تمييز الحساب */}
         <section className="relative overflow-hidden rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 p-6 sm:p-8 opacity-60">
           <div className="absolute top-4 left-4 -rotate-12">
@@ -198,6 +217,33 @@ export default function SellerSubscriptions() {
             <p className="text-xs font-bold text-gray-400 leading-relaxed">
               افتح متجرك الخاص وأدر مبيعاتك باحترافية مع أدوات تحليل وإدارة متقدمة.
             </p>
+          </div>
+        </section>
+
+        {/* الدفع الإلكتروني */}
+        <section className="relative overflow-hidden rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 p-6 sm:p-8 opacity-60 h-full">
+          <div className="absolute top-4 left-4 -rotate-12"><span className="bg-amber-100 text-amber-700 text-[8px] font-black px-2 py-1 rounded-lg border border-amber-200">قريبًا</span></div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3"><div className="p-2.5 bg-cyan-50 rounded-xl text-xl sm:text-2xl">💳</div><h3 className="text-lg font-black text-gray-900 dark:text-white">الدفع الإلكتروني</h3></div>
+            <p className="text-xs font-bold text-gray-400 leading-relaxed">ادفع قيمة مشترياتك بسهولة وأمان عبر خيارات دفع إلكترونية متعددة في مكان واحد.</p>
+          </div>
+        </section>
+
+        {/* الأسر المنتجة */}
+        <section className="relative overflow-hidden rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 p-6 sm:p-8 opacity-60 h-full">
+          <div className="absolute top-4 left-4 -rotate-12"><span className="bg-amber-100 text-amber-700 text-[8px] font-black px-2 py-1 rounded-lg border border-amber-200">قريبًا</span></div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3"><div className="p-2.5 bg-orange-50 rounded-xl text-xl sm:text-2xl">🏠</div><h3 className="text-lg font-black text-gray-900 dark:text-white">الأسر المنتجة</h3></div>
+            <p className="text-xs font-bold text-gray-400 leading-relaxed">مساحة مخصصة للأسر المنتجة لعرض أعمالها المنزلية والوصول إلى عملاء جدد.</p>
+          </div>
+        </section>
+
+        {/* توصيل */}
+        <section className="relative overflow-hidden rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 p-6 sm:p-8 opacity-60 h-full">
+          <div className="absolute top-4 left-4 -rotate-12"><span className="bg-amber-100 text-amber-700 text-[8px] font-black px-2 py-1 rounded-lg border border-amber-200">قريبًا</span></div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3"><div className="p-2.5 bg-sky-50 rounded-xl text-xl sm:text-2xl">🚚</div><h3 className="text-lg font-black text-gray-900 dark:text-white">توصيل</h3></div>
+            <p className="text-xs font-bold text-gray-400 leading-relaxed">خيارات توصيل أسهل وأسرع تساعدك على إيصال منتجاتك إلى المشترين في مختلف المناطق.</p>
           </div>
         </section>
       </div>

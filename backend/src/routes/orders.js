@@ -529,9 +529,9 @@ router.post(
           return res.status(403).json({ error: "غير مسموح لك بفتح نزاع على هذا الطلب." });
       }
 
-      // لا يمكن فتح نزاع إذا كان الطلب مكتملاً أو ملغياً
-      if (["COMPLETED", "CANCELLED"].includes(order.status)) {
-          return res.status(400).json({ error: "لا يمكن فتح نزاع على طلب مكتمل أو ملغى." });
+        // لا يمكن فتح نزاع قبل تأكيد الدفع أو بعد تأكيد الاستلام
+        if (!["PAID_CONFIRMED", "SHIPPED"].includes(order.status)) {
+          return res.status(400).json({ error: "يمكن فتح النزاع بعد تأكيد الدفع وقبل تأكيد الاستلام فقط." });
       }
 
       const dispute = await Dispute.create({

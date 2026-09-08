@@ -322,7 +322,7 @@ export default function NavBar() {
                           <span>المفضلة</span>
                           {favCount > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white">{favCount}</span>}
                         </Link>
-                        <Link to="/seller/subscriptions" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">الاشتراكات والتمييز</Link>
+                        <Link to="/seller/subscriptions" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">خدمات سوقك</Link>
                       </>
                     )}
                     
