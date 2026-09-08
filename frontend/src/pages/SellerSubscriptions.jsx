@@ -170,7 +170,7 @@ export default function SellerSubscriptions() {
         </section>
 
         {/* سفراء سوقك */}
-        <Link to="/brokerage" className="group relative overflow-hidden rounded-[2rem] border-2 border-emerald-100 dark:border-emerald-900/40 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-emerald-100/50 dark:hover:shadow-none h-full">
+        <Link to="/referrals" className="group relative overflow-hidden rounded-[2rem] border-2 border-emerald-100 dark:border-emerald-900/40 bg-white dark:bg-slate-900 p-6 sm:p-8 transition-all hover:shadow-2xl hover:shadow-emerald-100/50 dark:hover:shadow-none h-full">
           <div className="absolute -top-10 -left-10 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <div className="relative flex h-full flex-col gap-4">
             <div className="flex items-start justify-between gap-3">
