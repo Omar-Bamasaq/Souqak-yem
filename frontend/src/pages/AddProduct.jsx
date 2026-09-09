@@ -191,17 +191,38 @@ export default function AddProduct() {
 
   const handleFiles = (e) => {
     const fAll = Array.from(e.target.files || []);
-    const f = fAll.slice(0, 10);
-    if (fAll.length > 10) {
-      setErr("يمكن رفع حد أقصى 10 صور فقط");
-    } else {
-      setErr("");
-      setValidationErrors(prev => ({ ...prev, files: null }));
-    }
-    setFiles(f);
-    const urls = f.map((file) => URL.createObjectURL(file));
-    setPreviews(urls);
+    const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+
+    setFiles((currentFiles) => {
+      const existingKeys = new Set(currentFiles.map(fileKey));
+      const newFiles = fAll.filter((file) => !existingKeys.has(fileKey(file)));
+      const nextFiles = [...currentFiles, ...newFiles].slice(0, 10);
+
+      if (currentFiles.length + newFiles.length > 10) {
+        setErr("يمكن رفع حد أقصى 10 صور فقط");
+      } else {
+        setErr("");
+        setValidationErrors(prev => ({ ...prev, files: null }));
+      }
+
+      return nextFiles;
+    });
+
+    e.target.value = "";
   };
+
+  const removeFile = (indexToRemove) => {
+    setFiles((currentFiles) => currentFiles.filter((_, index) => index !== indexToRemove));
+  };
+
+  useEffect(() => {
+    const nextPreviews = files.map((file) => URL.createObjectURL(file));
+    setPreviews(nextPreviews);
+
+    return () => {
+      nextPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
 
   const isWebPSupported = () => {
     const canvas = document.createElement("canvas");
@@ -763,7 +784,7 @@ export default function AddProduct() {
         </div>
       )}
 
-      <form onSubmit={submit} className="space-y-6">
+      <form onSubmit={submit} className="flex flex-col gap-6">
         {adType === "order" && (
           <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
             <p className="text-sm font-bold text-indigo-800">
@@ -783,7 +804,7 @@ export default function AddProduct() {
           </div>
         )}
 
-        <div ref={formRefs.title} className="space-y-1">
+        <div ref={formRefs.title} className="order-1 space-y-1">
         <label className="block text-sm font-bold text-gray-700">
           {t("addProduct.labels.title")} <span className="text-red-500 mr-1">*</span>
         </label>
@@ -802,7 +823,7 @@ export default function AddProduct() {
         {validationErrors.title && <p className="text-xs text-red-600 font-bold">{validationErrors.title}</p>}
       </div>
       
-      <div ref={formRefs.categoryId} className="space-y-4">
+      <div ref={formRefs.categoryId} className="order-2 space-y-4">
         <label className="block text-sm font-bold text-gray-700">
           الفئة <span className="text-red-500 mr-1">*</span>
         </label>
@@ -855,8 +876,8 @@ export default function AddProduct() {
       
       {/* Dynamic Category Attributes - Only for sell type */}
       {adType === "sell" && categoryAttributes.length > 0 && (
-        <div className="space-y-4 rounded-lg border border-gray-200 p-4 bg-gray-50">
-          <h4 className="text-sm font-medium text-gray-700">خصائص الفئة</h4>
+        <div className="order-11 space-y-4 rounded-lg border border-gray-200 p-4 bg-gray-50">
+          <h4 className="text-sm font-medium text-gray-700">معلومات إضافية (اختياري)</h4>
           {categoryAttributes.map((attr) => (
             <div key={attr.id || attr._id} className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
@@ -874,12 +895,11 @@ export default function AddProduct() {
       
       {/* Condition - Only show for enabled categories */}
       {isConditionEnabled(selectedMainCategoryName) && (
-        <div className="space-y-1">
+        <div className="order-6 space-y-1">
           <label className="block text-sm font-medium text-gray-700">حالة المنتج</label>
           <div className="flex gap-2">
             {[
               { value: "new", label: "جديد" },
-              { value: "like_new", label: "كالجديد" },
               { value: "used", label: "مستعمل" }
             ].map((opt) => (
               <button
@@ -901,7 +921,7 @@ export default function AddProduct() {
       
       {/* Tags - Only for sell type */}
       {adType === "sell" && availableTags.length > 0 && (
-        <div className="space-y-1">
+        <div className="hidden">
           <label className="block text-sm font-medium text-gray-700">وسوم (اختياري)</label>
           <div className="flex flex-wrap gap-2">
             {availableTags.map((tag) => (
@@ -929,7 +949,7 @@ export default function AddProduct() {
       )}
       
       {/* Contact Info - Same for both types */}
-      <div className="space-y-3 rounded-lg border border-gray-200 p-4 bg-white">
+      <div className="order-10 space-y-3 rounded-lg border border-gray-200 p-4 bg-white">
         <h4 className="text-sm font-bold text-gray-700 mb-2">معلومات التواصل السريع</h4>
         <div className="flex items-center gap-2">
           <input
@@ -970,7 +990,7 @@ export default function AddProduct() {
         )}
       </div>
       
-      <div className="space-y-1">
+      <div className="order-5 space-y-1">
         <label className="block text-sm font-medium text-gray-700">
           {t("addProduct.labels.description")}
         </label>
@@ -985,7 +1005,7 @@ export default function AddProduct() {
         <div className="text-left text-xs font-bold text-gray-400" dir="ltr">{description.length}/1000</div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="order-9 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div ref={formRefs.governorateId} className="space-y-1">
           <label className="block text-sm font-bold text-gray-700">
             المحافظة <span className="text-red-500 mr-1">*</span>
@@ -1025,7 +1045,7 @@ export default function AddProduct() {
         </div>
       </div>
 
-      <div ref={formRefs.price} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div ref={formRefs.price} className="order-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1 col-span-1 sm:col-span-2">
           <label className="block text-sm font-bold text-gray-700">
             {adType === "order" ? "السعر التقريبي" : t("addProduct.labels.price")} {adType !== "order" && <span className="text-red-500 mr-1">*</span>}
@@ -1107,7 +1127,7 @@ export default function AddProduct() {
         </div>
       )}
       
-      <div ref={formRefs.files} className="space-y-1">
+      <div ref={formRefs.files} className="order-4 space-y-1">
         <label className="block text-sm font-bold text-gray-700">
           {t("addProduct.labels.images")} {adType !== "order" && <span className="text-red-500 mr-1">*</span>}
         </label>
@@ -1120,16 +1140,26 @@ export default function AddProduct() {
         </p>
       </div>
       {previews.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-3">
+        <div className="order-4 mt-2 flex flex-wrap gap-3">
           {previews.map((src, i) => (
-            <img key={i} src={src} alt="" className="h-24 w-32 rounded-md object-cover" />
+            <div key={src} className="relative">
+              <img src={src} alt={`صورة الإعلان ${i + 1}`} className="h-24 w-32 rounded-md object-cover" />
+              <button
+                type="button"
+                aria-label={`حذف صورة الإعلان ${i + 1}`}
+                onClick={() => removeFile(i)}
+                className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-lg font-bold leading-none text-white shadow-md transition-colors hover:bg-red-700"
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       )}
 
       {/* Brokerage System */}
       {adType === "sell" && brokerageEnabled && (
-        <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="order-12 space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -1217,14 +1247,14 @@ export default function AddProduct() {
       )}
 
       {(prepareStatus || isPreparingImages || loading) && (
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900">
+        <div className="order-12 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900">
           {prepareStatus || (loading ? "جارٍ النشر..." : "جارٍ تجهيز الصور...")}
         </div>
       )}
 
       {/* Submit Button */}
       <button 
-        className="w-full h-16 rounded-[2rem] bg-gray-900 text-white font-black text-lg hover:bg-black disabled:opacity-50 transition-all shadow-2xl active:scale-[0.98]" 
+        className="order-[13] w-full h-16 rounded-[2rem] bg-gray-900 text-white font-black text-lg hover:bg-black disabled:opacity-50 transition-all shadow-2xl active:scale-[0.98]" 
         disabled={loading || isPreparingImages || !!blockErr} 
         onClick={submit}
       >
