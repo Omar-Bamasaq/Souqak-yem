@@ -384,7 +384,7 @@ router.get("/:id/owner", auth, requireRole(["seller", "user"]), async (req, res)
       .populate("cityId", "name")
       .lean();
     if (!ad) return res.status(404).json({ error: "Not found" });
-    if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "Forbidden" });
+    if (String(ad.userId) !== String(req.user.id) && req.user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
     const values = await ListingService.getListingAttributes(ad._id);
     res.json({ ...ad, attributes: values });
   } catch {
@@ -441,7 +441,7 @@ router.patch(
       const ad = await Ad.findById(req.params.id);
 
       if (!ad) return res.status(404).json({ error: "Not found" });
-      if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "Forbidden" });
+      if (String(ad.userId) !== String(req.user.id) && req.user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
 
       if (governorateId || cityId) {
         const resolvedGovernorateId = governorateId || String(ad.governorateId);
@@ -522,7 +522,7 @@ router.patch("/:id/unfeature", auth, requireRole(["seller"]), async (req, res) =
   try {
     const ad = await Ad.findById(req.params.id);
     if (!ad) return res.status(404).json({ error: "Not found" });
-    if (String(ad.userId) !== String(req.user.id)) return res.status(403).json({ error: "Forbidden" });
+    if (String(ad.userId) !== String(req.user.id) && req.user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
     if (!ad.featured) return res.json(await Ad.findById(req.params.id).lean());
     ad.featured = false;
     ad.featuredUntil = undefined;

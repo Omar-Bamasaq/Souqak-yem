@@ -16,6 +16,7 @@ import { useGovernorates } from "../hooks/useGovernorates.js";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
+  const isAdminAccount = ["admin", "supervisor"].includes(user?.role);
   const { unread } = useChat();
   const { enabled: brokerageEnabled } = useBrokerageStatus();
   const [open, setOpen] = useState(false);
@@ -296,10 +297,10 @@ export default function NavBar() {
                     <div className="px-3 py-2 border-b mb-1 sticky top-0 bg-white dark:bg-slate-800 dark:border-slate-700 z-10">
                       <p className="text-[10px] sm:text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">الحساب</p>
                     </div>
-                    {!user.isEmailVerified && (
+                    {!user.isEmailVerified && !user.managedAccount?.createdByAdmin && (
                       <Link to="/verify-email" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg font-medium">تفعيل الحساب</Link>
                     )}
-                    {user?.role !== "admin" && (
+                    {!isAdminAccount && (
                       <>
                         <Link to="/wallet" className="flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-black hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
                           <div className="flex items-center gap-2">
@@ -331,7 +332,7 @@ export default function NavBar() {
                       {unread > 0 && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">{unread}</span>}
                     </Link>
 
-                    {user?.role === "admin" && (
+                    {isAdminAccount && (
                       <Link to="/admin" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-blue-600 font-bold hover:bg-blue-50 rounded-lg">لوحة التحكم</Link>
                     )}
                     

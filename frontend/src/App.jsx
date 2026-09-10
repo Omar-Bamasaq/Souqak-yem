@@ -25,7 +25,10 @@ const PhoneForgotPassword = lazy(() => import("./pages/PhoneForgotPassword.jsx")
 const SellerDashboard = lazy(() => import("./pages/SellerDashboard.jsx"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard.jsx"));
 const AdminAds = lazy(() => import("./pages/AdminAds.jsx"));
+const AdminManagedSellerAd = lazy(() => import("./pages/AdminManagedSellerAd.jsx"));
+const AdminManagedSellers = lazy(() => import("./pages/AdminManagedSellers.jsx"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers.jsx"));
+const AdminSupervisors = lazy(() => import("./pages/AdminSupervisors.jsx"));
 const AdminGovernorates = lazy(() => import("./pages/AdminGovernorates.jsx"));
 const AdminCities = lazy(() => import("./pages/AdminCities.jsx"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail.jsx"));
@@ -105,7 +108,20 @@ function RequireRole({ role, children }) {
   const location = useLocation();
   if (loading) return <LoadingSpinner fullPage />;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
-  if (role && user.role !== role) return <Navigate to="/login" replace />;
+  if (role === null && ["admin", "supervisor"].includes(user.role) && location.pathname.startsWith("/seller")) {
+    return <Navigate to="/admin" replace />;
+  }
+  if (role === "admin" && !["admin", "supervisor"].includes(user.role)) return <Navigate to="/login" replace />;
+  if (role && role !== "admin" && user.role !== role) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireMainAdmin({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <LoadingSpinner fullPage />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (user.role !== "admin") return <Navigate to="/admin" replace />;
   return children;
 }
 
@@ -201,10 +217,13 @@ export default function App() {
           <Route path="audit-logs" element={<AdminAuditLogs />} />
           <Route path="tags" element={<AdminTags />} />
           <Route path="ads" element={<AdminAds />} />
+          <Route path="managed-sellers/new-ad" element={<AdminManagedSellerAd />} />
+          <Route path="managed-sellers" element={<AdminManagedSellers />} />
           <Route path="governorates" element={<AdminGovernorates />} />
           <Route path="cities" element={<AdminCities />} />
           <Route path="categories" element={<AdminCategories />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="supervisors" element={<RequireMainAdmin><AdminSupervisors /></RequireMainAdmin>} />
           <Route path="deleted-users" element={<AdminDeletedUsers />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="plans" element={<AdminPlans />} />

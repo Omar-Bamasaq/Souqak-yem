@@ -23,13 +23,19 @@ const AdSchema = new mongoose.Schema(
     // Status & Visibility
     status: { 
       type: String, 
-      enum: ["pending", "approved", "rejected", "expired", "sold", "AVAILABLE", "SOLD", "archived", "deleted", "blocked", "reported"], 
+      enum: ["pending", "admin_draft", "approved", "rejected", "expired", "sold", "AVAILABLE", "SOLD", "archived", "deleted", "blocked", "reported"], 
       default: "pending",
       index: true
     },
     isVisible: { type: Boolean, default: true, index: true },
     publishedAt: { type: Date },
     scheduledPublishAt: { type: Date, index: true },
+    adminManagement: {
+      createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      createdAt: { type: Date, default: null },
+      publishedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      publishedAt: { type: Date, default: null }
+    },
     
     // Featured Status
     featured: { type: Boolean, default: false },

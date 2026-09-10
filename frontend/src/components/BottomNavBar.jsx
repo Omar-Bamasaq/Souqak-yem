@@ -69,7 +69,7 @@ export default function BottomNavBar() {
         {user ? (
           <>
             <NavLink
-              to={user.role === "admin" ? "/admin" : "/seller"}
+              to={["admin", "supervisor"].includes(user.role) ? "/admin" : "/seller"}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
               }

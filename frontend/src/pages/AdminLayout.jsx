@@ -12,7 +12,7 @@ export default function AdminLayout() {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const api = useApi();
   const { socket } = useChat();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -97,11 +97,21 @@ export default function AdminLayout() {
       ]
     },
     {
+      id: "managedSellers",
+      label: "إعلانات نيابة عن البائع",
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4a4 4 0 100 8 4 4 0 000-8zM4 21a8 8 0 0116 0M17 4h3v3m0-3l-3 3" /></svg>,
+      links: [
+        { to: "/admin/managed-sellers/new-ad", label: "تنفيذ إضافة إعلان" },
+        { to: "/admin/managed-sellers", label: "معلومات البائعين والإعلانات" }
+      ]
+    },
+    {
       id: "users",
       label: "إدارة المستخدمين",
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
       links: [
         { to: "/admin/users", label: "المستخدمون" },
+        { to: "/admin/supervisors", label: "المشرفون والصلاحيات", adminOnly: true },
         { to: "/admin/phone-users", label: "مستخدمو الرقم" },
         { to: "/admin/password-reset-requests", label: "طلبات استعادة كلمة المرور" },
         { to: "/admin/deleted-users", label: "الحسابات المحذوفة" }
@@ -130,6 +140,49 @@ export default function AdminLayout() {
     { to: "/admin/dashboard", label: "الرئيسية", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg> },
     { to: "/admin/support-inbox", label: "مراسلات الدعم", badge: unreadSupport, icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg> },
   ];
+
+  const supervisorPermissions = new Set(user?.permissions || []);
+  const permissionForLink = (path) => {
+    if (user?.role === "admin") return true;
+    const cleanPath = path.split("?")[0];
+    const pagePermissions = {
+      "/admin/dashboard": "dashboard",
+      "/admin/support-inbox": "support_inbox",
+      "/admin/ads": "ads",
+      "/admin/sold-ads": "sold_ads",
+      "/admin/archived-ads": "archived_ads",
+      "/admin/deleted-ads": "deleted_ads",
+      "/admin/categories": "categories",
+      "/admin/tags": "tags",
+      "/admin/governorates": "governorates",
+      "/admin/cities": "cities",
+      "/admin/reports": "reports",
+      "/admin/finance-hub": "finance_hub",
+      "/admin/managed-sellers/new-ad": "managed_seller_ad",
+      "/admin/managed-sellers": "managed_sellers",
+      "/admin/users": "users",
+      "/admin/phone-users": "phone_users",
+      "/admin/password-reset-requests": "password_reset_requests",
+      "/admin/deleted-users": "deleted_users",
+      "/admin/analytics": "analytics",
+      "/admin/platform-reviews": "platform_reviews",
+      "/admin/brokerage": "brokerage",
+      "/admin/referrals": "referrals",
+      "/admin/activity-logs": "activity_logs",
+      "/admin/recycle-bin": "recycle_bin",
+      "/admin/system-health": "system_health",
+      "/admin/welcome-promotion": "welcome_promotion",
+      "/admin/messaging": "messaging",
+      "/admin/settings": "settings"
+    };
+    const permission = pagePermissions[cleanPath];
+    const legacyGroups = { ads: ["ads", "sold_ads", "archived_ads", "deleted_ads"], market: ["categories", "tags", "governorates", "cities"], finance: ["finance_hub", "escrow", "plans", "commissions", "withdrawals"], users: ["users", "phone_users", "password_reset_requests", "deleted_users", "managed_sellers"], support: ["support_inbox", "messaging"], reports: ["reports", "analytics", "platform_reviews", "brokerage", "referrals", "activity_logs", "recycle_bin"], system: ["system_health", "welcome_promotion", "settings"] };
+    return supervisorPermissions.has(permission) || [...supervisorPermissions].some((value) => legacyGroups[value]?.includes(permission));
+  };
+  const visibleMenuSections = menuSections
+    .map((section) => ({ ...section, links: section.links.filter((link) => permissionForLink(link.to) && (!link.adminOnly || user?.role === "admin")) }))
+    .filter((section) => section.links.length > 0);
+  const visibleNavLinks = navLinks.filter((link) => permissionForLink(link.to));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col md:flex-row">
@@ -190,7 +243,7 @@ export default function AdminLayout() {
           </Link>
 
           <nav className="space-y-1">
-            {navLinks.map((link) => (
+            {visibleNavLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
@@ -216,7 +269,7 @@ export default function AdminLayout() {
               </NavLink>
             ))}
 
-            {menuSections.map((section) => (
+            {visibleMenuSections.map((section) => (
               <div key={section.id} className="mt-4">
                 <button
                   onClick={() => toggleSection(section.id)}

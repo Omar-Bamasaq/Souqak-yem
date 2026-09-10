@@ -94,7 +94,7 @@ export default function Login() {
       }
 
       login(res.data.token, res.data.user);
-      const from = location.state?.from?.pathname || (res.data.user?.role === "admin" ? "/admin" : "/");
+      const from = location.state?.from?.pathname || (["admin", "supervisor"].includes(res.data.user?.role) ? "/admin" : "/");
       navigate(from, { replace: true });
     } catch (e2) {
       setError(e2?.response?.data?.error || "حدث خطأ أثناء تسجيل الدخول.");
@@ -129,7 +129,7 @@ export default function Login() {
       console.log("[Login] Login successful:", res.data.user?.email);
       login(res.data.token, res.data.user);
       
-      const from = location.state?.from?.pathname || (res.data.user?.role === "admin" ? "/admin" : "/");
+      const from = location.state?.from?.pathname || (["admin", "supervisor"].includes(res.data.user?.role) ? "/admin" : "/");
       navigate(from, { replace: true });
     } catch (err) {
       console.error("[Login] Email login error:", err);

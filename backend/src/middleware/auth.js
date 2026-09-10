@@ -65,6 +65,7 @@ async function auth(req, res, next) {
     req.user = {
       id: user._id.toString(),
       role: user.role,
+      permissions: Array.isArray(user.permissions) ? user.permissions : [],
       name: user.name,
       phone: user.phone,
       identityStatus: user.identityStatus,

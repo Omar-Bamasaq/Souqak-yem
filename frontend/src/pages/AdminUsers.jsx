@@ -37,15 +37,6 @@ export default function AdminUsers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, role, disabled, deleted, sort, order]);
 
-  const updateRole = async (id, newRole) => {
-    try {
-      await api.patch(`/admin/users/${id}/role`, { role: newRole });
-      load();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const toggleDisable = async (id, currentDisabled) => {
     try {
       await api.patch(`/admin/users/${id}/disable`, { disabled: !currentDisabled });
@@ -215,14 +206,7 @@ export default function AdminUsers() {
                     )}
                   </td>
                   <td className="px-4 py-4 text-center">
-                    <select
-                      className="bg-gray-50 border-gray-100 rounded-xl px-3 py-2 text-[10px] font-black focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none cursor-pointer"
-                      value={u.role}
-                      onChange={(e) => updateRole(u._id, e.target.value)}
-                    >
-                      <option value="admin">مشرف</option>
-                      <option value="user">مستخدم</option>
-                    </select>
+                    <span className="text-xs font-black text-gray-700">{u.role === "admin" ? "أدمن رئيسي" : u.role === "supervisor" ? "مشرف" : "مستخدم"}</span>
                   </td>
                   <td className="px-4 py-4 text-center text-[10px] font-bold text-gray-400">
                     {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-YE") : "—"}
@@ -310,14 +294,7 @@ export default function AdminUsers() {
               <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
                 <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 flex justify-between items-center">
                   <p className="text-gray-400">الدور</p>
-                  <select
-                    className="bg-transparent text-indigo-600 text-xs font-black outline-none cursor-pointer"
-                    value={u.role}
-                    onChange={(e) => updateRole(u._id, e.target.value)}
-                  >
-                    <option value="admin">مشرف</option>
-                    <option value="user">مستخدم</option>
-                  </select>
+                  <p className="text-indigo-600">{u.role === "admin" ? "أدمن رئيسي" : u.role === "supervisor" ? "مشرف" : "مستخدم"}</p>
                 </div>
                 <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 flex justify-between items-center">
                   <p className="text-gray-400">التسجيل</p>

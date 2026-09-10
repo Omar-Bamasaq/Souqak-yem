@@ -69,11 +69,38 @@ export default function EditAd() {
   const adAttrRef = useRef(null);
 
   const handleFiles = (e) => {
-    const f = Array.from(e.target.files || []);
-    setFiles(f);
-    const urls = f.map((file) => URL.createObjectURL(file));
-    setPreviews(urls);
+    const selectedFiles = Array.from(e.target.files || []);
+    const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+
+    setFiles((currentFiles) => {
+      const existingKeys = new Set(currentFiles.map(fileKey));
+      const newFiles = selectedFiles.filter((file) => !existingKeys.has(fileKey(file)));
+      const nextFiles = [...currentFiles, ...newFiles].slice(0, 10);
+
+      if (currentFiles.length + newFiles.length > 10) {
+        setErr("يمكن رفع حد أقصى 10 صور فقط");
+      } else {
+        setErr("");
+      }
+
+      return nextFiles;
+    });
+
+    e.target.value = "";
   };
+
+  const removeFile = (indexToRemove) => {
+    setFiles((currentFiles) => currentFiles.filter((_, index) => index !== indexToRemove));
+  };
+
+  useEffect(() => {
+    const nextPreviews = files.map((file) => URL.createObjectURL(file));
+    setPreviews(nextPreviews);
+
+    return () => {
+      nextPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
 
   const scrollToFirstError = (errors) => {
     const firstErrorKey = Object.keys(errors).find(key => errors[key]);
@@ -424,7 +451,7 @@ export default function EditAd() {
   };
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-xl space-y-4 ds-section relative">
+    <form onSubmit={submit} className="mx-auto max-w-xl flex flex-col gap-4 ds-section relative">
       <h2 className="ds-title">تعديل الإعلان</h2>
       
       {msg && (
@@ -438,7 +465,7 @@ export default function EditAd() {
         </div>
       )}
 
-      <div ref={formRefs.title} className="space-y-1">
+      <div ref={formRefs.title} className="order-1 space-y-1">
         <label className="block text-sm font-bold text-gray-700">
           {t("addProduct.labels.title")} <span className="text-red-500 mr-1">*</span>
         </label>
@@ -453,7 +480,7 @@ export default function EditAd() {
         {validationErrors.title && <p className="text-xs text-red-600 font-bold">{validationErrors.title}</p>}
       </div>
       
-      <div ref={formRefs.categoryId} className="space-y-1">
+      <div ref={formRefs.categoryId} className="order-2 space-y-1">
         <label className="block text-sm font-bold text-gray-700">
           الفئة <span className="text-red-500 mr-1">*</span>
         </label>
@@ -471,8 +498,8 @@ export default function EditAd() {
       </div>
       {/* Dynamic Category Attributes */}
       {categoryAttributes.length > 0 && (
-        <div className="space-y-4 rounded-lg border border-gray-200 p-4 bg-gray-50">
-          <h4 className="text-sm font-medium text-gray-700">خصائص الفئة</h4>
+        <div className="order-11 space-y-4 rounded-lg border border-gray-200 p-4 bg-gray-50">
+          <h4 className="text-sm font-medium text-gray-700">معلومات إضافية (اختياري)</h4>
           {categoryAttributes.map((attr) => (
             <div key={attr.id || attr._id} className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
@@ -487,18 +514,17 @@ export default function EditAd() {
           ))}
         </div>
       )}
-      <div className="space-y-1">
+      <div className="order-5 space-y-1">
         <label className="block text-sm font-medium text-gray-700">{t("addProduct.labels.description")}</label>
         <textarea className="ds-input" rows="4" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       
       {/* Condition */}
-      <div className="space-y-1">
+      <div className="order-6 space-y-1">
         <label className="block text-sm font-medium text-gray-700">حالة المنتج</label>
         <div className="flex gap-2">
           {[
             { value: "new", label: "جديد" },
-            { value: "like_new", label: "كالجديد" },
             { value: "used", label: "مستعمل" }
           ].map((opt) => (
             <button
@@ -519,7 +545,7 @@ export default function EditAd() {
       
       {/* Tags */}
       {availableTags.length > 0 && (
-        <div className="space-y-1">
+        <div className="hidden">
           <label className="block text-sm font-medium text-gray-700">وسوم (اختياري)</label>
           <div className="flex flex-wrap gap-2">
             {availableTags.map((tag) => (
@@ -547,7 +573,7 @@ export default function EditAd() {
       )}
       
       {/* Contact Info */}
-      <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+      <div className="order-10 space-y-3 rounded-lg border border-gray-200 p-4">
         <h4 className="text-sm font-medium text-gray-700">معلومات التواصل السريع</h4>
         
         <div className="flex items-center gap-2">
@@ -587,7 +613,7 @@ export default function EditAd() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="order-9 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div ref={formRefs.governorateId} className="space-y-1">
           <label className="block text-sm font-bold text-gray-700">
             المحافظة <span className="text-red-500 mr-1">*</span>
@@ -627,7 +653,7 @@ export default function EditAd() {
         </div>
       </div>
 
-      <div ref={formRefs.price} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div ref={formRefs.price} className="order-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1 col-span-1 sm:col-span-2">
           <label className="block text-sm font-bold text-gray-700">
             {t("addProduct.labels.price")} <span className="text-red-500 mr-1">*</span>
@@ -687,18 +713,28 @@ export default function EditAd() {
         </div>
       </div>
       
-      <div className="space-y-1">
+      <div className="order-4 space-y-1">
         <label className="block text-sm font-medium text-gray-700">{t("addProduct.labels.images")}</label>
         <input className="ds-input" type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleFiles} />
       </div>
       {previews.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-3">
+        <div className="order-4 mt-2 flex flex-wrap gap-3">
           {previews.map((src, i) => (
-            <img key={i} src={src} alt="" className="h-24 w-32 rounded-md object-cover" />
+            <div key={src} className="relative">
+              <img src={src} alt={`صورة الإعلان ${i + 1}`} className="h-24 w-32 rounded-md object-cover" />
+              <button
+                type="button"
+                aria-label={`حذف صورة الإعلان ${i + 1}`}
+                onClick={() => removeFile(i)}
+                className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-lg font-bold leading-none text-white shadow-md transition-colors hover:bg-red-700"
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       )}
-      <div className="space-y-1">
+      <div className="order-4 space-y-1">
         <label className="block text-sm font-medium text-gray-700">الصور الحالية</label>
         {currentImages.length === 0 && <div className="text-xs text-gray-600">لا توجد صور حالية</div>}
         {currentImages.length > 0 && (
@@ -726,7 +762,7 @@ export default function EditAd() {
 
       {/* Brokerage System */}
       {brokerageEnabled && (
-      <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <div className="order-12 space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -813,7 +849,7 @@ export default function EditAd() {
       </div>
       )}
 
-      <button disabled={loading} type="submit" className="ds-btn-primary w-full disabled:opacity-60 py-4 text-lg font-bold">
+      <button disabled={loading} type="submit" className="order-[13] ds-btn-primary w-full disabled:opacity-60 py-4 text-lg font-bold">
         {loading ? "جاري الحفظ..." : "حفظ التعديلات"}
       </button>
       <div className="mt-3 text-center border-t pt-4">

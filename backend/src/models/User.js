@@ -18,7 +18,23 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
     avatar: { type: String, default: null }, // User profile image
-    role: { type: String, enum: ["admin", "user", "seller", "buyer"], default: "user" },
+    role: { type: String, enum: ["admin", "supervisor", "user", "seller", "buyer"], default: "user" },
+    permissions: {
+      type: [{ type: String }],
+      default: [],
+      validate: {
+        validator: (value) => Array.isArray(value) && value.every((permission) => /^[a-z]+(?:_[a-z]+)*$/.test(permission)),
+        message: "Invalid admin permission"
+      }
+    },
+    managedAccount: {
+      status: { type: String, enum: ["managed", "claim_pending", "claimed"], default: null },
+      createdByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      createdAt: { type: Date, default: null },
+      claimRequestedAt: { type: Date, default: null },
+      claimedAt: { type: Date, default: null },
+      initialPassword: { type: String, default: null }
+    },
     phone: { type: String },
     isVerifiedSeller: { type: Boolean, default: false },
     verified: { type: Boolean, default: false },

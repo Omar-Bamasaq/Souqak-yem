@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Router } from "express";
 import auth from "../middleware/auth.js";
-import { requireRole } from "../middleware/roles.js";
+import { requireMainAdmin, requireRole } from "../middleware/roles.js";
 import Ad from "../models/Ad.js";
 import User from "../models/User.js";
 import PurchaseRequest from "../models/PurchaseRequest.js";
@@ -30,13 +30,17 @@ import Review from "../models/Review.js";
 import Joi from "joi";
 import { validateQuery } from "../middleware/validate.js";
 import PasswordResetRequest from "../models/PasswordResetRequest.js";
-import { generateTemporaryPassword, normalizePhone } from "../utils/securityRules.js";
+import { generateTemporaryPassword, normalizePhone, isValidPhoneNumber, isValidPassword } from "../utils/securityRules.js";
+import { ADMIN_PERMISSIONS } from "../config/adminPermissions.js";
 
 import { createNotification } from "../services/notificationService.js";
 import { logActivity } from "../services/activityLogService.js";
 import ReferralEngine from "../engines/ReferralEngine.js";
 
-import processImages from "../middleware/processImages.js";
+import processImages, { validateProcessedImages } from "../middleware/processImages.js";
+import { uploadImages } from "../middleware/upload.js";
+import City from "../models/City.js";
+import ListingService from "../services/listingService.js";
 
 const router = Router();
 
@@ -576,6 +580,289 @@ router.delete("/products/:id", async (req, res) => {
   }
 });
 
+router.post(
+  "/managed-sellers/ads",
+  uploadImages.array("images", 10),
+  processImages(),
+  validateProcessedImages,
+  async (req, res) => {
+    let createdUser = null;
+    let createdNewUser = false;
+    try {
+      const {
+        sellerId,
+        sellerName,
+        phone,
+        email,
+        title,
+        description = "",
+        price = 0,
+        currency = "YER_ADEN",
+        governorateId,
+        cityId,
+        categoryId,
+        condition = "used",
+        showPhone = "false",
+        showWhatsApp = "false",
+        whatsapp = "",
+        negotiable = "false",
+        priceOnContact = "false",
+        attributes
+      } = req.body || {};
+
+      let managedSeller = null;
+      if (sellerId) {
+        managedSeller = await User.findOne({
+          _id: sellerId,
+          "managedAccount.createdByAdmin": req.user.id,
+          isDeleted: { $ne: true }
+        });
+        if (!managedSeller) return res.status(404).json({ error: "البائع المدار غير موجود." });
+      }
+      const cleanName = String(sellerName || managedSeller?.name || "").trim();
+      const cleanPhone = normalizePhone(phone || managedSeller?.phone);
+      if (!cleanName || !cleanPhone || !isValidPhoneNumber(cleanPhone) || !title || !governorateId || !cityId) {
+        return res.status(400).json({ error: "اسم البائع والهاتف وبيانات الإعلان والموقع مطلوبة." });
+      }
+
+      const city = await City.findOne({ _id: cityId, governorateId }).lean();
+      if (!city) return res.status(400).json({ error: "المدينة لا تتبع المحافظة المحددة." });
+
+      if (!managedSeller) {
+        const existingPhone = await User.findOne({ phone: cleanPhone, isDeleted: { $ne: true } }).select("_id name").lean();
+        if (existingPhone) return res.status(409).json({ error: "يوجد حساب مرتبط بهذا الرقم بالفعل." });
+      }
+
+      const normalizedEmail = String(email || `${cleanPhone.replace(/\D/g, "")}@managed.local`).trim().toLowerCase();
+      if (!managedSeller) {
+        const existingEmail = await User.findOne({ email: normalizedEmail }).select("_id").lean();
+        if (existingEmail) return res.status(409).json({ error: "البريد الإلكتروني مستخدم بالفعل." });
+      }
+
+      const temporaryPassword = managedSeller?.managedAccount?.initialPassword || generateTemporaryPassword(24);
+      createdUser = managedSeller || await User.create({
+        name: cleanName,
+        email: normalizedEmail,
+        password: await bcrypt.hash(temporaryPassword, 12),
+        phone: cleanPhone,
+        role: "seller",
+        phoneTrial: true,
+        phoneTrialStatus: "Approved",
+        isEmailVerified: true,
+        mustResetPassword: true,
+        temporaryPassword,
+        temporaryPasswordExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        managedAccount: {
+          status: "claim_pending",
+          createdByAdmin: req.user.id,
+          createdAt: new Date(),
+          initialPassword: temporaryPassword
+        }
+      });
+      createdNewUser = !managedSeller;
+
+      const filenames = (req.files || []).map((file) => file.optimizedFilename || file.filename);
+      let parsedAttributes = attributes;
+      if (typeof parsedAttributes === "string") {
+        try { parsedAttributes = JSON.parse(parsedAttributes); } catch { parsedAttributes = undefined; }
+      }
+
+      const createdAt = new Date();
+      const ad = await Ad.create({
+        title: String(title).trim(),
+        description: String(description),
+        price: Number(price) || 0,
+        currency,
+        governorateId,
+        cityId,
+        categoryId: categoryId || null,
+        condition,
+        images: filenames,
+        status: "admin_draft",
+        isVisible: false,
+        publishedAt: undefined,
+        expiresAt: undefined,
+        userId: createdUser._id,
+        adminManagement: {
+          createdBy: req.user.id,
+          createdAt
+        },
+        contactInfo: {
+          showPhone: showPhone === true || showPhone === "true",
+          phone: cleanPhone,
+          showWhatsApp: showWhatsApp === true || showWhatsApp === "true",
+          whatsapp: String(whatsapp || "")
+        },
+        negotiable: negotiable === true || negotiable === "true",
+        priceOnContact: priceOnContact === true || priceOnContact === "true"
+      });
+
+      if (Array.isArray(parsedAttributes) && parsedAttributes.length > 0) {
+        await ListingService.saveAttributeValues(ad._id, parsedAttributes);
+      }
+
+      res.status(201).json({
+        user: {
+          _id: createdUser._id,
+          name: createdUser.name,
+          phone: createdUser.phone,
+          managedStatus: createdUser.managedAccount.status,
+          temporaryPassword
+        },
+        ad
+      });
+    } catch (error) {
+      if (createdNewUser && createdUser?._id) await User.findByIdAndDelete(createdUser._id).catch(() => {});
+      console.error("Create managed seller ad error:", error);
+      res.status(400).json({ error: error?.message || "تعذر إنشاء حساب البائع والإعلان." });
+    }
+  }
+);
+
+router.patch("/managed-sellers/ads/:id/publish", async (req, res) => {
+  try {
+    const ad = await Ad.findById(req.params.id).populate("userId", "managedAccount");
+    if (!ad) return res.status(404).json({ error: "الإعلان غير موجود." });
+    if (ad.status !== "admin_draft" || !ad.userId?.managedAccount?.createdByAdmin) {
+      return res.status(400).json({ error: "هذا الإعلان ليس مسودة تابعة لنظام الإعلانات المدارة." });
+    }
+
+    const now = new Date();
+    ad.status = "approved";
+    ad.isVisible = true;
+    ad.publishedAt = now;
+    ad.expiresAt = new Date(now.getTime() + 40 * 24 * 60 * 60 * 1000);
+    ad.expireReminderSent = false;
+    ad.adminManagement.publishedBy = req.user.id;
+    ad.adminManagement.publishedAt = now;
+    await ad.save();
+
+    res.json(ad.toObject());
+  } catch (error) {
+    console.error("Publish managed seller ad error:", error);
+    res.status(400).json({ error: "تعذر نشر الإعلان." });
+  }
+});
+
+router.get("/managed-sellers", async (req, res) => {
+  try {
+    const sellers = await User.find({
+      "managedAccount.createdByAdmin": { $ne: null },
+      isDeleted: { $ne: true }
+    }).select("name phone email role managedAccount temporaryPassword createdAt").sort({ "managedAccount.createdAt": -1 }).lean();
+    const sellerIds = sellers.map((seller) => seller._id);
+    const ads = await Ad.find({ userId: { $in: sellerIds }, isDeleted: { $ne: true } })
+      .select("_id userId title status isVisible viewCount contactsCount phoneClicks whatsappClicks createdAt publishedAt expiresAt adminManagement images price currency")
+      .sort({ createdAt: -1 }).lean();
+    const adsBySeller = new Map();
+    ads.forEach((ad) => {
+      const key = String(ad.userId);
+      if (!adsBySeller.has(key)) adsBySeller.set(key, []);
+      adsBySeller.get(key).push(ad);
+    });
+    res.json(sellers.map((seller) => ({
+      ...seller,
+      ads: adsBySeller.get(String(seller._id)) || []
+    })));
+  } catch (error) {
+    console.error("Managed sellers list error:", error);
+    res.status(500).json({ error: "تعذر تحميل معلومات البائعين المدارين." });
+  }
+});
+
+router.get("/supervisors", requireMainAdmin, async (req, res) => {
+  try {
+    const supervisors = await User.find({ role: "supervisor" })
+      .select("name email phone permissions isDisabled createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ supervisors, permissions: ADMIN_PERMISSIONS });
+  } catch (error) {
+    console.error("Supervisors list error:", error);
+    res.status(500).json({
+      error: process.env.NODE_ENV === "production" ? "تعذر تحميل المشرفين." : `تعذر تحميل المشرفين: ${error.message}`
+    });
+  }
+});
+
+router.post("/supervisors", requireMainAdmin, async (req, res) => {
+  try {
+    const { name, email, password, permissions = [] } = req.body || {};
+    const cleanName = String(name || "").trim();
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const allowedPermissions = ADMIN_PERMISSIONS.map(({ key }) => key);
+    const cleanPermissions = [...new Set(Array.isArray(permissions) ? permissions : [])];
+
+    if (!cleanName || !cleanEmail || !password) {
+      return res.status(400).json({ error: "الاسم والبريد وكلمة المرور والصلاحيات مطلوبة." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ error: "صيغة البريد الإلكتروني غير صحيحة." });
+    }
+    if (!isValidPassword(String(password))) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزاً." });
+    }
+    if (cleanPermissions.some((permission) => !allowedPermissions.includes(permission))) {
+      return res.status(400).json({ error: "توجد صلاحية غير معتمدة." });
+    }
+    if (await User.exists({ $or: [{ email: cleanEmail }, { name: cleanName }] })) {
+      return res.status(409).json({ error: "البريد أو الاسم مستخدم مسبقاً." });
+    }
+
+    const supervisor = await User.create({
+      name: cleanName,
+      email: cleanEmail,
+      password: await bcrypt.hash(String(password), 10),
+      role: "supervisor",
+      permissions: cleanPermissions,
+      isEmailVerified: true,
+      mustResetPassword: false
+    });
+
+    res.status(201).json({
+      id: supervisor._id,
+      name: supervisor.name,
+      email: supervisor.email,
+      role: supervisor.role,
+      permissions: supervisor.permissions
+    });
+  } catch (error) {
+    console.error("Create supervisor error:", error);
+    res.status(500).json({ error: "تعذر إنشاء المشرف." });
+  }
+});
+
+router.patch("/supervisors/:id", requireMainAdmin, async (req, res) => {
+  try {
+    const { permissions } = req.body || {};
+    if (!Array.isArray(permissions)) return res.status(400).json({ error: "الصلاحيات يجب أن تكون قائمة." });
+    const allowedPermissions = new Set(ADMIN_PERMISSIONS.map(({ key }) => key));
+    const cleanPermissions = [...new Set(permissions)];
+    if (cleanPermissions.some((permission) => !allowedPermissions.has(permission))) {
+      return res.status(400).json({ error: "توجد صلاحية غير معتمدة." });
+    }
+    const updated = await User.findOneAndUpdate(
+      { _id: req.params.id, role: "supervisor" },
+      { permissions: cleanPermissions },
+      { new: true }
+    ).select("name email role permissions isDisabled").lean();
+    if (!updated) return res.status(404).json({ error: "المشرف غير موجود." });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "تعذر تحديث صلاحيات المشرف." });
+  }
+});
+
+router.delete("/supervisors/:id", requireMainAdmin, async (req, res) => {
+  try {
+    const deleted = await User.findOneAndDelete({ _id: req.params.id, role: "supervisor" });
+    if (!deleted) return res.status(404).json({ error: "المشرف غير موجود." });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "تعذر حذف المشرف." });
+  }
+});
+
 router.get("/users", async (req, res) => {
   try {
     const { q, role, disabled, deleted, sort = "createdAt", order = "desc" } = req.query || {};
@@ -591,7 +878,7 @@ router.get("/users", async (req, res) => {
     }
     const sortSpec = { [sort]: order === "asc" ? 1 : -1 };
     const users = await User.find(filter)
-      .select("name email phone phoneTrial phoneTrialStatus role createdAt isDisabled")
+      .select("name email phone phoneTrial phoneTrialStatus role createdAt isDisabled managedAccount")
       .sort(sortSpec)
       .lean();
     const mapped = users.map((u) => {
@@ -608,7 +895,7 @@ router.get("/users", async (req, res) => {
   }
 });
 
-router.patch("/users/:id/role", async (req, res) => {
+router.patch("/users/:id/role", requireMainAdmin, async (req, res) => {
   try {
     const { role } = req.body || {};
     if (!["admin", "user", "seller", "buyer"].includes(role)) return res.status(400).json({ error: "Invalid role" });

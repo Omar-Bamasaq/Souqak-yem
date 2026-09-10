@@ -645,6 +645,7 @@ router.post("/login", async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        permissions: Array.isArray(user.permissions) ? user.permissions : [],
         isEmailVerified: user.isEmailVerified,
         isVerifiedSeller: user.isVerifiedSeller,
         verified: !!user.verified,
@@ -802,6 +803,11 @@ router.post("/phone-login", async (req, res) => {
       return res.status(403).json({ error: "هذا الحساب محظور من قبل الإدارة." });
     }
 
+    if (user.managedAccount?.createdByAdmin && !user.isEmailVerified) {
+      user.isEmailVerified = true;
+      await user.save();
+    }
+
     const isBypass = user.role === "admin" || String(user.name).toLowerCase() === "seller test";
     if (!isBypass && user.phoneTrial !== true) {
       const msg = user.phoneTrialStatus === "Rejected" ? "تم رفض التفعيل" : "الحساب قيد التفعيل";
@@ -810,7 +816,9 @@ router.post("/phone-login", async (req, res) => {
     }
 
     const passwordMatches = await bcrypt.compare(rawPassword, user.password);
-    const temporaryMatches = !!user.temporaryPassword && user.temporaryPassword === rawPassword;
+    const temporaryMatches = !!user.temporaryPassword
+      && user.temporaryPassword === rawPassword
+      && (!user.temporaryPasswordExpiresAt || user.temporaryPasswordExpiresAt > new Date());
 
     if (!passwordMatches && !temporaryMatches) {
       return res.status(401).json({ error: "كلمة المرور غير صحيحة." });
@@ -827,13 +835,15 @@ router.post("/phone-login", async (req, res) => {
           email: user.email,
           phone: user.phone,
           role: user.role,
+          permissions: Array.isArray(user.permissions) ? user.permissions : [],
           isEmailVerified: user.isEmailVerified,
           isVerifiedSeller: user.isVerifiedSeller,
           verified: !!user.verified,
           verificationExpiresAt: user.verificationExpiresAt,
           avatar: user.avatar,
           identityStatus: user.identityStatus,
-          idDocument: user.idDocument
+          idDocument: user.idDocument,
+          managedAccount: user.managedAccount
         }
       });
     }
@@ -853,13 +863,15 @@ router.post("/phone-login", async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        permissions: Array.isArray(user.permissions) ? user.permissions : [],
         isEmailVerified: user.isEmailVerified,
         isVerifiedSeller: user.isVerifiedSeller,
         verified: !!user.verified,
         verificationExpiresAt: user.verificationExpiresAt,
         avatar: user.avatar,
         identityStatus: user.identityStatus,
-        idDocument: user.idDocument
+          idDocument: user.idDocument,
+          managedAccount: user.managedAccount
       }
     });
   } catch (error) {
@@ -945,6 +957,10 @@ router.post("/set-new-password", auth, async (req, res) => {
     user.mustResetPassword = false;
     user.temporaryPassword = null;
     user.temporaryPasswordExpiresAt = null;
+    if (user.managedAccount?.status === "claim_pending") {
+      user.managedAccount.status = "claimed";
+      user.managedAccount.claimedAt = new Date();
+    }
     await user.save();
 
     return res.json({ message: "تم تعيين كلمة المرور الجديدة بنجاح." });
@@ -964,6 +980,7 @@ router.get("/me", auth, async (req, res) => {
       email: user.email,
       phone: user.phone,
       role: user.role,
+      permissions: Array.isArray(user.permissions) ? user.permissions : [],
       avatar: user.avatar,
       isEmailVerified: user.isEmailVerified,
       identityStatus: user.identityStatus,
