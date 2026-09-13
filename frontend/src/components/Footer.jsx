@@ -56,6 +56,15 @@ export default function Footer() {
             <Link to="/privacy" className="rounded-full border border-blue-100 bg-white px-4 py-1.5 font-bold text-gray-700 hover:border-blue-300 hover:text-blue-700 transition-colors">سياسة الخصوصية</Link>
             <Link to="/platform-reviews" className="rounded-full border border-blue-100 bg-white px-4 py-1.5 font-bold text-gray-700 hover:border-blue-300 hover:text-blue-700 transition-colors">حائط الآراء</Link>
             <Link to="/refund-escrow" className="rounded-full border border-blue-100 bg-white px-4 py-1.5 font-bold text-gray-700 hover:border-blue-300 hover:text-blue-700 transition-colors">نظام الضمان</Link>
+            <a
+              href="https://osb-programing-solution.infinityfreeapp.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-900 px-4 py-1.5 font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-800"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-400 text-[10px] font-black text-slate-900">&lt;/&gt;</span>
+              <span>تطوير OSB</span>
+            </a>
           </div>
         </div>
       </div>

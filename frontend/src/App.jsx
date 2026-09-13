@@ -5,6 +5,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop.jsx";
 import WelcomePromotionSummary from "./components/WelcomePromotionSummary.jsx";
 import FirstVisitSessionIntro from "./components/FirstVisitSessionIntro.jsx";
+import AppOpeningIntro from "./components/AppOpeningIntro.jsx";
 import SupportChatFAB from "./components/SupportChatFAB.jsx";
 import OnboardingTour from "./components/OnboardingTour.jsx";
 import LoadingSpinner from "./components/LoadingSpinner.jsx";
@@ -176,6 +177,7 @@ export default function App() {
 
   return (
     <>
+      <AppOpeningIntro />
       <PushSubscriptionManager />
       <FirstVisitSessionIntro />
       <ScrollToTop />

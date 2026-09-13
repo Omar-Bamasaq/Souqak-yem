@@ -435,6 +435,27 @@ export default function AccountSettings() {
                   </div>
                   <svg className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"/></svg>
                 </Link>
+
+                <a
+                  href="https://osb-programing-solution.infinityfreeapp.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative mt-2 overflow-hidden rounded-2xl border border-cyan-200/70 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 text-white shadow-lg shadow-blue-900/10 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-900/20"
+                >
+                  <div className="absolute -left-8 -top-8 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl transition-all group-hover:bg-cyan-400/20" />
+                  <div className="relative flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-400/10 font-mono text-sm font-black text-cyan-300">&lt;/&gt;</div>
+                      <div className="min-w-0 text-right">
+                        <p className="text-sm font-black">صُنع بعناية بواسطة OSB</p>
+                        <p className="mt-1 truncate text-[10px] font-bold text-slate-300">تعرّف على مطوّر تطبيق سوقك</p>
+                      </div>
+                    </div>
+                    <svg className="h-5 w-5 shrink-0 text-cyan-300 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </div>
+                </a>
               </div>
             </div>
 
