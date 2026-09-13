@@ -264,7 +264,7 @@ export default function ProductCard({ product, to, featured = false, governorate
             </div>
 
             <div className="text-[9px] sm:text-[10px] font-medium text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md w-fit border border-gray-100 dark:border-slate-700/50">
-              {timeAgo(product.createdAt)}
+              {timeAgo(product.publishedAt || product.createdAt)}
             </div>
           </div>
         </div>
