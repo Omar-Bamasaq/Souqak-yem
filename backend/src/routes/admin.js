@@ -754,8 +754,33 @@ router.get("/managed-sellers", async (req, res) => {
     const ads = await Ad.find({ userId: { $in: sellerIds }, isDeleted: { $ne: true } })
       .select("_id userId title status isVisible viewCount contactsCount phoneClicks whatsappClicks createdAt publishedAt expiresAt adminManagement images price currency")
       .sort({ createdAt: -1 }).lean();
+    const adIds = ads.map((ad) => ad._id);
+    const orderStats = await Order.aggregate([
+      {
+        $match: {
+          ad: { $in: adIds },
+          isDeleted: { $ne: true },
+          status: { $ne: "CANCELLED" }
+        }
+      },
+      {
+        $group: {
+          _id: "$ad",
+          securePurchaseRequests: { $sum: 1 },
+          pendingSecurePurchaseRequests: {
+            $sum: { $cond: [{ $eq: ["$status", "PENDING_SELLER_APPROVAL"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+    const orderStatsByAd = new Map(orderStats.map((item) => [String(item._id), item]));
+    const enrichedAds = ads.map((ad) => ({
+      ...ad,
+      securePurchaseRequests: orderStatsByAd.get(String(ad._id))?.securePurchaseRequests || 0,
+      pendingSecurePurchaseRequests: orderStatsByAd.get(String(ad._id))?.pendingSecurePurchaseRequests || 0
+    }));
     const adsBySeller = new Map();
-    ads.forEach((ad) => {
+    enrichedAds.forEach((ad) => {
       const key = String(ad.userId);
       if (!adsBySeller.has(key)) adsBySeller.set(key, []);
       adsBySeller.get(key).push(ad);

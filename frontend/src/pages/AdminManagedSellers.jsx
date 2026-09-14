@@ -125,6 +125,12 @@ export default function AdminManagedSellers() {
                       <span>هاتف: {ad.phoneClicks || 0}</span>
                       <span>واتساب: {ad.whatsappClicks || 0}</span>
                     </div>
+                    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800">
+                      طلبات الشراء الآمن: {ad.securePurchaseRequests || 0}
+                    </div>
+                    {ad.pendingSecurePurchaseRequests > 0 && <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800">
+                      تنبيه: يوجد {ad.pendingSecurePurchaseRequests} طلب شراء آمن بانتظار موافقة البائع.
+                    </div>}
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <button onClick={() => navigate(`/edit-ad/${ad._id}`)} className="w-full rounded-lg border border-blue-100 bg-blue-50 py-2 text-xs font-black text-blue-700 hover:bg-blue-100">تعديل الإعلان</button>
                       {ad.status === "admin_draft" && <button disabled={publishingId === ad._id} onClick={() => publishAd(ad._id)} className="w-full rounded-lg bg-green-600 py-2 text-xs font-black text-white hover:bg-green-700 disabled:opacity-60">{publishingId === ad._id ? "جاري النشر..." : "نشر الإعلان"}</button>}
