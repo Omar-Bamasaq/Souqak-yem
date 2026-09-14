@@ -14,6 +14,7 @@ import { isConditionEnabled } from "../lib/categoryHelpers.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import SecurePurchaseModal from "../components/SecurePurchaseModal.jsx";
 import SecurePurchaseTutorial from "../components/SecurePurchaseTutorial.jsx";
+import { useSsgData } from "../ssg/SsgDataContext.jsx";
 
 const REPORT_CONFIG = {
   ad: {
@@ -30,7 +31,7 @@ function baseSlugify(text) {
   if (!text) return "";
   return text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
+    .replace(/[^\w\s\u0600-\u06ff-]/g, "")
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
@@ -49,11 +50,13 @@ function getCurrencySymbol(code) {
 export default function ProductDetail() {
   const { data: governoratesData = [] } = useGovernorates();
   const { id } = useParams();
+  const ssgData = useSsgData();
+  const initialAd = ssgData?.kind === "ad" && String(ssgData.data?.ad?._id) === String(id) ? ssgData.data.ad : null;
   const [searchParams] = useSearchParams();
   const refId = searchParams.get("ref");
   const navigate = useNavigate();
   const { useSimilarAds } = useAdsQuery();
-  const [p, setP] = useState(null);
+  const [p, setP] = useState(initialAd);
   const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [ok, setOk] = useState("");
@@ -139,7 +142,7 @@ export default function ProductDetail() {
   const [reportMsg, setReportMsg] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDone, setReportDone] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialAd);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -311,8 +314,8 @@ export default function ProductDetail() {
   };
 
   useEffect(() => {
-    load();
-  }, [id]);
+    if (!initialAd) load();
+  }, [id, initialAd]);
   useEffect(() => {
     (async () => {
       try {
@@ -583,6 +586,11 @@ export default function ProductDetail() {
             type="product"
             price={p.price}
             currency={p.currency}
+            breadcrumbs={[
+              { name: "الرئيسية", url: "https://souqak-yem.com/" },
+              ...(p.parentCategory?.slug ? [{ name: p.parentCategory.name, url: `https://souqak-yem.com/category/${p.parentCategory.slug}` }] : []),
+              { name: p.title, url: `https://souqak-yem.com/ad/${p._id}/${baseSlugify(p.title)}` }
+            ]}
             indexable={p.status === 'approved' && !p.isArchived && !p.sold}
           />
         )}

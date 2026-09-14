@@ -10,9 +10,12 @@ import CategoryGrid from "../components/CategoryGrid.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 import SEO from "../components/SEO.jsx";
+import { useSsgData } from "../ssg/SsgDataContext.jsx";
 
 export default function Home() {
   const { user } = useAuth();
+  const ssgData = useSsgData();
+  const initialHome = ssgData?.kind === "home" ? ssgData.data : null;
   const api = useApi();
   const { prefetchCategoryAds, prefetchNextPage } = useAdsQuery();
   const { data: governoratesData = [] } = useGovernorates();
@@ -27,7 +30,7 @@ export default function Home() {
   const page = parseInt(searchParams.get("page") || "1");
   const sort = searchParams.get("sort") || "new";
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(initialHome?.ads || []);
   const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [popularTags, setPopularTags] = useState([]);
@@ -128,8 +131,9 @@ export default function Home() {
   }, [q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const canUseInitialHome = initialHome && !q && !governorateId && !minPrice && !maxPrice && page === 1 && sort === "new";
+    if (!canUseInitialHome) load();
+  }, [load, initialHome, q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
     setGovernorates(governoratesData);
@@ -167,6 +171,7 @@ export default function Home() {
         title="سوقك - سوق اليمن للإعلانات والبيع والشراء"
         description="سوقك هو منصة يمنية موثوقة للبيع والشراء والإعلانات المبوبة مع ميزة الشراء الآمن، وتتيح لك عرض وشراء السيارات، العقارات، الإلكترونيات والمنتجات والخدمات بسهولة."
         canonicalUrl="/"
+        includeSearchAction
       />
       <div className="-mx-4 min-h-screen bg-[#f7faff] dark:bg-slate-950 dark:text-slate-100 font-sans leading-relaxed sm:mx-0 sm:bg-slate-50">
       <section className="relative mx-2 -mt-6 mb-4 overflow-hidden rounded-xl bg-blue-600 px-3.5 py-3.5 text-white shadow-lg shadow-blue-900/25 sm:hidden">

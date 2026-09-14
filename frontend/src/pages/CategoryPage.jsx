@@ -8,17 +8,21 @@ import ProductCard from "../components/ProductCard.jsx";
 import { useMainCategories } from "../hooks/useMainCategories.js";
 import CategoryTree from "../components/CategoryTree.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
+import SEO from "../components/SEO.jsx";
+import { useSsgData } from "../ssg/SsgDataContext.jsx";
 
 export default function CategoryPage() {
   const { slug } = useParams();
+  const ssgData = useSsgData();
+  const initialCategoryData = ssgData?.kind === "category" && ssgData.data?.category?.slug === slug ? ssgData.data : null;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  const [category, setCategory] = useState(null);
-  const [ads, setAds] = useState([]);
-  const [totalAds, setTotalAds] = useState(0);
-  const [breadcrumbs, setBreadcrumbs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState(initialCategoryData?.category || null);
+  const [ads, setAds] = useState(initialCategoryData?.ads || []);
+  const [totalAds, setTotalAds] = useState(initialCategoryData?.ads?.length || 0);
+  const [breadcrumbs, setBreadcrumbs] = useState(initialCategoryData?.breadcrumbs || []);
+  const [loading, setLoading] = useState(!initialCategoryData);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -402,17 +406,17 @@ export default function CategoryPage() {
   }, [category, subSlug, subSubSlug, subSubCategories, purchaseOrderMainCategories, loadCategoryAttributes]);
 
   useEffect(() => {
-    loadCategory();
-  }, [loadCategory]);
+    if (!initialCategoryData) loadCategory();
+  }, [loadCategory, initialCategoryData]);
 
   useEffect(() => {
     if (category) {
-      loadAds(isFirstLoad.current);
+      if (!(initialCategoryData && isFirstLoad.current)) loadAds(isFirstLoad.current);
       isFirstLoad.current = false;
-      loadBreadcrumbs();
+      if (breadcrumbs.length === 0) loadBreadcrumbs();
     }
     // We use searchParams.toString() as a stable dependency for search params
-  }, [category, subSlug, subSubSlug, page, searchParams.toString(), loadAds, loadBreadcrumbs]);
+  }, [category, subSlug, subSubSlug, page, searchParams.toString(), loadAds, loadBreadcrumbs, initialCategoryData, breadcrumbs.length]);
 
   // Infinite Scroll Observer
   useEffect(() => {
@@ -518,6 +522,16 @@ export default function CategoryPage() {
     );
   }
 
+  const activeCategory = selectedSubcategory || category;
+  const canonicalPath = subSlug
+    ? `/category/${slug}?sub=${encodeURIComponent(subSlug)}`
+    : `/category/${slug}`;
+  const categoryBreadcrumbs = [
+    { name: "الرئيسية", url: "https://souqak-yem.com/" },
+    { name: category.name, url: `https://souqak-yem.com/category/${category.slug}` },
+    ...(selectedSubcategory ? [{ name: selectedSubcategory.name, url: `https://souqak-yem.com${canonicalPath}` }] : [])
+  ];
+
   const handleGlobalSearch = () => {
     const q = searchQuery.trim();
     const params = new URLSearchParams();
@@ -527,6 +541,13 @@ export default function CategoryPage() {
 
   return (
     <div className="space-y-6">
+      <SEO
+        title={`${activeCategory.name} للبيع في اليمن`}
+        description={activeCategory.description || `تصفح إعلانات ${activeCategory.name} للبيع والشراء في اليمن عبر سوقك، منصة الإعلانات المبوبة اليمنية.`}
+        canonicalUrl={canonicalPath}
+        type="collection"
+        breadcrumbs={categoryBreadcrumbs}
+      />
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-gray-500 overflow-x-auto whitespace-nowrap pb-1">
         <Link to="/" className="hover:text-blue-600">الرئيسية</Link>

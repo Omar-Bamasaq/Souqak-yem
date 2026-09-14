@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 
-const SEO = ({ title, description, image, url, type = 'website', price, currency, canonicalUrl, indexable = true }) => {
+const SEO = ({ title, description, image, url, type = 'website', price, currency, canonicalUrl, indexable = true, breadcrumbs = [], includeSearchAction = false }) => {
   const siteName = 'سوقك';
   const baseUrl = 'https://souqak-yem.com';
   const defaultDescription = 'سوقك هو منصة يمنية موثوقة للبيع والشراء والإعلانات المبوبة، مع ميزة الشراء الآمن في السيارات، العقارات، الإلكترونيات والمنتجات والخدمات.';
@@ -9,15 +9,17 @@ const SEO = ({ title, description, image, url, type = 'website', price, currency
   const cleanDescription = String(metaDescription).replace(/<[^>]*>?/gm, '').trim().substring(0, 160);
 
   const safeTitle = title ? title.trim() : 'سوقك - سوق اليمن للإعلانات والبيع والشراء';
-  const fullTitle = title ? `${safeTitle} | سوقك` : 'سوقك - سوق اليمن للإعلانات والبيع والشراء';
+  const fullTitle = title
+    ? (/\|\s*سوقك\s*$/.test(safeTitle) ? safeTitle : `${safeTitle} | سوقك`)
+    : 'سوقك - سوق اليمن للإعلانات والبيع والشراء';
   const metaImage = image ? (image.startsWith('http') ? image : `${baseUrl}${image.startsWith('/') ? image : `/${image}`}`) : `${baseUrl}/logo.png`;
   const canonical = canonicalUrl ? (canonicalUrl.startsWith('http') ? canonicalUrl : `${baseUrl}${canonicalUrl.startsWith('/') ? canonicalUrl : `/${canonicalUrl}`}`) : `${baseUrl}/`;
   const currentUrl = url ? (url.startsWith('http') ? url : `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`) : canonical;
   const robotsContent = indexable ? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' : 'noindex,nofollow';
 
-  const jsonLd = {
+  const baseJsonLd = {
     '@context': 'https://schema.org',
-    '@type': type === 'product' ? 'Product' : 'WebSite',
+    '@type': type === 'product' ? 'Product' : type === 'collection' ? 'CollectionPage' : 'WebSite',
     name: safeTitle,
     description: cleanDescription,
     url: currentUrl,
@@ -40,13 +42,31 @@ const SEO = ({ title, description, image, url, type = 'website', price, currency
         url: baseUrl,
         logo: `${baseUrl}/logo.png`
       },
-      potentialAction: {
+      ...(includeSearchAction ? { potentialAction: {
         '@type': 'SearchAction',
         target: `${baseUrl}/search?q={search_term_string}`,
         'query-input': 'required name=search_term_string'
-      }
+      } } : {})
     } : {})
   };
+
+  const jsonLd = breadcrumbs.length > 0
+    ? {
+      '@context': 'https://schema.org',
+      '@graph': [
+        baseJsonLd,
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: breadcrumbs.map((breadcrumb, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            name: breadcrumb.name,
+            item: breadcrumb.url
+          }))
+        }
+      ]
+    }
+    : baseJsonLd;
 
   return (
     <Helmet>

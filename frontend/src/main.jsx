@@ -1,5 +1,5 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
+import React, { useEffect, useState } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
@@ -8,6 +8,8 @@ import { AuthProvider } from "./store/AuthContext.jsx";
 import { ChatProvider } from "./store/ChatContext.jsx";
 import { ThemeProvider } from "./store/ThemeContext.jsx";
 import { BrokerageStatusProvider } from "./store/BrokerageStatusContext.jsx";
+import { PublicSsgContent } from "./ssg/PublicSsgContent.mjs";
+import { SsgDataProvider } from "./ssg/SsgDataContext.jsx";
 import "./index.css";
 
 const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
@@ -34,7 +36,7 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(document.getElementById("root")).render(
+const appTree = (
   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
@@ -42,7 +44,9 @@ createRoot(document.getElementById("root")).render(
           <AuthProvider>
             <ChatProvider>
               <BrokerageStatusProvider>
-                <App />
+                <SsgDataProvider value={window.__SOUQAK_SSG_DATA__}>
+                  <App />
+                </SsgDataProvider>
               </BrokerageStatusProvider>
             </ChatProvider>
           </AuthProvider>
@@ -51,6 +55,25 @@ createRoot(document.getElementById("root")).render(
     </HelmetProvider>
   </BrowserRouter>
 );
+
+function SsgAppTransition({ ssgData, app }) {
+  const [showSsg, setShowSsg] = useState(true);
+
+  useEffect(() => {
+    setShowSsg(false);
+  }, []);
+
+  return showSsg ? <PublicSsgContent kind={ssgData.kind} data={ssgData.data} /> : app;
+}
+
+const rootElement = document.getElementById("root");
+const ssgData = window.__SOUQAK_SSG_DATA__;
+
+if (ssgData && rootElement?.childNodes.length) {
+  hydrateRoot(rootElement, <SsgAppTransition ssgData={ssgData} app={appTree} />);
+} else {
+  createRoot(rootElement).render(appTree);
+}
 
 // Keep the development server and HMR independent from the production PWA worker.
 if ("serviceWorker" in navigator) {

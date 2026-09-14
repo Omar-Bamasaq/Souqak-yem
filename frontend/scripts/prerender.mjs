@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { PublicSsgContent } from '../src/ssg/PublicSsgContent.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -8,6 +11,7 @@ const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
 const siteBase = process.env.PUBLIC_SITE_URL || 'https://souqak-yem.com';
 const apiBase = process.env.VITE_API_URL || 'https://api.souqak-yem.com/api';
+const apiOrigin = apiBase.replace(/\/api\/?$/, '');
 
 const htmlEscape = (value = '') =>
   String(value)
@@ -54,7 +58,9 @@ const makePageHtml = ({
   image,
   type = 'website',
   jsonLd,
-  noIndex = false
+  noIndex = false,
+  ssgKind,
+  ssgData
 }) => {
   const safeTitle = htmlEscape(title || 'سوقك - سوق اليمن للإعلانات والبيع والشراء');
   const safeDescription = htmlEscape(description || 'سوقك هو منصة يمنية موثوقة للبيع والشراء والإعلانات المبوبة.');
@@ -63,6 +69,15 @@ const makePageHtml = ({
   const safeImage = htmlEscape(image || `${siteBase}/logo-full.svg`);
   const robots = noIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
   const structured = jsonLd ? JSON.stringify(jsonLd).replace(/</g, '\\u003c') : '';
+  const serializedSsgData = ssgKind && ssgData
+    ? JSON.stringify({ kind: ssgKind, data: ssgData }).replace(/</g, '\\u003c')
+    : '';
+  const bodyContent = ssgKind && ssgData
+    ? renderToStaticMarkup(React.createElement(PublicSsgContent, { kind: ssgKind, data: ssgData }))
+    : viteAssets.body;
+  const bodyMarkup = ssgKind && ssgData
+    ? `<div id="root" data-ssg="true">${bodyContent}</div>${serializedSsgData ? `<script>window.__SOUQAK_SSG_DATA__=${serializedSsgData};</script>` : ''}`
+    : bodyContent;
 
   return `<!doctype html>
 <html lang="ar" dir="rtl">
@@ -92,7 +107,7 @@ const makePageHtml = ({
     <link rel="manifest" href="${siteBase}/manifest.json" />
   </head>
   <body>
-    ${viteAssets.body}
+    ${bodyMarkup}
     ${viteAssets.moduleScripts}
   </body>
 </html>`;
@@ -301,14 +316,73 @@ const fetchJson = async (url) => {
   return response.json();
 };
 
-const renderAdPage = (ad) => {
+const getItems = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.categories)) return payload.categories;
+  return [];
+};
+
+const publicImage = (value) => value ? String(value) : null;
+
+const sanitizeCategory = (category) => category && ({
+  id: category.id || category._id || null,
+  name: category.name || '',
+  slug: category.slug || '',
+  description: category.description || '',
+  image: publicImage(category.image),
+  children: Array.isArray(category.children) ? category.children.map(sanitizeCategory) : []
+});
+
+const sanitizeAd = (ad) => {
+  if (!ad?._id) return null;
+  const category = ad.categoryId?.parentId && typeof ad.categoryId.parentId === 'object'
+    ? ad.categoryId.parentId
+    : ad.categoryId;
+  return {
+    _id: String(ad._id),
+    title: ad.title || '',
+    slug: ad.slug || slugify(ad.title) || 'ad',
+    description: ad.description || '',
+    images: Array.isArray(ad.images) ? ad.images.slice(0, 3).map(publicImage).filter(Boolean) : [],
+    price: ad.price,
+    priceOnContact: Boolean(ad.priceOnContact),
+    currency: ad.currency || 'YER',
+    condition: ad.condition || null,
+    categoryId: category ? { name: category.name || '', slug: category.slug || '' } : null,
+    governorateId: ad.governorateId?.name ? { name: ad.governorateId.name } : null,
+    cityId: ad.cityId?.name ? { name: ad.cityId.name } : null
+  };
+};
+
+const sanitizeBreadcrumbs = (items) => getItems(items).map((item) => ({
+  id: item.id || item._id || null,
+  name: item.name || '',
+  slug: item.slug || '',
+  url: `${siteBase}/category/${encodeURIComponent(item.slug || '')}`
+}));
+
+const slugify = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/[^\w\s\u0600-\u06ff-]/g, '')
+  .replace(/[\s_-]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+
+const resolveUpload = (value) => {
+  if (!value) return `${siteBase}/logo-full.svg`;
+  if (value.startsWith('http')) return value;
+  return `${apiOrigin}/uploads/${value.replace(/^\/+/, '').replace(/^uploads\//, '')}`;
+};
+
+const renderAdPage = (ad, ssgData = null) => {
   const image = Array.isArray(ad.images) && ad.images.length ? ad.images[0] : `${siteBase}/logo-full.svg`;
-  const imageUrl = image.startsWith('http') ? image : `${siteBase}${image.startsWith('/') ? image : `/${image}`}`;
+  const imageUrl = resolveUpload(image);
   const title = ad.title || 'إعلان في سوقك';
   const description = (ad.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 160) || `إعلان ${title} في سوقك.`;
   const price = Number(ad.price || 0);
   const currency = ad.currency || 'YER';
-  const url = `${siteBase}/ad/${ad._id}${ad.slug ? `/${ad.slug}` : ''}`;
+  const slug = ad.slug || slugify(ad.title) || 'ad';
+  const url = `${siteBase}/ad/${ad._id}/${slug}`;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -337,8 +411,18 @@ const renderAdPage = (ad) => {
     canonical: url,
     image: imageUrl,
     type: 'product',
-    jsonLd
+    jsonLd,
+    ...(ssgData ? { ssgKind: 'ad', ssgData } : {})
   });
+};
+
+const buildAdBreadcrumbs = (ad, url) => {
+  const category = ad.categoryId?.parentId || ad.categoryId;
+  return [
+    { name: 'الرئيسية', url: siteBase },
+    ...(category?.slug ? [{ name: category.name, url: `${siteBase}/category/${category.slug}` }] : []),
+    { name: ad.title || 'الإعلان', url }
+  ];
 };
 
 const writeHtml = (routePath, html) => {
@@ -352,6 +436,64 @@ const main = async () => {
   ensureDir(distDir);
   readViteAssets();
 
+  let ssgHomeData = null;
+  const ssgCategoryDataBySlug = new Map();
+  let ssgAdData = null;
+  let ssgAdId = '';
+
+  try {
+    const categories = getItems(await fetchJson(`${apiBase}/categories/main`));
+    const homeAds = getItems(await fetchJson(`${apiBase}/ads?limit=20&page=1&sort=new`));
+    ssgHomeData = {
+      categories: categories.map(sanitizeCategory).filter(Boolean),
+      ads: homeAds.map(sanitizeAd).filter(Boolean)
+    };
+
+    if (categories.length !== 22) {
+      throw new Error(`Expected 22 public categories, received ${categories.length}`);
+    }
+
+    const categoryAdSets = new Map();
+    for (const categorySummary of categories) {
+      if (!categorySummary?.slug || !(categorySummary.id || categorySummary._id)) {
+        throw new Error('A public category is missing its id or slug');
+      }
+      const category = await fetchJson(`${apiBase}/categories/${encodeURIComponent(categorySummary.slug)}`);
+      const categoryId = category.id || category._id;
+      const categoryAdsResponse = await fetchJson(`${apiBase}/ads?limit=20&page=1&sort=new&categoryId=${encodeURIComponent(categoryId)}`);
+      const categoryAds = getItems(categoryAdsResponse);
+      const breadcrumbsResponse = await fetchJson(`${apiBase}/categories/breadcrumbs/${categoryId}`);
+      ssgCategoryDataBySlug.set(category.slug, {
+        category: sanitizeCategory(category),
+        breadcrumbs: [{ id: null, name: 'الرئيسية', slug: '', url: siteBase }, ...sanitizeBreadcrumbs(breadcrumbsResponse)],
+        subcategories: (category.children || []).map(sanitizeCategory).filter(Boolean),
+        ads: categoryAds.map(sanitizeAd).filter(Boolean)
+      });
+      categoryAdSets.set(category.slug, categoryAds);
+    }
+
+    const targetCategoryAds = categoryAdSets.get('المركبات') || getItems(await fetchJson(`${apiBase}/ads?limit=20&page=1&sort=new`));
+    const targetAd = targetCategoryAds[0] || homeAds[0];
+    if (targetAd?._id) {
+      const ad = await fetchJson(`${apiBase}/ads/${targetAd._id}`);
+      const adSlug = ad.slug || slugify(ad.title) || 'ad';
+      const adUrl = `${siteBase}/ad/${ad._id}/${adSlug}`;
+      ssgAdId = String(ad._id);
+      ssgAdData = {
+        ad: sanitizeAd(ad),
+        breadcrumbs: buildAdBreadcrumbs(ad, adUrl),
+        similarAds: targetCategoryAds
+          .filter((item) => String(item._id) !== String(ad._id))
+          .slice(0, 6)
+          .map(sanitizeAd)
+          .filter(Boolean)
+      };
+    }
+  } catch (error) {
+    console.error('Required limited SSG data fetch failed:', error.message);
+    throw error;
+  }
+
   for (const page of publicRoutes) {
     const html = makePageHtml({
       title: page.title,
@@ -359,7 +501,8 @@ const main = async () => {
       url: page.url,
       canonical: page.url,
       image: page.image,
-      type: 'website'
+      type: 'website',
+      ...(page.path === '/' ? { ssgKind: 'home', ssgData: ssgHomeData } : {})
     });
     writeHtml(page.path, html);
   }
@@ -377,21 +520,58 @@ const main = async () => {
     writeHtml(page.path, html);
   }
 
-  let adUrls = [];
+  const categoryUrls = [];
   try {
-    const list = await fetchJson(`${apiBase}/ads?limit=12&sort=new`);
-    const items = Array.isArray(list?.items) ? list.items : Array.isArray(list) ? list : [];
-    const approved = items.filter((ad) => ad && ad.status === 'approved' && !ad.isDeleted && !ad.isArchived && !ad.sold && ad.isVisible !== false);
-    for (const ad of approved.slice(0, 10)) {
-      const adUrl = `${siteBase}/ad/${ad._id}${ad.slug ? `/${ad.slug}` : ''}`;
-      adUrls.push(adUrl);
-      writeHtml(`/ad/${ad._id}${ad.slug ? `/${ad.slug}` : ''}`, renderAdPage(ad));
+    const categories = getItems(await fetchJson(`${apiBase}/categories/main`));
+    for (const category of categories.filter((item) => item?.slug && item?.name)) {
+        const categoryUrl = `${siteBase}/category/${encodeURIComponent(category.slug)}`;
+      categoryUrls.push(categoryUrl);
+      writeHtml(`/category/${category.slug}`, makePageHtml({
+        title: `${category.name} للبيع في اليمن | سوقك`,
+        description: category.description || `تصفح إعلانات ${category.name} للبيع والشراء في اليمن عبر سوقك، منصة الإعلانات المبوبة اليمنية.`,
+        url: categoryUrl,
+        canonical: categoryUrl,
+        image: resolveUpload(category.image),
+        jsonLd: {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: `${category.name} للبيع في اليمن`,
+          description: category.description || `إعلانات ${category.name} للبيع والشراء في اليمن.`,
+          url: categoryUrl,
+          isPartOf: { '@type': 'WebSite', name: 'سوقك', url: siteBase }
+        },
+        ssgKind: 'category',
+        ssgData: ssgCategoryDataBySlug.get(category.slug)
+      }));
     }
   } catch (error) {
-    console.warn('Prerender ad fetch skipped:', error.message);
+    console.error('Required category prerender failed:', error.message);
+    throw error;
   }
 
-  const sitemapUrls = [...publicRoutes.map((page) => page.url), ...adUrls];
+  let adUrls = [];
+  try {
+    const pageSize = 50;
+    const firstPage = await fetchJson(`${apiBase}/ads?limit=${pageSize}&page=1&sort=new`);
+    const items = getItems(firstPage);
+    const totalPages = Math.min(Number(firstPage?.pages) || Math.ceil(Number(firstPage?.total || items.length) / pageSize), 20);
+    for (let page = 2; page <= totalPages; page += 1) {
+      const nextPage = await fetchJson(`${apiBase}/ads?limit=${pageSize}&page=${page}&sort=new`);
+      items.push(...getItems(nextPage));
+    }
+    const approved = items.filter((ad) => ad && (!ad.status || ad.status === 'approved') && !ad.isDeleted && !ad.isArchived && !ad.sold && ad.isVisible !== false);
+    adUrls = approved.map((ad) => `${siteBase}/ad/${ad._id}/${ad.slug || slugify(ad.title) || 'ad'}`);
+    for (const ad of approved.slice(0, 10)) {
+      const adSlug = ad.slug || slugify(ad.title) || 'ad';
+      const adForRender = String(ad._id) === ssgAdId && ssgAdData?.ad ? ssgAdData.ad : ad;
+      writeHtml(`/ad/${ad._id}/${adSlug}`, renderAdPage(adForRender, String(ad._id) === ssgAdId ? ssgAdData : null));
+    }
+  } catch (error) {
+    console.error('Required ad sitemap/prerender fetch failed:', error.message);
+    throw error;
+  }
+
+  const sitemapUrls = [...publicRoutes.map((page) => page.url), ...categoryUrls, ...adUrls];
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemapUrls
@@ -401,10 +581,10 @@ ${sitemapUrls
 `;
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
 
-  const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nDisallow: /register\nDisallow: /forgot-password\nDisallow: /verify-email\nDisallow: /seller\nDisallow: /messages\nDisallow: /notifications\nDisallow: /favorites\nDisallow: /following\nDisallow: /wallet\nDisallow: /account-settings\nDisallow: /my-ads\nDisallow: /orders\nDisallow: /chat\nDisallow: /add-product\nDisallow: /choose-add-type\nDisallow: /commission/pay\nSitemap: ${siteBase}/sitemap.xml\n`;
+  const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nDisallow: /register\nDisallow: /forgot-password\nDisallow: /phone-forgot-password\nDisallow: /set-new-password\nDisallow: /verify-email\nDisallow: /seller\nDisallow: /messages\nDisallow: /notifications\nDisallow: /favorites\nDisallow: /following\nDisallow: /wallet\nDisallow: /account-settings\nDisallow: /my-ads\nDisallow: /orders\nDisallow: /edit-ad\nDisallow: /chat\nDisallow: /add-product\nDisallow: /choose-add-type\nDisallow: /commission/pay\nDisallow: /brokerage\nDisallow: /referrals\nSitemap: ${siteBase}/sitemap.xml\n`;
   fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
 
-  console.log(`Prerendered ${publicRoutes.length} static pages and ${adUrls.length} ad pages.`);
+  console.log(`Prerendered ${publicRoutes.length} static pages, ${categoryUrls.length} category pages, and ${Math.min(adUrls.length, 10)} ad pages; sitemap contains ${sitemapUrls.length} URLs.`);
 };
 
 main().catch((error) => {
