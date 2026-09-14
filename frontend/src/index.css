@@ -7,6 +7,10 @@ html, body {
   overflow-x: hidden;
 }
 
+#root[data-ssg="true"] .ssg-public-content {
+  visibility: hidden;
+}
+
 @keyframes glow {
   0%, 100% {
     box-shadow: 0 0 5px rgba(245, 158, 11, 0.2), 0 0 10px rgba(245, 158, 11, 0.1);

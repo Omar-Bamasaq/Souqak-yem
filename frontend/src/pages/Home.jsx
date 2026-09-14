@@ -35,7 +35,10 @@ export default function Home() {
   const [cities, setCities] = useState([]);
   const [popularTags, setPopularTags] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pages, setPages] = useState(1);
+  const [pages, setPages] = useState(() => {
+    if (Number.isFinite(initialHome?.pages)) return initialHome.pages;
+    return 1;
+  });
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [platformStats, setPlatformStats] = useState({ avgRating: 0, totalCount: 0 });
@@ -131,7 +134,7 @@ export default function Home() {
   }, [q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
-    const canUseInitialHome = initialHome && !q && !governorateId && !minPrice && !maxPrice && page === 1 && sort === "new";
+    const canUseInitialHome = initialHome?.pages && !q && !governorateId && !minPrice && !maxPrice && page === 1 && sort === "new";
     if (!canUseInitialHome) load();
   }, [load, initialHome, q, governorateId, minPrice, maxPrice, page, sort]);
 

@@ -203,11 +203,11 @@ export default function ProductCard({ product, to, featured = false, governorate
               {product.userId?.avatar ? (
                 <img src={uploadsUrl(product.userId.avatar, "thumb")} alt="" className="h-full w-full object-cover" />
               ) : (
-                (product.userId?.name || "?").charAt(0)
+                (product.sellerName || product.userId?.name || "?").charAt(0)
               )}
             </div>
             <span className="text-[10px] sm:text-sm font-black truncate flex items-center gap-0.5 sm:gap-1 px-0.5 sm:px-1">
-              {product.userId?.name || "بائع"}
+              {product.sellerName || product.userId?.name || "بائع"}
               {(product.userId?.verificationStatus === 'verified' || product.userId?.role === 'admin' || product.userId?.isVerifiedSeller || product.userId?.isTrustedReseller) && (
                 <span className="text-white">
                   <svg className="h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">

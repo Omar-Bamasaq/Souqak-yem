@@ -349,6 +349,7 @@ const sanitizeAd = (ad) => {
     priceOnContact: Boolean(ad.priceOnContact),
     currency: ad.currency || 'YER',
     condition: ad.condition || null,
+    sellerName: ad.userId?.name || ad.seller?.name || ad.user?.name || '',
     categoryId: category ? { name: category.name || '', slug: category.slug || '' } : null,
     governorateId: ad.governorateId?.name ? { name: ad.governorateId.name } : null,
     cityId: ad.cityId?.name ? { name: ad.cityId.name } : null
@@ -443,10 +444,13 @@ const main = async () => {
 
   try {
     const categories = getItems(await fetchJson(`${apiBase}/categories/main`));
-    const homeAds = getItems(await fetchJson(`${apiBase}/ads?limit=20&page=1&sort=new`));
+    const homeAdsResponse = await fetchJson(`${apiBase}/ads?limit=20&page=1&sort=new`);
+    const homeAds = getItems(homeAdsResponse);
     ssgHomeData = {
       categories: categories.map(sanitizeCategory).filter(Boolean),
-      ads: homeAds.map(sanitizeAd).filter(Boolean)
+      ads: homeAds.map(sanitizeAd).filter(Boolean),
+      total: Number(homeAdsResponse?.total) || homeAds.length,
+      pages: Number(homeAdsResponse?.pages) || 1
     };
 
     if (categories.length !== 22) {
