@@ -15,10 +15,15 @@ function getCurrencySymbol(code) {
   };
   return symbols[code] || "ر.ي (عدن)";
 }
-function timeAgo(d) {
-  const date = new Date(d);
+function timeAgo(publishedAt, createdAt) {
+  const publishedDate = publishedAt ? new Date(publishedAt) : null;
+  const createdDate = createdAt ? new Date(createdAt) : null;
+  const date = publishedDate && !Number.isNaN(publishedDate.getTime()) && publishedDate.getTime() <= Date.now()
+    ? publishedDate
+    : createdDate;
+  if (!date || Number.isNaN(date.getTime())) return "تاريخ غير متوفر";
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (!isFinite(diff) || diff < 0) return "";
+  if (!isFinite(diff) || diff < 0) return "تاريخ غير متوفر";
   if (diff < 60) return "قبل لحظات";
   const minutes = Math.floor(diff / 60);
   if (minutes < 60) {
@@ -264,7 +269,7 @@ export default function ProductCard({ product, to, featured = false, governorate
             </div>
 
             <div className="text-[9px] sm:text-[10px] font-medium text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md w-fit border border-gray-100 dark:border-slate-700/50">
-              {timeAgo(product.publishedAt || product.createdAt)}
+              {timeAgo(product.publishedAt, product.createdAt)}
             </div>
           </div>
         </div>
