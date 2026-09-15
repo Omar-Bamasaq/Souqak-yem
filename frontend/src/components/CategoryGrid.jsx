@@ -1,8 +1,48 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { useMainCategories } from "../hooks/useMainCategories.js";
 import { uploadsUrl } from "../lib/uploads.js";
+
+function LazyCategoryImage({ src, alt }) {
+  const imageRef = useRef(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    const element = imageRef.current;
+    if (!element) return undefined;
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setShouldLoad(true);
+        observer.unobserve(element);
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [src]);
+
+  return (
+    <div ref={imageRef} className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center" aria-hidden={!shouldLoad}>
+      {shouldLoad ? (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
+        />
+      ) : null}
+    </div>
+  );
+}
 
 export default function CategoryGrid({ isHome = false }) {
   const { prefetchCategoryAds } = useAdsQuery();
@@ -91,11 +131,9 @@ export default function CategoryGrid({ isHome = false }) {
               {/* Icon Container */}
               <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-slate-100 dark:bg-slate-800/50 rounded-full sm:rounded-2xl border border-slate-200 dark:border-slate-700 sm:border-0 flex items-center justify-center mb-1.5 sm:mb-3 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-all duration-300">
                 {category.image ? (
-                  <img
+                  <LazyCategoryImage
                     src={uploadsUrl(category.image, "thumb")}
                     alt={category.name}
-                    loading="lazy"
-                    className="w-14 h-14 sm:w-16 sm:h-16 object-contain transition-transform duration-500 group-hover:scale-110"
                   />
                 ) : (
                   <svg className="w-11 h-11 sm:w-14 sm:h-14 text-slate-400 group-hover:text-blue-500 transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
