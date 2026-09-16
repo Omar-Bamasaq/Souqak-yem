@@ -38,7 +38,7 @@ export default function ReferralDashboard() {
     {
       eyebrow: "شارك واربح",
       title: "كيف تحصل على المكافأة؟",
-      body: "انسخ رابطك الخاص وشاركه مع شخص جديد. بعد تسجيله واستخدامه إحدى خدمات سوقك المؤهلة، تُحتسب لك مكافأة بنسبة 10% من العمولة أو الرسم الذي تحصل عليه سوقك.",
+      body: "انسخ رابطك الخاص وشاركه مع شخص جديد. بعد تسجيله واستخدامه إحدى خدمات سوقك المؤهلة، تُحتسب لك مكافأة من العمولة أو الرسم الذي تحصل عليه سوقك وفق النسبة المحددة لحسابك.",
       icon: <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M13.5 6.5l4-4a3 3 0 114.243 4.243l-4 4m-7.243 6.5l-4 4A3 3 0 112.257 17l4-4m-2.5 2.5l8-8" /></svg>
     },
     {
@@ -94,6 +94,7 @@ export default function ReferralDashboard() {
   if (loading) return <div className="mx-auto max-w-5xl p-6 text-center">جارٍ تحميل بيانات سفراء سوقك...</div>;
 
   const totalsByCurrency = data?.totalsByCurrency || {};
+  const ambassadorCommissionRate = Number(data?.ambassadorCommissionRate ?? 10);
   const amountFor = (currency, status) => {
     if (status === "AVAILABLE") return totalsByCurrency[currency]?.AVAILABLE || 0;
     if (status === "PENDING") return totalsByCurrency[currency]?.PENDING || 0;
@@ -110,7 +111,8 @@ export default function ReferralDashboard() {
         <p className="text-sm font-black text-emerald-600">برنامج المكافآت</p>
         <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">سفراء سوقك</h1>
         <p className="mt-2 max-w-2xl text-base font-bold text-slate-600 dark:text-slate-300">ادعُ أصدقاءك إلى سوقك واربح من استخدامهم للمنصة.</p>
-        <p className="mt-1 text-sm font-medium text-slate-500">تحصل على 10% من العمولة أو الرسم الذي تحصل عليه سوقك، وليس من قيمة السلعة.</p>
+        <p className="mt-1 text-sm font-medium text-slate-500">تحصل على نسبة من العمولة أو الرسم الذي تحصل عليه سوقك، وليس من قيمة السلعة.</p>
+        {ambassadorCommissionRate > 10 && <p className="mt-3 inline-flex rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">نسبتك الحالية في برنامج سفراء سوقك هي {ambassadorCommissionRate}%.</p>}
       </header>
         <button type="button" onClick={() => { setGuideStep(0); setShowGuide(true); }} className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" aria-label="كيف يعمل نظام الإحالة؟">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-sm font-black text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">؟</span>

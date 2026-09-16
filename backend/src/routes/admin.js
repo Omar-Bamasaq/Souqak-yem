@@ -28,7 +28,7 @@ import Conversation from "../models/Conversation.js";
 import ConversationMessage from "../models/ConversationMessage.js";
 import Review from "../models/Review.js";
 import Joi from "joi";
-import { validateQuery } from "../middleware/validate.js";
+import { validateBody, validateQuery } from "../middleware/validate.js";
 import PasswordResetRequest from "../models/PasswordResetRequest.js";
 import { generateTemporaryPassword, normalizePhone, isValidPhoneNumber, isValidPassword } from "../utils/securityRules.js";
 import { ADMIN_PERMISSIONS } from "../config/adminPermissions.js";
@@ -903,7 +903,7 @@ router.get("/users", async (req, res) => {
     }
     const sortSpec = { [sort]: order === "asc" ? 1 : -1 };
     const users = await User.find(filter)
-      .select("name email phone phoneTrial phoneTrialStatus role createdAt isDisabled managedAccount")
+      .select("name email phone phoneTrial phoneTrialStatus role createdAt isDisabled managedAccount ambassadorCommissionRate")
       .sort(sortSpec)
       .lean();
     const mapped = users.map((u) => {
@@ -929,6 +929,21 @@ router.patch("/users/:id/role", requireMainAdmin, async (req, res) => {
     res.json(updated);
   } catch {
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.patch("/users/:id/ambassador-rate", validateBody(Joi.object({ rate: Joi.number().min(0).required() })), async (req, res) => {
+  try {
+    const rate = req.body.rate;
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { ambassadorCommissionRate: rate },
+      { new: true, runValidators: true }
+    ).select("name email role ambassadorCommissionRate").lean();
+    if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
+    res.json(updated);
+  } catch {
+    res.status(500).json({ error: "تعذر تحديث نسبة السفير" });
   }
 });
 

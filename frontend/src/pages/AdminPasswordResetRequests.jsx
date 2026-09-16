@@ -45,22 +45,23 @@ export default function AdminPasswordResetRequests() {
   };
 
   return (
-    <div className="p-4 md:p-6 min-h-screen bg-gray-50/30">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50/30 p-3 sm:p-4 md:p-6">
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 md:flex-row md:items-center md:justify-between md:gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 mb-1">طلبات استعادة كلمة المرور</h2>
-          <p className="text-sm text-gray-500 font-medium">إدارة الطلبات المرسلة من المستخدمين عبر اسم المستخدم ورقم الهاتف</p>
+          <h2 className="mb-1 text-xl font-black text-gray-900 sm:text-2xl">طلبات استعادة كلمة المرور</h2>
+          <p className="text-xs font-medium leading-5 text-gray-500 sm:text-sm">إدارة الطلبات المرسلة من المستخدمين عبر اسم المستخدم ورقم الهاتف</p>
         </div>
         {loading && (
-          <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
+          <div className="flex w-fit items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 sm:px-4">
             <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
             <span className="text-xs font-bold text-blue-700">جاري التحديث...</span>
           </div>
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="min-w-full text-sm">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="hidden overflow-x-auto md:block">
+          <table className="min-w-full text-sm">
           <thead>
             <tr className="bg-gray-50/80 border-b border-gray-100">
               <th className="px-6 py-4 text-right font-black text-gray-700">المستخدم</th>
@@ -106,7 +107,52 @@ export default function AdminPasswordResetRequests() {
               ))
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
+
+        <div className="divide-y divide-gray-100 md:hidden">
+          {items.length === 0 && !loading ? (
+            <div className="px-4 py-16 text-center text-sm font-bold text-gray-400">لا توجد طلبات حالياً</div>
+          ) : (
+            items.map((item) => (
+              <article key={item._id} className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[11px] font-bold text-gray-400">المستخدم</p>
+                    <p className="truncate font-black text-gray-900">{item.username}</p>
+                  </div>
+                  {item.status === "approved" ? (
+                    <span className="shrink-0 rounded-lg border border-green-100 bg-green-50 px-2.5 py-1.5 text-[10px] font-black text-green-700">مقبول</span>
+                  ) : item.status === "rejected" ? (
+                    <span className="shrink-0 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-[10px] font-black text-red-700">مرفوض</span>
+                  ) : (
+                    <span className="shrink-0 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">قيد المراجعة</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+                  <span className="text-xs font-bold text-gray-500">الهاتف</span>
+                  <span className="font-mono text-sm text-gray-700" dir="ltr">{item.phone || "-"}</span>
+                </div>
+
+                <div className="flex gap-2">
+                  {updatingId === item._id ? (
+                    <div className="flex min-h-10 flex-1 items-center justify-center">
+                      <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    </div>
+                  ) : item.status === "pending" ? (
+                    <>
+                      <button onClick={() => updateStatus(item._id, "approved")} className="min-h-10 flex-1 rounded-xl bg-green-600 px-3 py-2 text-xs font-black text-white transition-all hover:bg-green-700 active:scale-95">قبول الطلب</button>
+                      <button onClick={() => updateStatus(item._id, "rejected")} className="min-h-10 flex-1 rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white transition-all hover:bg-red-700 active:scale-95">رفض الطلب</button>
+                    </>
+                  ) : (
+                    <span className="flex min-h-10 flex-1 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs font-black text-gray-400">مكتمل</span>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

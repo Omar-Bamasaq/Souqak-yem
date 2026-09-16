@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     avatar: { type: String, default: null }, // User profile image
     role: { type: String, enum: ["admin", "supervisor", "user", "seller", "buyer"], default: "user" },
+    ambassadorCommissionRate: { type: Number, min: 0, default: 10 },
     permissions: {
       type: [{ type: String }],
       default: [],

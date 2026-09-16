@@ -9,6 +9,7 @@ import SystemSettings from "../models/SystemSettings.js";
 import { getOrCreateWallet } from "../services/walletService.js";
 import { createReferralWithdrawalFinancials } from "../services/referralService.js";
 import ReferralCommission from "../models/ReferralCommission.js";
+import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
@@ -33,14 +34,15 @@ router.get("/visit/:code", async (req, res) => {
 
 router.get("/me", auth, async (req, res) => {
   try {
-    const [profile, wallet, relationships, commissions] = await Promise.all([
+    const [profile, wallet, relationships, commissions, user] = await Promise.all([
       ReferralEngine.ensureProfile(req.user.id),
       getOrCreateWallet(req.user.id),
       ReferralRelationship.countDocuments({ referrerUserId: req.user.id, status: "ACTIVE" }),
       ReferralCommission.aggregate([
         { $match: { referrerUserId: req.user.id } },
         { $group: { _id: { status: "$status", currency: "$currency" }, total: { $sum: "$commissionAmount" } } }
-      ])
+      ]),
+      User.findById(req.user.id).select("ambassadorCommissionRate").lean()
     ]);
     const totalsByCurrency = {};
     commissions.forEach(item => {
@@ -52,6 +54,7 @@ router.get("/me", auth, async (req, res) => {
     res.json({
       profile,
       referralLink: `${process.env.FRONTEND_URL || "https://souqak-yem.com"}/r/${profile.referralCode}`,
+      ambassadorCommissionRate: user?.ambassadorCommissionRate ?? 10,
       totalReferredUsers: relationships,
       totalsByCurrency,
       wallet

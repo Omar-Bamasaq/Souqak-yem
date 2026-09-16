@@ -11,7 +11,7 @@ const referralCommissionSchema = new mongoose.Schema({
   status: { type: String, enum: ["PENDING", "AVAILABLE", "WITHDRAWAL_RESERVED", "PAID", "REVERSED", "CANCELLED", "FROZEN"], default: "PENDING", index: true },
   platformRevenueAmount: { type: Number, required: true, min: 0 },
   platformRevenueType: { type: String, required: true },
-  referralRate: { type: Number, required: true, min: 0, max: 100 },
+  referralRate: { type: Number, required: true, min: 0 },
   commissionAmount: { type: Number, required: true, min: 0 },
   currency: { type: String, required: true, index: true },
   pendingUntil: { type: Date, required: true, index: true },

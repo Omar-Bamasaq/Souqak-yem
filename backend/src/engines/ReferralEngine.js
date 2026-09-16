@@ -3,6 +3,7 @@ import ReferralProfile from "../models/ReferralProfile.js";
 import ReferralRelationship from "../models/ReferralRelationship.js";
 import ReferralCommission from "../models/ReferralCommission.js";
 import SystemSettings from "../models/SystemSettings.js";
+import User from "../models/User.js";
 import { creditReferralReward, reverseReferralCommission } from "../services/referralService.js";
 import { calculateReferralReward } from "../utils/referralMath.js";
 
@@ -69,7 +70,10 @@ export default class ReferralEngine {
     const relationship = await this.findRelationship(referredUserId);
     if (!relationship || relationship.status !== "ACTIVE") return null;
     const settings = await this.getSettings();
-    const referralRate = Number.isFinite(rate) ? rate : settings.defaultRate;
+    const referrer = await User.findById(relationship.referrerUserId).select("ambassadorCommissionRate").lean();
+    const referralRate = Number.isFinite(referrer?.ambassadorCommissionRate)
+      ? referrer.ambassadorCommissionRate
+      : 10;
     const commissionAmount = calculateReferralReward(platformRevenueAmount, referralRate);
     if (commissionAmount <= 0) return null;
     const pendingUntil = new Date(Date.now() + settings.pendingDays * 24 * 60 * 60 * 1000);

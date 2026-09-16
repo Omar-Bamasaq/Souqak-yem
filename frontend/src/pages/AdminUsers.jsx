@@ -11,6 +11,7 @@ export default function AdminUsers() {
   const [deleted, setDeleted] = useState("");
   const [sort, setSort] = useState("createdAt");
   const [order, setOrder] = useState("desc");
+  const [savingRate, setSavingRate] = useState(null);
 
   const buildParams = () => ({
     q: q || undefined,
@@ -51,6 +52,24 @@ export default function AdminUsers() {
       load();
     } catch (e) {
       console.error(e);
+    }
+  };
+  const updateAmbassadorRate = async (user) => {
+    const value = window.prompt("أدخل نسبة دخل السفير للمستخدم:", String(user.ambassadorCommissionRate ?? 10));
+    if (value === null) return;
+    const rate = Number(value);
+    if (!Number.isFinite(rate) || rate < 0) {
+      window.alert("أدخل رقماً صحيحاً غير سالب.");
+      return;
+    }
+    setSavingRate(user._id);
+    try {
+      await api.patch(`/admin/users/${user._id}/ambassador-rate`, { rate });
+      load();
+    } catch (e) {
+      window.alert(e?.response?.data?.error || "تعذر تحديث النسبة.");
+    } finally {
+      setSavingRate(null);
     }
   };
   if (loading && list.length === 0) {
@@ -142,6 +161,7 @@ export default function AdminUsers() {
                 <th className="px-4 py-4 text-[11px] font-black text-gray-500 uppercase tracking-wider">البريد</th>
                 <th className="px-4 py-4 text-[11px] font-black text-gray-500 uppercase tracking-wider text-center">الحالة</th>
                 <th className="px-4 py-4 text-[11px] font-black text-gray-500 uppercase tracking-wider text-center">الدور</th>
+                <th className="px-4 py-4 text-[11px] font-black text-gray-500 uppercase tracking-wider text-center">نسبة السفير</th>
                 <th className="px-4 py-4 text-[11px] font-black text-gray-500 uppercase tracking-wider text-center">تاريخ التسجيل</th>
                 <th className="px-4 py-4 text-[11px] font-black text-gray-500 uppercase tracking-wider">إجراءات</th>
               </tr>
@@ -161,7 +181,7 @@ export default function AdminUsers() {
                 ))}
               {!loading && list.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -207,6 +227,11 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-4 py-4 text-center">
                     <span className="text-xs font-black text-gray-700">{u.role === "admin" ? "أدمن رئيسي" : u.role === "supervisor" ? "مشرف" : "مستخدم"}</span>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <button type="button" onClick={() => updateAmbassadorRate(u)} disabled={savingRate === u._id} className="text-xs font-black text-emerald-700 hover:text-emerald-900 disabled:opacity-50" title="تعديل نسبة السفير">
+                      {savingRate === u._id ? "جارٍ الحفظ..." : `${u.ambassadorCommissionRate ?? 10}%`}
+                    </button>
                   </td>
                   <td className="px-4 py-4 text-center text-[10px] font-bold text-gray-400">
                     {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-YE") : "—"}
@@ -296,6 +321,10 @@ export default function AdminUsers() {
                   <p className="text-gray-400">الدور</p>
                   <p className="text-indigo-600">{u.role === "admin" ? "أدمن رئيسي" : u.role === "supervisor" ? "مشرف" : "مستخدم"}</p>
                 </div>
+                <button type="button" onClick={() => updateAmbassadorRate(u)} disabled={savingRate === u._id} className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100 flex justify-between items-center text-[11px] font-bold disabled:opacity-50">
+                  <p className="text-gray-400">نسبة السفير</p>
+                  <p className="text-emerald-700">{savingRate === u._id ? "..." : `${u.ambassadorCommissionRate ?? 10}%`}</p>
+                </button>
                 <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 flex justify-between items-center">
                   <p className="text-gray-400">التسجيل</p>
                   <p className="text-gray-700">{u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-YE") : "—"}</p>
