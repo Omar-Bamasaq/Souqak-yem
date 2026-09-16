@@ -544,7 +544,7 @@ class SmartSearchService {
     adType = null,
     page = 1,
     limit = 20,
-    sort = "best"
+    sort = "new"
   }) {
     const startTime = Date.now();
 
@@ -806,7 +806,7 @@ class SmartSearchService {
   }
 
   static sortAds(ads, sort) {
-    const s = String(sort || "best").toLowerCase();
+    const s = String(sort || "new").toLowerCase();
     const copy = [...ads];
     
     // Default sorting priority: Featured first, then by criteria
@@ -822,13 +822,11 @@ class SmartSearchService {
       });
     } else if (s === "old") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return new Date(a.createdAt) - new Date(b.createdAt);
+        return new Date(a.publishedAt || a.createdAt) - new Date(b.publishedAt || b.createdAt);
       });
     } else if (s === "new") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return new Date(b.createdAt) - new Date(a.createdAt);
+        return new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt);
       });
     } else if (s === "views") {
       copy.sort((a, b) => {

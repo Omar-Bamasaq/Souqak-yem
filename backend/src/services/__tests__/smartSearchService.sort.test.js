@@ -51,6 +51,15 @@ const by = (arr, key) => arr.map(a => a[key]);
   assert.strictEqual(sorted[0].createdAt.getTime(), new Date("2026-03-05").getTime());
 }
 
+// new uses publication time, even when an older featured ad has a newer creation time
+{
+  const sorted = SmartSearchService.sortAds([
+    { featured: true, createdAt: new Date("2026-03-10"), publishedAt: new Date("2026-03-01") },
+    { featured: false, createdAt: new Date("2026-02-01"), publishedAt: new Date("2026-03-05") }
+  ], "new");
+  assert.strictEqual(sorted[0].publishedAt.getTime(), new Date("2026-03-05").getTime());
+}
+
 // old
 {
   const sorted = SmartSearchService.sortAds(ads, "old");

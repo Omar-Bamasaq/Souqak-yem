@@ -165,7 +165,7 @@ export default function SearchResults() {
     verifiedOnly: searchParams.get("verifiedOnly") || false,
     featuredOnly: searchParams.get("featuredOnly") || false,
     adType: searchParams.get("adType") || "",
-    sort: searchParams.get("sort") || "best"
+    sort: searchParams.get("sort") || "new"
   };
 
   const setAdType = (type) => {
