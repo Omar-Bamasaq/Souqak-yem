@@ -126,16 +126,17 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Error loading ads:", err);
-      setProducts([]);
-      setPages(1);
+      if (!initialHome?.ads?.length) {
+        setProducts([]);
+        setPages(1);
+      }
     } finally {
       setLoading(false);
     }
   }, [q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
-    const canUseInitialHome = initialHome?.pages && !q && !governorateId && !minPrice && !maxPrice && page === 1 && sort === "new";
-    if (!canUseInitialHome) load();
+    load();
   }, [load, initialHome, q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
