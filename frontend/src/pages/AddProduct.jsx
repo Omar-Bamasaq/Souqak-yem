@@ -762,21 +762,21 @@ export default function AddProduct() {
 
       {/* Welcome Promotion Banner */}
       {promoEligibility.eligible && adType !== "order" && (
-        <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-[2rem] p-6 mb-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border-4 border-white">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-          <div className="relative flex flex-col sm:flex-row items-center gap-6">
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl shadow-inner backdrop-blur-sm">
+        <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl p-3 mb-5 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border-2 border-white sm:rounded-[2rem] sm:p-6 sm:mb-8 sm:border-4">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700 sm:w-32 sm:h-32"></div>
+          <div className="relative flex flex-col sm:flex-row items-center gap-2.5 sm:gap-6">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-xl shadow-inner backdrop-blur-sm sm:w-16 sm:h-16 sm:rounded-2xl sm:text-3xl">
               🎁
             </div>
             <div className="flex-1 text-center sm:text-right">
-              <h3 className="text-lg font-black mb-1">جرب التمييز مجاناً!</h3>
-              <p className="text-orange-50 text-sm font-medium leading-relaxed">
+              <h3 className="text-sm font-black mb-0.5 sm:text-lg sm:mb-1">جرب التمييز مجاناً!</h3>
+              <p className="text-orange-50 text-[11px] font-medium leading-snug sm:text-sm sm:leading-relaxed">
                 يمكنك الآن تجربة ميزة التمييز <span className="bg-white/20 px-2 py-0.5 rounded-lg font-black text-white">مجاناً</span> لمدة {promoEligibility.durationHours} ساعات لأي إعلان تختاره.
               </p>
             </div>
             <Link 
               to="/seller/featured-ad" 
-              className="px-6 py-2 bg-white text-orange-600 rounded-xl font-black text-sm shadow-lg hover:bg-orange-50 transition-colors"
+              className="px-4 py-1.5 bg-white text-orange-600 rounded-lg font-black text-[11px] shadow-lg hover:bg-orange-50 transition-colors sm:px-6 sm:py-2 sm:rounded-xl sm:text-sm"
             >
               اكتشف المزيد
             </Link>
@@ -1111,16 +1111,16 @@ export default function AddProduct() {
       </div>
 
       {adType === "sell" && !priceOnContact && Number(price) > 0 && (
-        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-center text-sm text-blue-900">
+        <div className="order-8 mt-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-xs text-blue-900 sm:px-3 sm:py-2 sm:text-sm">
           <div className="font-semibold">عمولة المنصة على هذا الإعلان</div>
-          <div className="text-xs">نسبة العمولة: 1%</div>
-          <div className="mt-1 text-xs">العمولة المتوقعة:</div>
-          <div className="mt-0.5 text-xl font-bold">
+          <div className="text-[10px] sm:text-xs">نسبة العمولة: 1%</div>
+          <div className="mt-1 text-[10px] sm:text-xs">العمولة المتوقعة:</div>
+          <div className="mt-0.5 text-lg font-bold sm:text-xl">
             {Math.round(Number(price) * 0.01)}{" "}
             {currency === "USD" ? "$" : currency === "SAR" ? "ر.س" : currency === "YER_SANAA" ? "ر.ي (صنعاء)" : "ر.ي (عدن)"}
           </div>
           {(currency === "YER_ADEN" || currency === "YER_SANAA" || currency === "YER") && Math.round(Number(price) * 0.01) < 1000 && (
-            <div className="mt-1 text-center text-[12px] text-amber-700 font-bold">
+            <div className="mt-1 text-center text-[10px] text-amber-700 font-bold sm:text-xs">
               إذا كانت العمولة أقل من 1000 ريال يمني (عدن) فيُستحب التصدق بها.
             </div>
           )}
