@@ -715,7 +715,10 @@ export default function EditAd() {
       
       <div className="order-4 space-y-1">
         <label className="block text-sm font-medium text-gray-700">{t("addProduct.labels.images")}</label>
-        <input className="ds-input" type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleFiles} />
+        <input id="edit-ad-images-input" className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleFiles} />
+        <label htmlFor="edit-ad-images-input" className="flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-700 transition hover:border-blue-500 hover:bg-blue-50">
+          إضافة صور الإعلان
+        </label>
       </div>
       {previews.length > 0 && (
         <div className="order-4 mt-2 flex flex-wrap gap-3">

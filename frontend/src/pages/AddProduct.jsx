@@ -1132,7 +1132,10 @@ export default function AddProduct() {
           {t("addProduct.labels.images")} {adType !== "order" && <span className="text-red-500 mr-1">*</span>}
         </label>
         <div className={`relative ${validationErrors.files ? "rounded-xl border-2 border-red-500 bg-red-50/30 p-1" : ""}`}>
-          <input className="ds-input" type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleFiles} />
+          <input id="ad-images-input" className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleFiles} />
+          <label htmlFor="ad-images-input" className="flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-700 transition hover:border-blue-500 hover:bg-blue-50">
+            إضافة صور الإعلان
+          </label>
         </div>
         {validationErrors.files && <p className="text-xs text-red-600 font-bold">{validationErrors.files}</p>}
         <p className="text-xs text-gray-500">
