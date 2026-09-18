@@ -16,6 +16,7 @@ import { buildReplacementPaymentDetails } from "../utils/orderPaymentState.js";
 import { sendAdminEmail } from "../utils/sendEmail.js";
 import { sendSafePurchaseNotification } from "../utils/emailSender.js";
 import ReferralEngine from "../engines/ReferralEngine.js";
+import { calculateBuyerServiceFee, calculateSellerCommission } from "../config/commission.js";
 
 const router = Router();
 
@@ -60,8 +61,8 @@ router.post(
         : ad.price;
       
       // حساب العمولات (3% على المشتري، 1% على البائع)
-      const buyerServiceFee = Math.round(price * 0.03); 
-      const sellerCommission = Math.round(price * 0.01);
+      const buyerServiceFee = calculateBuyerServiceFee(price);
+      const sellerCommission = calculateSellerCommission(price);
       
       // الحسابات المالية (بالعملة الأساسية للمنتج)
       let totalAmount = price + buyerServiceFee;

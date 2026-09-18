@@ -16,6 +16,7 @@ import AuthLayout from "./layouts/AuthLayout.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
 import { useAuth } from "./store/AuthContext.jsx";
 import { useBrokerageStatus } from "./store/BrokerageStatusContext.jsx";
+import { AD_COMMISSION_ENABLED } from "./config/commission.js";
 
 // Pages
 const Home = lazy(() => import("./pages/Home.jsx"));
@@ -203,10 +204,10 @@ export default function App() {
         <Route path="/seller/feature-ad" element={<RequireRole role={null}><SellerFeaturedAd /></RequireRole>} />
         <Route path="/seller/verification" element={<RequireRole role={null}><SellerVerification /></RequireRole>} />
         <Route path="/seller/subscriptions" element={<RequireRole role={null}><SellerSubscriptions /></RequireRole>} />
-        <Route path="/seller/commissions" element={<RequireRole role={null}><SellerCommissions /></RequireRole>} />
+        <Route path="/seller/commissions" element={AD_COMMISSION_ENABLED ? <RequireRole role={null}><SellerCommissions /></RequireRole> : <Navigate to="/" replace />} />
         <Route path="/add-product" element={<RequireRole role={null}><AddProduct /></RequireRole>} />
         <Route path="/choose-add-type" element={<RequireRole role={null}><ChooseAddType /></RequireRole>} />
-        <Route path="/commission/pay" element={<RequireRole role={null}><CommissionPay /></RequireRole>} />
+        <Route path="/commission/pay" element={AD_COMMISSION_ENABLED ? <RequireRole role={null}><CommissionPay /></RequireRole> : <Navigate to="/" replace />} />
         <Route path="/admin/*"
           element={
             <RequireRole role="admin">

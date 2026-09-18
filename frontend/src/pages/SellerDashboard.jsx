@@ -1,3 +1,4 @@
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import React, { useEffect, useMemo, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
@@ -194,7 +195,7 @@ export default function SellerDashboard() {
         )}
       </div>
 
-      {unpaidCommissions.length > 0 && (
+      {AD_COMMISSION_ENABLED && unpaidCommissions.length > 0 && (
         <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4 flex gap-3 items-center animate-pulse">
           <div className="bg-red-600 text-white p-2 rounded-xl shadow-lg">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,14 +281,14 @@ export default function SellerDashboard() {
           <span className="font-bold text-sm">خدمات سوقك</span>
         </Link>
 
-        <Link to="/commission/pay" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
+        {AD_COMMISSION_ENABLED && <Link to="/commission/pay" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full">
           <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-2xl">
             <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           </div>
           <span className="font-bold text-sm">دفع عمولة الموقع</span>
-        </Link>
+        </Link>}
 
         {brokerageEnabled && (
           <Link to="/how-it-works#reseller" className="ds-btn-secondary flex flex-col items-center justify-center gap-2 py-6 text-center h-full border-blue-100 bg-blue-50/30 dark:bg-blue-900/10 dark:border-blue-900/30">

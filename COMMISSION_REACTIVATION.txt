@@ -1,0 +1,44 @@
+تعطيل عمولة سوقك المؤقت
+=========================
+
+تم تعطيل عمولة الإعلان/البيع الخاصة بالبائع بنسبة 1% مؤقتاً فقط. رسوم الشراء الآمن الخاصة بالمشتري بنسبة 3% مستقلة وتبقى مفعلة.
+منطق العمولة والحقول والسجلات التاريخية محفوظة ولم يتم حذف أو تعديل أي بيانات قديمة.
+
+الإعداد المركزي:
+backend/src/config/commission.js (للحساب المالي في Backend)
+frontend/src/config/commission.js (لإخفاء واجهات عمولة الإعلان فقط)
+
+القيمة الحالية:
+AD_COMMISSION_ENABLED = false
+
+لإعادة التفعيل:
+غيّر القيمة في backend/src/config/commission.js إلى:
+AD_COMMISSION_ENABLED = true
+
+ويجب أيضاً تغيير قيمة الواجهة في:
+frontend/src/config/commission.js
+إلى:
+AD_COMMISSION_ENABLED = true
+
+بعد التفعيل أعد تشغيل Backend وأعد بناء/نشر Frontend. لا تحذف منطق العمولة القديم أو نماذج Commission وSoldListing أو حقول Order الخاصة بالرسوم.
+لا تغيّر أو تعطل calculateBuyerServiceFee أو buyerServiceFee؛ رسوم الشراء الآمن 3% يجب أن تبقى مفعلة.
+
+الملفات الرئيسية المعدلة:
+- backend/src/config/commission.js
+- backend/src/routes/orders.js
+- backend/src/routes/ads.js
+- backend/src/routes/conversations.js
+- backend/src/routes/commissions.js
+- frontend/src/config/commission.js
+- frontend/src/App.jsx
+- frontend/src/layouts/MainLayout.jsx
+- frontend/src/pages/AddProduct.jsx
+- frontend/src/components/SecurePurchaseModal.jsx
+- frontend/src/pages/Messages.jsx
+- frontend/src/pages/ProductDetail.jsx
+- frontend/src/pages/SellerDashboard.jsx
+- frontend/src/pages/OrderDetail.jsx
+- frontend/src/pages/AdminEscrowDashboard.jsx
+
+ملاحظة مهمة:
+لا تحذف منطق العمولة؛ هو محفوظ لإعادة التفعيل لاحقاً. السجلات التاريخية تبقى قابلة للقراءة ولا يتم تنفيذ migration حذف.

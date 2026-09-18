@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 // Re-compilation trigger
 import { useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { useChat } from "../store/ChatContext.jsx";
@@ -1118,7 +1119,7 @@ export default function Messages() {
                 </div>
               )}
 
-              {showCommissionMsg && (
+              {AD_COMMISSION_ENABLED && showCommissionMsg && (
                 <div className="bg-green-50 border border-green-100 rounded-2xl p-5 my-2 mx-auto max-w-md shadow-sm animate-in fade-in zoom-in">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
@@ -1570,7 +1571,7 @@ export default function Messages() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between px-1">
+                    {AD_COMMISSION_ENABLED && <div className="mt-4 flex items-center justify-between px-1">
                     <p className="text-[10px] font-bold text-gray-400">
                       سيتم احتساب رسوم خدمة رمزية (1%)
                     </p>
@@ -1579,7 +1580,7 @@ export default function Messages() {
                         {(Number(finalPrice) * 0.01).toLocaleString()} {finalCurrency === 'USD' ? '$' : 'ريال'}
                       </p>
                     )}
-                  </div>
+                    </div>}
                 </div>
 
                 <div className="flex gap-3 pt-2">

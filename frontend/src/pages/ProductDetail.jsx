@@ -4,6 +4,7 @@ import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import { useApi } from "../api/axios.js";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
 import { uploadsUrl } from "../lib/uploads.js";
@@ -1290,7 +1291,7 @@ export default function ProductDetail() {
       )}
 
       {/* Commission Pledge Modal */}
-      {pledgeOpen && (
+      {AD_COMMISSION_ENABLED && pledgeOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
           <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[2rem] sm:rounded-[2.5rem] bg-white p-6 sm:p-10 shadow-2xl border border-blue-100 animate-in zoom-in-95 duration-300 text-right" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 text-center sm:text-right">

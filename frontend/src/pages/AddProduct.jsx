@@ -11,6 +11,7 @@ import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
 import { useBrokerageStatus } from "../store/BrokerageStatusContext.jsx";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 
 export default function AddProduct() {
   const { data: governoratesData = [] } = useGovernorates();
@@ -70,9 +71,9 @@ export default function AddProduct() {
   const [whatsapp, setWhatsApp] = useState("");
   const [negotiable, setNegotiable] = useState(false);
   const [priceOnContact, setPriceOnContact] = useState(false);
-  const [showConsent, setShowConsent] = useState(adType === "sell");
+  const [showConsent, setShowConsent] = useState(AD_COMMISSION_ENABLED && adType === "sell");
   const [consentEnabledAt, setConsentEnabledAt] = useState(0);
-  const [commissionAgreed, setCommissionAgreed] = useState(adType === "order");
+  const [commissionAgreed, setCommissionAgreed] = useState(!AD_COMMISSION_ENABLED || adType === "order");
   const [nowTs, setNowTs] = useState(Date.now());
   const [blockErr, setBlockErr] = useState("");
   const [pendingCommissionPayLink, setPendingCommissionPayLink] = useState("/seller/commissions");
@@ -283,7 +284,7 @@ export default function AddProduct() {
   }, []);
 
   useEffect(() => {
-    if (adType === "sell" && showConsent) {
+    if (AD_COMMISSION_ENABLED && adType === "sell" && showConsent) {
       const start = Date.now();
       setConsentEnabledAt(start + 5000);
       const int = setInterval(() => setNowTs(Date.now()), 200);
@@ -416,7 +417,7 @@ export default function AddProduct() {
       setErr("يرجى تسجيل الدخول أولاً");
       return;
     }
-    if (!commissionAgreed) {
+    if (AD_COMMISSION_ENABLED && !commissionAgreed) {
       setErr("يجب الموافقة على التعهد بدفع عمولة المنصة 1% بعد البيع");
       return;
     }
@@ -674,7 +675,7 @@ export default function AddProduct() {
   }
 
   // Consent - Only show for sell type
-  if (adType === "sell" && showConsent) {
+  if (AD_COMMISSION_ENABLED && adType === "sell" && showConsent) {
     return (
       <div className="min-h-[calc(100vh-70px)] bg-white flex flex-col px-4 py-4 sm:p-8">
         <div className="w-full max-w-3xl mx-auto flex-1 flex flex-col justify-center">
@@ -1110,7 +1111,7 @@ export default function AddProduct() {
         </div>
       </div>
 
-      {adType === "sell" && !priceOnContact && Number(price) > 0 && (
+      {AD_COMMISSION_ENABLED && adType === "sell" && !priceOnContact && Number(price) > 0 && (
         <div className="order-8 mt-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-xs text-blue-900 sm:px-3 sm:py-2 sm:text-sm">
           <div className="font-semibold">عمولة المنصة على هذا الإعلان</div>
           <div className="text-[10px] sm:text-xs">نسبة العمولة: 1%</div>

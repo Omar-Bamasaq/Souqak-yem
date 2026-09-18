@@ -30,6 +30,7 @@ import Favorite from "../models/Favorite.js";
 import { logActivity } from "../services/activityLogService.js";
 import { protectSensitiveFields } from "../middleware/protectSensitiveFields.js";
 import { hasOutstandingCommission } from "../utils/commissionAccess.js";
+import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
 import { getFrontendBaseUrl } from "../utils/siteUrl.js";
 
 const router = Router();
@@ -701,13 +702,14 @@ router.patch(
       }
 
       try {
+        if (!AD_COMMISSION_ENABLED) return res.json(updatedAd);
         const CommissionModel = mongoose.model("Commission");
         let commission = await CommissionModel.findOne({ adId: updatedAd._id });
         
         const { price: providedPrice, currency: providedCurrency } = req.body || {};
         const price = (providedPrice && Number(providedPrice) > 0) ? Number(providedPrice) : (Number(updatedAd.price) || 0);
         const resolvedCurrency = providedCurrency || updatedAd.currency || "YER_ADEN";
-        const commissionAmount = Math.round(price * 0.01);
+        const commissionAmount = calculateSellerCommission(price);
 
         if (!commission) {
           commission = await CommissionModel.create({
@@ -791,11 +793,14 @@ router.patch("/:id/followup-response", auth, requireRole(["seller", "user"]), as
       await ad.save();
 
       try {
+        if (!AD_COMMISSION_ENABLED) {
+          return res.json({ success: true, message: "تم تحديث حالة الإعلان إلى مباع." });
+        }
         const CommissionModel = mongoose.model("Commission");
         const { price: providedPrice, currency: providedCurrency } = req.body || {};
         const price = (providedPrice && Number(providedPrice) > 0) ? Number(providedPrice) : (Number(ad.price) || 0);
         const resolvedCurrency = providedCurrency || ad.currency || "YER_ADEN";
-        const commissionAmount = Math.round(price * 0.01);
+        const commissionAmount = calculateSellerCommission(price);
 
         const commission = await CommissionModel.create({
           adId: ad._id,
@@ -1652,13 +1657,14 @@ router.patch(
       await ad.save();
 
       try {
+        if (!AD_COMMISSION_ENABLED) return res.json({ success: true, ad });
         const CommissionModel = mongoose.model("Commission");
         let commission = await CommissionModel.findOne({ adId: ad._id });
         
         const { price: providedPrice, currency: providedCurrency } = req.body || {};
         const price = (providedPrice && Number(providedPrice) > 0) ? Number(providedPrice) : (Number(ad.price) || 0);
         const resolvedCurrency = providedCurrency || ad.currency || "YER_ADEN";
-        const commissionAmount = Math.round(price * 0.01);
+        const commissionAmount = calculateSellerCommission(price);
 
         if (!commission) {
           commission = await CommissionModel.create({

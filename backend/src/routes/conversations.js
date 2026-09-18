@@ -7,6 +7,7 @@ import ConversationMessage from "../models/ConversationMessage.js";
 import Ad from "../models/Ad.js";
 import Notification from "../models/Notification.js";
 import { createNotification } from "../services/notificationService.js";
+import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
 import { uploadImages } from "../middleware/upload.js";
 import Block from "../models/Block.js";
 import rateLimit from "../middleware/rateLimit.js";
@@ -517,12 +518,13 @@ router.patch("/:id/close", auth, async (req, res) => {
         buyerType: "DIRECT"
       });
 
-      const CommissionModel = mongoose.model("Commission");
-      const SoldListing = mongoose.model("SoldListing");
-      
-      const commissionAmount = Math.round(salePrice * 0.01);
-      
-      const commission = await CommissionModel.create({
+      if (AD_COMMISSION_ENABLED) {
+        const CommissionModel = mongoose.model("Commission");
+        const SoldListing = mongoose.model("SoldListing");
+        
+        const commissionAmount = calculateSellerCommission(salePrice);
+        
+        const commission = await CommissionModel.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
         buyerId: buyerId,
@@ -532,10 +534,10 @@ router.patch("/:id/close", auth, async (req, res) => {
         status: "unpaid",
         commissionStatus: "pending_payment",
         soldAt: new Date(),
-      });
+        });
 
-      const adWithCategory = await Ad.findById(conv.adId._id).populate("categoryId", "name").lean();
-      await SoldListing.create({
+        const adWithCategory = await Ad.findById(conv.adId._id).populate("categoryId", "name").lean();
+        await SoldListing.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
         buyerId: buyerId,
@@ -549,7 +551,8 @@ router.patch("/:id/close", auth, async (req, res) => {
         commissionStatus: commission.status,
         soldAt: new Date(),
         buyerType: "DIRECT"
-      });
+        });
+      }
 
     } catch (adErr) {
       console.error("Error updating ad status and creating commission on conversation close:", adErr);

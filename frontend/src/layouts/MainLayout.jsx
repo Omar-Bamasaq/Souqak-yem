@@ -11,6 +11,7 @@ import PendingReviewModal from "../components/PendingReviewModal.jsx";
 import SmartFollowUpModal from "../components/SmartFollowUpModal.jsx";
 import FloatingAdhkar from "../components/FloatingAdhkar.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 
 const getOrCreateVisitorId = () => {
   const key = "souqak_visitor_id";
@@ -118,7 +119,7 @@ export default function MainLayout() {
       
       <NavBar />
       <FloatingAdhkar />
-      <CommissionReminderBar />
+      {AD_COMMISSION_ENABLED && <CommissionReminderBar />}
       <NotificationPrompt />
       <PWAInstallPrompt />
       <CookieConsent />

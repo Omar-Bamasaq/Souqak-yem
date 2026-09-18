@@ -9,6 +9,7 @@ import { uploadCommissionDocs, processImage } from "../middleware/upload.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
 
 const router = Router();
 
@@ -22,6 +23,7 @@ const commissionSchema = Joi.object({
 
 router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req, res) => {
   try {
+    if (!AD_COMMISSION_ENABLED) return res.status(410).json({ error: "عمولة الإعلان معطلة مؤقتاً." });
     let { name, phone, salePrice, currency, adId } = req.body || {};
 
     if (adId && adId.length === 24) {
@@ -52,7 +54,7 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
       adImagePath = path.basename(processed);
     }
     
-    const commissionAmount = Math.round(Number(salePrice) * 0.01);
+    const commissionAmount = calculateSellerCommission(salePrice);
     const payload = {
       sellerId: req.user.id,
       price: Number(salePrice),
@@ -175,6 +177,7 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
 
 router.get("/mine", auth, async (req, res) => {
   try {
+    if (!AD_COMMISSION_ENABLED) return res.json([]);
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     await Commission.updateMany(
       { 
@@ -199,6 +202,9 @@ router.get("/mine", auth, async (req, res) => {
 
 router.get("/status-summary", auth, async (req, res) => {
   try {
+    if (!AD_COMMISSION_ENABLED) {
+      return res.json({ unpaidCount: 0, overdueCount: 0, pendingReviewCount: 0, blockingCount: 0, totalUnpaidAmount: 0, currency: "YER_ADEN", firstUnpaidAdId: null });
+    }
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 
     await Commission.updateMany(
