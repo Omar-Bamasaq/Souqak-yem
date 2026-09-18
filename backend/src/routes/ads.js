@@ -552,13 +552,18 @@ router.get("/pending-followups", auth, requireRole(["seller", "user"]), async (r
 
 router.get("/share/:id", async (req, res) => {
   try {
-    const ad = await Ad.findById(req.params.id).select("title description images price currency status isArchived sold isVisible expiresAt").lean();
+    const ad = await Ad.findById(req.params.id).select("title slug description images price currency status isArchived sold isVisible expiresAt").lean();
     const isUnavailable = !ad || ad.status !== "approved" || ad.isArchived || ad.sold || ad.isVisible === false || (ad.expiresAt && new Date(ad.expiresAt) <= new Date());
     if (isUnavailable) return res.status(404).send("Not found");
 
     const frontendBase = getFrontendBaseUrl();
     const backendBase = (process.env.BACKEND_URL || "https://api.souqak-yem.com").replace(/\/+$/, "");
-    const adUrl = `${frontendBase}/ad/${ad._id}`;
+    const slug = String(ad.slug || ad.title || "ad")
+      .toLowerCase()
+      .replace(/[^\w\s\u0600-\u06ff-]/g, "")
+      .replace(/[\s_-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "ad";
+    const adUrl = `${frontendBase}/ad/${ad._id}/${encodeURIComponent(slug)}`;
     const image = ad.images?.[0];
     const imageUrl = image
       ? (String(image).startsWith("http")

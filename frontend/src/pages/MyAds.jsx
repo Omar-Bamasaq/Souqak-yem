@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { useNavigate, Link } from "react-router-dom";
 import { uploadsUrl } from "../lib/uploads.js";
+import { useAuth } from "../store/AuthContext.jsx";
 
 export default function MyAds() {
   const api = useApi();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
@@ -20,6 +22,12 @@ export default function MyAds() {
   const [loadingBuyers, setLoadingBuyers] = useState(false);
 
   const fetchPotentialBuyers = async (adId) => {
+    if (!user || user.role !== "seller") {
+      setPotentialBuyers([]);
+      setSelectedBuyerId("");
+      return;
+    }
+
     setLoadingBuyers(true);
     try {
       const res = await api.get(`/ads/${adId}/potential-buyers`);

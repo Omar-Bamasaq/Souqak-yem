@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, Fragment } from "react";
-import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, Link, useSearchParams, useLocation } from "react-router-dom";
 import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
@@ -56,6 +56,7 @@ export default function ProductDetail() {
   const [searchParams] = useSearchParams();
   const refId = searchParams.get("ref");
   const navigate = useNavigate();
+  const location = useLocation();
   const { useSimilarAds } = useAdsQuery();
   const [p, setP] = useState(initialAd);
   const [governorates, setGovernorates] = useState([]);
@@ -161,13 +162,21 @@ export default function ProductDetail() {
     }
   }, [p?.attributes?.length]);
 
+  useEffect(() => {
+    if (!p?._id || !id || location.pathname !== `/ad/${id}`) return;
+    const slug = baseSlugify(p.slug || p.title) || "ad";
+    navigate(`/ad/${p._id}/${slug}${location.search}`, { replace: true });
+  }, [p?._id, p?.slug, p?.title, id, location.pathname, location.search, navigate]);
+
   const handleShare = async () => {
+    const slug = baseSlugify(p?.slug || p?.title) || "ad";
+    const shareUrl = `${window.location.origin}/ad/${p._id}/${slug}${window.location.search}`;
     if (navigator.share) {
       try {
         await navigator.share({
           title: p.title,
           text: `شاهد هذا الإعلان على سوقك: ${p.title}`,
-          url: window.location.href,
+          url: shareUrl,
         });
       } catch (err) {
         console.error("Share error:", err);
@@ -175,7 +184,7 @@ export default function ProductDetail() {
     } else {
       // Fallback: Copy to clipboard
       try {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(shareUrl);
         window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم نسخ رابط الإعلان بنجاح", type: "success" } }));
       } catch {
         alert("فشل نسخ الرابط");
@@ -578,22 +587,28 @@ export default function ProductDetail() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* SEO Implementation */}
         {p && (
+          (() => {
+            const slug = baseSlugify(p.slug || p.title) || "ad";
+            const canonicalAdUrl = `/ad/${p._id}/${slug}`;
+            return (
           <SEO 
             title={p.title} 
             description={p.description} 
             image={p.images?.[0] ? uploadsUrl(p.images[0]) : null}
-            url={`/ad/${p._id}/${baseSlugify(p.title)}`}
-            canonicalUrl={`/ad/${p._id}/${baseSlugify(p.title)}`}
+            url={canonicalAdUrl}
+            canonicalUrl={canonicalAdUrl}
             type="product"
             price={p.price}
             currency={p.currency}
             breadcrumbs={[
               { name: "الرئيسية", url: "https://souqak-yem.com/" },
               ...(p.parentCategory?.slug ? [{ name: p.parentCategory.name, url: `https://souqak-yem.com/category/${p.parentCategory.slug}` }] : []),
-              { name: p.title, url: `https://souqak-yem.com/ad/${p._id}/${baseSlugify(p.title)}` }
+              { name: p.title, url: `https://souqak-yem.com${canonicalAdUrl}` }
             ]}
             indexable={p.status === 'approved' && !p.isArchived && !p.sold}
           />
+            );
+          })()
         )}
         {/* Left Column: Images and Details */}
         <div className="lg:col-span-2 space-y-6">

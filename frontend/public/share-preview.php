@@ -24,7 +24,16 @@ if (!is_array($ad) || empty($ad['_id'])) {
 }
 
 $siteUrl = 'https://souqak-yem.com';
-$adUrl = $siteUrl . '/ad/' . rawurlencode($ad['_id']);
+$slugify = static function ($value) {
+    $value = strtolower((string) $value);
+    $value = preg_replace('/[^\w\s\x{0600}-\x{06ff}-]/u', '', $value);
+    $value = preg_replace('/[\s_-]+/u', '-', $value);
+    return trim($value, '-') ?: 'ad';
+};
+$slug = $slugify($ad['slug'] ?? $ad['title'] ?? 'ad');
+$adUrl = $siteUrl . '/ad/' . rawurlencode($ad['_id']) . '/' . rawurlencode($slug);
+header('Location: ' . $adUrl, true, 301);
+exit;
 $title = trim((string)($ad['title'] ?? 'إعلان في سوقك'));
 $description = trim(strip_tags((string)($ad['description'] ?? '')));
 $description = mb_substr($description ?: ('شاهد هذا الإعلان على سوقك: ' . $title), 0, 160);

@@ -90,6 +90,7 @@ export default function MainLayout() {
 
   useEffect(() => {
     if (trackedVisitorRef.current) return;
+    if (!user || user.role !== "admin") return;
     trackedVisitorRef.current = true;
 
     const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
@@ -103,7 +104,7 @@ export default function MainLayout() {
         userAgent: navigator.userAgent
       })
     }).catch(() => {});
-  }, []);
+  }, [user]);
   
   return (
     <div className={`relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 ${isChatRoom ? "overflow-hidden pt-[60px] md:pt-[70px]" : "pb-20 pt-[60px] md:pb-0 md:pt-[70px]"} dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`}>
