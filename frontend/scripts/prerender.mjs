@@ -370,7 +370,9 @@ const slugify = (value) => String(value || '')
   .toLowerCase()
   .replace(/[^\w\s\u0600-\u06ff-]/g, '')
   .replace(/[\s_-]+/g, '-')
-  .replace(/^-+|-+$/g, '');
+  .replace(/^-+|-+$/g, '')
+  .slice(0, 60)
+  .replace(/-+$/, '');
 
 const resolveUpload = (value) => {
   if (!value) return `${siteBase}/logo-full.svg`;

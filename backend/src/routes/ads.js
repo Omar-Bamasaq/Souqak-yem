@@ -562,7 +562,9 @@ router.get("/share/:id", async (req, res) => {
       .toLowerCase()
       .replace(/[^\w\s\u0600-\u06ff-]/g, "")
       .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "ad";
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60)
+      .replace(/-+$/, "") || "ad";
     const adUrl = `${frontendBase}/ad/${ad._id}/${encodeURIComponent(slug)}`;
     const image = ad.images?.[0];
     const imageUrl = image

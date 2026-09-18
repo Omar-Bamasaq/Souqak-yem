@@ -28,7 +28,8 @@ $slugify = static function ($value) {
     $value = strtolower((string) $value);
     $value = preg_replace('/[^\w\s\x{0600}-\x{06ff}-]/u', '', $value);
     $value = preg_replace('/[\s_-]+/u', '-', $value);
-    return trim($value, '-') ?: 'ad';
+    $value = trim($value, '-');
+    return rtrim(mb_substr($value, 0, 60), '-') ?: 'ad';
 };
 $slug = $slugify($ad['slug'] ?? $ad['title'] ?? 'ad');
 $adUrl = $siteUrl . '/ad/' . rawurlencode($ad['_id']) . '/' . rawurlencode($slug);

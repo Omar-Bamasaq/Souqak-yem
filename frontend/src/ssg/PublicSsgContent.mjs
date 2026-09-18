@@ -29,7 +29,9 @@ const slugify = (value) => String(value || "")
   .toLowerCase()
   .replace(/[^\w\s\u0600-\u06ff-]/g, "")
   .replace(/[\s_-]+/g, "-")
-  .replace(/^-+|-+$/g, "") || "ad";
+  .replace(/^-+|-+$/g, "")
+  .slice(0, 60)
+  .replace(/-+$/, "") || "ad";
 
 export function PublicHomeContent({ categories = [], ads = [] }) {
   return e("main", { className: "ssg-public-content", dir: "rtl" },

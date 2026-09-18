@@ -34,7 +34,9 @@ function baseSlugify(text) {
     .toLowerCase()
     .replace(/[^\w\s\u0600-\u06ff-]/g, "")
     .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/, "");
 }
 
 function getCurrencySymbol(code) {
@@ -50,7 +52,7 @@ function getCurrencySymbol(code) {
 
 export default function ProductDetail() {
   const { data: governoratesData = [] } = useGovernorates();
-  const { id } = useParams();
+  const { id, slug: routeSlug } = useParams();
   const ssgData = useSsgData();
   const initialAd = ssgData?.kind === "ad" && String(ssgData.data?.ad?._id) === String(id) ? ssgData.data.ad : null;
   const [searchParams] = useSearchParams();
@@ -163,10 +165,11 @@ export default function ProductDetail() {
   }, [p?.attributes?.length]);
 
   useEffect(() => {
-    if (!p?._id || !id || location.pathname !== `/ad/${id}`) return;
+    if (!p?._id || !id) return;
     const slug = baseSlugify(p.slug || p.title) || "ad";
+    if (routeSlug === slug && location.pathname === `/ad/${id}/${routeSlug}`) return;
     navigate(`/ad/${p._id}/${slug}${location.search}`, { replace: true });
-  }, [p?._id, p?.slug, p?.title, id, location.pathname, location.search, navigate]);
+  }, [p?._id, p?.slug, p?.title, id, routeSlug, location.pathname, location.search, navigate]);
 
   const handleShare = async () => {
     const slug = baseSlugify(p?.slug || p?.title) || "ad";
