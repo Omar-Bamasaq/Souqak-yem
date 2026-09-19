@@ -127,7 +127,7 @@ AdSchema.index({ tagNames: 1 });
 AdSchema.index({ sellerId: 1 }); // User mentioned seller index
 AdSchema.index({ createdAt: 1 });
 AdSchema.index({ soldAt: 1 });
-AdSchema.index({ featured: -1, createdAt: -1 });
+AdSchema.index({ featured: -1, publishedAt: -1, createdAt: -1 });
 
 
 AdSchema.plugin(softDeletePlugin);

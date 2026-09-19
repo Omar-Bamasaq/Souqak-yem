@@ -160,11 +160,11 @@ class ListingService {
       sold: { $ne: true },
     };
 
-    let sortSpec = { featured: -1, createdAt: -1 };
-    if (sort === "price_asc") sortSpec = { price: 1, createdAt: -1 };
-    else if (sort === "price_desc") sortSpec = { price: -1, createdAt: -1 };
-    else if (sort === "old") sortSpec = { featured: -1, createdAt: 1 };
-    else if (sort === "views") sortSpec = { viewCount: -1, createdAt: -1 };
+    let sortSpec = { featured: -1, publishedAt: -1, createdAt: -1 };
+    if (sort === "price_asc") sortSpec = { featured: -1, price: 1, publishedAt: -1, createdAt: -1 };
+    else if (sort === "price_desc") sortSpec = { featured: -1, price: -1, publishedAt: -1, createdAt: -1 };
+    else if (sort === "old") sortSpec = { featured: -1, publishedAt: 1, createdAt: 1 };
+    else if (sort === "views") sortSpec = { featured: -1, viewCount: -1, publishedAt: -1, createdAt: -1 };
 
     const p = Math.max(parseInt(page, 10) || 1, 1);
     const l = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
