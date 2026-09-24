@@ -265,16 +265,16 @@ export default function Register() {
         </div>
 
         <div className="w-full lg:w-[48%] flex flex-col items-center justify-center">
-          <div className="w-full max-w-md min-h-screen sm:min-h-0 bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-slate-700 p-5 sm:p-8 lg:p-10 shadow-xl shadow-gray-200/50 dark:shadow-slate-900/50 backdrop-blur-sm flex flex-col justify-center">
-            <div className="flex justify-center w-full mb-4 sm:mb-8">
+          <div className="w-full max-w-md min-h-screen sm:min-h-0 bg-white/90 dark:bg-slate-900/90 rounded-none sm:rounded-[30px] border-0 sm:border border-slate-200/80 dark:border-slate-700/80 p-5 sm:p-8 lg:p-9 shadow-[0_30px_80px_rgba(15,23,42,0.08)] dark:shadow-[0_30px_70px_rgba(2,6,23,0.45)] backdrop-blur-md flex flex-col justify-center mx-auto">
+            <div className="flex justify-center w-full mb-5 sm:mb-7">
               <Link to="/" className="hover:opacity-80 transition-opacity shrink-0">
-                <div className="scale-100 sm:scale-100"><Logo iconSize="h-10 sm:h-10" /></div>
+                <div className="scale-100 sm:scale-100"><Logo iconSize="h-11 sm:h-12" /></div>
               </Link>
             </div>
 
-            <div className="space-y-1 sm:space-y-2 text-center mb-4 sm:mb-8 shrink-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100">إنشاء حساب جديد</h1>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 px-2">انضم إلى منصة سوقك وابدأ البيع والشراء بكل أمان خلال دقائق.</p>
+            <div className="space-y-2 text-center mb-5 sm:mb-7 shrink-0">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-slate-100">إنشاء حساب جديد</h1>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 px-2 leading-6">انضم إلى منصة سوقك وابدأ البيع والشراء بكل أمان خلال دقائق.</p>
               <div className="lg:hidden pt-2 sm:pt-4">
                 <button onClick={() => setShowFeatures(true)} className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[10px] sm:text-xs font-bold border border-blue-100 dark:border-blue-800 transition-all active:scale-95">
                   <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -288,15 +288,15 @@ export default function Register() {
               {ok && <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-2 sm:py-3 text-xs sm:text-sm text-green-700 mb-4 font-medium">{ok}</div>}
 
               <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
-                <button onClick={() => setActiveBox("phone")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-right transition-all ${activeBox === "phone" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>رقم الهاتف</button>
+                <button onClick={() => setActiveBox("phone")} className={`rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold text-right transition-all ${activeBox === "phone" ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100 dark:bg-blue-900/30 dark:text-blue-300" : "border-slate-200 bg-slate-50 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"}`}>رقم الهاتف</button>
                 <div className="relative group">
                   <button 
                     onClick={() => setActiveBox("email")} 
                     disabled={isEmailDisabled}
-                    className={`w-full rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-right transition-all ${ 
-                      isEmailDisabled ? "opacity-50 cursor-not-allowed border-gray-200 dark:border-slate-700 text-gray-400" : 
-                      activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : 
-                      "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"
+                    className={`w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold text-right transition-all ${ 
+                      isEmailDisabled ? "opacity-50 cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400" : 
+                      activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100 dark:bg-blue-900/30 dark:text-blue-300" : 
+                      "border-slate-200 bg-slate-50 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
                     }`}
                   >
                     البريد الإلكتروني
@@ -341,7 +341,7 @@ export default function Register() {
                           </button>
                         </div>
                       </div>
-                      <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
+                      <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3.5 sm:py-4 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.99] disabled:opacity-70 text-sm sm:text-base mt-2">
                         {loading ? "جاري المعالجة..." : "إنشاء حساب مجاني"}
                       </button>
                     </form>
@@ -430,7 +430,7 @@ export default function Register() {
                     </div>
                     {passwordError && <p className="text-red-500 text-[10px] sm:text-[11px] mt-1 font-medium">{passwordError}</p>}
                   </div>
-                  <button disabled={loading || !!passwordError || passwordReg.length < 8} type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
+                  <button disabled={loading || !!passwordError || passwordReg.length < 8} type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3.5 sm:py-4 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.99] disabled:opacity-70 text-sm sm:text-base mt-2">
                     {loading ? "جاري المعالجة..." : "إنشاء حساب مجاني"}
                   </button>
                 </form>
