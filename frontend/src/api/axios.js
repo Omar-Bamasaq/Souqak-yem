@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
+import { IS_MAINTENANCE } from "../config/maintenance.js";
 
 let apiInstance = null;
 let isRefreshing = false;
@@ -57,6 +58,11 @@ export function useApi() {
     }
     
     requestInterceptorRef.current = instance.interceptors.request.use((config) => {
+      if (IS_MAINTENANCE) {
+        console.warn("[Maintenance] Request blocked:", config.url || config.baseURL || "unknown request");
+        return Promise.reject(new Error("MAINTENANCE_MODE_ACTIVE"));
+      }
+
       if (config.url && config.url.startsWith("/")) {
         config.url = config.url.substring(1);
       }

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.jsx";
+import { IS_MAINTENANCE } from "./config/maintenance.js";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { ChatProvider } from "./store/ChatContext.jsx";
 import { ThemeProvider } from "./store/ThemeContext.jsx";
@@ -13,6 +15,14 @@ import { SsgDataProvider } from "./ssg/SsgDataContext.jsx";
 import "./index.css";
 
 const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
+
+axios.interceptors.request.use((config) => {
+  if (IS_MAINTENANCE) {
+    console.warn("[Maintenance] Blocking API request:", config.url || config.baseURL || "unknown");
+    return Promise.reject(new Error("MAINTENANCE_MODE_ACTIVE"));
+  }
+  return config;
+}, (error) => Promise.reject(error));
 
 window.addEventListener("vite:preloadError", (event) => {
   event.preventDefault();

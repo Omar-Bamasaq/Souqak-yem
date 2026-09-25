@@ -12,6 +12,13 @@ const distDir = path.join(rootDir, 'dist');
 const siteBase = process.env.PUBLIC_SITE_URL || 'https://souqak-yem.com';
 const apiBase = process.env.VITE_API_URL || 'https://api.souqak-yem.com/api';
 const apiOrigin = apiBase.replace(/\/api\/?$/, '');
+const maintenanceMode = (process.env.VITE_MAINTENANCE_MODE || process.env.MAINTENANCE_MODE || '').trim().toLowerCase();
+const prerenderDisabled = (process.env.PRERENDER_DISABLED || '').trim().toLowerCase();
+
+if (['true', '1', 'yes', 'on'].includes(maintenanceMode) || ['true', '1', 'yes', 'on'].includes(prerenderDisabled)) {
+  console.log('[prerender] Maintenance mode or prerender disabled. Skipping API-driven prerender output.');
+  process.exit(0);
+}
 
 const htmlEscape = (value = '') =>
   String(value)

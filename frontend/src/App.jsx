@@ -17,6 +17,8 @@ import AdminLayout from "./pages/AdminLayout.jsx";
 import { useAuth } from "./store/AuthContext.jsx";
 import { useBrokerageStatus } from "./store/BrokerageStatusContext.jsx";
 import { AD_COMMISSION_ENABLED } from "./config/commission.js";
+import { IS_MAINTENANCE } from "./config/maintenance.js";
+import Logo from "./components/Logo.jsx";
 
 // Pages
 const Home = lazy(() => import("./pages/Home.jsx"));
@@ -135,8 +137,58 @@ function RequireBrokerageEnabled({ children }) {
   return children;
 }
 
+function MaintenanceScreen() {
+  return (
+    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.18),_transparent_30%),radial-gradient(circle_at_bottom,_rgba(251,191,36,0.14),_transparent_35%),linear-gradient(135deg,_#020817_0%,_#0f172a_30%,_#111827_100%)] text-slate-50 dark:bg-slate-950 dark:text-slate-50">
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-3xl rounded-[30px] border border-white/10 bg-white/5 p-6 shadow-[0_25px_80px_rgba(15,23,42,0.75)] backdrop-blur-sm sm:p-8 lg:p-12">
+          <div className="flex flex-col items-center text-center">
+            <div className="relative mb-6 flex items-center justify-center">
+              <div className="absolute inset-0 scale-125 rounded-full bg-brand-500/20 blur-3xl" />
+              <div className="relative flex items-center justify-center rounded-full border border-brand-400/40 bg-gradient-to-br from-brand-500/20 via-sky-500/10 to-amber-400/15 p-5 shadow-[0_0_50px_rgba(59,130,246,0.25)] animate-[pulse_2.8s_ease-in-out_infinite]">
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-slate-950/40 shadow-inner">
+                  <div className="absolute inset-2 rounded-full border border-dashed border-brand-300/60 animate-spin-slow" />
+                  <div className="absolute -right-3 -top-2 flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/50 bg-amber-400/20 text-lg text-amber-200 shadow-lg shadow-amber-500/20 animate-bounce">
+                    🔧
+                  </div>
+                  <Logo iconSize="h-12 sm:h-14" />
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-500/10 px-4 py-2 text-xs font-black tracking-[0.18em] text-amber-200 uppercase shadow-[0_0_22px_rgba(251,191,36,0.18)]">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-300 animate-pulse" />
+              Maintenance
+            </div>
+
+            <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+              التطبيق قيد الصيانة والتطوير 🛠️
+            </h1>
+
+            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">
+              نقوم حالياً بإجراء تحديثات وتحسينات شاملة لمنصة سوقك لتقديم تجربة أفضل وأكثر أماناً.
+            </p>
+
+            <div className="mt-8 h-1.5 w-full max-w-md overflow-hidden rounded-full bg-slate-800">
+              <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-brand-400 via-sky-400 to-amber-300" />
+            </div>
+
+            <p className="mt-8 text-lg font-bold text-brand-200">
+              انتظرونا بحلة جديدة قريباً جداً!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const location = useLocation();
+
+  if (IS_MAINTENANCE) {
+    return <MaintenanceScreen />;
+  }
 
   React.useEffect(() => {
     const noIndexPaths = [
