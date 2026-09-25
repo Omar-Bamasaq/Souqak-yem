@@ -145,20 +145,24 @@ function MaintenanceScreen() {
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-6 flex items-center justify-center">
               <div className="absolute inset-0 scale-125 rounded-full bg-brand-500/20 blur-3xl" />
-              <div className="relative flex items-center justify-center rounded-full border border-brand-400/40 bg-gradient-to-br from-brand-500/20 via-sky-500/10 to-amber-400/15 p-5 shadow-[0_0_50px_rgba(59,130,246,0.25)] animate-[pulse_2.8s_ease-in-out_infinite]">
+              <div className="relative flex items-center justify-center rounded-full border border-brand-400/40 bg-gradient-to-br from-brand-500/20 via-sky-500/10 to-amber-400/15 p-4 shadow-[0_0_50px_rgba(59,130,246,0.25)] animate-[pulse_2.8s_ease-in-out_infinite]">
                 <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-slate-950/40 shadow-inner">
                   <div className="absolute inset-2 rounded-full border border-dashed border-brand-300/60 animate-spin-slow" />
                   <div className="absolute -right-3 -top-2 flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/50 bg-amber-400/20 text-lg text-amber-200 shadow-lg shadow-amber-500/20 animate-bounce">
                     🔧
                   </div>
-                  <Logo iconSize="h-12 sm:h-14" />
+                  <img
+                    src="/assets/logo/app-icon.svg"
+                    alt="سوقك"
+                    className="h-11 w-11 object-contain"
+                  />
                 </div>
               </div>
             </div>
 
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-500/10 px-4 py-2 text-xs font-black tracking-[0.18em] text-amber-200 uppercase shadow-[0_0_22px_rgba(251,191,36,0.18)]">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-300 animate-pulse" />
-              Maintenance
+              صيانة
             </div>
 
             <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
