@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApi } from '../api/axios.js';
 import { useChat } from '../store/ChatContext.jsx';
 import { useAuth } from '../store/AuthContext.jsx';
-import { uploadsUrl } from '../lib/uploads.js';
+import { supportAttachmentUrl } from '../lib/uploads.js';
 
 export default function AdminSupportInbox() {
   const api = useApi();
@@ -352,9 +352,9 @@ export default function AdminSupportInbox() {
                     {msg.images && msg.images.length > 0 && (
                       <div className={`mt-3 grid gap-2 ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {msg.images.map((img, idx) => (
-                          <a key={idx} href={uploadsUrl(img)} rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-gray-100/10">
+                          <a key={idx} href={supportAttachmentUrl(img)} rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-gray-100/10">
                             <img 
-                              src={uploadsUrl(img)} 
+                              src={supportAttachmentUrl(img)}
                               alt="attachment" 
                               className="w-full object-cover max-h-[300px] hover:scale-105 transition-transform duration-500"
                             />

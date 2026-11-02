@@ -21,6 +21,7 @@ const r = dotenv.config();
 process.env = { ...r.parsed, ...process.env };
 
 import jwtConfigBootstrap from "./config/jwt.js";
+import { corsOptions, socketAllowRequest } from "./config/cors.js";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -35,6 +36,12 @@ import addRequestId from "express-request-id";
 import { securityHeaders, csrfProtection, botDetection } from "./middleware/security.js";
 import { logSecurityEvent } from "./utils/logger.js";
 import rateLimit from "./middleware/rateLimit.js";
+import publicUploads from "./middleware/publicUploads.js";
+import {
+  getAuthenticatedSocketUserId,
+  getSocketAccessToken,
+  isConversationParticipant
+} from "./utils/socketAuthorization.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import messageRoutes from "./routes/messages.js";
@@ -83,6 +90,7 @@ import adminReferralRoutes from "./routes/adminReferrals.js";
 import publicReferralRoutes from "./routes/publicReferral.js";
 import ReferralEngine from "./engines/ReferralEngine.js";
 import User from "./models/User.js";
+import Conversation from "./models/Conversation.js";
 import Ad from "./models/Ad.js";
 import Order from "./models/Order.js";
 import Dispute from "./models/Dispute.js";
@@ -102,14 +110,6 @@ import { getBackendBaseUrl } from "./utils/siteUrl.js";
 const app = express();
 app.set("trust proxy", 1);
 
-const allowedOrigins = [
-  "https://souqak-yem.com",
-  "https://www.souqak-yem.com",
-  "https://souqak-beta.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174"
-];
-
 app.use(addRequestId());
 app.use(requestIp.mw());
 
@@ -118,31 +118,18 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Enhanced CORS Configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    const isVercel = origin.includes("vercel.app");
-    const isLocal = origin.includes("localhost");
-    if (allowedOrigins.includes(origin) || isVercel || isLocal) {
-      return callback(null, true);
-    }
-    return callback(null, true); // Fallback to allow during debug
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token"],
-  exposedHeaders: ["Set-Cookie"]
-};
-
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Handle preflight globally
 
 // Global Security Middleware
 app.use(securityHeaders);
-// app.use(botDetection); // تعطيل Bot Detection للتطوير
-// app.use(csrfProtection); // تعطيل مؤقت لحل مشكلة Invalid CSRF Token أثناء الدخول من Vercel
+app.use("/api", botDetection);
+app.use(csrfProtection);
 
+app.get("/api/csrf-token", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ csrfToken: req.csrfToken });
+});
 app.get("/api/version", (req, res) => {
   res.json({ version: "1.0.1", patch_fix: true, timestamp: new Date().toISOString() });
 });
@@ -208,11 +195,6 @@ app.use(
     skip: (req) => {
         if (req.method === "OPTIONS") return true;
         const p = (req.originalUrl || req.path || "").toLowerCase();
-        // Skip ALL auth endpoints - no exceptions!
-        if (p.includes("/api/auth")) {
-          console.log(`[Rate Limit Skip] Skipping auth path: ${p}`);
-          return true;
-        }
         // Allow high-frequency GETs
         if (req.method === "GET" && /\/api\/(bank-accounts|plans|categories|governorates|cities|tags|ads|notifications|admin-messages|admin\/settings|admin|conversations)/.test(p)) {
           return true;
@@ -318,7 +300,7 @@ app.use("/uploads", async (req, res, next) => {
   next();
 });
 
-app.use("/uploads", express.static(uploadDir, { etag: true, maxAge: "30d", immutable: true, cacheControl: true }));
+app.use("/uploads", publicUploads, express.static(uploadDir, { etag: true, maxAge: "30d", immutable: true, cacheControl: true }));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -501,44 +483,93 @@ verifyEmailAccounts().catch(err => {
 });
 
 const io = new Server(server, {
-  cors: corsOptions
+  cors: corsOptions,
+  allowRequest: socketAllowRequest
 });
 io.on("connection", (socket) => {
   socket.on("join", ({ productId }) => {
     if (productId) socket.join(`chat:${productId}`);
   });
-  socket.on("join_user", async ({ userId }) => {
-    if (userId) {
-      socket.join(`user:${userId}`);
-      socket.userId = userId;
-      try {
-        const user = await User.findById(userId);
-        if (user?.role === "admin") {
-          socket.join("role:admin");
-        }
-        const now = new Date();
-        await User.findByIdAndUpdate(userId, { isOnline: true, socketId: socket.id, lastSeen: now });
-        socket.broadcast.emit("user:status", { userId, isOnline: true, lastSeen: now });
-      } catch {}
+  socket.on("join_user", async (payload = {}) => {
+    try {
+      const authenticatedUserId = getAuthenticatedSocketUserId(
+        getSocketAccessToken(socket.handshake.headers.cookie),
+        payload?.userId,
+        jwtConfigBootstrap.verifyAccessToken
+      );
+      if (!authenticatedUserId || (socket.userId && socket.userId !== authenticatedUserId)) return;
+
+      const user = await User.findById(authenticatedUserId)
+        .select("role isDisabled isDeleted")
+        .lean();
+      if (!user || user.isDisabled || user.isDeleted) return;
+
+      socket.join(`user:${authenticatedUserId}`);
+      socket.userId = authenticatedUserId;
+      if (user.role === "admin") {
+        socket.join("role:admin");
+      } else {
+        socket.leave("role:admin");
+      }
+
+      const now = new Date();
+      await User.findByIdAndUpdate(authenticatedUserId, { isOnline: true, socketId: socket.id, lastSeen: now });
+      socket.broadcast.emit("user:status", { userId: authenticatedUserId, isOnline: true, lastSeen: now });
+    } catch (error) {
+      logger.warn({
+        event: "socket_user_room_join_failed",
+        message: error.message
+      });
     }
   });
-  socket.on("join_conversation", ({ conversationId }) => {
-    if (conversationId) socket.join(`conv:${conversationId}`);
-  });
-  socket.on("conversation:typing", ({ conversationId, from }) => {
-    if (conversationId) socket.to(`conv:${conversationId}`).emit("conversation:typing", { conversationId, from });
-  });
-  socket.on("message:delivered", async ({ messageId, conversationId, senderId }) => {
+  socket.on("join_conversation", async ({ conversationId } = {}) => {
     try {
+      if (await isConversationParticipant(Conversation, socket.userId, conversationId)) {
+        socket.join(`conv:${conversationId}`);
+      }
+    } catch (error) {
+      logger.warn({
+        event: "socket_conversation_room_join_failed",
+        message: error.message
+      });
+    }
+  });
+  socket.on("conversation:typing", async ({ conversationId } = {}) => {
+    try {
+      if (await isConversationParticipant(Conversation, socket.userId, conversationId)) {
+        socket.to(`conv:${conversationId}`).emit("conversation:typing", {
+          conversationId,
+          from: socket.userId
+        });
+      }
+    } catch (error) {
+      logger.warn({
+        event: "socket_conversation_typing_failed",
+        message: error.message
+      });
+    }
+  });
+  socket.on("message:delivered", async ({ messageId, conversationId } = {}) => {
+    try {
+      if (!await isConversationParticipant(Conversation, socket.userId, conversationId)) return;
       const msg = await ConversationMessage.findOneAndUpdate(
-        { _id: messageId, status: "sent" },
+        { _id: messageId, conversationId, senderId: { $ne: socket.userId }, status: "sent" },
         { $set: { status: "delivered" } },
         { new: true }
       );
       if (msg) {
-        io.to(`user:${senderId}`).emit("message:status_update", { messageId, conversationId, status: "delivered" });
+        io.to(`user:${msg.senderId}`).emit("message:status_update", {
+          messageId: String(msg._id),
+          conversationId: String(msg.conversationId),
+          status: "delivered"
+        });
       }
-    } catch {}
+    } catch (error) {
+      logger.warn({
+        event: "socket_message_delivery_update_failed",
+        message: error.message
+      });
+    }
   });
   socket.on("disconnect", async () => {
     if (socket.userId) {

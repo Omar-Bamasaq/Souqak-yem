@@ -295,7 +295,7 @@ router.post("/", authenticate, requireAdmin, uploadCategoryImage.single("image")
 
     let imageUrl = null;
     if (req.file) {
-      const validated = await ImageUploadService.validateUploadedFile(req.file);
+      const validated = await ImageUploadService.validateUploadedFile(req.file, req);
       imageUrl = validated.url;
     }
 
@@ -360,7 +360,7 @@ router.put("/:id", authenticate, requireAdmin, uploadCategoryImage.single("image
           // Continue even if delete fails
         }
       }
-      const validated = await ImageUploadService.validateUploadedFile(req.file);
+      const validated = await ImageUploadService.validateUploadedFile(req.file, req);
       console.log("Image validated:", validated.url);
       category.image = validated.url;
     }

@@ -28,33 +28,33 @@ function loadDotenvIfNeeded() {
   globalThis.__suqaq_dotenv_loaded = true;
 }
 
-const _FALLBACK_ACCESS_TOKEN_SECRET = "access_dev_secret_12345";
-const _FALLBACK_REFRESH_TOKEN_SECRET = "refresh_dev_secret_12345";
-const _FALLBACK_JWT_SECRET = _FALLBACK_ACCESS_TOKEN_SECRET;
-
 export const JWT_ALGORITHM = "HS256";
 export const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || "7d";
 export const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || "30d";
 
 export function getAccessTokenSecret() {
   loadDotenvIfNeeded();
-  const s =
+  const secret =
     process.env.JWT_ACCESS_SECRET ||
     process.env.ACCESS_TOKEN_SECRET ||
     process.env.JWT_SECRET ||
-    process.env.ACCESS_SECRET ||
-    _FALLBACK_ACCESS_TOKEN_SECRET;
-  return String(s).trim();
+    process.env.ACCESS_SECRET;
+  if (typeof secret !== "string" || !secret.trim()) {
+    throw new Error("JWT access token secret is required; configure an existing access-secret environment variable.");
+  }
+  return secret.trim();
 }
 
 export function getRefreshTokenSecret() {
   loadDotenvIfNeeded();
-  const s =
+  const secret =
     process.env.JWT_REFRESH_SECRET ||
     process.env.REFRESH_TOKEN_SECRET ||
-    process.env.REFRESH_SECRET ||
-    _FALLBACK_REFRESH_TOKEN_SECRET;
-  return String(s).trim();
+    process.env.REFRESH_SECRET;
+  if (typeof secret !== "string" || !secret.trim()) {
+    throw new Error("JWT refresh token secret is required; configure an existing refresh-secret environment variable.");
+  }
+  return secret.trim();
 }
 
 export function getJwtSecret() {
@@ -79,16 +79,6 @@ export function getRefreshSecretFingerprint() {
       ? crypto.createHash("sha256").update(String(s)).digest("hex").slice(0, 12)
       : "000000000000",
   };
-}
-
-export function isUsingFallbackAccessSecret() {
-  const fp = getAccessSecretFingerprint();
-  const fallbackFp = crypto
-    .createHash("sha256")
-    .update(_FALLBACK_ACCESS_TOKEN_SECRET)
-    .digest("hex")
-    .slice(0, 12);
-  return fp.sha256first12 === fallbackFp;
 }
 
 export function signAccessToken(payload) {
@@ -144,21 +134,9 @@ export function inspectJwtClaimsOnly(rawToken) {
   }
 }
 
-let __loaded_once = false;
-if (!__loaded_once) {
-  loadDotenvIfNeeded();
-  const fp = getAccessSecretFingerprint();
-  const rfp = getRefreshSecretFingerprint();
-  console.log(
-    `[JWTConfig] Access secret fingerprint=len=${fp.length} sha=${fp.sha256first12} fallback=${
-      isUsingFallbackAccessSecret() ? "YES" : "NO"
-    }`
-  );
-  console.log(
-    `[JWTConfig] Refresh secret fingerprint=len=${rfp.length} sha=${rfp.sha256first12}`
-  );
-  __loaded_once = true;
-}
+loadDotenvIfNeeded();
+getAccessTokenSecret();
+getRefreshTokenSecret();
 
 export default {
   JWT_ALGORITHM,
@@ -169,7 +147,6 @@ export default {
   getJwtSecret,
   getAccessSecretFingerprint,
   getRefreshSecretFingerprint,
-  isUsingFallbackAccessSecret,
   signAccessToken,
   signRefreshToken,
   verifyAccessToken,

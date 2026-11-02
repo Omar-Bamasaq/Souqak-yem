@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../store/AuthContext.jsx';
 import { useChat } from '../store/ChatContext.jsx';
 import { useApi } from '../api/axios.js';
-import { uploadsUrl } from '../lib/uploads.js';
+import { supportAttachmentUrl } from '../lib/uploads.js';
 
 export default function SupportChatFAB() {
   const { user } = useAuth();
@@ -251,9 +251,9 @@ export default function SupportChatFAB() {
                   {msg.images && msg.images.length > 0 && (
                     <div className={`mt-2 grid gap-2 ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       {msg.images.map((img, idx) => (
-                        <a key={idx} href={uploadsUrl(img)} rel="noopener noreferrer">
+                        <a key={idx} href={supportAttachmentUrl(img)} rel="noopener noreferrer">
                           <img 
-                            src={uploadsUrl(img)} 
+                            src={supportAttachmentUrl(img)}
                             alt="attachment" 
                             className="rounded-lg max-h-40 w-full object-cover"
                           />

@@ -7,7 +7,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { useChat } from "../store/ChatContext.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
-import { uploadsUrl } from "../lib/uploads.js";
+import { conversationAttachmentUrl, uploadsUrl } from "../lib/uploads.js";
 
 const QUICK_REPLIES = {
   seller: [
@@ -1050,8 +1050,8 @@ export default function Messages() {
                         {Array.isArray(m.images) && m.images.length > 0 && (
                           <div className={`mt-2 grid gap-2 ${m.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                             {m.images.map((img, i) => (
-                              <button key={i} className="overflow-hidden rounded-xl border border-black/5 hover:opacity-90 transition-all hover:scale-[1.02]" onClick={() => { setLbSrc(uploadsUrl(img)); setLbOpen(true); }}>
-                                <img src={uploadsUrl(img)} alt="" className="max-h-60 w-full object-cover" />
+                              <button key={i} className="overflow-hidden rounded-xl border border-black/5 hover:opacity-90 transition-all hover:scale-[1.02]" onClick={() => { setLbSrc(conversationAttachmentUrl(selectedConv?._id, img)); setLbOpen(true); }}>
+                                <img src={conversationAttachmentUrl(selectedConv?._id, img)} alt="" className="max-h-60 w-full object-cover" />
                               </button>
                             ))}
                           </div>

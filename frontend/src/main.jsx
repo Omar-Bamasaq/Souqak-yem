@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.jsx";
 import { IS_MAINTENANCE } from "./config/maintenance.js";
+import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./api/csrf.js";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { ChatProvider } from "./store/ChatContext.jsx";
 import { ThemeProvider } from "./store/ThemeContext.jsx";
@@ -16,13 +17,27 @@ import "./index.css";
 
 const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
 
-axios.interceptors.request.use((config) => {
+axios.interceptors.request.use(async (config) => {
   if (IS_MAINTENANCE) {
     console.warn("[Maintenance] Blocking API request:", config.url || config.baseURL || "unknown");
     return Promise.reject(new Error("MAINTENANCE_MODE_ACTIVE"));
   }
+  const method = config.method?.toLowerCase();
+  if (
+    ["post", "put", "patch", "delete"].includes(method) &&
+    isApiRequest(config)
+  ) {
+    config.headers["X-CSRF-Token"] = await ensureCsrfToken();
+  }
   return config;
 }, (error) => Promise.reject(error));
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.data?.code === "CSRF_TOKEN_INVALID") clearCsrfToken();
+    return Promise.reject(error);
+  }
+);
 
 window.addEventListener("vite:preloadError", (event) => {
   event.preventDefault();

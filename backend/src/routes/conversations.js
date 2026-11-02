@@ -8,14 +8,35 @@ import Ad from "../models/Ad.js";
 import Notification from "../models/Notification.js";
 import { createNotification } from "../services/notificationService.js";
 import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
-import { uploadImages } from "../middleware/upload.js";
+import { uploadMessageImages } from "../middleware/upload.js";
 import Block from "../models/Block.js";
 import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
+import {
+  getUploadedMessageAttachmentNames,
+  isSafeMessageAttachmentFilename,
+  rejectClientSuppliedAttachmentRefs,
+  resolveMessageAttachmentPath,
+  sendMessageAttachment
+} from "../services/privateMessageAttachments.js";
 
 import { sendPushNotification } from "../services/pushService.js";
 
 const router = Router();
+
+async function requireConversationParticipant(req, res, next) {
+  try {
+    const conversation = await Conversation.findById(req.params.id);
+    if (!conversation) return res.status(404).json({ error: "Not found" });
+    if (!conversation.participants.some((participant) => String(participant) === String(req.user.id))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    req.conversation = conversation;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
 
 // =============================================
 // STATIC ROUTES (MUST COME BEFORE DYNAMIC :id)
@@ -353,6 +374,34 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
+router.get("/:id/attachments/:filename", auth, async (req, res) => {
+  try {
+    const { id, filename } = req.params;
+    if (!isSafeMessageAttachmentFilename(filename)) return res.sendStatus(404);
+
+    const conversation = await Conversation.findOne({
+      _id: id,
+      participants: req.user.id
+    }).select("_id").lean();
+    if (!conversation) return res.sendStatus(404);
+
+    const message = await ConversationMessage.findOne({
+      conversationId: conversation._id,
+      images: filename,
+      deletedBy: { $ne: req.user.id },
+      isDeleted: { $ne: true }
+    }).select("_id").lean();
+    if (!message) return res.sendStatus(404);
+
+    const filePath = resolveMessageAttachmentPath(filename);
+    if (!filePath) return res.sendStatus(404);
+    return sendMessageAttachment(res, filePath);
+  } catch (error) {
+    console.error("Conversation attachment access error:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/:id/messages", auth, async (req, res) => {
   try {
     const conv = await Conversation.findById(req.params.id).lean();
@@ -372,16 +421,14 @@ router.get("/:id/messages", auth, async (req, res) => {
   }
 });
 
-router.post("/:id/messages", auth, rateLimit({ windowMs: 10_000, max: 5 }), uploadImages.array("images", 5), async (req, res) => {
+router.post("/:id/messages", auth, rateLimit({ windowMs: 10_000, max: 5 }), requireConversationParticipant, uploadMessageImages.array("images", 5), rejectClientSuppliedAttachmentRefs, async (req, res) => {
   try {
     const { text } = req.body || {};
-    const conv = await Conversation.findById(req.params.id);
-    if (!conv) return res.status(404).json({ error: "Not found" });
-    if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "Forbidden" });
+    const conv = req.conversation;
     const counterpart = conv.participants.find((p) => String(p) !== String(req.user.id));
     const blocked = await Block.findOne({ blockerId: counterpart, blockedId: req.user.id }).lean();
     if (blocked) return res.status(403).json({ error: "لا يمكنك مراسلة هذا المستخدم" });
-    const filenames = (req.files || []).map((f) => f.filename);
+    const filenames = getUploadedMessageAttachmentNames(req.files);
     if (!filenames.length && (!text || !String(text).trim())) return res.status(400).json({ error: "Empty message" });
     const msg = await ConversationMessage.create({
       conversationId: conv._id,

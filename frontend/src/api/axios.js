@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
 import { IS_MAINTENANCE } from "../config/maintenance.js";
+import { clearCsrfToken, ensureCsrfToken } from "./csrf.js";
 
 let apiInstance = null;
 let isRefreshing = false;
@@ -57,7 +58,7 @@ export function useApi() {
       instance.interceptors.response.eject(responseInterceptorRef.current);
     }
     
-    requestInterceptorRef.current = instance.interceptors.request.use((config) => {
+    requestInterceptorRef.current = instance.interceptors.request.use(async (config) => {
       if (IS_MAINTENANCE) {
         console.warn("[Maintenance] Request blocked:", config.url || config.baseURL || "unknown request");
         return Promise.reject(new Error("MAINTENANCE_MODE_ACTIVE"));
@@ -70,14 +71,7 @@ export function useApi() {
 
       const nonGetMethods = ["post", "put", "delete", "patch"];
       if (nonGetMethods.includes(config.method?.toLowerCase())) {
-        const csrfToken = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("csrfToken="))
-          ?.split("=")[1];
-        
-        if (csrfToken) {
-          config.headers["X-CSRF-Token"] = csrfToken;
-        }
+        config.headers["X-CSRF-Token"] = await ensureCsrfToken();
       }
 
       return config;
@@ -86,6 +80,7 @@ export function useApi() {
     responseInterceptorRef.current = instance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        if (error.response?.data?.code === "CSRF_TOKEN_INVALID") clearCsrfToken();
         const originalRequest = error.config;
         const requestUrl = originalRequest?.url || "";
         const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");

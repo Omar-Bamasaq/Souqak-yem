@@ -25,6 +25,7 @@ backend/uploads/
 !backend/uploads/.gitkeep
 !backend/uploads/categories/
 !backend/uploads/categories/*
+backend/private_uploads/
 
 # IDE files
 .vscode/
