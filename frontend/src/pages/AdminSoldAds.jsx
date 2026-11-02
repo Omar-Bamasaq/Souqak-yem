@@ -1,38 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
-import { useAuth } from "../store/AuthContext.jsx";
 import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
+import { uploadsBase } from "../lib/uploads.js";
+import { useProtectedFiles } from "../lib/protectedFiles.js";
 
-function uploadsBaseUrl() {
-  let envUrl = import.meta.env.VITE_UPLOADS_URL;
-  if (!envUrl) {
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
-  }
-  if (envUrl.endsWith("/uploads")) return envUrl;
-  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
-}
-const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
-function protectedFileUrl(filename, token) {
-  if (!filename) return "";
-  if (filename.startsWith("http")) return filename;
-  let clean = filename;
-  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
-  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
-  const base = `${uploadsBaseUrl()}/${clean}`;
-  const isSensitive = SENSITIVE_KWS.some(kw => {
-    const c = clean.toLowerCase().replace(/\\/g, "/");
-    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
-  });
-  if (!isSensitive) return base;
-  if (!token) return base;
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
+function publicUploadUrl(filePath) {
+  if (!filePath) return "";
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  const cleanPath = String(filePath).replace(/^\/?uploads\//, "").replace(/^\/+/, "");
+  return `${uploadsBase()}/${cleanPath}`;
 }
 
 export default function AdminSoldAds() {
   const api = useApi();
-  const { token: authToken } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -42,6 +22,12 @@ export default function AdminSoldAds() {
   const [searchTerm, setSearchTerm] = useState("");
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
+  const protectedFiles = useProtectedFiles(api, [previewDoc?.path]);
+  const previewSrc = previewDoc?.path
+    ? protectedFiles.urlFor(previewDoc.path)
+    : previewDoc?.publicPath
+      ? publicUploadUrl(previewDoc.publicPath)
+      : null;
 
   const load = async () => {
     setLoading(true);
@@ -87,10 +73,10 @@ export default function AdminSoldAds() {
     }
   };
 
-  const openPreview = (src, title = "معاينة المستند") => {
-    if (!src) return;
+  const openPreview = (filePath, title = "معاينة المستند", isProtected = false) => {
+    if (!filePath) return;
     setPreviewTitle(title);
-    setPreviewDoc(src);
+    setPreviewDoc(isProtected ? { path: filePath } : { publicPath: filePath });
   };
 
   const getCurrencySymbol = (code) => {
@@ -330,7 +316,12 @@ export default function AdminSoldAds() {
       </div>
 
       {/* تفاصيل الطلب - Modal (Matching featured-requests design) */}
-      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
+      <DocumentPreviewModal
+        isOpen={Boolean(previewDoc && previewSrc)}
+        src={previewSrc}
+        onClose={() => setPreviewDoc(null)}
+        title={previewTitle}
+      />
 
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setSelectedItem(null)}>
@@ -387,7 +378,7 @@ export default function AdminSoldAds() {
                   <span className="text-gray-500 font-bold">صورة السند:</span>
                   <button 
                     type="button" 
-                    onClick={() => openPreview(protectedFileUrl(selectedItem.paymentReceipt, authToken), "سند الدفع")}
+                    onClick={() => openPreview(selectedItem.paymentReceipt, "سند الدفع", true)}
                     className="text-blue-600 hover:underline font-black"
                   >
                     عرض السند
@@ -400,7 +391,7 @@ export default function AdminSoldAds() {
                   <span className="text-gray-500 font-bold">صورة الإعلان:</span>
                   <button 
                     type="button" 
-                    onClick={() => openPreview(protectedFileUrl(selectedItem.adImage, authToken), "صورة الإعلان")}
+                    onClick={() => openPreview(selectedItem.adImage, "صورة الإعلان")}
                     className="text-blue-600 hover:underline font-black"
                   >
                     عرض الصورة

@@ -4,6 +4,7 @@ import { useApi } from "../api/axios.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
+import { useProtectedFiles } from "../lib/protectedFiles.js";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
@@ -49,6 +50,8 @@ export default function OrderDetail() {
   });
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
+  const protectedFiles = useProtectedFiles(api, [previewDoc?.path]);
+  const previewUrl = protectedFiles.urlFor(previewDoc?.path);
 
   const handleReceiptSelection = async (index, file) => {
     if (!file) return;
@@ -323,10 +326,10 @@ export default function OrderDetail() {
     CANCELLED: { label: "ملغي", color: "bg-red-50 text-red-400", step: 0 }
   };
 
-  const openPreview = (src, title = "معاينة المستند") => {
-    if (!src) return;
+  const openPreview = (path, title = "معاينة المستند") => {
+    if (!path) return;
     setPreviewTitle(title);
-    setPreviewDoc(src);
+    setPreviewDoc({ path });
   };
 
   return (
@@ -655,7 +658,7 @@ export default function OrderDetail() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => openPreview(uploadsUrl(p.receiptImage), `سند الدفع ${idx + 1}`)}
+                                  onClick={() => openPreview(p.receiptImage, `سند الدفع ${idx + 1}`)}
                                   className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-all"
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -778,7 +781,7 @@ export default function OrderDetail() {
                         <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">سند الشحن المرفق:</p>
                         <button
                           type="button"
-                          onClick={() => openPreview(uploadsUrl(order.shippingDetails.shippingReceipt), "سند الشحن")}
+                          onClick={() => openPreview(order.shippingDetails.shippingReceipt, "سند الشحن")}
                           className="inline-flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-indigo-100 dark:border-slate-800 hover:shadow-lg transition-all group"
                         >
                           <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">📄</div>
@@ -893,7 +896,12 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
+      <DocumentPreviewModal
+        isOpen={Boolean(previewDoc && previewUrl)}
+        src={previewUrl}
+        onClose={() => setPreviewDoc(null)}
+        title={previewTitle}
+      />
 
       {/* Seller Review Modal */}
       {showReviewModal && (
