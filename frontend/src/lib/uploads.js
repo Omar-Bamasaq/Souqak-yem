@@ -8,6 +8,20 @@ export function uploadsBase() {
   return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
 }
 
+function apiBase() {
+  let base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
+  if (!base.endsWith("/api")) base = `${base}/api`;
+  return base;
+}
+
+export function conversationAttachmentUrl(conversationId, filename) {
+  return `${apiBase()}/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(filename)}`;
+}
+
+export function supportAttachmentUrl(filename) {
+  return `${apiBase()}/support/attachments/${encodeURIComponent(filename)}`;
+}
+
 const SENSITIVE_KEYWORDS = ["receipts", "ids", "kyc", "documents"];
 
 export function isSensitiveFilePath(filename) {

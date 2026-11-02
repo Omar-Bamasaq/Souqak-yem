@@ -12,4 +12,6 @@ const supportMessageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+supportMessageSchema.index({ images: 1 });
+
 export default mongoose.model("SupportMessage", supportMessageSchema);

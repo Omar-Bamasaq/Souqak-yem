@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import OtpCode from "../models/OtpCode.js";
 import auth, { sendAuthResponse } from "../middleware/auth.js";
 import { uploadIdDoc, uploadAvatar, processImage } from "../middleware/upload.js";
+import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/emailSender.js";
 import { normalizePhone, isValidPhoneNumber, isValidPassword, generateTemporaryPassword, buildPasswordResetRequestMessage } from "../utils/securityRules.js";
@@ -26,6 +27,28 @@ import {
 } from "../config/jwt.js";
 
 const router = Router();
+const rateLimitedAuthPaths = new Set([
+  "/register-email",
+  "/verify-email",
+  "/resend-otp",
+  "/forgot-password",
+  "/verify-reset-otp",
+  "/reset-password",
+  "/register",
+  "/login",
+  "/test-email",
+  "/phone-register",
+  "/phone-login",
+  "/password-reset-request",
+  "/set-new-password",
+]);
+
+router.use(rateLimit({
+  windowMs: 15 * 60_000,
+  max: 20,
+  skip: (req) => req.method !== "POST" || !rateLimitedAuthPaths.has(req.path),
+  message: "محاولات كثيرة. يرجى الانتظار قبل إعادة المحاولة.",
+}));
 
 /**
  * @swagger
@@ -512,7 +535,7 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
-router.post("/test-email", async (req, res) => {
+router.post("/test-email", auth, requireRole(["admin"]), rateLimit({ windowMs: 60_000, max: 3 }), async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب." });

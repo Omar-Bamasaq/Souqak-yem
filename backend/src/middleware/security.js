@@ -1,16 +1,12 @@
 import helmet from "helmet";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import NodeCache from "node-cache";
 import { getBackendBaseUrl } from "../utils/siteUrl.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const blockCache = new NodeCache({ stdTTL: 3600 }); // Default block 1 hour
+const MAX_TRACKED_IPS = 10_000;
+const blockCache = new NodeCache({ stdTTL: 3600, maxKeys: MAX_TRACKED_IPS });
 const requestHistory = new Map();
+let requestHistorySweepCounter = 0;
 import { logSecurityEvent } from "../utils/logger.js";
 
 /**
@@ -22,8 +18,8 @@ export const securityHeaders = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://souqak-yem.com", "https://www.souqak-yem.com", "https://souqak-beta.vercel.app", "https://souqak-beta.onrender.com"],
-      connectSrc: ["'self'", "https://souqak-yem.com", "https://www.souqak-yem.com", "https://souqak-beta.vercel.app", "https://souqak-beta.onrender.com", getBackendBaseUrl(), "ws://localhost:5000"],
+      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://souqak-yem.com", "https://www.souqak-yem.com"],
+      connectSrc: ["'self'", "https://souqak-yem.com", "https://www.souqak-yem.com", getBackendBaseUrl(), getBackendBaseUrl().replace(/^http/, "ws")],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -54,27 +50,36 @@ export const csrfProtection = (req, res, next) => {
   // Methods that don't need CSRF protection
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
   if (safeMethods.includes(req.method)) {
-    // Generate and set CSRF token for the session if it doesn't exist
-    if (!req.cookies.csrfToken) {
-      const token = crypto.randomBytes(32).toString("hex");
+    const token = req.cookies?.csrfToken || crypto.randomBytes(32).toString("hex");
+    req.csrfToken = token;
+    if (!req.cookies?.csrfToken) {
       res.cookie("csrfToken", token, {
-        httpOnly: false, // Must be accessible by frontend JS to send back in header
+        httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
     }
     return next();
   }
 
-  const tokenFromCookie = req.cookies.csrfToken;
+  const tokenFromCookie = req.cookies?.csrfToken;
   const tokenFromHeader = req.headers["x-csrf-token"];
+  const cookieBuffer = typeof tokenFromCookie === "string" ? Buffer.from(tokenFromCookie) : null;
+  const headerBuffer = typeof tokenFromHeader === "string" ? Buffer.from(tokenFromHeader) : null;
+  const tokensMatch =
+    cookieBuffer &&
+    headerBuffer &&
+    cookieBuffer.length === headerBuffer.length &&
+    crypto.timingSafeEqual(cookieBuffer, headerBuffer);
 
-  if (!tokenFromCookie || !tokenFromHeader || tokenFromCookie !== tokenFromHeader) {
+  if (!tokensMatch) {
     logSecurityEvent("CSRF validation failed", req, { 
       tokenInCookie: !!tokenFromCookie, 
       tokenInHeader: !!tokenFromHeader 
     });
-    return res.status(403).json({ error: "Invalid CSRF token" });
+    return res.status(403).json({ error: "Invalid CSRF token", code: "CSRF_TOKEN_INVALID" });
   }
 
   next();
@@ -87,8 +92,16 @@ export const csrfProtection = (req, res, next) => {
 
 
 export const botDetection = (req, res, next) => {
-  const ip = req.ip;
+  const ip = String(req.ip || req.clientIp || "unknown");
   const now = Date.now();
+  requestHistorySweepCounter += 1;
+  if (requestHistorySweepCounter % 100 === 0) {
+    for (const [trackedIp, history] of requestHistory) {
+      if (history.length === 0 || now - history[history.length - 1] >= 10_000) {
+        requestHistory.delete(trackedIp);
+      }
+    }
+  }
 
   // 1. Check if IP is blocked
   if (blockCache.has(ip)) {
@@ -99,6 +112,9 @@ export const botDetection = (req, res, next) => {
   }
   
   if (!requestHistory.has(ip)) {
+    if (requestHistory.size >= MAX_TRACKED_IPS) {
+      requestHistory.delete(requestHistory.keys().next().value);
+    }
     requestHistory.set(ip, []);
   }
 
@@ -112,6 +128,9 @@ export const botDetection = (req, res, next) => {
   // 2. Risk Scoring & Blocking
   // If more than 30 requests in 10 seconds, block for 30 minutes
   if (recentRequests.length > 30) {
+    if (blockCache.keys().length >= MAX_TRACKED_IPS) {
+      blockCache.del(blockCache.keys()[0]);
+    }
     blockCache.set(ip, true, 1800); // 30 minutes block
     
     logSecurityEvent("Bot blocked: extreme frequency", req, { 

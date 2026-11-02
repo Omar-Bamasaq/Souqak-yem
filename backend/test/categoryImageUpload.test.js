@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ImageUploadService from '../src/services/imageUploadService.js';
+import { identifyImageFormat } from '../src/services/publicImagePipeline.js';
 
 test('allows SVG files for category uploads', () => {
   const filter = ImageUploadService.getFileFilter();
@@ -18,5 +19,5 @@ test('allows SVG files for category uploads', () => {
 
 test('recognizes SVG content as a valid image buffer', () => {
   const svgBuffer = Buffer.from('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>');
-  assert.equal(ImageUploadService.isImageBuffer(svgBuffer), true);
+  assert.equal(identifyImageFormat(svgBuffer), 'svg');
 });

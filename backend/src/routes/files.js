@@ -9,6 +9,12 @@ import VerificationRequest from "../models/VerificationRequest.js";
 import Withdrawal from "../models/Withdrawal.js";
 import PurchaseRequest from "../models/PurchaseRequest.js";
 import Commission from "../models/Commission.js";
+import ConversationMessage from "../models/ConversationMessage.js";
+import SupportMessage from "../models/SupportMessage.js";
+import {
+  createPublicMessageAttachmentGuard,
+  getMessageAttachmentLookupNames
+} from "../services/privateMessageAttachments.js";
 import {
   verifyAccessToken,
   inspectJwtClaimsOnly,
@@ -26,6 +32,32 @@ console.log(
 );
 
 const router = Router();
+const privateAttachmentCache = new Map();
+const PRIVATE_ATTACHMENT_CACHE_TTL_MS = 60_000;
+const MAX_PRIVATE_ATTACHMENT_CACHE_ENTRIES = 20_000;
+
+async function isPrivateMessageAttachment(filename) {
+  const cached = privateAttachmentCache.get(filename);
+  if (cached && cached.expiresAt > Date.now()) return cached.isPrivate;
+
+  const lookupNames = getMessageAttachmentLookupNames(filename);
+  const [conversationMessage, supportMessage] = await Promise.all([
+    ConversationMessage.exists({ images: { $in: lookupNames } }),
+    SupportMessage.exists({ images: { $in: lookupNames } })
+  ]);
+  const isPrivate = Boolean(conversationMessage || supportMessage);
+
+  if (privateAttachmentCache.size >= MAX_PRIVATE_ATTACHMENT_CACHE_ENTRIES) {
+    privateAttachmentCache.delete(privateAttachmentCache.keys().next().value);
+  }
+  privateAttachmentCache.set(filename, {
+    isPrivate,
+    expiresAt: Date.now() + PRIVATE_ATTACHMENT_CACHE_TTL_MS
+  });
+  return isPrivate;
+}
+
+router.get("/:filename", createPublicMessageAttachmentGuard(isPrivateMessageAttachment));
 
 function buildErrorSvg(message, subtitle = "") {
   const safeMsg = String(message).replace(/[<>&"']/g, "");

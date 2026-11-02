@@ -4,9 +4,43 @@ import { requireRole } from "../middleware/roles.js";
 import SupportConversation from "../models/SupportConversation.js";
 import SupportMessage from "../models/SupportMessage.js";
 import User from "../models/User.js";
-import { uploadImages } from "../middleware/upload.js";
+import { uploadMessageImages } from "../middleware/upload.js";
+import {
+  getUploadedMessageAttachmentNames,
+  isSafeMessageAttachmentFilename,
+  rejectClientSuppliedAttachmentRefs,
+  resolveMessageAttachmentPath,
+  sendMessageAttachment
+} from "../services/privateMessageAttachments.js";
 
 const router = Router();
+
+router.get("/attachments/:filename", auth, async (req, res) => {
+  try {
+    const { filename } = req.params;
+    if (!isSafeMessageAttachmentFilename(filename)) return res.sendStatus(404);
+
+    const message = await SupportMessage.findOne({ images: filename })
+      .select("conversationId")
+      .lean();
+    if (!message) return res.sendStatus(404);
+
+    if (req.user.role !== "admin") {
+      const conversation = await SupportConversation.findOne({
+        _id: message.conversationId,
+        userId: req.user.id
+      }).select("_id").lean();
+      if (!conversation) return res.sendStatus(404);
+    }
+
+    const filePath = resolveMessageAttachmentPath(filename);
+    if (!filePath) return res.sendStatus(404);
+    return sendMessageAttachment(res, filePath);
+  } catch (error) {
+    console.error("Support attachment access error:", error);
+    return res.status(500).json({ error: "حدث خطأ في الخادم." });
+  }
+});
 
 router.get("/my", auth, async (req, res) => {
   try {
@@ -95,10 +129,10 @@ router.get("/conversations/:id/messages", auth, async (req, res) => {
   }
 });
 
-router.post("/my/messages", auth, uploadImages.array("images", 5), async (req, res) => {
+router.post("/my/messages", auth, uploadMessageImages.array("images", 5), rejectClientSuppliedAttachmentRefs, async (req, res) => {
   try {
     const { text } = req.body;
-    const images = req.files ? req.files.map(f => f.filename) : req.body.images;
+    const images = getUploadedMessageAttachmentNames(req.files);
     
     let conv = await SupportConversation.findOne({ userId: req.user.id });
     if (!conv) {
@@ -291,10 +325,10 @@ router.get("/admin/:conversationId/messages", auth, requireRole(["admin"]), asyn
   }
 });
 
-router.post("/admin/:conversationId/messages", auth, requireRole(["admin"]), uploadImages.array("images", 5), async (req, res) => {
+router.post("/admin/:conversationId/messages", auth, requireRole(["admin"]), uploadMessageImages.array("images", 5), rejectClientSuppliedAttachmentRefs, async (req, res) => {
   try {
     const { text } = req.body;
-    const images = req.files ? req.files.map(f => f.filename) : req.body.images;
+    const images = getUploadedMessageAttachmentNames(req.files);
     
     const conv = await SupportConversation.findById(req.params.conversationId);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة." });

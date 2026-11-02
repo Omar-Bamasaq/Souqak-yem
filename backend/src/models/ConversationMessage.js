@@ -18,5 +18,6 @@ const conversationMessageSchema = new mongoose.Schema(
 
 conversationMessageSchema.index({ conversationId: 1, createdAt: 1 });
 conversationMessageSchema.index({ senderId: 1 });
+conversationMessageSchema.index({ images: 1 });
 
 export default mongoose.model("ConversationMessage", conversationMessageSchema);
