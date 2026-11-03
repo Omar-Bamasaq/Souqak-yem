@@ -1,6 +1,6 @@
 import { Router } from "express";
 import crypto from "crypto";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Order from "../models/Order.js";
@@ -62,19 +62,22 @@ const getVisitorKey = ({ userId, visitorIdentity, ip, userAgent }) => {
   return `guest:${crypto.createHash("sha256").update(`${VISITOR_KEY_SALT}:${rawIdentity}`).digest("hex")}`;
 };
 
+export const getVisitorRateLimitKey = (req) => {
+  const trustedUserId = req.user?.id || null;
+  if (trustedUserId) return `uid:${trustedUserId}`;
+
+  const clientIp = req.clientIp || req.ip;
+  const ipKey = clientIp ? ipKeyGenerator(clientIp) : "unknown";
+  const guestCookie = typeof req.cookies?.souqak_visitor_id === "string" ? req.cookies.souqak_visitor_id.trim() : "guest-no-cookie";
+  return `ip:${ipKey}:${guestCookie}`;
+};
+
 const visitorTrackRateLimit = rateLimit({
   windowMs: 60_000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const trustedUserId = req.user?.id || null;
-    if (trustedUserId) return `uid:${trustedUserId}`;
-
-    const ipKey = req.clientIp || req.ip || "unknown";
-    const guestCookie = typeof req.cookies?.souqak_visitor_id === "string" ? req.cookies.souqak_visitor_id.trim() : "guest-no-cookie";
-    return `ip:${ipKey}:${guestCookie}`;
-  },
+  keyGenerator: getVisitorRateLimitKey,
   message: {
     error: "Too many requests. Please wait a moment before refreshing the page."
   }
