@@ -24,12 +24,11 @@ export async function connectDB() {
 
   try {
     cached.conn = await cached.promise;
-    console.log("MongoDB Connected Successfully to:", uri.substring(0, 30) + "...");
+    console.log("MongoDB Connected Successfully.");
     return cached.conn;
   } catch (err) {
     cached.promise = null; // Reset promise so we can retry
     console.error("MongoDB Connection Error Details:", {
-      message: err.message,
       code: err.code,
       name: err.name
     });

@@ -205,22 +205,21 @@ app.use(
 );
 app.use(morgan("dev"));
 
-connectLocal()
+const databaseReady = connectLocal()
   .then(() => {
     return AdView.syncIndexes();
   })
   .then(() => {
-    const maskedUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + "..." : "NONE";
-    logger.info({ event: "db_connected", uri: maskedUri });
+    logger.info({ event: "db_connected" });
   })
   .catch((err) => {
     logger.error({
       event: "db_connection_failed",
       message: "Critical: Database connection failed during startup!",
-      uri: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + "..." : "NONE",
-      error: err.message,
-      code: err.code
+      errorName: err.name,
+      code: err.code,
     });
+    throw err;
   });
 
 const uploadDir = path.resolve(__dirname, "..", "uploads");
@@ -453,7 +452,7 @@ app.get("/sitemap.xml", async (req, res) => {
 });
 
 // Notification Retention Policy: Delete notifications older than 30 days every 24 hours
-setInterval(async () => {
+async function cleanupExpiredNotifications() {
   try {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -464,15 +463,15 @@ setInterval(async () => {
   } catch (err) {
     logger.error({ event: "notifications_cleanup_failed", error: err.message });
   }
-}, 24 * 60 * 60 * 1000);
+}
 
-setInterval(async () => {
+async function processDueReferralCommissions() {
   try {
     await ReferralEngine.processDueCommissions();
   } catch (err) {
     logger.error({ event: "referral_commission_processing_failed", error: err.message });
   }
-}, 60 * 60 * 1000);
+}
 
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -592,10 +591,17 @@ io.on("connection", (socket) => {
   });
 });
 app.set("io", io);
-server.listen(port, () => { console.log("Server listening on port", port); });
+databaseReady
+  .then(() => {
+    startPeriodicTasks();
+    server.listen(port, () => { console.log("Server listening on port", port); });
+  })
+  .catch(() => {
+    process.exit(1);
+  });
 server.on("listening", () => logger.info({ event: "server_listening", port }));
 
-setInterval(async () => {
+async function processScheduledOperations() {
   try {
     const now = new Date();
     
@@ -807,7 +813,17 @@ setInterval(async () => {
       { $set: { state: "EXPIRED" } }
     );
   } catch (e) { logger.error({ event: "cron_error", message: e.message }); if (process.env.SENTRY_DSN) Sentry.captureException(e); }
-}, 60 * 1000);
+}
+
+let periodicTasksStarted = false;
+function startPeriodicTasks() {
+  if (periodicTasksStarted) return;
+  periodicTasksStarted = true;
+
+  setInterval(cleanupExpiredNotifications, 24 * 60 * 60 * 1000);
+  setInterval(processDueReferralCommissions, 60 * 60 * 1000);
+  setInterval(processScheduledOperations, 60 * 1000);
+}
 
 app.use((err, req, res, next) => {
   const isProduction = process.env.NODE_ENV === "production";
