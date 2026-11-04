@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
+import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./csrf.js";
 
 let apiInstance = null;
 let isRefreshing = false;
@@ -56,22 +57,15 @@ export function useApi() {
       instance.interceptors.response.eject(responseInterceptorRef.current);
     }
     
-    requestInterceptorRef.current = instance.interceptors.request.use((config) => {
+    requestInterceptorRef.current = instance.interceptors.request.use(async (config) => {
       if (config.url && config.url.startsWith("/")) {
         config.url = config.url.substring(1);
       }
       if (token) config.headers.Authorization = `Bearer ${token}`;
 
       const nonGetMethods = ["post", "put", "delete", "patch"];
-      if (nonGetMethods.includes(config.method?.toLowerCase())) {
-        const csrfToken = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("csrfToken="))
-          ?.split("=")[1];
-        
-        if (csrfToken) {
-          config.headers["X-CSRF-Token"] = csrfToken;
-        }
+      if (nonGetMethods.includes(config.method?.toLowerCase()) && isApiRequest(config)) {
+        config.headers["X-CSRF-Token"] = await ensureCsrfToken();
       }
 
       return config;
@@ -80,6 +74,7 @@ export function useApi() {
     responseInterceptorRef.current = instance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        if (error.response?.data?.code === "CSRF_TOKEN_INVALID") clearCsrfToken();
         const originalRequest = error.config;
         const requestUrl = originalRequest?.url || "";
         const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");
@@ -111,9 +106,11 @@ export function useApi() {
             const refreshBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
             let b = refreshBase.replace(/\/$/, "");
             if (!b.endsWith("/api")) b = `${b}/api`;
+            const csrfToken = await ensureCsrfToken();
             
             const refreshRes = await axios.post(`${b}/auth/refresh-token`, {}, {
-              withCredentials: true
+              withCredentials: true,
+              headers: { "X-CSRF-Token": csrfToken }
             });
             
             const newToken = refreshRes.data.token;

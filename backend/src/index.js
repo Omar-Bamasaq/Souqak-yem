@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
-import { corsOptions } from "./config/cors.js";
+import { corsOptions, socketAllowRequest } from "./config/cors.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,6 +100,8 @@ import adminReferralRoutes from "./routes/adminReferrals.js";
 import publicReferralRoutes from "./routes/publicReferral.js";
 import ReferralEngine from "./engines/ReferralEngine.js";
 import User from "./models/User.js";
+import Conversation from "./models/Conversation.js";
+import Chat from "./models/Chat.js";
 import Ad from "./models/Ad.js";
 import Order from "./models/Order.js";
 import Dispute from "./models/Dispute.js";
@@ -117,6 +119,12 @@ import swaggerUi from "swagger-ui-express";
 import { verifyEmailAccounts } from "./utils/emailSender.js";
 import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
 import { getBackendBaseUrl } from "./utils/siteUrl.js";
+import {
+  getAuthenticatedSocketUserId,
+  getSocketAccessToken,
+  isChatParticipant,
+  isConversationParticipant
+} from "./utils/socketAuthorization.js";
 
 try {
   await connectLocal();
@@ -161,7 +169,12 @@ app.options("*", cors(corsOptions)); // Handle preflight globally
 // Global Security Middleware
 app.use(securityHeaders);
 // app.use(botDetection); // تعطيل Bot Detection للتطوير
-// app.use(csrfProtection); // تعطيل مؤقت لحل مشكلة Invalid CSRF Token أثناء الدخول من Vercel
+app.use("/api", csrfProtection);
+
+app.get("/api/csrf-token", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ csrfToken: req.csrfToken });
+});
 
 app.get("/api/version", (req, res) => {
   res.json({ version: "1.0.1", patch_fix: true, timestamp: new Date().toISOString() });
@@ -523,29 +536,25 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const io = new Server(server, {
-  cors: corsOptions
+  cors: corsOptions,
+  allowRequest: socketAllowRequest
 });
 
-function getSocketAccessToken(socket) {
-  const cookieHeader = socket.handshake.headers.cookie || "";
-  const cookies = new Map();
-  for (const entry of cookieHeader.split(";")) {
-    const separator = entry.indexOf("=");
-    if (separator < 0) continue;
-    const name = entry.slice(0, separator).trim();
-    if (name !== "accessToken" && name !== "token") continue;
-    try {
-      cookies.set(name, decodeURIComponent(entry.slice(separator + 1).trim()));
-    } catch {
-      return null;
-    }
-  }
-  return cookies.get("accessToken") || cookies.get("token") || null;
-}
-
 io.on("connection", (socket) => {
-  socket.on("join", ({ productId }) => {
-    if (productId) socket.join(`chat:${productId}`);
+  socket.on("join", async ({ chatId } = {}) => {
+    try {
+      if (await isChatParticipant(Chat, socket.userId, chatId)) {
+        for (const room of socket.rooms) {
+          if (room.startsWith("chat:")) socket.leave(room);
+        }
+        socket.join(`chat:${chatId}`);
+      }
+    } catch (error) {
+      logger.warn({
+        event: "socket_product_chat_room_join_failed",
+        message: error.message
+      });
+    }
   });
   socket.on("join_user", async (payload = {}) => {
     const userId = payload?.userId;
@@ -553,9 +562,12 @@ io.on("connection", (socket) => {
     if (!accessToken) return;
 
     try {
-      const payload = jwtConfigBootstrap.verifyAccessToken(accessToken);
-      const authenticatedUserId = String(payload.userId || payload.id || "");
-      if (!authenticatedUserId || (userId && String(userId) !== authenticatedUserId)) return;
+      const authenticatedUserId = getAuthenticatedSocketUserId(
+        accessToken,
+        userId,
+        jwtConfigBootstrap.verifyAccessToken
+      );
+      if (!authenticatedUserId) return;
 
       const user = await User.findById(authenticatedUserId)
         .select("role isDisabled isDeleted")
@@ -563,8 +575,10 @@ io.on("connection", (socket) => {
       if (!user || user.isDisabled || user.isDeleted) return;
 
       if (socket.userId && socket.userId !== authenticatedUserId) {
-        socket.leave(`user:${socket.userId}`);
-        socket.leave("role:admin");
+        for (const room of socket.rooms) {
+          if (room !== socket.id) socket.leave(room);
+        }
+        socket.userId = null;
       }
 
       socket.join(`user:${authenticatedUserId}`);
@@ -578,6 +592,7 @@ io.on("connection", (socket) => {
       const now = new Date();
       await User.findByIdAndUpdate(authenticatedUserId, { isOnline: true, socketId: socket.id, lastSeen: now });
       socket.broadcast.emit("user:status", { userId: authenticatedUserId, isOnline: true, lastSeen: now });
+      socket.emit("socket:authenticated");
     } catch (error) {
       logger.warn({
         event: "socket_user_room_join_failed",
@@ -586,8 +601,17 @@ io.on("connection", (socket) => {
       });
     }
   });
-  socket.on("join_conversation", ({ conversationId }) => {
-    if (conversationId) socket.join(`conv:${conversationId}`);
+  socket.on("join_conversation", async ({ conversationId } = {}) => {
+    try {
+      if (await isConversationParticipant(Conversation, socket.userId, conversationId)) {
+        socket.join(`conv:${conversationId}`);
+      }
+    } catch (error) {
+      logger.warn({
+        event: "socket_conversation_room_join_failed",
+        message: error.message
+      });
+    }
   });
   socket.on("join_auction", async ({ auctionId } = {}) => {
     if (!mongoose.isValidObjectId(auctionId)) return;
@@ -609,20 +633,47 @@ io.on("connection", (socket) => {
       });
     }
   });
-  socket.on("conversation:typing", ({ conversationId, from }) => {
-    if (conversationId) socket.to(`conv:${conversationId}`).emit("conversation:typing", { conversationId, from });
-  });
-  socket.on("message:delivered", async ({ messageId, conversationId, senderId }) => {
+  socket.on("conversation:typing", async ({ conversationId } = {}) => {
     try {
+      if (await isConversationParticipant(Conversation, socket.userId, conversationId)) {
+        socket.to(`conv:${conversationId}`).emit("conversation:typing", {
+          conversationId,
+          from: socket.userId
+        });
+      }
+    } catch (error) {
+      logger.warn({
+        event: "socket_conversation_typing_failed",
+        message: error.message
+      });
+    }
+  });
+  socket.on("message:delivered", async ({ messageId, conversationId } = {}) => {
+    try {
+      if (!await isConversationParticipant(Conversation, socket.userId, conversationId)) return;
       const msg = await ConversationMessage.findOneAndUpdate(
-        { _id: messageId, status: "sent" },
+        {
+          _id: messageId,
+          conversationId,
+          senderId: { $ne: socket.userId },
+          status: "sent"
+        },
         { $set: { status: "delivered" } },
         { new: true }
       );
       if (msg) {
-        io.to(`user:${senderId}`).emit("message:status_update", { messageId, conversationId, status: "delivered" });
+        io.to(`user:${msg.senderId}`).emit("message:status_update", {
+          messageId: String(msg._id),
+          conversationId: String(msg.conversationId),
+          status: "delivered"
+        });
       }
-    } catch {}
+    } catch (error) {
+      logger.warn({
+        event: "socket_message_delivery_update_failed",
+        message: error.message
+      });
+    }
   });
   socket.on("disconnect", async () => {
     if (socket.userId) {

@@ -57,7 +57,7 @@ export default function Messages() {
   const navigate = useNavigate();
   const api = useApi();
   const { user } = useAuth();
-  const { socket } = useChat() || {};
+  const { socket, socketAuthenticated } = useChat() || {};
   const [conversations, setConversations] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -430,9 +430,9 @@ export default function Messages() {
   };
 
   useEffect(() => {
-    if (!socket || !selectedId) return;
+    if (!socket || !socketAuthenticated || !selectedId) return;
     socket.emit("join_conversation", { conversationId: selectedId });
-  }, [socket, selectedId]);
+  }, [socket, socketAuthenticated, selectedId]);
   const onType = (e) => {
     setText(e.target.value);
     setTyping(true);

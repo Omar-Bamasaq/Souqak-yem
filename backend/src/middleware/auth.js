@@ -8,15 +8,7 @@ import {
   ACCESS_TOKEN_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN,
   inspectJwtClaimsOnly,
-  getAccessSecretFingerprint,
-  getRefreshSecretFingerprint,
 } from "../config/jwt.js";
-
-const ACCESS_FP = getAccessSecretFingerprint();
-const REFRESH_FP = getRefreshSecretFingerprint();
-console.log(
-  `[AuthMW] Sign+Verify using Access(${ACCESS_FP.length}ch,${ACCESS_FP.sha256first12}) Refresh(${REFRESH_FP.length}ch,${REFRESH_FP.sha256first12}) algo=${JWT_ALGORITHM}`
-);
 
 async function auth(req, res, next) {
   const shouldLogRequest = !req.privateMessageAttachmentRequest;

@@ -1,9 +1,6 @@
 const allowedOrigins = [
   "https://souqak-yem.com",
-  "https://www.souqak-yem.com",
-  "https://souqak-beta.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174"
+  "https://www.souqak-yem.com"
 ];
 
 export function isAllowedCorsOrigin(origin) {
@@ -17,7 +14,12 @@ export function isAllowedCorsOrigin(origin) {
   }
   if (parsedOrigin.origin !== origin) return false;
 
-  return parsedOrigin.hostname === "localhost";
+  return process.env.NODE_ENV !== "production" && parsedOrigin.hostname === "localhost";
+}
+
+export function socketAllowRequest(request, callback) {
+  const origin = request.headers?.origin;
+  callback(null, typeof origin === "string" && isAllowedCorsOrigin(origin));
 }
 
 export const corsOptions = {

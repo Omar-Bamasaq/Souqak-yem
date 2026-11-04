@@ -51,30 +51,40 @@ export const securityHeaders = helmet({
  * This middleware checks for a 'x-csrf-token' header against a 'csrfToken' cookie.
  */
 export const csrfProtection = (req, res, next) => {
-  // Methods that don't need CSRF protection
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
   if (safeMethods.includes(req.method)) {
-    // Generate and set CSRF token for the session if it doesn't exist
-    if (!req.cookies.csrfToken) {
-      const token = crypto.randomBytes(32).toString("hex");
+    const token = req.cookies?.csrfToken || crypto.randomBytes(32).toString("hex");
+    req.csrfToken = token;
+    if (!req.cookies?.csrfToken) {
       res.cookie("csrfToken", token, {
-        httpOnly: false, // Must be accessible by frontend JS to send back in header
+        httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
     }
     return next();
   }
 
-  const tokenFromCookie = req.cookies.csrfToken;
+  const tokenFromCookie = req.cookies?.csrfToken;
   const tokenFromHeader = req.headers["x-csrf-token"];
+  const cookieBuffer = typeof tokenFromCookie === "string" ? Buffer.from(tokenFromCookie) : null;
+  const headerBuffer = typeof tokenFromHeader === "string" ? Buffer.from(tokenFromHeader) : null;
+  const tokensMatch = cookieBuffer
+    && headerBuffer
+    && cookieBuffer.length === headerBuffer.length
+    && crypto.timingSafeEqual(cookieBuffer, headerBuffer);
 
-  if (!tokenFromCookie || !tokenFromHeader || tokenFromCookie !== tokenFromHeader) {
-    logSecurityEvent("CSRF validation failed", req, { 
-      tokenInCookie: !!tokenFromCookie, 
-      tokenInHeader: !!tokenFromHeader 
+  if (!tokensMatch) {
+    logSecurityEvent("CSRF validation failed", req, {
+      tokenInCookie: Boolean(tokenFromCookie),
+      tokenInHeader: Boolean(tokenFromHeader)
     });
-    return res.status(403).json({ error: "Invalid CSRF token" });
+    return res.status(403).json({
+      error: "Invalid CSRF token",
+      code: "CSRF_TOKEN_INVALID"
+    });
   }
 
   next();

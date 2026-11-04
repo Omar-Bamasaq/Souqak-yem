@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,26 +60,6 @@ export function getJwtSecret() {
   return getAccessTokenSecret();
 }
 
-export function getAccessSecretFingerprint() {
-  const s = getAccessTokenSecret();
-  return {
-    length: s ? s.length : 0,
-    sha256first12: s
-      ? crypto.createHash("sha256").update(String(s)).digest("hex").slice(0, 12)
-      : "000000000000",
-  };
-}
-
-export function getRefreshSecretFingerprint() {
-  const s = getRefreshTokenSecret();
-  return {
-    length: s ? s.length : 0,
-    sha256first12: s
-      ? crypto.createHash("sha256").update(String(s)).digest("hex").slice(0, 12)
-      : "000000000000",
-  };
-}
-
 export function signAccessToken(payload) {
   return jwt_sign(payload, getAccessTokenSecret(), {
     algorithm: JWT_ALGORITHM,
@@ -134,19 +113,9 @@ export function inspectJwtClaimsOnly(rawToken) {
   }
 }
 
-let __loaded_once = false;
-if (!__loaded_once) {
-  loadDotenvIfNeeded();
-  const fp = getAccessSecretFingerprint();
-  const rfp = getRefreshSecretFingerprint();
-  console.log(
-    `[JWTConfig] Access secret fingerprint=len=${fp.length} sha=${fp.sha256first12}`
-  );
-  console.log(
-    `[JWTConfig] Refresh secret fingerprint=len=${rfp.length} sha=${rfp.sha256first12}`
-  );
-  __loaded_once = true;
-}
+loadDotenvIfNeeded();
+getAccessTokenSecret();
+getRefreshTokenSecret();
 
 export default {
   JWT_ALGORITHM,
@@ -155,8 +124,6 @@ export default {
   getAccessTokenSecret,
   getRefreshTokenSecret,
   getJwtSecret,
-  getAccessSecretFingerprint,
-  getRefreshSecretFingerprint,
   signAccessToken,
   signRefreshToken,
   verifyAccessToken,
