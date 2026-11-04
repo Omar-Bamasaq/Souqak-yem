@@ -74,8 +74,8 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
   if (success) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm p-10 text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100">
-          <div className="h-24 w-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto text-green-500 animate-bounce">
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm p-10 text-center space-y-6 animate-in zoom-in-95 duration-300 shadow-[0_30px_80px_rgba(5,150,105,0.18)] border border-emerald-100">
+          <div className="h-24 w-24 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto text-emerald-600 animate-bounce">
             <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
@@ -91,7 +91,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-md overflow-hidden shadow-[0_30px_80px_rgba(109,40,217,0.18)] border border-violet-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-md overflow-hidden shadow-[0_30px_80px_rgba(5,150,105,0.18)] border border-emerald-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
         <div className="px-5 py-4 border-b dark:border-slate-800 flex items-start justify-between relative">
           <button onClick={onClose} className="absolute left-4 top-4 h-8 w-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-slate-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors z-10">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,13 +115,16 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 text-right flex flex-col justify-center bg-violet-50/80 dark:bg-violet-900/20 px-2 py-1.5 rounded-xl border border-violet-100/50 dark:border-violet-800/30 shadow-sm">
-              <span className="text-[9px] font-black text-violet-700 dark:text-violet-400 leading-none">{Number(finalPrice).toLocaleString()}</span>
-              <span className="text-[7px] font-bold text-violet-500/70 leading-none mt-0.5">{formatCurrency(currency)}</span>
+            <div className="flex-shrink-0 text-right flex flex-col justify-center bg-emerald-50/80 dark:bg-emerald-900/20 px-2 py-1.5 rounded-xl border border-emerald-100/50 dark:border-emerald-800/30 shadow-sm">
+              <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-400 leading-none">{Number(finalPrice).toLocaleString()}</span>
+              <span className="text-[7px] font-bold text-emerald-600/70 leading-none mt-0.5">{formatCurrency(currency)}</span>
             </div>
             <div className="min-w-0">
               <h3 className="text-lg font-black text-gray-900 dark:text-white leading-none truncate">طلب شراء آمن</h3>
-              <p className="text-[9px] font-bold text-violet-600 uppercase tracking-widest mt-1">وساطة منصة سوقك</p>
+              <div className="mt-1 flex items-center gap-1.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-400">
+                <img src="/Amana-Logo.svg" alt="" className="h-4 w-4 rounded-full bg-white object-contain p-0.5" />
+                <span>خدمة الوساطة عبر أمانة</span>
+              </div>
             </div>
           </div>
         </div>
@@ -139,7 +142,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">السعر المتفق عليه</label>
                 <input 
                   type="number" 
-                  className="w-full rounded-xl border-2 border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all"
+                  className="w-full rounded-xl border-2 border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-all"
                   value={finalPrice}
                   onChange={(e) => setFinalPrice(e.target.value)}
                 />
@@ -174,7 +177,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
                       setShippingPayer(type);
                       if (type === "none") setShippingFee(0);
                     }}
-                    className={`py-2.5 rounded-xl text-[11px] font-black border-2 transition-all ${shippingPayer === type ? "bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-100" : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-800 text-gray-500"}`}
+                    className={`py-2.5 rounded-xl text-[11px] font-black border-2 transition-all ${shippingPayer === type ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-100" : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-800 text-gray-500"}`}
                   >
                     {type === "buyer" ? "المشتري" : type === "seller" ? "البائع" : "لا يوجد"}
                   </button>
@@ -184,12 +187,12 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
 
             {shippingPayer === "buyer" && (
               <div className="animate-in slide-in-from-top-2 duration-300 space-y-1.5">
-                <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest px-1">رسوم التوصيل المتفق عليها</label>
+                <label className="block text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest px-1">رسوم التوصيل المتفق عليها</label>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
                     <input 
                       type="number" 
-                      className="w-full rounded-xl border-2 border-violet-100 dark:border-violet-900/30 bg-violet-50/30 dark:bg-violet-900/10 px-4 py-3 text-sm font-bold outline-none focus:border-violet-500 focus:bg-white transition-all placeholder:text-violet-300"
+                      className="w-full rounded-xl border-2 border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/30 dark:bg-emerald-900/10 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder:text-emerald-300"
                       value={shippingFee}
                       onChange={(e) => setShippingFee(e.target.value)}
                       placeholder="أدخل المبلغ..."
@@ -215,7 +218,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
             <div className="space-y-1.5">
               <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">ملاحظات إضافية</label>
               <textarea 
-                className="w-full rounded-xl border-2 border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-xs font-medium outline-none focus:border-blue-500 focus:bg-white transition-all h-20 resize-none"
+                className="w-full rounded-xl border-2 border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 px-4 py-3 text-xs font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all h-20 resize-none"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="اتفاقات خاصة..."
@@ -232,25 +235,25 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
               {shippingPayer !== "none" && Number(shippingFee) > 0 && (
                 <div className="flex justify-between text-xs font-bold whitespace-nowrap animate-in fade-in duration-200">
                   <span className="text-gray-500">رسوم التوصيل ({shippingPayer === "buyer" ? "على المشتري" : "على البائع"})</span>
-                  <span className="text-blue-600 font-black">{Number(shippingFee)?.toLocaleString()} {formatCurrency(shippingPayer === "buyer" ? shippingCurrency : currency)}</span>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-black">{Number(shippingFee)?.toLocaleString()} {formatCurrency(shippingPayer === "buyer" ? shippingCurrency : currency)}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-xs font-bold">
-                <span className="text-emerald-600">رسوم حماية المشتري (3%)</span>
-                <span className="text-emerald-600">+{buyerProtectionFee?.toLocaleString()} {formatCurrency(currency)}</span>
+                <span className="text-emerald-700 dark:text-emerald-400">رسوم خدمة الشراء الآمن (3%)</span>
+                <span className="text-emerald-700 dark:text-emerald-400">+{buyerProtectionFee?.toLocaleString()} {formatCurrency(currency)}</span>
               </div>
 
               <div className="border-t border-dashed border-gray-200 dark:border-slate-700 pt-3 flex justify-between items-center">
                 <span className="text-sm font-black text-gray-900 dark:text-white">المبلغ الإجمالي</span>
                 <div className="text-left">
-                  <div className="text-lg font-black text-violet-600 leading-tight">
+                  <div className="text-lg font-black text-emerald-700 dark:text-emerald-400 leading-tight">
                     {currency === (shippingPayer === "buyer" ? shippingCurrency : currency) ? (
                       `${totalAmount.toLocaleString()} ${formatCurrency(currency)}`
                     ) : (
                       <div className="flex flex-col items-end">
                         <span className="text-lg">{(Number(finalPrice) + buyerProtectionFee).toLocaleString()} {formatCurrency(currency)}</span>
-                        <span className="text-xs text-violet-500 bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-md mt-1 font-black">
+                        <span className="text-xs text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-md mt-1 font-black">
                           + {Number(shippingFee).toLocaleString()} {formatCurrency(shippingCurrency)} (توصيل)
                         </span>
                       </div>
@@ -261,15 +264,15 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
             </div>
 
             {/* Terms Checkbox */}
-            <label className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/30 dark:bg-blue-900/5 cursor-pointer group transition-colors">
+            <label className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-900/5 cursor-pointer group transition-colors">
               <input 
                 type="checkbox" 
-                className="mt-0.5 h-4 w-4 rounded border-2 border-blue-200 text-blue-600 focus:ring-0 cursor-pointer"
+                className="mt-0.5 h-4 w-4 rounded border-2 border-emerald-200 text-emerald-600 focus:ring-0 cursor-pointer"
                 checked={agreedTerms}
                 onChange={(e) => setAgreedTerms(e.target.checked)}
               />
               <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight font-bold">
-                أوافق على شروط الوساطة، وأتحمل مسؤولية صحة البيانات.
+              أوافق على شروط خدمة الشراء الآمن عبر أمانة، وأتحمل مسؤولية صحة البيانات.
               </span>
             </label>
           </div>
@@ -279,7 +282,7 @@ export default function SecurePurchaseModal({ isOpen, onClose, ad }) {
           <button 
             onClick={handleSubmit}
             disabled={loading || !agreedTerms}
-            className="w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-base hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-100 active:scale-[0.98]"
+            className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-black text-base hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-lg shadow-emerald-100 active:scale-[0.98]"
           >
             {loading ? "جاري الإرسال..." : "تأكيد وإرسال الطلب"}
           </button>

@@ -19,6 +19,7 @@ console.log(
 );
 
 async function auth(req, res, next) {
+  const shouldLogRequest = !req.privateMessageAttachmentRequest;
   let token = req.cookies?.accessToken;
   let source = token ? "cookie" : null;
 
@@ -40,25 +41,31 @@ async function auth(req, res, next) {
     const user = await User.findById(payload.userId || payload.id).lean();
 
     if (!user) {
-      console.log(
-        `[Auth][${req.method} ${req.path}] verified (source=${source} alg=${alg}) but user not found: uid=${
-          payload.userId || payload.id
-        }`
-      );
+      if (shouldLogRequest) {
+        console.log(
+          `[Auth][${req.method} ${req.path}] verified (source=${source} alg=${alg}) but user not found: uid=${
+            payload.userId || payload.id
+          }`
+        );
+      }
       return res.status(401).json({ error: "Unauthorized: User not found" });
     }
 
     if (user.isDisabled) {
-      console.log(
-        `[Auth][${req.method} ${req.path}] verified (source=${source}) but user DISABLED: ${user._id}`
-      );
+      if (shouldLogRequest) {
+        console.log(
+          `[Auth][${req.method} ${req.path}] verified (source=${source}) but user DISABLED: ${user._id}`
+        );
+      }
       return res.status(403).json({ error: "هذا الحساب محظور من قبل الإدارة." });
     }
 
     if (user.isDeleted) {
-      console.log(
-        `[Auth][${req.method} ${req.path}] verified (source=${source}) but user DELETED: ${user._id}`
-      );
+      if (shouldLogRequest) {
+        console.log(
+          `[Auth][${req.method} ${req.path}] verified (source=${source}) but user DELETED: ${user._id}`
+        );
+      }
       return res.status(403).json({ error: "هذا الحساب تم حذفه." });
     }
 
@@ -68,19 +75,28 @@ async function auth(req, res, next) {
       permissions: Array.isArray(user.permissions) ? user.permissions : [],
       name: user.name,
       phone: user.phone,
+      phoneVerifiedAt: user.phoneVerifiedAt || null,
       identityStatus: user.identityStatus,
       isVerifiedSeller: !!user.isVerifiedSeller,
+      verificationStatus: user.verificationStatus,
+      verificationExpiryDate: user.verificationExpiryDate,
+      isDisabled: !!user.isDisabled,
+      isDeleted: !!user.isDeleted,
     };
 
-    console.log(
-      `[Auth][${req.method} ${req.path}] OK (source=${source} alg=${alg}) uid=${user._id} role=${user.role}`
-    );
+    if (shouldLogRequest) {
+      console.log(
+        `[Auth][${req.method} ${req.path}] OK (source=${source} alg=${alg}) uid=${user._id} role=${user.role}`
+      );
+    }
 
     next();
   } catch (error) {
-    console.error(
-      `[Auth][${req.method} ${req.path}] FAILED (source=${source}): ${error.name} ${error.message}`
-    );
+    if (shouldLogRequest) {
+      console.error(
+        `[Auth][${req.method} ${req.path}] FAILED (source=${source}): ${error.name} ${error.message}`
+      );
+    }
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         error: "Unauthorized: Token expired",

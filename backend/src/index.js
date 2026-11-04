@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
+import { corsOptions } from "./config/cors.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,11 +37,15 @@ import addRequestId from "express-request-id";
 import { securityHeaders, csrfProtection, botDetection } from "./middleware/security.js";
 import { logSecurityEvent } from "./utils/logger.js";
 import rateLimit from "./middleware/rateLimit.js";
+import publicUploads from "./middleware/publicUploads.js";
+import { legacyMessageAttachmentGuard, privateMessageAttachmentsRouter } from "./routes/privateMessageAttachments.js";
 import authRoutes from "./routes/auth.js";
+import { expiredVerificationFields, getExpiredVerificationFilter } from "./services/userVerification.js";
 import adminRoutes from "./routes/admin.js";
 import messageRoutes from "./routes/messages.js";
 import emailRoutes from "./routes/email.js";
 import orderRoutes from "./routes/orders.js";
+import storeCommerceRoutes from "./routes/storeCommerce.js";
 import chatRoutes from "./routes/chats.js";
 import commentAdminRoutes from "./routes/comments.js";
 import planRoutes from "./routes/plans.js";
@@ -49,6 +55,7 @@ import userBankAccountRoutes from "./routes/userBankAccounts.js";
 import adminPlansRoutes from "./routes/adminPlans.js";
 import adminMessagesRoutes from "./routes/adminMessages.js";
 import verificationRequestsRoutes from "./routes/verificationRequests.js";
+import phoneVerificationRoutes from "./routes/phoneVerification.js";
 import tagRoutes from "./routes/tags.js";
 import commissionsRoutes from "./routes/commissions.js";
 import Commission from "./models/Commission.js";
@@ -67,16 +74,26 @@ import governorateRoutes from "./routes/governorates.js";
 import cityRoutes from "./routes/cities.js";
 import sellersRoutes from "./routes/sellers.js";
 import adsRoutes from "./routes/ads.js";
+import quoteRequestsRoutes from "./routes/quoteRequests.js";
+import bookingsRoutes from "./routes/bookings.js";
 import categoryRoutes from "./routes/categories.js";
 import categoryAttributeRoutes from "./routes/categoryAttributes.js";
 import supportRoutes from "./routes/support.js";
 import platformReviewRoutes from "./routes/platformReviews.js";
 import reviewRoutes from "./routes/reviews.js";
-import AdView from "./models/AdView.js";
 import walletRoutes from "./routes/wallets.js";
+import walletServiceRoutes from "./routes/walletServices.js";
+import draftActionRoutes from "./routes/draftActions.js";
 import adminEscrowRoutes from "./routes/adminEscrow.js";
 import adminAnalyticsRoutes from "./routes/adminAnalytics.js";
 import sellerAnalyticsRoutes from "./routes/sellerAnalytics.js";
+import storesRoutes from "./routes/stores.js";
+import adminStoresRoutes from "./routes/adminStores.js";
+import auctionRoutes from "./routes/auctions.js";
+import adminAuctionRoutes from "./routes/adminAuctions.js";
+import Auction from "./models/Auction.js";
+import { startAuctionLifecycle } from "./services/auctionLifecycle.js";
+import { isPublicationEligible } from "./services/auctionPublicationEligibility.js";
 import brokerageRoutes from "./routes/brokerage.js";
 import referralRoutes from "./routes/referrals.js";
 import adminReferralRoutes from "./routes/adminReferrals.js";
@@ -87,7 +104,9 @@ import Ad from "./models/Ad.js";
 import Order from "./models/Order.js";
 import Dispute from "./models/Dispute.js";
 import Notification from "./models/Notification.js";
-import { releaseBalance } from "./services/walletService.js";
+import StoreSubscription from "./models/StoreSubscription.js";
+import StoreProfile from "./models/StoreProfile.js";
+import { releaseBalance, withFinancialTransaction } from "./services/walletService.js";
 import { createNotification } from "./services/notificationService.js";
 import http from "http";
 import { Server } from "socket.io";
@@ -99,41 +118,42 @@ import { verifyEmailAccounts } from "./utils/emailSender.js";
 import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
 import { getBackendBaseUrl } from "./utils/siteUrl.js";
 
+try {
+  await connectLocal();
+  const storeProfileCollectionExists = await mongoose.connection.db
+    .listCollections({ name: StoreProfile.collection.name }, { nameOnly: true })
+    .hasNext();
+  if (!storeProfileCollectionExists) await StoreProfile.createCollection();
+  logger.info({ event: "db_connected" });
+} catch (error) {
+  console.error("Critical: MongoDB connection failed; refusing to start the HTTP server.", {
+    name: error.name,
+    code: error.code || null
+  });
+  process.exit(1);
+}
+
 const app = express();
 app.set("trust proxy", 1);
 
-const allowedOrigins = [
-  "https://souqak-yem.com",
-  "https://www.souqak-yem.com",
-  "https://souqak-beta.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174"
-];
-
 app.use(addRequestId());
 app.use(requestIp.mw());
+app.use((req, _res, next) => {
+  const requestPath = req.path;
+  if (
+    requestPath.startsWith("/api/message-attachments/") ||
+    /^\/api\/conversations\/[^/]+\/messages$/.test(requestPath) ||
+    /^\/api\/support\/(?:my\/messages|conversations\/[^/]+\/messages|admin\/[^/]+\/messages)$/.test(requestPath)
+  ) {
+    req.privateMessageAttachmentRequest = true;
+  }
+  next();
+});
 
 app.use(compression());
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-// Enhanced CORS Configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    const isVercel = origin.includes("vercel.app");
-    const isLocal = origin.includes("localhost");
-    if (allowedOrigins.includes(origin) || isVercel || isLocal) {
-      return callback(null, true);
-    }
-    return callback(null, true); // Fallback to allow during debug
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token"],
-  exposedHeaders: ["Set-Cookie"]
-};
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Handle preflight globally
@@ -186,7 +206,6 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-const ALLOWED_ORIGINS = allowedOrigins;
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
   app.use(Sentry.Handlers.requestHandler());
@@ -221,25 +240,9 @@ app.use(
       }
   })
 );
-app.use(morgan("dev"));
-
-connectLocal()
-  .then(() => {
-    return AdView.syncIndexes();
-  })
-  .then(() => {
-    const maskedUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + "..." : "NONE";
-    logger.info({ event: "db_connected", uri: maskedUri });
-  })
-  .catch((err) => {
-    logger.error({
-      event: "db_connection_failed",
-      message: "Critical: Database connection failed during startup!",
-      uri: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 30) + "..." : "NONE",
-      error: err.message,
-      code: err.code
-    });
-  });
+app.use(morgan("dev", {
+  skip: (req) => req.privateMessageAttachmentRequest === true
+}));
 
 const uploadDir = path.resolve(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -272,6 +275,7 @@ function middlewareWantsBrowser(req) {
 }
 
 app.use("/uploads", filesRoutes);
+app.use("/uploads", legacyMessageAttachmentGuard);
 app.use("/", publicReferralRoutes);
 
 // Fallback for non-sensitive files: serve public uploads + placeholders for missing images
@@ -318,14 +322,15 @@ app.use("/uploads", async (req, res, next) => {
   next();
 });
 
-app.use("/uploads", express.static(uploadDir, { etag: true, maxAge: "30d", immutable: true, cacheControl: true }));
+app.use("/uploads", publicUploads, express.static(uploadDir, { etag: true, maxAge: "30d", immutable: true, cacheControl: true }));
 
 app.get("/api/health", async (req, res) => {
   try {
     await connectLocal();
+    await mongoose.connection.db.admin().command({ ping: 1 });
     res.json({ message: "Database Connected" });
   } catch {
-    res.status(500).json({ error: "DB connection failed" });
+    res.status(503).json({ error: "DB connection failed" });
   }
 });
 app.get("/api/health/liveness", (req, res) => {
@@ -333,34 +338,48 @@ app.get("/api/health/liveness", (req, res) => {
 });
 app.get("/api/health/readiness", async (req, res) => {
   try {
-    await User.findOne().select("_id").lean();
+    if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+      return res.status(503).json({ ok: false });
+    }
+    await mongoose.connection.db.admin().command({ ping: 1 });
     res.json({ ok: true });
   } catch {
-    res.status(500).json({ ok: false });
+    res.status(503).json({ ok: false });
   }
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/message-attachments", privateMessageAttachmentsRouter);
 app.use("/api/admin/settings", adminSettingsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/stores", adminStoresRoutes);
+app.use("/api/auctions", auctionRoutes);
+app.use("/api/admin/auctions", adminAuctionRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/store-commerce", storeCommerceRoutes);
 app.use("/api/wallets", walletRoutes);
+app.use("/api/wallet-services", walletServiceRoutes);
+app.use("/api/draft-actions", draftActionRoutes);
 app.use("/api/admin/escrow", adminEscrowRoutes);
 app.use("/api/admin/analytics", adminAnalyticsRoutes);
 app.use("/api/seller/analytics", sellerAnalyticsRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/comments", commentAdminRoutes);
 app.use("/api/plans", planRoutes);
+app.use("/api/stores", storesRoutes);
 app.use("/api/purchase-requests", purchaseRoutes);
 app.use("/api/bank-accounts", bankAccountRoutes);
 app.use("/api/user-bank-accounts", userBankAccountRoutes);
 app.use("/api/admin/plans", adminPlansRoutes);
 app.use("/api/admin-messages", adminMessagesRoutes);
 app.use("/api/verification-requests", verificationRequestsRoutes);
+app.use("/api/phone-verification", phoneVerificationRoutes);
 app.use("/api/attributes", attributesRoutes);
 app.use("/api/ads", adsRoutes);
+app.use("/api/quote-requests", quoteRequestsRoutes);
+app.use("/api/bookings", bookingsRoutes);
 app.use("/api/admin/ads", adminAdsRoutes);
 app.use("/api/conversations", conversationsRoutes);
 app.use("/api/notifications", notificationsRoutes);
@@ -495,35 +514,100 @@ setInterval(async () => {
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// Verify Email Accounts on Startup
-verifyEmailAccounts().catch(err => {
-  console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
-});
+if (process.env.NODE_ENV === "production") {
+  verifyEmailAccounts().catch((err) => {
+    console.error("[EMAIL SYSTEM] Startup verification failed:", err.message);
+  });
+} else {
+  console.info("[EMAIL SYSTEM] Startup account verification skipped outside production.");
+}
 
 const io = new Server(server, {
   cors: corsOptions
 });
+
+function getSocketAccessToken(socket) {
+  const cookieHeader = socket.handshake.headers.cookie || "";
+  const cookies = new Map();
+  for (const entry of cookieHeader.split(";")) {
+    const separator = entry.indexOf("=");
+    if (separator < 0) continue;
+    const name = entry.slice(0, separator).trim();
+    if (name !== "accessToken" && name !== "token") continue;
+    try {
+      cookies.set(name, decodeURIComponent(entry.slice(separator + 1).trim()));
+    } catch {
+      return null;
+    }
+  }
+  return cookies.get("accessToken") || cookies.get("token") || null;
+}
+
 io.on("connection", (socket) => {
   socket.on("join", ({ productId }) => {
     if (productId) socket.join(`chat:${productId}`);
   });
-  socket.on("join_user", async ({ userId }) => {
-    if (userId) {
-      socket.join(`user:${userId}`);
-      socket.userId = userId;
-      try {
-        const user = await User.findById(userId);
-        if (user?.role === "admin") {
-          socket.join("role:admin");
-        }
-        const now = new Date();
-        await User.findByIdAndUpdate(userId, { isOnline: true, socketId: socket.id, lastSeen: now });
-        socket.broadcast.emit("user:status", { userId, isOnline: true, lastSeen: now });
-      } catch {}
+  socket.on("join_user", async (payload = {}) => {
+    const userId = payload?.userId;
+    const accessToken = getSocketAccessToken(socket);
+    if (!accessToken) return;
+
+    try {
+      const payload = jwtConfigBootstrap.verifyAccessToken(accessToken);
+      const authenticatedUserId = String(payload.userId || payload.id || "");
+      if (!authenticatedUserId || (userId && String(userId) !== authenticatedUserId)) return;
+
+      const user = await User.findById(authenticatedUserId)
+        .select("role isDisabled isDeleted")
+        .lean();
+      if (!user || user.isDisabled || user.isDeleted) return;
+
+      if (socket.userId && socket.userId !== authenticatedUserId) {
+        socket.leave(`user:${socket.userId}`);
+        socket.leave("role:admin");
+      }
+
+      socket.join(`user:${authenticatedUserId}`);
+      socket.userId = authenticatedUserId;
+      if (user.role === "admin") {
+        socket.join("role:admin");
+      } else {
+        socket.leave("role:admin");
+      }
+
+      const now = new Date();
+      await User.findByIdAndUpdate(authenticatedUserId, { isOnline: true, socketId: socket.id, lastSeen: now });
+      socket.broadcast.emit("user:status", { userId: authenticatedUserId, isOnline: true, lastSeen: now });
+    } catch (error) {
+      logger.warn({
+        event: "socket_user_room_join_failed",
+        userId: String(userId || ""),
+        message: error.message
+      });
     }
   });
   socket.on("join_conversation", ({ conversationId }) => {
     if (conversationId) socket.join(`conv:${conversationId}`);
+  });
+  socket.on("join_auction", async ({ auctionId } = {}) => {
+    if (!mongoose.isValidObjectId(auctionId)) return;
+    try {
+      const auction = await Auction.findOne({
+        _id: auctionId,
+        reviewStatus: "approved",
+        status: { $in: ["scheduled", "live", "ended"] }
+      })
+        .lean();
+      if (auction && await isPublicationEligible(auction)) {
+        socket.join(`auction:${auction._id}`);
+      }
+    } catch (error) {
+      logger.warn({
+        event: "auction_socket_join_failed",
+        auctionId: String(auctionId),
+        message: error.message
+      });
+    }
   });
   socket.on("conversation:typing", ({ conversationId, from }) => {
     if (conversationId) socket.to(`conv:${conversationId}`).emit("conversation:typing", { conversationId, from });
@@ -561,6 +645,7 @@ io.on("connection", (socket) => {
   });
 });
 app.set("io", io);
+startAuctionLifecycle(app);
 server.listen(port, () => { console.log("Server listening on port", port); });
 server.on("listening", () => logger.info({ event: "server_listening", port }));
 
@@ -596,8 +681,8 @@ setInterval(async () => {
     
     // Expire verification
     await User.updateMany(
-      { isVerifiedSeller: true, verificationExpiresAt: { $lte: now } },
-      { $set: { isVerifiedSeller: false, verified: false, verificationStatus: "expired" } }
+      getExpiredVerificationFilter(now),
+      { $set: expiredVerificationFields }
     );
     // Unfeature expired
     await Ad.updateMany(
@@ -670,9 +755,46 @@ setInterval(async () => {
       }
     }
 
+    const subscriptionsToRemind = await StoreSubscription.find({
+      status: "active",
+      endDate: { $gt: now, $lte: inTwoDays },
+      $or: [{ expiryReminderSentAt: null }, { expiryReminderSentAt: { $exists: false } }]
+    }).select("_id userId storeId endDate").lean();
+    for (const subscription of subscriptionsToRemind) {
+      const claimed = await StoreSubscription.findOneAndUpdate(
+        {
+          _id: subscription._id,
+          status: "active",
+          $or: [{ expiryReminderSentAt: null }, { expiryReminderSentAt: { $exists: false } }]
+        },
+        { $set: { expiryReminderSentAt: now } },
+        { new: true }
+      ).lean();
+      if (!claimed) continue;
+      try {
+        const storeProfile = await StoreProfile.findById(subscription.storeId).select("storeType").lean();
+        await createNotification(app, {
+          userId: subscription.userId,
+          type: "store_subscription",
+          title: "تذكير بتجديد الاشتراك",
+          body: "ينتهي اشتراك مشروعك خلال 48 ساعة. جدّد الاشتراك لاستمرار ظهور منتجاتك.",
+          data: {
+            storeId: subscription.storeId,
+            subscriptionId: subscription._id,
+            action: "renew",
+            storeType: storeProfile?.storeType || "store"
+          }
+        });
+      } catch (error) {
+        console.error("Store subscription expiry reminder error:", error);
+      }
+    }
+
     // Auto-confirm orders after 7 days of shipping if not confirmed by buyer
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const ordersToConfirm = await Order.find({
+      orderType: { $ne: "store" },
+      storeProfileId: null,
       status: "SHIPPED",
       "shippingDetails.shippedAt": { $lte: sevenDaysAgo }
     });
@@ -690,36 +812,65 @@ setInterval(async () => {
           continue;
         }
 
-        order.status = "DELIVERED";
-        order.notes = (order.notes || "") + "\nتم التأكيد تلقائياً من النظام بعد مرور 7 أيام على الشحن.";
-        await order.save();
+        const settledOrder = await withFinancialTransaction(async (session) => {
+          const claimedOrder = await Order.findOneAndUpdate(
+            {
+              _id: order._id,
+              orderType: { $ne: "store" },
+              storeProfileId: null,
+              status: "SHIPPED",
+              "shippingDetails.shippedAt": { $lte: sevenDaysAgo }
+            },
+            {
+              $set: {
+                status: "DELIVERED",
+                notes: (order.notes || "") + "\nتم التأكيد تلقائياً من النظام بعد مرور 7 أيام على الشحن."
+              }
+            },
+            { new: true, session }
+          );
+          if (!claimedOrder) return null;
 
-        // Release Balance to Seller
-        const amountToRelease = Number(order.sellerAmount) || 0;
-        if (amountToRelease > 0) {
-          await releaseBalance(order.seller, amountToRelease, order._id, order.currency, "PRODUCT");
+          const amountToRelease = Number(claimedOrder.sellerAmount) || 0;
+          if (amountToRelease > 0) {
+            await releaseBalance(claimedOrder.seller, amountToRelease, claimedOrder._id, claimedOrder.currency, "PRODUCT", { session });
+          }
+          if (claimedOrder.shippingFee > 0 && claimedOrder.shippingPayer === "buyer") {
+            await releaseBalance(
+              claimedOrder.seller,
+              claimedOrder.shippingFee,
+              claimedOrder._id,
+              claimedOrder.shippingCurrency,
+              "SHIPPING",
+              { session }
+            );
+          }
+          return claimedOrder;
+        });
+        if (!settledOrder) continue;
+
+        try {
+          await ReferralEngine.createSafePurchaseCommission(settledOrder);
+        } catch (commissionErr) {
+          logger.error({ event: "safe_purchase_referral_commission_error", orderId: settledOrder._id, message: commissionErr.message });
         }
-        if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-          await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
-        }
-        await ReferralEngine.createSafePurchaseCommission(order);
 
         // Notification to seller
         await createNotification(app, {
-          userId: order.seller,
+          userId: settledOrder.seller,
           title: "تم استلام الطلب (تلقائياً)",
-          body: `تم تأكيد استلام الطلب #${order._id} تلقائياً بعد مرور 7 أيام. تم نقل الرصيد لمحفظتك.`,
+          body: `تم تأكيد استلام الطلب #${settledOrder._id} تلقائياً بعد مرور 7 أيام. تم نقل الرصيد لمحفظتك.`,
           type: "order",
-          data: { orderId: order._id }
+          data: { orderId: settledOrder._id }
         });
         
         // Notification to buyer
         await createNotification(app, {
-          userId: order.buyer,
+          userId: settledOrder.buyer,
           title: "اكتمال الطلب تلقائياً",
-          body: `تم إغلاق الطلب #${order._id} وتأكيد الاستلام تلقائياً لعدم وجود شكاوى خلال 7 أيام من الشحن.`,
+          body: `تم إغلاق الطلب #${settledOrder._id} وتأكيد الاستلام تلقائياً لعدم وجود شكاوى خلال 7 أيام من الشحن.`,
           type: "order",
-          data: { orderId: order._id }
+          data: { orderId: settledOrder._id }
         });
       } catch (err) {
         logger.error({ event: "auto_confirm_order_error", orderId: order._id, message: err.message });

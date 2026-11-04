@@ -37,7 +37,6 @@ const transactionSchema = new mongoose.Schema(
 );
 
 transactionSchema.index({ createdAt: -1 });
-transactionSchema.index({ user: 1 });
 transactionSchema.index({ createdAt: 1 });
 
 transactionSchema.plugin(softDeletePlugin);

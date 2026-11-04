@@ -1,4 +1,5 @@
 import Ad from "../models/Ad.js";
+import { applyPublicStoreFilter, getPublicStoreProfileIds } from "../utils/storePublicVisibility.js";
 import mongoose from "mongoose";
 
 /**
@@ -544,7 +545,7 @@ class SmartSearchService {
     adType = null,
     page = 1,
     limit = 20,
-    sort = "best"
+    sort = "new"
   }) {
     const startTime = Date.now();
 
@@ -568,15 +569,17 @@ class SmartSearchService {
     const predictedCategoryIds = originalQuery ? await this.predictCategories(originalQuery) : [];
 
     // Check cache
+    const publicStoreProfileIds = await getPublicStoreProfileIds();
     const cacheParams = {
       originalQuery, categoryId, subCategoryId, governorateId, cityId,
       minPrice, maxPrice, conditions: finalCondition, page, limit, sort: finalSort,
-      verifiedOnly, featuredOnly, userLat, userLng, userId, adType: finalAdType
+      verifiedOnly, featuredOnly, userLat, userLng, userId, adType: finalAdType,
+      publicStoreProfileIds: publicStoreProfileIds.map(String).sort()
     };
     const cacheKey = this.getCacheKey(cacheParams);
     const cachedResult = this.getCachedResult(cacheKey);
     
-    if (cachedResult) {
+    if (cachedResult && !cachedResult.items?.some((item) => item.storeProfileId)) {
       return {
         ...cachedResult,
         fromCache: true,
@@ -587,13 +590,14 @@ class SmartSearchService {
     }
 
     // Build base filter
-    const filter = {
+    let filter = {
       status: "approved",
       expiresAt: { $gt: new Date() },
       isArchived: { $ne: true },
       sold: { $ne: true },
       isDeleted: { $ne: true }
     };
+    filter = applyPublicStoreFilter(filter, publicStoreProfileIds);
 
     // Find categories that match the query
     let searchCategoryIds = [];
@@ -720,6 +724,7 @@ class SmartSearchService {
         }
       })
       .populate("userId", "isVerifiedSeller isTrustedReseller name avatar sellerRating sellerReviewsCount")
+      .populate("storeProfileId", "storeName slug logo businessActivity storeType status")
       .lean();
 
     // Filter by conditions
@@ -806,39 +811,53 @@ class SmartSearchService {
   }
 
   static sortAds(ads, sort) {
-    const s = String(sort || "best").toLowerCase();
+    const s = String(sort || "new").toLowerCase();
     const copy = [...ads];
-    
-    // Default sorting priority: Featured first, then by criteria
+
+    const compareByDate = (a, b, direction = "desc") => {
+      const aDate = new Date(a.publishedAt || a.createdAt || 0).getTime();
+      const bDate = new Date(b.publishedAt || b.createdAt || 0).getTime();
+      return direction === "asc" ? aDate - bDate : bDate - aDate;
+    };
+
+    const featuredComparator = (a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+
+    // Default sorting priority: Featured ads stay pinned to the top, then by criteria.
     if (s === "price_asc" || s === "pricelow") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return (Number(a.price || 0) - Number(b.price || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
+        const featuredDiff = featuredComparator(a, b);
+        if (featuredDiff !== 0) return featuredDiff;
+        return (Number(a.price || 0) - Number(b.price || 0)) || compareByDate(a, b, "desc");
       });
     } else if (s === "price_desc" || s === "pricehigh") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return (Number(b.price || 0) - Number(a.price || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
+        const featuredDiff = featuredComparator(a, b);
+        if (featuredDiff !== 0) return featuredDiff;
+        return (Number(b.price || 0) - Number(a.price || 0)) || compareByDate(a, b, "desc");
       });
     } else if (s === "old") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return new Date(a.createdAt) - new Date(b.createdAt);
+        const featuredDiff = featuredComparator(a, b);
+        if (featuredDiff !== 0) return featuredDiff;
+        return compareByDate(a, b, "asc");
       });
     } else if (s === "new") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return new Date(b.createdAt) - new Date(a.createdAt);
+        const featuredDiff = featuredComparator(a, b);
+        if (featuredDiff !== 0) return featuredDiff;
+        return compareByDate(a, b, "desc");
       });
     } else if (s === "views") {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return (Number(b.viewCount || 0) - Number(a.viewCount || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
+        const featuredDiff = featuredComparator(a, b);
+        if (featuredDiff !== 0) return featuredDiff;
+        return (Number(b.viewCount || 0) - Number(a.viewCount || 0)) || compareByDate(a, b, "desc");
       });
     } else {
       copy.sort((a, b) => {
-        if (a.featured !== b.featured) return b.featured ? 1 : -1;
-        return (Number(b.relevanceScore || 0) - Number(a.relevanceScore || 0)) || (new Date(b.createdAt) - new Date(a.createdAt));
+        const featuredDiff = featuredComparator(a, b);
+        if (featuredDiff !== 0) return featuredDiff;
+        return (Number(b.relevanceScore || 0) - Number(a.relevanceScore || 0)) || compareByDate(a, b, "desc");
       });
     }
     return copy;

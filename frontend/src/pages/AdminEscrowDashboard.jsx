@@ -2,38 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
-import { useAuth } from "../store/AuthContext.jsx";
-
-function uploadsBaseUrl() {
-  let envUrl = import.meta.env.VITE_UPLOADS_URL;
-  if (!envUrl) {
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
-  }
-  if (envUrl.endsWith("/uploads")) return envUrl;
-  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
-}
-const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
-function protectedFileUrl(filename, token) {
-  if (!filename) return "";
-  if (filename.startsWith("http")) return filename;
-  let clean = filename;
-  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
-  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
-  const base = `${uploadsBaseUrl()}/${clean}`;
-  const isSensitive = SENSITIVE_KWS.some(kw => {
-    const c = clean.toLowerCase().replace(/\\/g, "/");
-    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
-  });
-  if (!isSensitive) return base;
-  if (!token) return base;
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
-}
+import { normalizeProtectedFilePath, useProtectedFiles } from "../lib/protectedFiles.js";
 
 export default function AdminEscrowDashboard() {
   const api = useApi();
-  const { token: authToken } = useAuth();
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -41,6 +13,8 @@ export default function AdminEscrowDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
   const [previewReceipt, setPreviewReceipt] = useState(null);
+  const { urls: protectedFileUrls, contentTypes: protectedFileContentTypes, errors: protectedFileErrors, loading: protectedFilesLoading } = useProtectedFiles(api, [previewReceipt]);
+  const previewReceiptUrl = protectedFileUrls[normalizeProtectedFilePath(previewReceipt)] || null;
   const [previewScale, setPreviewScale] = useState(1);
   const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
   const [isDraggingPreview, setIsDraggingPreview] = useState(false);
@@ -82,7 +56,7 @@ export default function AdminEscrowDashboard() {
 
   const openReceiptPreview = (image) => {
     if (!image) return;
-    setPreviewReceipt(protectedFileUrl(image, authToken));
+    setPreviewReceipt(image);
     setPreviewScale(1);
     setPreviewOffset({ x: 0, y: 0 });
     setIsDraggingPreview(false);
@@ -1034,12 +1008,28 @@ export default function AdminEscrowDashboard() {
                     transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`,
                   }}
                 >
-                  <img
-                    src={previewReceipt}
-                    alt="معاينة السند"
-                    className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"
-                    draggable={false}
-                  />
+                  {protectedFilesLoading ? (
+                    <p role="status" className="rounded-xl bg-white px-5 py-4 text-sm font-bold text-slate-800">
+                      جاري تحميل الملف...
+                    </p>
+                  ) : protectedFileErrors[normalizeProtectedFilePath(previewReceipt)] ? (
+                    <p role="alert" className="rounded-xl bg-white px-5 py-4 text-sm font-bold text-red-700">
+                      {protectedFileErrors[normalizeProtectedFilePath(previewReceipt)]}
+                    </p>
+                  ) : protectedFileContentTypes[normalizeProtectedFilePath(previewReceipt)]?.includes("pdf") ? (
+                    <iframe
+                      src={previewReceiptUrl}
+                      title="معاينة السند"
+                      className="h-[78vh] w-[80vw] rounded-2xl bg-white shadow-2xl"
+                    />
+                  ) : (
+                    <img
+                      src={previewReceiptUrl}
+                      alt="معاينة السند"
+                      className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"
+                      draggable={false}
+                    />
+                  )}
                 </div>
               </div>
             </div>

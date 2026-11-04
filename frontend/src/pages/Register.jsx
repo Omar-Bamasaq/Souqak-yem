@@ -1,23 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { t } from "../i18n/index.js";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import Logo from "../components/Logo.jsx";
-
-const features = [
-  { key: "secureTrade", icon: "shield" },
-  { key: "safePurchase", icon: "cart" },
-  { key: "contactSellers", icon: "chat" },
-  { key: "unlimitedAds", icon: "ads" },
-  { key: "manualReview", icon: "review" },
-  { key: "featuredAds", icon: "star" },
-  { key: "verifiedSellers", icon: "badge" },
-  { key: "instantNotifications", icon: "bell" },
-  { key: "searchByLocation", icon: "location" },
-  { key: "favoritesAndFollow", icon: "heart" },
-  { key: "simpleInterface", icon: "device" }
-];
+import { platformFeatures as features, PlatformFeaturesModal } from "../components/PlatformFeatures.jsx";
 
 const iconSvg = (name) => {
   const icons = {
@@ -44,84 +31,11 @@ export default function Register() {
   const [phonePassword, setPhonePassword] = useState("");
   const [showPhonePassword, setShowPhonePassword] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
-  const [activeBox, setActiveBox] = useState("email"); // Default to email
-  const [isEmailDisabled] = useState(false); // Enable email registration
-  const [emailReg, setEmailReg] = useState("");
-  const [passwordReg, setPasswordReg] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useAuth();
-
-  // Telegram Activation States
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [tgSent, setTgSent] = useState(false);
-  const [pollStatus, setPollStatus] = useState("Pending");
-  const [tgLink, setTgLink] = useState("");
-  const [regData, setRegData] = useState(null); 
-  const pollIntervalRef = React.useRef(null);
-  const [checkingNow, setCheckingNow] = useState(false);
-  const [redirectCountdown, setRedirectCountdown] = useState(4);
-
-  const checkStatus = async () => {
-    if (!phone || pollStatus !== "Pending") return;
-    setCheckingNow(true);
-    try {
-      const statusRes = await api.get(`/auth/phone-status/${phone.trim()}`);
-      const currentStatus = statusRes.data.status?.toLowerCase();
-      
-      if (currentStatus === "approved") {
-        setPollStatus("Approved");
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        if (regData) {
-          localStorage.setItem("token", regData.token);
-          setUser(regData.user);
-          setTimeout(() => navigate("/"), 2000);
-        }
-      } else if (currentStatus === "rejected") {
-        setPollStatus("Rejected");
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      }
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setPollStatus("Rejected");
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      }
-    } finally {
-      setCheckingNow(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isSuccess && tgSent && pollStatus === "Pending") {
-      pollIntervalRef.current = setInterval(checkStatus, 5000);
-    }
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, [isSuccess, tgSent, pollStatus, regData]);
-
-  useEffect(() => {
-    if (!isSuccess || tgSent || !tgLink) return undefined;
-
-    setRedirectCountdown(4);
-    const redirectTimer = setInterval(() => {
-      setRedirectCountdown((current) => {
-        if (current <= 1) {
-          clearInterval(redirectTimer);
-          setTgSent(true);
-          window.location.assign(tgLink);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(redirectTimer);
-  }, [isSuccess, tgSent, tgLink]);
+  const { login } = useAuth();
 
   const submitPhone = async (e) => {
     e.preventDefault();
@@ -138,14 +52,13 @@ export default function Register() {
       return;
     }
 
-    if (phonePassword.length < 8 || phonePassword.length > 24) {
-      setError("كلمة المرور يجب أن تكون من 8 إلى 24 حرفاً.");
+    if (phonePassword.length < 8 || phonePassword.length > 24 || /[\s\p{Script=Arabic}]/u.test(phonePassword)) {
+      setError("كلمة المرور يجب أن تكون من 8 إلى 24 رمزاً، دون مسافات أو أحرف عربية.");
       return;
     }
 
     setLoading(true);
     try {
-      console.log(`[Register] Sending registration request for: ${name.trim()} / ${phone.trim()}`);
       const res = await api.post("auth/phone-register", {
         name: name.trim(),
         phone: phone.trim(),
@@ -153,84 +66,12 @@ export default function Register() {
       });
       if (res.data.token) {
         localStorage.setItem("souqak_new_user_welcome", "true");
-        if (res.data.requiresActivation) {
-          setRegData(res.data);
-          setIsSuccess(true);
-          const msg = encodeURIComponent(`مرحباً سوقك، أرغب بتفعيل حسابي.\nالاسم: ${name.trim()}\nالرقم: ${phone.trim()}`);
-          setTgLink(`https://wa.me/967737462126?text=${msg}`); 
-          return;
-        }
-        localStorage.setItem("token", res.data.token);
-        setUser(res.data.user);
+        login(res.data.token, res.data.user);
         setOk("تم إنشاء الحساب بنجاح! جاري تحويلك...");
         setTimeout(() => navigate("/"), 1500);
       }
     } catch (err) {
       setError(err.response?.data?.error || "تعذر إنشاء الحساب، ربما الرقم مستخدم مسبقاً.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const submitEmail = async (e) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (!name.trim()) {
-      setError("يرجى إدخال اسم المستخدم.");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailReg.trim())) {
-      setError("صيغة البريد الإلكتروني غير صحيحة.");
-      return;
-    }
-
-    if (passwordReg.length < 8) {
-      setPasswordError("يجب أن تكون كلمة المرور 8 أحرف على الأقل");
-      return;
-    }
-    
-    setError("");
-    setLoading(true);
-    try {
-      console.log(`[Register] Sending email registration request for: ${emailReg.trim()}`);
-      const response = await api.post("auth/register-email", {
-        name: name.trim(),
-        email: emailReg.trim(),
-        password: passwordReg
-      });
-      
-      console.log("[Register] Registration request successful:", response.data);
-      
-      // Navigate only if we got a successful response
-      if (response.status === 201 || response.status === 200) {
-        navigate("/verify-email", { 
-          state: { email: emailReg.trim() },
-          replace: true // Use replace to prevent going back to register page
-        });
-      } else {
-        throw new Error("استجابة غير متوقعة من الخادم.");
-      }
-    } catch (err) {
-      console.error("[Register] Email registration error:", err);
-      
-      let finalError = "";
-      
-      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-        finalError = "استغرق الطلب وقتاً طويلاً جداً. يرجى المحاولة مرة أخرى أو استخدام رقم الهاتف.";
-      } else {
-        const serverError = err.response?.data?.error;
-        const details = err.response?.data?.details;
-        const suggestion = err.response?.data?.suggestion;
-        
-        finalError = serverError || "تعذر إنشاء الحساب، يرجى التحقق من الاتصال والمحاولة مرة أخرى.";
-        if (suggestion) finalError += ` ${suggestion}`;
-        if (details) finalError += ` [السبب: ${details}]`;
-      }
-      
-      setError(finalError);
     } finally {
       setLoading(false);
     }
@@ -250,7 +91,7 @@ export default function Register() {
             <p className="text-white/80 text-sm mb-6 shrink-0">كل ما تحتاجه لبيع وشراء آمن في اليمن</p>
             <div className="overflow-y-auto pr-2 custom-scrollbar space-y-4 max-h-[450px]">
               {features.map((f) => (
-                <div key={f.key} className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/10 transition-all duration-200 group">
+                <div key={f.key} className="flex items-start gap-3 p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-200 group">
                   <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:bg-white/30 transition-colors">
                     <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">{iconSvg(f.icon)}</svg>
                   </div>
@@ -265,16 +106,16 @@ export default function Register() {
         </div>
 
         <div className="w-full lg:w-[48%] flex flex-col items-center justify-center">
-          <div className="w-full max-w-md min-h-screen sm:min-h-0 bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-slate-700 p-5 sm:p-8 lg:p-10 shadow-xl shadow-gray-200/50 dark:shadow-slate-900/50 backdrop-blur-sm flex flex-col justify-center">
-            <div className="flex justify-center w-full mb-4 sm:mb-8">
+          <div className="w-full max-w-md min-h-screen sm:min-h-0 bg-white/90 dark:bg-slate-900/90 rounded-none sm:rounded-[30px] border-0 sm:border border-slate-200/80 dark:border-slate-700/80 p-5 sm:p-8 lg:p-9 shadow-[0_30px_80px_rgba(15,23,42,0.08)] dark:shadow-[0_30px_70px_rgba(2,6,23,0.45)] backdrop-blur-md flex flex-col justify-center mx-auto">
+            <div className="flex justify-center w-full mb-5 sm:mb-7">
               <Link to="/" className="hover:opacity-80 transition-opacity shrink-0">
-                <div className="scale-100 sm:scale-100"><Logo iconSize="h-10 sm:h-10" /></div>
+                <div className="scale-100 sm:scale-100"><Logo iconSize="h-11 sm:h-12" /></div>
               </Link>
             </div>
 
-            <div className="space-y-1 sm:space-y-2 text-center mb-4 sm:mb-8 shrink-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-slate-100">إنشاء حساب جديد</h1>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 px-2">انضم إلى منصة سوقك وابدأ البيع والشراء بكل أمان خلال دقائق.</p>
+            <div className="space-y-2 text-center mb-5 sm:mb-7 shrink-0">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-slate-100">إنشاء حساب جديد</h1>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 px-2 leading-6">انضم إلى منصة سوقك وابدأ البيع والشراء بكل أمان خلال دقائق.</p>
               <div className="lg:hidden pt-2 sm:pt-4">
                 <button onClick={() => setShowFeatures(true)} className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-[10px] sm:text-xs font-bold border border-blue-100 dark:border-blue-800 transition-all active:scale-95">
                   <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -287,154 +128,38 @@ export default function Register() {
               {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 sm:py-3 text-xs sm:text-sm text-red-700 mb-4 font-medium">{error}</div>}
               {ok && <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-2 sm:py-3 text-xs sm:text-sm text-green-700 mb-4 font-medium">{ok}</div>}
 
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
-                <button onClick={() => setActiveBox("phone")} className={`rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-right transition-all ${activeBox === "phone" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"}`}>رقم الهاتف</button>
-                <div className="relative group">
-                  <button 
-                    onClick={() => setActiveBox("email")} 
-                    disabled={isEmailDisabled}
-                    className={`w-full rounded-xl border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-right transition-all ${ 
-                      isEmailDisabled ? "opacity-50 cursor-not-allowed border-gray-200 dark:border-slate-700 text-gray-400" : 
-                      activeBox === "email" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : 
-                      "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300"
-                    }`}
-                  >
-                    البريد الإلكتروني
-                  </button>
-                  {isEmailDisabled && (
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                      متاح قريباً
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {activeBox === "phone" && (
-                <>
-                  {!isSuccess ? (
-                    <form onSubmit={submitPhone} className="space-y-3 sm:space-y-5">
-                      <div>
-                        <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">اسم المستخدم</label>
-                        <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="مثال: أحمد علي" value={name} onChange={(e) => setName(e.target.value)} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">رقم الهاتف</label>
-                        <input type="tel" className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-left dir-ltr" placeholder="7xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">كلمة المرور</label>
-                        <div className="relative">
-                          <input
-                            type={showPhonePassword ? "text" : "password"}
-                            className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right pr-10"
-                            placeholder="••••••••"
-                            value={phonePassword}
-                            onChange={(e) => setPhonePassword(e.target.value)}
-                            required
-                          />
-                          <button type="button" onClick={() => setShowPhonePassword(!showPhonePassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500 transition-colors">
-                            {showPhonePassword ? (
-                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                            ) : (
-                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
-                        {loading ? "جاري المعالجة..." : "إنشاء حساب مجاني"}
-                      </button>
-                    </form>
-                  ) : (
-                    <div className="space-y-6 text-center animate-in fade-in zoom-in duration-300 py-4">
-                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-2 shadow-inner ${pollStatus === "Approved" ? "bg-green-100 text-green-600" : pollStatus === "Rejected" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}>
-                        {pollStatus === "Approved" ? <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> : pollStatus === "Rejected" ? <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> : <svg className="w-10 h-10 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" strokeWidth={2} /></svg>}
-                      </div>
-                      {!tgSent ? (
-                        <>
-                          <div className="space-y-2">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">خطوة واحدة متبقية!</h2>
-                            <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">تم إنشاء حسابك. سيتم فتح واتساب تلقائياً خلال {redirectCountdown} ثوانٍ لإرسال رسالة التفعيل الجاهزة.</p>
-                          </div>
-                            <div className="px-4 pt-2">
-                            <a href={tgLink} rel="noreferrer" onClick={() => setTgSent(true)} className="flex items-center justify-center gap-3 w-full bg-[#25D366] hover:bg-[#1DA851] text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98]">
-                              <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                                <path d="M20.52 3.48A11.95 11.95 0 0012 .01C5.37.01 0 5.38 0 12.01c0 2.11.55 4.17 1.6 5.99L0 24l6.28-1.57A11.94 11.94 0 0012 24c6.63 0 12-5.37 12-11.99 0-3.21-1.25-6.22-3.48-8.53zM16.6 14.1c-.25-.13-1.48-.73-1.71-.81-.23-.08-.39-.12-.55.13-.16.25-.62.81-.76.98-.14.16-.28.18-.53.06-.25-.13-1.05-.39-2-1.22-.74-.66-1.24-1.48-1.38-1.73-.14-.25-.02-.38.11-.51.11-.11.25-.28.38-.42.12-.13.16-.22.25-.37.08-.13.04-.25-.02-.38-.06-.12-.55-1.33-.76-1.82-.2-.48-.41-.41-.56-.42l-.48-.01c-.16 0-.42.06-.64.31-.22.25-.84.82-.84 2 0 1.18.86 2.33.98 2.49.12.16 1.69 2.66 4.1 3.63 2.41.98 2.41.65 2.84.61.43-.04 1.4-.57 1.6-1.12.2-.55.2-1.02.14-1.12-.06-.1-.24-.16-.5-.29z"/>
-                              </svg>
-                              فتح واتساب وإرسال الطلب الآن
-                            </a>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="space-y-2">
-                            <h2 className={`text-xl font-bold ${pollStatus === "Approved" ? "text-green-600" : pollStatus === "Rejected" ? "text-red-600" : "text-gray-900 dark:text-slate-100"}`}>{pollStatus === "Approved" ? "تم التفعيل بنجاح!" : pollStatus === "Rejected" ? "تم رفض الطلب" : "جاري الانتظار..."}</h2>
-                            <p className="text-sm text-gray-600 dark:text-slate-400 px-4 leading-relaxed">{pollStatus === "Approved" ? "شكراً لصبرك، تم تفعيل حسابك. جاري تحويلك للملف الشخصي..." : pollStatus === "Rejected" ? "نعتذر، لم يتم تفعيل حسابك. يرجى التواصل مع الدعم الفني للمساعدة." : "لقد استلمنا طلبك وأرسلت رسالة التفعيل. يرجى البقاء هنا، سنقوم بتحديث الصفحة فور التفعيل."}</p>
-                          </div>
-                          <div className="pt-4 space-y-3">
-                            {pollStatus === "Pending" ? (
-                              <div className="flex flex-col items-center gap-4">
-                                <div className="flex items-center justify-center space-x-2 space-x-reverse bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-xs font-medium animate-pulse">
-                                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                  <span>بانتظار موافقة الإدارة...</span>
-                                </div>
-                                <button onClick={checkStatus} disabled={checkingNow} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-all active:scale-95 disabled:opacity-50">
-                                  <svg className={`w-3.5 h-3.5 ${checkingNow ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                  {checkingNow ? "جاري التحقق..." : "تحديث الحالة يدوياً"}
-                                </button>
-                                <button onClick={() => setTgSent(false)} className="mt-4 text-xs text-gray-400 hover:text-blue-600 underline block w-full text-center">لم ترسل الرسالة؟ اضغط هنا للرجوع</button>
-                              </div>
-                            ) : pollStatus === "Approved" ? (
-                              <div className="flex items-center justify-center space-x-2 space-x-reverse bg-green-50 text-green-700 px-4 py-2 rounded-full text-xs font-medium"><span className="w-2 h-2 bg-green-500 rounded-full"></span><span>تم الموافقة، جاري الدخول...</span></div>
-                            ) : (
-                              <div className="flex items-center justify-center space-x-2 space-x-reverse bg-red-50 text-red-700 px-4 py-2 rounded-full text-xs font-medium"><span className="w-2 h-2 bg-red-500 rounded-full"></span><span>تم الرفض، يرجى مراجعة الإدارة</span></div>
-                            )}
-                          </div>
-                          {pollStatus === "Rejected" && (
-                            <div className="px-4 pt-4">
-                              <button onClick={() => { setIsSuccess(false); setTgSent(false); setPollStatus("Pending"); setError(""); }} className="w-full bg-gray-900 text-white font-bold py-4 rounded-2xl hover:bg-black transition-all active:scale-95">الرجوع لتعديل البيانات</button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {activeBox === "email" && (
-                <form onSubmit={submitEmail} className="space-y-3 sm:space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300 mb-4 sm:mb-8">
+              <form onSubmit={submitPhone} className="space-y-3 sm:space-y-5">
+                  <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                    سيتم إنشاء حسابك وتسجيل دخولك مباشرة. يمكنك التصفح دون توثيق الهاتف، وستحتاج إلى توثيقه فقط عند تنفيذ إجراء يتطلب ذلك.
+                  </p>
                   <div>
                     <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">اسم المستخدم</label>
                     <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" placeholder="مثال: أحمد علي" value={name} onChange={(e) => setName(e.target.value)} required />
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">البريد الإلكتروني</label>
-                    <input className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right" type="email" placeholder="example@mail.com" value={emailReg} onChange={(e) => setEmailReg(e.target.value)} required />
+                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">رقم الهاتف</label>
+                    <input type="tel" className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-left dir-ltr" placeholder="7xxxxxxx" value={phone} onChange={(e) => setPhone(e.target.value)} required />
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-0.5 sm:mb-1 font-semibold">كلمة المرور</label>
-                    <p className="text-[9px] sm:text-[10px] text-gray-500 mb-1 sm:mb-2">يجب أن تتكون من 8 أحرف على الأقل</p>
+                    <label className="block text-xs sm:text-sm text-gray-700 dark:text-slate-300 mb-1 sm:mb-2 font-semibold">كلمة المرور</label>
                     <div className="relative">
-                      <input className={`w-full rounded-xl border ${passwordError ? 'border-red-500' : 'border-gray-300 dark:border-slate-600'} dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right pr-10`} type={showPassword ? "text" : "password"} placeholder="••••••••" value={passwordReg} onChange={(e) => {
-                        const newPassword = e.target.value;
-                        setPasswordReg(newPassword);
-                        const arabicRegex = /[\u0600-\u06FF]/;
-                        if (newPassword.length > 0 && newPassword.length < 8) setPasswordError("يجب أن تكون كلمة المرور 8 أحرف على الأقل");
-                        else if (arabicRegex.test(newPassword)) setPasswordError("يجب أن تحتوي كلمة المرور على أحرف إنجليزية وأرقام فقط");
-                        else setPasswordError("");
-                      }} required />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500 transition-colors">
-                        {showPassword ? <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg> : <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>}
+                      <input
+                        type={showPhonePassword ? "text" : "password"}
+                        className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 pl-16 sm:px-4 sm:py-3 sm:pl-16 text-xs sm:text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all text-right"
+                        placeholder="••••••••"
+                        value={phonePassword}
+                        onChange={(e) => setPhonePassword(e.target.value)}
+                        required
+                      />
+                      <button type="button" onClick={() => setShowPhonePassword(!showPhonePassword)} className="absolute inset-y-0 left-0 flex items-center pl-3 text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors" aria-label={showPhonePassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"} aria-pressed={showPhonePassword}>
+                        {showPhonePassword ? "إخفاء" : "إظهار"}
                       </button>
                     </div>
-                    {passwordError && <p className="text-red-500 text-[10px] sm:text-[11px] mt-1 font-medium">{passwordError}</p>}
                   </div>
-                  <button disabled={loading || !!passwordError || passwordReg.length < 8} type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base mt-2">
+                  <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3.5 sm:py-4 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.99] disabled:opacity-70 text-sm sm:text-base mt-2">
                     {loading ? "جاري المعالجة..." : "إنشاء حساب مجاني"}
                   </button>
-                </form>
-              )}
+              </form>
 
               <div className="text-center pt-4 sm:pt-6 border-t border-gray-100 dark:border-slate-700 shrink-0">
                 <p className="text-gray-600 dark:text-slate-300 text-xs sm:text-sm">
@@ -447,31 +172,7 @@ export default function Register() {
         </div>
       </div>
 
-      {showFeatures && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-lg bg-gradient-to-br from-blue-600 to-indigo-700 sm:rounded-3xl p-6 text-white shadow-2xl relative animate-in slide-in-from-bottom duration-500 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6 sm:hidden" onClick={() => setShowFeatures(false)} />
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <h3 className="text-xl font-bold">{t("login.featuresTitle")}</h3>
-              <button onClick={() => setShowFeatures(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-            </div>
-            <div className="overflow-y-auto pr-2 custom-scrollbar space-y-4 pb-6">
-              {features.map((f) => (
-                <div key={f.key} className="flex items-start gap-4 p-4 rounded-2xl bg-white/10 hover:bg-white/15 transition-all duration-200">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"><svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">{iconSvg(f.icon)}</svg></div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-base mb-1">{t(`login.features.${f.key}.title`)}</h4>
-                    <p className="text-white/80 text-sm leading-relaxed">{t(`login.features.${f.key}.desc`)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-auto pt-4 sm:hidden">
-              <button onClick={() => setShowFeatures(false)} className="w-full py-4 bg-white text-blue-700 font-black rounded-2xl shadow-xl active:scale-95 transition-all">فهمت ذلك</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showFeatures && <PlatformFeaturesModal onClose={() => setShowFeatures(false)} />}
     </div>
   );
 }

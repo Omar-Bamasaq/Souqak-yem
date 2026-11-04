@@ -1,12 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 
+const EXCHANGE_RATE_CURRENCIES = [
+  { code: "SAR", label: "الريال السعودي" },
+  { code: "YER_SANAA", label: "الريال اليمني (صنعاء)" },
+  { code: "YER_ADEN", label: "الريال اليمني (عدن)" }
+];
+
 export default function AdminSettings() {
   const api = useApi();
   const [settings, setSettings] = useState({
     adReviewMode: "manual",
     adReviewDelayMinutes: 0,
-    prohibitedKeywords: []
+    prohibitedKeywords: [],
+    exchangeRatePairs: {
+      SAR: { buy: "", sell: "" },
+      YER_SANAA: { buy: "", sell: "" },
+      YER_ADEN: { buy: "", sell: "" }
+    }
   });
   const [newKeyword, setNewKeyword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -37,11 +48,30 @@ export default function AdminSettings() {
   };
 
   const handleSave = async () => {
+    const pairs = settings.exchangeRatePairs || {};
+    const invalidCurrency = EXCHANGE_RATE_CURRENCIES.find(({ code }) => (
+      ["buy", "sell"].some((side) => (
+        !Number.isFinite(Number(pairs[code]?.[side])) || Number(pairs[code][side]) <= 0
+      ))
+    ));
+    if (invalidCurrency) {
+      toast(`يرجى إدخال سعري الشراء والبيع بشكل صحيح لعملة ${invalidCurrency.label}`, "error");
+      return;
+    }
+
     setSaving(true);
     try {
       // Only send the necessary fields, not the entire document (including _id, __v, etc.)
       const { _id, __v, createdAt, updatedAt, updatedBy, ...dataToSave } = settings;
-      await api.patch("/admin/settings", dataToSave);
+      delete dataToSave.exchangeRates;
+      dataToSave.exchangeRatePairs = Object.fromEntries(
+        EXCHANGE_RATE_CURRENCIES.map(({ code }) => [code, {
+          buy: Number(pairs[code].buy),
+          sell: Number(pairs[code].sell)
+        }])
+      );
+      const response = await api.patch("/admin/settings", dataToSave);
+      setSettings(response.data);
       toast("تم حفظ الإعدادات بنجاح", "success");
     } catch (error) {
       toast(error.response?.data?.details || error.response?.data?.error || "تعذر حفظ الإعدادات", "error");
@@ -221,6 +251,56 @@ export default function AdminSettings() {
             )}
           </div>
         )}
+
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-2 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">⇄</div>
+            <h2 className="text-lg font-black text-gray-900">أسعار صرف العملات</h2>
+          </div>
+          <p className="mb-5 text-sm font-medium leading-relaxed text-gray-500">
+            أدخل السعر من منظور الصراف: شراء الدولار هو ما يدفعه الصراف بالعملة المحلية مقابل دولار واحد، وبيع الدولار هو ما يدفعه العميل للحصول على دولار واحد. التحويل تقديري ولا يغيّر مبالغ الطلب أو الدفع.
+            {" "}مثال صنعاء: شراء 535 وبيع 540 لكل دولار.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {EXCHANGE_RATE_CURRENCIES.map(({ code, label }) => (
+              <div key={code} className="space-y-3 rounded-xl border border-gray-100 p-4">
+                <h3 className="font-black text-gray-800">{label}</h3>
+                {[
+                  { side: "buy", title: "شراء الدولار" },
+                  { side: "sell", title: "بيع الدولار" }
+                ].map(({ side, title }) => (
+                  <label key={side} className="block space-y-1.5 text-sm font-bold text-gray-700">
+                    <span>{title}<span className="mr-1 text-xs font-medium text-gray-400">مقابل 1 دولار</span></span>
+                    <input
+                      type="number"
+                      min="0.000001"
+                      step="any"
+                      inputMode="decimal"
+                      value={settings.exchangeRatePairs?.[code]?.[side] ?? ""}
+                      onChange={(event) => setSettings({
+                        ...settings,
+                        exchangeRatePairs: {
+                          ...settings.exchangeRatePairs,
+                          [code]: {
+                            ...settings.exchangeRatePairs?.[code],
+                            [side]: event.target.value === "" ? "" : Number(event.target.value)
+                          }
+                        }
+                      })}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-black text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                      aria-label={`${title} ${label} مقابل دولار واحد`}
+                    />
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+          {settings.exchangeRatesUpdatedAt && (
+            <p className="mt-4 text-xs font-medium text-gray-400">
+              آخر تحديث لأسعار الصرف: {new Date(settings.exchangeRatesUpdatedAt).toLocaleString("ar-YE")}
+            </p>
+          )}
+        </section>
 
         {/* Prohibited Keywords */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

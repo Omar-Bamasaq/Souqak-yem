@@ -4,11 +4,12 @@ import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Commission from "../models/Commission.js";
 import Ad from "../models/Ad.js";
-import AdminNotification from "../models/AdminNotification.js";
+import { createAdminNotification } from "../services/notificationService.js";
 import { uploadCommissionDocs, processImage } from "../middleware/upload.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
 
 const router = Router();
 
@@ -22,6 +23,7 @@ const commissionSchema = Joi.object({
 
 router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req, res) => {
   try {
+    if (!AD_COMMISSION_ENABLED) return res.status(410).json({ error: "عمولة الإعلان معطلة مؤقتاً." });
     let { name, phone, salePrice, currency, adId } = req.body || {};
 
     if (adId && adId.length === 24) {
@@ -48,11 +50,10 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
       paymentReceiptPath = `receipts/${path.basename(processed)}`;
     }
     if (rawAdImage) {
-      const processed = await processImage(rawAdImage.path, "ads");
-      adImagePath = path.basename(processed);
+      adImagePath = rawAdImage.filename;
     }
     
-    const commissionAmount = Math.round(Number(salePrice) * 0.01);
+    const commissionAmount = calculateSellerCommission(salePrice);
     const payload = {
       sellerId: req.user.id,
       price: Number(salePrice),
@@ -87,15 +88,13 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
 
     // إنشاء إشعار للأدمن (Realtime)
     try {
-      const adminNotif = await AdminNotification.create({
+      await createAdminNotification(req.app, {
         type: "commission",
         title: "طلب دفع عمولة جديد",
         message: `طلب دفع عمولة جديد من البائع: ${name}`,
         link: "/admin/sold-ads",
         data: { commissionId: created._id }
       });
-      const io = req.app.get("io");
-      if (io) io.emit("admin_notification:new", adminNotif);
     } catch (err) {
       console.error("فشل إنشاء إشعار الأدمن للعمولة:", err);
     }
@@ -175,6 +174,7 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
 
 router.get("/mine", auth, async (req, res) => {
   try {
+    if (!AD_COMMISSION_ENABLED) return res.json([]);
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     await Commission.updateMany(
       { 
@@ -199,6 +199,9 @@ router.get("/mine", auth, async (req, res) => {
 
 router.get("/status-summary", auth, async (req, res) => {
   try {
+    if (!AD_COMMISSION_ENABLED) {
+      return res.json({ unpaidCount: 0, overdueCount: 0, pendingReviewCount: 0, blockingCount: 0, totalUnpaidAmount: 0, currency: "YER_ADEN", firstUnpaidAdId: null });
+    }
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 
     await Commission.updateMany(

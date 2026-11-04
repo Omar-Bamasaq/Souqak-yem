@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 
+const isPhoneAccount = (user) => (
+  user.phoneTrial || (user.email && /@(?:trial|phone)\.local$/i.test(user.email))
+);
+
 export default function AdminUsers() {
   const api = useApi();
   const [list, setList] = useState([]);
@@ -192,8 +196,8 @@ export default function AdminUsers() {
                 </tr>
               )}
               {!loading && list.map((u) => {
-                const phoneDisplay = u.phoneDisplay ?? (u.phoneTrial || (u.email && /@trial\.local$/i.test(u.email)) ? (u.phone || "—") : "—");
-                const emailDisplay = u.emailDisplay ?? ((u.phoneTrial || (u.email && /@trial\.local$/i.test(u.email))) ? "—" : (u.email || "—"));
+                const phoneDisplay = u.phoneDisplay ?? (isPhoneAccount(u) ? (u.phone || "—") : "—");
+                const emailDisplay = u.emailDisplay ?? (isPhoneAccount(u) ? "—" : (u.email || "—"));
                 return (
                 <tr key={u._id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-4 py-4">
@@ -290,8 +294,8 @@ export default function AdminUsers() {
         )}
 
         {!loading && list.map((u) => {
-          const phoneDisplay = u.phoneDisplay ?? (u.phoneTrial || (u.email && /@trial\.local$/i.test(u.email)) ? (u.phone || "—") : "—");
-          const emailDisplay = u.emailDisplay ?? ((u.phoneTrial || (u.email && /@trial\.local$/i.test(u.email))) ? "—" : (u.email || "—"));
+          const phoneDisplay = u.phoneDisplay ?? (isPhoneAccount(u) ? (u.phone || "—") : "—");
+          const emailDisplay = u.emailDisplay ?? (isPhoneAccount(u) ? "—" : (u.email || "—"));
           return (
             <div key={u._id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4 transition-all active:scale-[0.99]">
               <div className="flex items-center gap-4">

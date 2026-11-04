@@ -8,6 +8,14 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "node --test",
+    "prelaunch:admin": "node seedAdmin.js",
+    "prelaunch:categories": "node seedCategories.js",
+    "prelaunch:locations": "node seedYemenLocations.js",
+    "prelaunch:settings": "node seedSystemSettings.js",
+    "prelaunch:indexes:plan": "node src/scripts/prelaunchIndexes.js",
+    "prelaunch:indexes:apply": "node src/scripts/prelaunchIndexes.js --apply",
+    "prelaunch:indexes:verify": "node src/scripts/prelaunchIndexesVerify.js",
+    "backfill:store-legacy-cutoff": "node src/scripts/backfillStoreLegacyListingsCutoff.js",
     "watermark:ads": "node src/scripts/applyAdWatermark.js"
   },
   "dependencies": {

@@ -54,7 +54,7 @@ const CategoryAttributeSchema = new mongoose.Schema(
 
 // Index for efficient queries
 CategoryAttributeSchema.index({ categoryId: 1, sortOrder: 1 });
-CategoryAttributeSchema.index({ categoryId: 1, name: 1 });
+CategoryAttributeSchema.index({ categoryId: 1, name: 1 }, { unique: true });
 
 const CategoryAttribute = mongoose.model("CategoryAttribute", CategoryAttributeSchema);
 

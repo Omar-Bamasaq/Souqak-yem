@@ -12,12 +12,12 @@ export default function BottomNavBar() {
   const inactiveClass = "text-gray-500 hover:text-blue-600";
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 block border-t border-blue-100 bg-white/90 backdrop-blur-xl md:hidden">
-      <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-2">
+    <nav aria-label="التنقل الرئيسي" className="app-bottom-nav fixed bottom-0 left-0 right-0 z-50 block border-t border-blue-100 bg-white/95 md:hidden">
+      <div className="mx-auto flex h-16 max-w-2xl items-center justify-around gap-1 px-2">
         <NavLink
           to="/"
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
+            `flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors duration-150 active:scale-[0.97] active:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${isActive ? activeClass : inactiveClass}`
           }
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -29,7 +29,7 @@ export default function BottomNavBar() {
         <NavLink
           to="/search"
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
+            `flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors duration-150 active:scale-[0.97] active:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${isActive ? activeClass : inactiveClass}`
           }
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,7 +40,9 @@ export default function BottomNavBar() {
 
         <NavLink
           to="/choose-add-type"
-          className="relative -top-4 flex h-14 w-14 flex-col items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-300/60 ring-4 ring-white transition-transform active:scale-95"
+          aria-label="إضافة إعلان"
+          title="إضافة إعلان"
+          className="relative -top-3 flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md ring-4 ring-white transition-transform duration-150 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -50,7 +52,7 @@ export default function BottomNavBar() {
         <NavLink
           to="/messages"
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
+            `flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors duration-150 active:scale-[0.97] active:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${isActive ? activeClass : inactiveClass}`
           }
         >
           <div className="relative">
@@ -68,11 +70,12 @@ export default function BottomNavBar() {
 
         {user ? (
           <>
-            <NavLink
-              to={["admin", "supervisor"].includes(user.role) ? "/admin" : "/seller"}
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
-              }
+            <button
+              type="button"
+              aria-label="فتح قائمة الحساب"
+              aria-haspopup="dialog"
+              onClick={() => window.dispatchEvent(new Event("account-menu:open"))}
+              className={`flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors duration-150 active:scale-[0.97] active:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${inactiveClass}`}
             >
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-[10px] font-bold text-blue-700 overflow-hidden border border-blue-200">
                 {user.avatar ? (
@@ -90,26 +93,14 @@ export default function BottomNavBar() {
                 )}
               </div>
               <span className="text-[10px] font-medium">حسابي</span>
-            </NavLink>
+            </button>
 
-            <NavLink
-              to="/account-settings"
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
-              }
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-[10px] font-medium">الإعدادات</span>
-            </NavLink>
           </>
         ) : (
           <NavLink
             to="/login"
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 transition-all ${isActive ? activeClass : inactiveClass}`
+              `flex min-h-11 min-w-12 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 transition-colors duration-150 active:scale-[0.97] active:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${isActive ? activeClass : inactiveClass}`
             }
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

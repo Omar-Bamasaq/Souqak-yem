@@ -1,20 +1,30 @@
 import React, { useEffect, useRef, useState, Fragment } from "react";
-import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, Link, useSearchParams, useLocation } from "react-router-dom";
 import SEO from "../components/SEO";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import { useApi } from "../api/axios.js";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
 import { uploadsUrl } from "../lib/uploads.js";
+import { getStoreProductAvailabilityLabel } from "../utils/storeProductDisplay.js";
+import { buildSingleProductWhatsAppMessage, buildWhatsAppLink, getStoreWhatsAppContacts } from "../utils/whatsappOrdering.js";
+import { getStoreCurrencyLabel } from "../utils/storeArabicLabels.js";
+import { buildAdShareUrl } from "../utils/adShareUrl.js";
 import { t } from "../i18n/index.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import ProductCard from "../components/ProductCard.jsx";
+import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
 import { isConditionEnabled } from "../lib/categoryHelpers.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import SecurePurchaseModal from "../components/SecurePurchaseModal.jsx";
 import SecurePurchaseTutorial from "../components/SecurePurchaseTutorial.jsx";
 import { useSsgData } from "../ssg/SsgDataContext.jsx";
+import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
+import { isPublicAdIndexable } from "../lib/publicAdIndexing.js";
+import { createAdStructuredData } from "../lib/structuredData.js";
+import { resolveSiteBaseUrl } from "../lib/siteUrl.js";
 
 const REPORT_CONFIG = {
   ad: {
@@ -33,7 +43,14 @@ function baseSlugify(text) {
     .toLowerCase()
     .replace(/[^\w\s\u0600-\u06ff-]/g, "")
     .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/, "");
+}
+
+function hasAttributeValue(attribute) {
+  const value = attribute?.value;
+  return value !== null && value !== undefined && String(value).trim() !== "";
 }
 
 function getCurrencySymbol(code) {
@@ -49,14 +66,18 @@ function getCurrencySymbol(code) {
 
 export default function ProductDetail() {
   const { data: governoratesData = [] } = useGovernorates();
-  const { id } = useParams();
+  const { id, slug: routeSlug } = useParams();
   const ssgData = useSsgData();
   const initialAd = ssgData?.kind === "ad" && String(ssgData.data?.ad?._id) === String(id) ? ssgData.data.ad : null;
   const [searchParams] = useSearchParams();
   const refId = searchParams.get("ref");
   const navigate = useNavigate();
+  const location = useLocation();
   const { useSimilarAds } = useAdsQuery();
   const [p, setP] = useState(initialAd);
+  const storeProfile = p?.storeProfileId?.storeName ? p.storeProfileId : null;
+  const storeWhatsAppContacts = getStoreWhatsAppContacts(storeProfile);
+  const hasWhatsAppOrdering = Boolean(storeProfile && storeProfile.whatsappOrderingEnabled === true && storeWhatsAppContacts.length);
   const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [ok, setOk] = useState("");
@@ -155,18 +176,26 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (p) {
-      if (p.attributes?.length > 0) setActiveTab("specs");
+      if (p.attributes?.some(hasAttributeValue)) setActiveTab("specs");
       else setActiveTab("comments");
     }
-  }, [p?.attributes?.length]);
+  }, [p?.attributes]);
+
+  useEffect(() => {
+    if (!p?._id || !id || !routeSlug) return;
+    const slug = baseSlugify(p.slug || p.title) || "ad";
+    if (routeSlug === slug && location.pathname === `/ad/${id}/${routeSlug}`) return;
+    navigate(`/ad/${p._id}/${slug}${location.search}`, { replace: true });
+  }, [p?._id, p?.slug, p?.title, id, routeSlug, location.pathname, location.search, navigate]);
 
   const handleShare = async () => {
+    const shareUrl = buildAdShareUrl(window.location.origin, p._id);
     if (navigator.share) {
       try {
         await navigator.share({
           title: p.title,
           text: `شاهد هذا الإعلان على سوقك: ${p.title}`,
-          url: window.location.href,
+          url: shareUrl,
         });
       } catch (err) {
         console.error("Share error:", err);
@@ -174,12 +203,27 @@ export default function ProductDetail() {
     } else {
       // Fallback: Copy to clipboard
       try {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(shareUrl);
         window.dispatchEvent(new CustomEvent("admin:toast", { detail: { message: "تم نسخ رابط الإعلان بنجاح", type: "success" } }));
       } catch {
         alert("فشل نسخ الرابط");
       }
     }
+  };
+
+  const openWhatsAppOrder = (contact) => {
+    if (!p || !contact?.normalized) return;
+    const productUrl = `${window.location.origin}${window.location.pathname}`;
+    const message = buildSingleProductWhatsAppMessage({
+      storeName: storeProfile?.storeName,
+      productName: p.title,
+      quantity: 1,
+      price: p.storeProfileId && p.discountEnabled === true ? p.unitPrice : p.price,
+      currency: p.currency,
+      productUrl
+    });
+    const link = buildWhatsAppLink(contact.normalized, message);
+    if (link) window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const [pledgeOpen, setPledgeOpen] = useState(false);
@@ -191,10 +235,11 @@ export default function ProductDetail() {
     const map = {
       "YER_ADEN": "ريال يمني (عدن)",
       "YER_SANAA": "ريال يمني (صنعاء)",
+      "YER": "ريال يمني",
       "SAR": "ريال سعودي",
       "USD": "دولار أمريكي"
     };
-    return map[currency] || currency;
+    return map[currency] || (storeProfile ? getStoreCurrencyLabel(currency) : currency);
   };
 
   const checkPledge = (action) => {
@@ -382,6 +427,15 @@ export default function ProductDetail() {
       }
     })();
   }, [id, p?._id, user?._id]);
+  useEffect(() => {
+    const store = p?.storeProfileId;
+    const storeId = store && typeof store === "object" ? store._id : null;
+    if (!storeId || store.analyticsEnabled !== true) return;
+    if (!claimStoreAnalyticsView({ storeId, productId: p._id })) return;
+    api.post(`/stores/${storeId}/analytics/views`, { productId: p._id }).catch((error) => {
+      console.error("Store product analytics tracking error:", error);
+    });
+  }, [api, p?._id, p?.storeProfileId?._id, p?.storeProfileId?.analyticsEnabled]);
   // Track referral link visit
   useEffect(() => {
     const trackReferral = async () => {
@@ -522,18 +576,18 @@ export default function ProductDetail() {
     } finally { setReportSubmitting(false); }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-20"><LoadingSpinner size="lg" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-12 sm:py-20"><LoadingSpinner size="lg" /></div>;
   
   if (notFound || !p) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-6">
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center sm:py-20">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-4 sm:mb-6">
           <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
         <h2 className="text-2xl font-black text-gray-900 mb-2">{notFound ? "الإعلان غير موجود" : "خطأ في تحميل الإعلان"}</h2>
-        <p className="text-gray-500 mb-8 max-w-md">
+        <p className="text-gray-500 mb-5 sm:mb-8 max-w-md">
           {notFound 
             ? "عذراً، يبدو أن الإعلان الذي تبحث عنه قد تم حذفه أو أن الرابط غير صحيح."
             : "حدث خطأ غير متوقع أثناء محاولة تحميل بيانات الإعلان. يرجى المحاولة مرة أخرى لاحقاً."}
@@ -547,13 +601,21 @@ export default function ProductDetail() {
   }
 
   const sellerId = p.userId?._id || p.userId;
+  const detailAttributes = (p.attributes || []).filter(hasAttributeValue);
+  const storeAvailabilityLabel = getStoreProductAvailabilityLabel(p);
+  const storePhones = (storeProfile?.phones || []).filter((contact) => contact?.value);
+  if (storeProfile?.phone && !storePhones.length) storePhones.push({ value: storeProfile.phone });
+  const storeCityName = storeProfile?.cityId?.name || storeProfile?.customCityName || "";
+  const storeLocation = storeProfile?.governorateId?.name && storeCityName
+    ? `${storeProfile.governorateId.name} - ${storeCityName}`
+    : storeProfile?.location || "";
   const isMyAd = user && String(sellerId) === String(user?.id);
   const mainCategoryName = p.parentCategory?.name || p.categoryId?.parentId?.name || "";
   const securePurchaseExcludedCategories = ["الوظائف", "الخدمات", "طلب شراء", "العقارات", "المركبات"];
   const canUseSecurePurchase = !securePurchaseExcludedCategories.includes(mainCategoryName.trim()) && p.adType !== "order";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6 pb-12 dark:text-slate-100">
+    <div className="mx-auto max-w-7xl space-y-4 pb-8 dark:text-slate-100 sm:space-y-6 sm:pb-12">
       {/* Navigation & Back Button */}
       <div className="flex items-center justify-between gap-4">
         {/* Breadcrumbs - Better accessibility */}
@@ -574,34 +636,50 @@ export default function ProductDetail() {
         </nav>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         {/* SEO Implementation */}
         {p && (
+          (() => {
+            const slug = baseSlugify(p.slug || p.title) || "ad";
+            const canonicalAdUrl = `/ad/${p._id}/${slug}`;
+            const siteBaseUrl = resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL);
+            const breadcrumbs = [
+              { name: "الرئيسية", url: "/" },
+              ...(p.parentCategory?.slug ? [{ name: p.parentCategory.name, url: `/category/${p.parentCategory.slug}` }] : []),
+              { name: p.title, url: canonicalAdUrl }
+            ];
+            return (
           <SEO 
             title={p.title} 
             description={p.description} 
             image={p.images?.[0] ? uploadsUrl(p.images[0]) : null}
-            url={`/ad/${p._id}/${baseSlugify(p.title)}`}
-            canonicalUrl={`/ad/${p._id}/${baseSlugify(p.title)}`}
+            url={canonicalAdUrl}
+            canonicalUrl={canonicalAdUrl}
             type="product"
-            price={p.price}
-            currency={p.currency}
-            breadcrumbs={[
-              { name: "الرئيسية", url: "https://souqak-yem.com/" },
-              ...(p.parentCategory?.slug ? [{ name: p.parentCategory.name, url: `https://souqak-yem.com/category/${p.parentCategory.slug}` }] : []),
-              { name: p.title, url: `https://souqak-yem.com/ad/${p._id}/${baseSlugify(p.title)}` }
-            ]}
-            indexable={p.status === 'approved' && !p.isArchived && !p.sold}
+            breadcrumbs={breadcrumbs}
+            jsonLd={createAdStructuredData({
+              ad: {
+                ...p,
+                price: p.storeProfileId && p.discountEnabled === true ? p.unitPrice : p.price
+              },
+              url: canonicalAdUrl,
+              image: p.images?.[0] ? uploadsUrl(p.images[0]) : null,
+              breadcrumbs,
+              siteBaseUrl
+            })}
+            indexable={isPublicAdIndexable(p)}
           />
+            );
+          })()
         )}
         {/* Left Column: Images and Details */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Main Card */}
           <div className="overflow-hidden rounded-2xl border dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
             {/* Image Gallery */}
             <div className="relative">
               <div 
-                className="w-full flex items-center justify-center bg-white dark:bg-slate-900 cursor-zoom-in overflow-hidden h-[350px] sm:h-[550px] border-b dark:border-slate-800"
+                className="relative w-full flex items-center justify-center bg-white dark:bg-slate-900 cursor-zoom-in overflow-hidden h-[300px] sm:h-[550px] border-b dark:border-slate-800"
                 onClick={() => { setLbIndex(0); setLbOpen(true); }}
               >
                 {p.images?.[0] ? (
@@ -637,7 +715,12 @@ export default function ProductDetail() {
                     طلب شراء
                   </span>
                 )}
-                {p.condition && p.adType !== "order" && isConditionEnabled(p.parentCategory?.name || p.categoryId?.parentId?.name || p.categoryId?.name || "") && (
+                {storeProfile && storeAvailabilityLabel && (
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold shadow-lg ${p.isAvailable === false ? "bg-slate-700 text-white" : "bg-emerald-600 text-white"}`}>
+                    {storeAvailabilityLabel}
+                  </span>
+                )}
+                {!storeProfile && p.condition && p.adType !== "order" && isConditionEnabled(p.parentCategory?.name || p.categoryId?.parentId?.name || p.categoryId?.name || "") && (
                   <span className={`rounded-full px-3 py-1 text-xs font-bold shadow-lg ${
                     p.condition === "new" ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white"
                   }`}>
@@ -651,6 +734,16 @@ export default function ProductDetail() {
                 <div className="absolute bottom-4 left-4 rounded-lg bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
                   {p.images.length} صور
                 </div>
+              )}
+              {p.isAvailableForDelivery === true && (
+                <span className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-300 px-4 py-2 text-sm font-black text-amber-950 shadow-lg">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z" />
+                    <circle cx="7.5" cy="18" r="1.5" />
+                    <circle cx="18" cy="18" r="1.5" />
+                  </svg>
+                  توصيل متاح
+                </span>
               )}
             </div>
 
@@ -676,6 +769,25 @@ export default function ProductDetail() {
                   <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-slate-100 leading-tight break-words">
                     {p.title}
                   </h1>
+
+                  {storeProfile && (
+                    <section className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+                      <Link to={`/store/${storeProfile.slug}`} className="flex min-w-0 items-center gap-3 text-slate-900 dark:text-slate-100">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white bg-white text-lg font-black shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                          {storeProfile.logo ? <img src={uploadsUrl(storeProfile.logo, "thumb")} alt={`شعار ${storeProfile.storeName}`} className="h-full w-full object-cover" /> : storeProfile.storeName.charAt(0)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-base font-black">{storeProfile.storeName}</span>
+                          <span className="block truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{storeProfile.businessActivity}</span>
+                        </span>
+                      </Link>
+                      {storeLocation && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{storeLocation}</p>}
+                      <div className="flex flex-wrap gap-2">
+                        <Link to={`/store/${storeProfile.slug}`} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800">{storeProfile.storeType === "family-production" ? "زيارة مشروع الأسرة" : "زيارة المتجر"}</Link>
+                        <Link to={`/store/${storeProfile.slug}#products`} className="rounded-lg border border-emerald-700 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 dark:text-emerald-200 dark:hover:bg-emerald-950">{storeProfile.storeType === "family-production" ? "تصفح منتجات الأسرة" : "تصفح منتجات المتجر"}</Link>
+                      </div>
+                    </section>
+                  )}
                   
                   <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs sm:text-sm text-gray-500">
                     <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md">
@@ -716,9 +828,28 @@ export default function ProductDetail() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="text-xl sm:text-2xl font-black text-blue-600">
-                        {p.priceOnContact ? "السعر عند التواصل" : `${p.price?.toLocaleString()} ${formatCurrency(p.currency)}`}
+                      <div className="flex flex-col text-xl sm:text-2xl font-black text-blue-600">
+                        {p.priceOnContact
+                          ? "السعر عند التواصل"
+                          : p.storeProfileId && p.discountEnabled === true
+                            ? <>
+                                <span className="text-sm font-black text-rose-700">
+                                  {p.discountType === "fixed"
+                                    ? `خصم ${Number(p.discountValue).toLocaleString()} ${formatCurrency(p.currency)}`
+                                    : `خصم ${p.discountValue}%`}
+                                </span>
+                                <span className="text-sm font-bold text-slate-500 line-through">{Number(p.originalPrice ?? p.price).toLocaleString()} {formatCurrency(p.currency)}</span>
+                                <span className="text-rose-700">{Number(p.unitPrice ?? p.price).toLocaleString()} {formatCurrency(p.currency)}</span>
+                              </>
+                            : `${p.price?.toLocaleString()} ${formatCurrency(p.currency)}`}
                       </div>
+                      {p.storeProfileId && p.inventoryEnabled === true && (
+                        <p className={`mt-2 text-sm font-black ${Number(p.stockQuantity) === 0 ? "text-slate-600" : "text-emerald-700"}`}>
+                          {Number(p.stockQuantity) === 0
+                            ? "نفد المخزون"
+                            : `متوفر · المتبقي: ${Number(p.stockQuantity).toLocaleString("ar-YE")}`}
+                        </p>
+                      )}
                       {p.negotiable && (
                         <span className="text-[10px] sm:text-xs font-black text-green-700 bg-green-100 px-2 py-1 rounded-full border border-green-200 uppercase tracking-wide">
                           قابل للتفاوض
@@ -728,6 +859,13 @@ export default function ProductDetail() {
                   </div>
                 </div>
               </div>
+              {!p.priceOnContact && p.price != null && (
+                <CurrencyCalculator
+                  key={`currency-calculator-${p._id}`}
+                  amount={p.storeProfileId && p.discountEnabled === true ? p.unitPrice : p.price}
+                  currency={p.currency}
+                />
+              )}
 
               {/* Description directly under the price */}
               <div className="border-t pt-4 mt-2">
@@ -752,11 +890,11 @@ export default function ProductDetail() {
           </div>
 
           {/* Specifications Card */}
-          {p.attributes?.length > 0 && (
+          {detailAttributes.length > 0 && (
             <div className={`rounded-2xl border dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm ${activeTab !== 'specs' ? 'hidden sm:block' : ''}`}>
               <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-4">المواصفات</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {p.attributes.map((a, i) => (
+                {detailAttributes.map((a, i) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-800">
                     <span className="text-sm text-gray-500 dark:text-slate-400 font-medium">{a.attributeId?.label || a.attributeId?.name}</span>
                     <span className="text-sm text-gray-900 dark:text-slate-100 font-bold">{String(a.value) === "true" ? "نعم" : String(a.value) === "false" ? "لا" : a.value}</span>
@@ -780,16 +918,27 @@ export default function ProductDetail() {
                   </svg>
                   {convOpening ? "جارٍ التحميل..." : "إرسال رسالة"}
                 </button>
+                {hasWhatsAppOrdering && storeWhatsAppContacts.map((contact, index) => (
+                  <button
+                    key={`${contact.normalized}-${index}`}
+                    type="button"
+                    onClick={() => openWhatsAppOrder(contact)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-black text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M19.05 4.95A9.93 9.93 0 0 0 12 2a9.98 9.98 0 0 0-8.68 15.08L2 22l5.01-1.31A9.98 9.98 0 0 0 12 22c5.52 0 10-4.48 10-10 0-2.66-1.04-5.2-2.95-7.05ZM12 18.3c-1.4 0-2.76-.38-3.96-1.09l-.28-.17-2.97.78.79-2.89-.18-.3A7.34 7.34 0 0 1 4.7 12a7.3 7.3 0 1 1 13.05 4.87l-.22.22A7.38 7.38 0 0 1 12 18.3Zm4.05-5.53c-.22-.11-1.31-.65-1.51-.72-.2-.07-.35-.11-.5.11-.15.22-.58.72-.71.87-.13.15-.26.17-.48.06-.22-.11-.93-.34-1.78-1.11-.66-.59-1.1-1.31-1.23-1.53-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.15-.22.22-.37.07-.15.03-.28-.02-.39-.05-.11-.5-1.22-.68-1.68-.18-.45-.36-.39-.5-.39-.13 0-.28-.02-.42-.02-.15 0-.39.06-.59.28-.2.22-.76.74-.76 1.81s.78 2.1.89 2.25c.11.15 1.53 2.34 3.7 3.28.52.22.92.35 1.24.45.52.17.99.15 1.37.09.42-.06 1.31-.54 1.5-1.06.19-.53.19-.98.13-1.07-.06-.09-.2-.15-.42-.26Z" />
+                    </svg>
+                    {storeWhatsAppContacts.length > 1 ? `اطلب عبر واتساب ${index + 1}` : "اطلب عبر واتساب"}
+                  </button>
+                ))}
                 {canUseSecurePurchase && (
                   <button
                     ref={securePurchaseButtonRef}
                     onClick={() => setSecurePurchaseModalOpen(true)}
                     className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-black text-white hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95"
                   >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    شراء آمن (وساطة المنصة)
+                    <img src="/Amana-Logo.svg" alt="" className="h-5 w-5 rounded-full bg-white object-contain p-0.5" />
+                    شراء آمن عبر أمانة
                   </button>
                 )}
               </div>
@@ -846,7 +995,7 @@ export default function ProductDetail() {
           <div className="sm:hidden sticky top-0 z-10 bg-white dark:bg-slate-900 border-y dark:border-slate-800 -mx-4 px-4 overflow-x-auto scrollbar-hide">
             <div className="flex w-full whitespace-nowrap">
               {[
-                { id: "specs", label: "الخصائص", show: p.attributes?.length > 0 },
+                { id: "specs", label: "الخصائص", show: detailAttributes.length > 0 },
                 { id: "comments", label: "التعليقات" },
                 { id: "reviews", label: "التقييمات" }
               ].filter(t => t.show !== false).map(tab => (
@@ -1055,14 +1204,18 @@ export default function ProductDetail() {
           <div className="rounded-2xl border dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm sticky top-24">
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="relative">
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl font-bold text-white shadow-xl ring-4 ring-white overflow-hidden">
-                  {p.userId?.avatar ? (
+                <div className={`h-20 w-20 ${storeProfile ? "rounded-2xl bg-emerald-50 text-emerald-800" : "rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white"} flex items-center justify-center text-2xl font-bold shadow-xl ring-4 ring-white overflow-hidden`}>
+                  {storeProfile?.logo ? (
+                    <img src={uploadsUrl(storeProfile.logo, "thumb")} alt={`شعار ${storeProfile.storeName}`} className="h-full w-full object-cover" />
+                  ) : storeProfile ? (
+                    storeProfile.storeName.charAt(0)
+                  ) : p.userId?.avatar ? (
                     <img src={uploadsUrl(p.userId.avatar, "thumb")} alt="" className="h-full w-full object-cover" />
                   ) : (
                     (p.userId?.name || "?").slice(0,1)
                   )}
                 </div>
-                {(p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller) && (
+                {!storeProfile && (p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller) && (
                   <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-white p-1 shadow-lg">
                     <div className="h-full w-full rounded-full bg-blue-600 flex items-center justify-center text-white">
                       <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -1074,19 +1227,33 @@ export default function ProductDetail() {
               </div>
               
               <div className={`text-center p-4 rounded-2xl transition-all w-full ${
-                (p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller)
+                storeProfile
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900"
+                  : (p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller)
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-100 dark:shadow-none" 
                   : "bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700"
               }`}>
                 <Link 
-                  to={`/s/${sellerId}`} 
+                  to={storeProfile ? `/store/${storeProfile.slug}` : `/s/${sellerId}`}
                   className={`text-lg font-bold transition-colors block truncate px-2 ${
-                    (p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller) ? "text-white hover:text-blue-50" : "text-gray-900 dark:text-slate-100 hover:text-blue-600"
+                    storeProfile
+                      ? "text-emerald-900 hover:text-emerald-700 dark:text-emerald-100"
+                      : (p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller) ? "text-white hover:text-blue-50" : "text-gray-900 dark:text-slate-100 hover:text-blue-600"
                   }`}
                 >
-                  {p.userId?.name || "البائع"}
+                  {storeProfile ? storeProfile.storeName : p.userId?.name || "البائع"}
                 </Link>
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-1 px-2">
+                {storeProfile ? (
+                  <>
+                    <p className="mt-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                      {storeProfile.storeType === "family-production" ? "صناعات سوقك - أسرة منتجة" : "متجر"}
+                    </p>
+                    {storeProfile.businessActivity && (
+                      <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">{storeProfile.businessActivity}</p>
+                    )}
+                    {storeLocation && <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">{storeLocation}</p>}
+                  </>
+                ) : <div className="flex flex-wrap items-center justify-center gap-2 mt-1 px-2">
                   {(p.userId?.verificationStatus === 'verified' || p.userId?.role === 'admin' || p.userId?.isVerifiedSeller) && (
                     <span className="text-[10px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full uppercase tracking-wider border border-white/30 flex items-center gap-1 shrink-0">
                       <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -1098,10 +1265,25 @@ export default function ProductDetail() {
                   <span className={`text-xs font-medium shrink-0 ${p.userId?.isVerifiedSeller ? "text-blue-100" : "text-gray-500"}`}>
                     {followersCount} متابع
                   </span>
-                </div>
+                </div>}
               </div>
 
-              <div className="flex flex-col w-full gap-3 pt-4 border-t dark:border-slate-800">
+              {(storeProfile?.slug || sellerId) && (
+                <Link
+                  to={storeProfile ? `/store/${storeProfile.slug}` : `/s/${sellerId}`}
+                  className={`w-full rounded-xl px-4 py-3 text-sm font-black text-white shadow-sm transition-colors ${
+                    storeProfile ? "bg-emerald-700 hover:bg-emerald-800" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {storeProfile?.storeType === "family-production"
+                    ? "زيارة قسم الأسرة"
+                    : storeProfile
+                      ? "زيارة المتجر"
+                      : "زيارة الملف الشخصي"}
+                </Link>
+              )}
+
+              {!storeProfile && <div className="flex flex-col w-full gap-3 pt-4 border-t dark:border-slate-800">
                 <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 dark:text-slate-500">
                   <span>إحصائيات البائع</span>
                   <span className="text-blue-600 dark:text-blue-400">سجل سوقك</span>
@@ -1121,11 +1303,11 @@ export default function ProductDetail() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </div>}
 
 
 
-              {!isMyAd && (
+              {!storeProfile && !isMyAd && (
                 <div className="flex gap-2 w-full">
                   <button 
                     onClick={async () => {
@@ -1153,13 +1335,13 @@ export default function ProductDetail() {
               {isMyAd ? (
                 <div className="space-y-3 w-full">
                     <Link 
-                      to={`/edit-ad/${id}`}
+                      to={`/edit-ad/${id}${storeProfile ? `?storeProduct=1&storeType=${storeProfile.storeType === "family-production" ? "family-production" : "store"}` : ""}`}
                       className="w-full flex items-center justify-center gap-3 rounded-xl bg-amber-500 px-6 py-3.5 text-sm font-bold text-white hover:bg-amber-600 transition-all shadow-lg shadow-amber-100 active:scale-95"
                     >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      تعديل الإعلان
+                      {storeProfile ? "تعديل المنتج" : "تعديل الإعلان"}
                     </Link>
                 </div>
               ) : (
@@ -1176,7 +1358,28 @@ export default function ProductDetail() {
                   </button>
 
                   <div className="grid grid-cols-2 gap-3">
-                    {p.contactInfo?.showWhatsApp && (
+                    {storeProfile && storeWhatsAppContacts.map((contact, index) => (
+                      <button
+                        key={`store-whatsapp-${index}`}
+                        onClick={() => checkPledge(() => {
+                          trackClick("whatsapp");
+                          window.location.href = `https://wa.me/${String(contact.value).replace(/\D/g, "")}`;
+                        })}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white hover:bg-green-700"
+                      >واتساب {storeWhatsAppContacts.length > 1 ? index + 1 : ""}</button>
+                    ))}
+                    {storeProfile && storePhones.map((contact, index) => (
+                      <button
+                        key={`store-phone-${index}`}
+                        onClick={() => checkPledge(() => {
+                          trackClick("phone");
+                          window.location.href = `tel:${contact.value}`;
+                        })}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                      >اتصال {storePhones.length > 1 ? index + 1 : ""}</button>
+                    ))}
+                    {storeProfile?.email && <a href={`mailto:${storeProfile.email}`} className="flex items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700">{storeProfile.storeType === "family-production" ? "مراسلة الأسرة" : "مراسلة المتجر"}</a>}
+                    {!storeProfile && p.contactInfo?.showWhatsApp && (
                       <button 
                         onClick={() => checkPledge(() => {
                           trackClick("whatsapp");
@@ -1190,7 +1393,7 @@ export default function ProductDetail() {
                         واتساب
                       </button>
                     )}
-                    {p.contactInfo?.showPhone && (
+                    {!storeProfile && p.contactInfo?.showPhone && (
                       <button 
                         onClick={() => checkPledge(() => {
                           trackClick("phone");
@@ -1290,7 +1493,7 @@ export default function ProductDetail() {
       )}
 
       {/* Commission Pledge Modal */}
-      {pledgeOpen && (
+      {AD_COMMISSION_ENABLED && pledgeOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
           <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar rounded-[2rem] sm:rounded-[2.5rem] bg-white p-6 sm:p-10 shadow-2xl border border-blue-100 animate-in zoom-in-95 duration-300 text-right" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 text-center sm:text-right">

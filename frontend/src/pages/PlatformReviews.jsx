@@ -51,10 +51,11 @@ const PlatformReviews = () => {
       <SEO 
         title="حائط الآراء - منصة سوقك" 
         description="ماذا يقول مستخدمو سوقك عن تجربتهم؟ استكشف آراء وتقييمات مجتمعنا."
+        canonicalUrl="/platform-reviews"
       />
 
       {/* Hero Section */}
-      <div className="relative bg-white dark:bg-slate-900 border-b dark:border-slate-800 pt-10 pb-12 sm:pt-16 sm:pb-20 overflow-hidden">
+      <div className="relative bg-white dark:bg-slate-900 border-b dark:border-slate-800 pt-6 pb-8 sm:pt-16 sm:pb-20 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
           <div className="absolute top-10 right-10 w-64 h-64 bg-brand-500 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 left-10 w-64 h-64 bg-emerald-500 rounded-full blur-3xl"></div>
@@ -64,7 +65,7 @@ const PlatformReviews = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 text-[10px] sm:text-xs font-black uppercase tracking-widest mb-4 sm:mb-6"
+            className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 text-[10px] sm:text-xs font-black uppercase tracking-widest mb-3 sm:mb-6"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
@@ -77,7 +78,7 @@ const PlatformReviews = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-3xl sm:text-4xl md:text-6xl font-black text-gray-900 dark:text-white mb-4 sm:mb-6"
+            className="text-3xl sm:text-4xl md:text-6xl font-black text-gray-900 dark:text-white mb-2 sm:mb-6"
           >
             حائط <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-emerald-600">الآراء</span>
           </motion.h1>
@@ -86,7 +87,7 @@ const PlatformReviews = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="max-w-2xl mx-auto text-sm sm:text-lg text-gray-500 dark:text-slate-400 font-bold leading-relaxed mb-6 sm:mb-8 px-4"
+            className="max-w-2xl mx-auto text-sm sm:text-lg text-gray-500 dark:text-slate-400 font-bold leading-relaxed mb-4 sm:mb-8 px-2 sm:px-4"
           >
             رأيكم هو البوصلة التي توجهنا نحو الأفضل. استكشف تجارب المستخدمين الآخرين وشاركنا تجربتك الخاصة.
           </motion.p>
@@ -112,12 +113,12 @@ const PlatformReviews = () => {
 
       <div className="max-w-6xl mx-auto px-4 -mt-6 sm:-mt-10 relative z-20">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-12">
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
-            className="ds-card p-6 sm:p-8 text-center flex flex-col items-center justify-center bg-white dark:bg-slate-900 shadow-xl border-none"
+            className="ds-card p-4 sm:p-8 text-center flex flex-col items-center justify-center bg-white dark:bg-slate-900 shadow-xl border-none"
           >
             <div className="text-[9px] sm:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1 sm:mb-2">متوسط التقييم</div>
             <div className="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
@@ -167,7 +168,7 @@ const PlatformReviews = () => {
               <div key={i} className="ds-card h-64 animate-pulse bg-white dark:bg-slate-900 border-none shadow-md" />
             ))
           ) : reviews.length === 0 ? (
-            <div className="col-span-full py-20 text-center">
+            <div className="col-span-full py-12 text-center sm:py-20">
               <div className="w-20 h-20 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
                 💬
               </div>

@@ -15,9 +15,9 @@ router.post("/send-otp", auth, async (req, res) => {
     user.emailOTP = code;
     user.otpExpiresAt = expires;
     await user.save();
-    console.log(`OTP to ${user.email}: ${code}`);
     res.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("Email OTP request failed:", error?.message);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -43,7 +43,8 @@ router.post("/verify-otp", auth, async (req, res) => {
     res.json({
       user: { id: user._id, name: user.name, email: user.email, role: user.role, isEmailVerified: user.isEmailVerified }
     });
-  } catch {
+  } catch (error) {
+    console.error("Email OTP verification failed:", error?.message);
     res.status(500).json({ error: "Server error" });
   }
 });

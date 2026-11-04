@@ -46,10 +46,10 @@ export default function AdminCities() {
     loadCities();
   }, [governoratesData]);
 
-  const resetForm = () => {
+  const resetForm = ({ keepGovernorate = false } = {}) => {
     setEditing(null);
     setName("");
-    setGovernorateId("");
+    if (!keepGovernorate) setGovernorateId("");
     setIsActive(true);
     setError("");
     setOk("");
@@ -74,7 +74,7 @@ export default function AdminCities() {
       }
       await loadCities();
       setOk("تم الحفظ");
-      resetForm();
+      resetForm({ keepGovernorate: !editing });
     } catch (e) {
       const msg = e?.response?.data?.error || "تعذر الحفظ";
       setError(msg);

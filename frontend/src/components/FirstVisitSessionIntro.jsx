@@ -7,7 +7,7 @@ export default function FirstVisitSessionIntro() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const [isVisible, setIsVisible] = useState(false);
-  const authPages = ["/login", "/register", "/forgot-password", "/phone-forgot-password", "/set-new-password", "/verify-email"];
+  const authPages = ["/login", "/admin-login", "/register", "/forgot-password", "/phone-forgot-password", "/set-new-password", "/verify-email"];
   const isAuthPage = authPages.includes(location.pathname);
 
   useEffect(() => {

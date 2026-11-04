@@ -4,11 +4,13 @@ import City from "../models/City.js";
 import Ad from "../models/Ad.js";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
+import { ensureOtherCities } from "../utils/ensureOtherCities.js";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
   try {
+    await ensureOtherCities();
     const q = {};
     if (typeof req.query.active !== "undefined") q.isActive = req.query.active === "true";
     const list = await Governorate.find(Object.keys(q).length ? q : {}).sort({ name: 1 }).lean();

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 // Components
 import ScrollToTop from "./components/ScrollToTop.jsx";
+import FormErrorNavigation from "./components/FormErrorNavigation.jsx";
 import WelcomePromotionSummary from "./components/WelcomePromotionSummary.jsx";
 import FirstVisitSessionIntro from "./components/FirstVisitSessionIntro.jsx";
 import AppOpeningIntro from "./components/AppOpeningIntro.jsx";
@@ -16,14 +17,18 @@ import AuthLayout from "./layouts/AuthLayout.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
 import { useAuth } from "./store/AuthContext.jsx";
 import { useBrokerageStatus } from "./store/BrokerageStatusContext.jsx";
+import { AD_COMMISSION_ENABLED } from "./config/commission.js";
 
 // Pages
 const Home = lazy(() => import("./pages/Home.jsx"));
+const Partners = lazy(() => import("./pages/Partners.jsx"));
 const Login = lazy(() => import("./pages/Login.jsx"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin.jsx"));
 const Register = lazy(() => import("./pages/Register.jsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.jsx"));
 const PhoneForgotPassword = lazy(() => import("./pages/PhoneForgotPassword.jsx"));
-const SellerDashboard = lazy(() => import("./pages/SellerDashboard.jsx"));
+const SellerStatistics = lazy(() => import("./pages/SellerStatistics.jsx"));
+const AccountHub = lazy(() => import("./pages/AccountHub.jsx"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard.jsx"));
 const AdminAds = lazy(() => import("./pages/AdminAds.jsx"));
 const AdminManagedSellerAd = lazy(() => import("./pages/AdminManagedSellerAd.jsx"));
@@ -57,6 +62,7 @@ const CategoryPage = lazy(() => import("./pages/CategoryPage.jsx"));
 const SearchResults = lazy(() => import("./pages/SearchResults.jsx"));
 const SellerFeaturedAd = lazy(() => import("./pages/SellerFeaturedAd.jsx"));
 const SellerVerification = lazy(() => import("./pages/SellerVerification.jsx"));
+const StoreDirectory = lazy(() => import("./pages/StoreDirectory.jsx"));
 const Categories = lazy(() => import("./pages/Categories.jsx"));
 const AdminPlans = lazy(() => import("./pages/AdminPlans.jsx"));
 const AdminBankAccounts = lazy(() => import("./pages/AdminBankAccounts.jsx"));
@@ -64,7 +70,18 @@ const AdminFinanceHub = lazy(() => import("./pages/AdminFinanceHub.jsx"));
 const AdminFeaturedRequests = lazy(() => import("./pages/AdminFeaturedRequests.jsx"));
 const AdminVerificationRequests = lazy(() => import("./pages/AdminVerificationRequests.jsx"));
 const SellerSubscriptions = lazy(() => import("./pages/SellerSubscriptions.jsx"));
+const CreateStore = lazy(() => import("./pages/CreateStore.jsx"));
+const MyStore = lazy(() => import("./pages/MyStore.jsx"));
+const AdminStoreRequests = lazy(() => import("./pages/AdminStoreRequests.jsx"));
+const BookingDirectory = lazy(() => import("./pages/BookingDirectory.jsx"));
+const AdminBookings = lazy(() => import("./pages/AdminBookings.jsx"));
+const AdminStoreDirectory = lazy(() => import("./pages/AdminStoreDirectory.jsx"));
+const Storefront = lazy(() => import("./pages/Storefront.jsx"));
+const StoreCart = lazy(() => import("./pages/StoreCart.jsx"));
+const StoreOrders = lazy(() => import("./pages/StoreOrders.jsx"));
 const AdminPhoneUsers = lazy(() => import("./pages/AdminPhoneUsers.jsx"));
+const PhoneVerification = lazy(() => import("./pages/PhoneVerification.jsx"));
+const AdminPhoneVerificationRequests = lazy(() => import("./pages/AdminPhoneVerificationRequests.jsx"));
 const AdminPasswordResetRequests = lazy(() => import("./pages/AdminPasswordResetRequests.jsx"));
 const SetNewPassword = lazy(() => import("./pages/SetNewPassword.jsx"));
 const ChooseAddType = lazy(() => import("./pages/ChooseAddType.jsx"));
@@ -89,6 +106,11 @@ const AdminBrokerage = lazy(() => import("./pages/AdminBrokerage.jsx"));
 const PlatformReviews = lazy(() => import("./pages/PlatformReviews.jsx"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail.jsx"));
 const Wallet = lazy(() => import("./pages/Wallet.jsx"));
+const WalletServices = lazy(() => import("./pages/WalletServices.jsx"));
+const WalletServicePayment = lazy(() => import("./pages/WalletServicePayment.jsx"));
+const AdminWalletServices = lazy(() => import("./pages/AdminWalletServices.jsx"));
+const AdminWalletServiceOrders = lazy(() => import("./pages/AdminWalletServiceOrders.jsx"));
+const AdminQuoteRequests = lazy(() => import("./pages/AdminQuoteRequests.jsx"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings.jsx"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks.jsx"));
 const SecureDealExplanation = lazy(() => import("./pages/SecureDealExplanation.jsx"));
@@ -103,6 +125,14 @@ const BrokerageCampaignDetails = lazy(() => import("./pages/BrokerageCampaignDet
 const ReferralDashboard = lazy(() => import("./pages/ReferralDashboard.jsx"));
 const AdminReferrals = lazy(() => import("./pages/AdminReferrals.jsx"));
 const ReferralRedirect = lazy(() => import("./pages/ReferralRedirect.jsx"));
+const QuoteRequests = lazy(() => import("./pages/QuoteRequests.jsx"));
+const QuoteRequestForm = lazy(() => import("./pages/QuoteRequestForm.jsx"));
+const QuoteRequestDetail = lazy(() => import("./pages/QuoteRequestDetail.jsx"));
+const Auctions = lazy(() => import("./pages/Auctions.jsx"));
+const AuctionDetail = lazy(() => import("./pages/AuctionDetail.jsx"));
+const CreateAuction = lazy(() => import("./pages/CreateAuction.jsx"));
+const MyAuctions = lazy(() => import("./pages/MyAuctions.jsx"));
+const AdminAuctions = lazy(() => import("./pages/AdminAuctions.jsx"));
 
 function RequireRole({ role, children }) {
   const { user, loading } = useAuth();
@@ -114,6 +144,14 @@ function RequireRole({ role, children }) {
   }
   if (role === "admin" && !["admin", "supervisor"].includes(user.role)) return <Navigate to="/login" replace />;
   if (role && role !== "admin" && user.role !== role) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireAuthenticated({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <LoadingSpinner fullPage />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
   return children;
 }
 
@@ -152,7 +190,14 @@ export default function App() {
       '/favorites',
       '/following',
       '/wallet',
+      '/wallet-services',
       '/my-ads',
+      '/my-quote-requests',
+      '/my-quote-offers',
+      '/quote-requests/new',
+      '/quote-requests',
+      '/my-store',
+      '/my-family-production',
       '/account-settings',
       '/orders',
       '/admin',
@@ -179,9 +224,10 @@ export default function App() {
     <>
       <AppOpeningIntro />
       <PushSubscriptionManager />
+      <FormErrorNavigation />
       <FirstVisitSessionIntro />
       <ScrollToTop />
-      <SupportChatFAB />
+      {location.pathname === "/" && <SupportChatFAB />}
       <WelcomePromotionSummary />
       <OnboardingTour />
       <RouteErrorBoundary>
@@ -189,7 +235,8 @@ export default function App() {
           <Routes>
           <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/phone-forgot-password" element={<PhoneForgotPassword />} />
         <Route path="/set-new-password" element={<SetNewPassword />} />
@@ -198,15 +245,36 @@ export default function App() {
 
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/seller" element={<RequireRole role={null}><SellerDashboard /></RequireRole>} />
+        <Route path="/partners" element={<Partners />} />
+        <Route path="/bookings" element={<BookingDirectory />} />
+        <Route path="/account" element={<RequireAuthenticated><AccountHub /></RequireAuthenticated>} />
+        <Route path="/seller" element={<RequireAuthenticated><Navigate to="/account" replace /></RequireAuthenticated>} />
+        <Route path="/account/statistics" element={<RequireAuthenticated><SellerStatistics /></RequireAuthenticated>} />
+        <Route path="/seller/statistics" element={<RequireAuthenticated><Navigate to="/account/statistics" replace /></RequireAuthenticated>} />
         <Route path="/seller/featured-ad" element={<RequireRole role={null}><SellerFeaturedAd /></RequireRole>} />
         <Route path="/seller/feature-ad" element={<RequireRole role={null}><SellerFeaturedAd /></RequireRole>} />
         <Route path="/seller/verification" element={<RequireRole role={null}><SellerVerification /></RequireRole>} />
+        <Route path="/verify-phone" element={<RequireRole role={null}><PhoneVerification /></RequireRole>} />
         <Route path="/seller/subscriptions" element={<RequireRole role={null}><SellerSubscriptions /></RequireRole>} />
-        <Route path="/seller/commissions" element={<RequireRole role={null}><SellerCommissions /></RequireRole>} />
+        <Route path="/stores" element={<StoreDirectory storeType="store" />} />
+        <Route path="/family-production" element={<StoreDirectory storeType="family-production" />} />
+        <Route path="/wallet-services" element={<RequireRole role={null}><WalletServices /></RequireRole>} />
+        <Route path="/wallet-services/my-orders" element={<RequireRole role={null}><WalletServices /></RequireRole>} />
+        <Route path="/wallet-services/category/:categorySlug" element={<RequireRole role={null}><WalletServices /></RequireRole>} />
+        <Route path="/wallet-services/order/:serviceId" element={<RequireRole role={null}><WalletServices /></RequireRole>} />
+        <Route path="/wallet-services/custom-order" element={<RequireRole role={null}><WalletServices /></RequireRole>} />
+        <Route path="/wallet-services/:orderId/payment" element={<RequireRole role={null}><WalletServicePayment /></RequireRole>} />
+        <Route path="/seller/store/create" element={<RequireRole role={null}><CreateStore /></RequireRole>} />
+        <Route path="/family-production/register" element={<RequireRole role={null}><CreateStore storeType="family-production" /></RequireRole>} />
+        <Route path="/my-store" element={<RequireRole role={null}><MyStore /></RequireRole>} />
+        <Route path="/my-store/orders" element={<RequireRole role={null}><StoreOrders /></RequireRole>} />
+        <Route path="/my-family-production" element={<RequireRole role={null}><MyStore storeType="family-production" /></RequireRole>} />
+        <Route path="/my-family-production/orders" element={<RequireRole role={null}><StoreOrders storeType="family-production" /></RequireRole>} />
+        <Route path="/cart" element={<RequireRole role={null}><StoreCart /></RequireRole>} />
+        <Route path="/seller/commissions" element={AD_COMMISSION_ENABLED ? <RequireRole role={null}><SellerCommissions /></RequireRole> : <Navigate to="/" replace />} />
         <Route path="/add-product" element={<RequireRole role={null}><AddProduct /></RequireRole>} />
         <Route path="/choose-add-type" element={<RequireRole role={null}><ChooseAddType /></RequireRole>} />
-        <Route path="/commission/pay" element={<RequireRole role={null}><CommissionPay /></RequireRole>} />
+        <Route path="/commission/pay" element={AD_COMMISSION_ENABLED ? <RequireRole role={null}><CommissionPay /></RequireRole> : <Navigate to="/" replace />} />
         <Route path="/admin/*"
           element={
             <RequireRole role="admin">
@@ -219,6 +287,7 @@ export default function App() {
           <Route path="audit-logs" element={<AdminAuditLogs />} />
           <Route path="tags" element={<AdminTags />} />
           <Route path="ads" element={<AdminAds />} />
+          <Route path="auctions" element={<AdminAuctions />} />
           <Route path="managed-sellers/new-ad" element={<AdminManagedSellerAd />} />
           <Route path="managed-sellers" element={<AdminManagedSellers />} />
           <Route path="governorates" element={<AdminGovernorates />} />
@@ -229,11 +298,18 @@ export default function App() {
           <Route path="deleted-users" element={<AdminDeletedUsers />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="plans" element={<AdminPlans />} />
+          <Route path="wallet-services" element={<AdminWalletServices />} />
+          <Route path="wallet-service-orders" element={<AdminWalletServiceOrders />} />
+          <Route path="store-directory" element={<AdminStoreDirectory />} />
+          <Route path="store-requests" element={<AdminStoreRequests />} />
+          <Route path="bookings" element={<AdminBookings />} />
           <Route path="bank-accounts" element={<AdminBankAccounts />} />
           <Route path="featured-requests" element={<AdminFeaturedRequests />} />
           <Route path="verification-requests" element={<AdminVerificationRequests />} />
+          <Route path="quote-requests" element={<AdminQuoteRequests />} />
           <Route path="sold-ads" element={<AdminSoldAds />} />
           <Route path="phone-users" element={<AdminPhoneUsers />} />
+          <Route path="phone-verification" element={<AdminPhoneVerificationRequests />} />
           <Route path="password-reset-requests" element={<AdminPasswordResetRequests />} />
           <Route path="finance-hub" element={<AdminFinanceHub />} />
           <Route path="support-inbox" element={<AdminSupportInbox />} />
@@ -253,9 +329,19 @@ export default function App() {
           <Route path="referrals" element={<AdminReferrals />} />
         </Route>
         <Route path="/categories" element={<Categories />} />
+        <Route path="/auctions" element={<Auctions />} />
+        <Route path="/auctions/new" element={<RequireRole role={null}><CreateAuction /></RequireRole>} />
+        <Route path="/auctions/:id" element={<AuctionDetail />} />
+        <Route path="/my-auctions" element={<RequireRole role={null}><MyAuctions /></RequireRole>} />
         <Route path="/category/:slug" element={<CategoryPage />} />
         <Route path="/category/:slug/:subSlug" element={<CategoryPage />} />
+        <Route path="/store/:slug" element={<Storefront />} />
         <Route path="/search" element={<SearchResults />} />
+        <Route path="/quote-requests" element={<QuoteRequests />} />
+        <Route path="/quote-requests/new" element={<RequireRole role={null}><QuoteRequestForm /></RequireRole>} />
+        <Route path="/quote-requests/:id" element={<QuoteRequestDetail />} />
+        <Route path="/my-quote-requests" element={<RequireRole role={null}><QuoteRequests /></RequireRole>} />
+        <Route path="/my-quote-offers" element={<RequireRole role={null}><QuoteRequests /></RequireRole>} />
         <Route path="/tag/:slug" element={<TagPage />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/ad/:id" element={<ProductDetail />} />

@@ -2,9 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
+import { normalizeCurrencyCode } from "../utils/currencyConversion.js";
 import OrdersList from "../components/OrdersList.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { prepareFilesForUpload } from "../lib/imageCompression.js";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 
 const MINIMUM_WITHDRAWAL_BY_CURRENCY = {
   YER: 1000,
@@ -154,9 +157,9 @@ export default function Wallet() {
 
     // Identity check logic
     const thresholdUsd = systemSettings?.withdrawalIdentityThresholdUsd || 250;
-    const rates = systemSettings?.exchangeRates || { USD: 1, SAR: 3.75, YER: 530, YER_ADEN: 1600 };
-    const rate = rates[withdrawCurrency] || 1;
-    const amountInUsd = Number(withdrawAmount) / rate;
+    const rates = systemSettings?.exchangeRates || { USD: 1, SAR: 3.75, YER_SANAA: 530, YER_ADEN: 1600 };
+    const rate = Number(rates[normalizeCurrencyCode(withdrawCurrency)]);
+    const amountInUsd = Number.isFinite(rate) && rate > 0 ? Number(withdrawAmount) / rate : Infinity;
     const needsIdentity = amountInUsd >= thresholdUsd;
 
     if (needsIdentity && !identityImage) {
@@ -234,21 +237,21 @@ export default function Wallet() {
     return map[currency] || currency;
   };
 
-  if (loading) return <div className="py-20 flex justify-center"><LoadingSpinner size="lg" /></div>;
+  if (loading) return <div className="flex justify-center py-12 sm:py-20"><LoadingSpinner size="lg" /></div>;
 
   const totalBalances = wallet?.balances || [];
   
   // Identity threshold logic for UI
   const thresholdUsd = systemSettings?.withdrawalIdentityThresholdUsd || 250;
-  const rates = systemSettings?.exchangeRates || { USD: 1, SAR: 3.75, YER: 530, YER_ADEN: 1600 };
-  const rate = rates[withdrawCurrency] || 1;
-  const amountInUsd = Number(withdrawAmount) / rate;
+  const rates = systemSettings?.exchangeRates || { USD: 1, SAR: 3.75, YER_SANAA: 530, YER_ADEN: 1600 };
+  const rate = Number(rates[normalizeCurrencyCode(withdrawCurrency)]);
+  const amountInUsd = Number.isFinite(rate) && rate > 0 ? Number(withdrawAmount) / rate : Infinity;
   const needsIdentity = amountInUsd >= thresholdUsd;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-12 space-y-6 sm:space-y-12">
+    <div className="mx-auto max-w-5xl space-y-4 px-3 py-4 sm:space-y-12 sm:px-4 sm:py-12">
       {/* Wallet Summary Section */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between px-2">
           <h2 className="text-2xl font-black text-gray-900 dark:text-white">محفظتي المالية</h2>
           <button 
@@ -266,19 +269,19 @@ export default function Wallet() {
         </div>
 
         {totalBalances.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 p-12 rounded-[2.5rem] border-2 border-gray-50 dark:border-slate-800 text-center space-y-4 shadow-sm">
-             <div className="w-20 h-20 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-4xl">💰</div>
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border-2 border-gray-50 dark:border-slate-800 text-center space-y-4 shadow-sm sm:rounded-[2.5rem] sm:p-12">
+             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-4xl">💰</div>
              <p className="text-gray-500 font-bold">لا توجد أرصدة حالية في محفظتك.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 sm:gap-8">
             {totalBalances.map((b, idx) => (
               <div key={idx} className="space-y-4">
                 {/* Available Balance Card for each currency */}
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 sm:p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-4 sm:p-8 rounded-2xl sm:rounded-[2rem] text-white shadow-xl relative overflow-hidden group">
                   <div className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
                   
-                  <div className="relative z-10 space-y-4">
+                  <div className="relative z-10 space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-100/80">الرصيد المتاح</span>
@@ -300,9 +303,10 @@ export default function Wallet() {
                     </div>
                   </div>
                 </div>
+                <CurrencyCalculator amount={b.availableBalance} currency={b.currency} />
 
                 {/* Pending Balance Card for each currency */}
-                <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] border-2 border-gray-50 dark:border-slate-800 shadow-sm space-y-4 relative overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-2xl sm:rounded-[2rem] border-2 border-gray-50 dark:border-slate-800 shadow-sm space-y-3 sm:space-y-4 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl -ml-12 -mt-12"></div>
                   
                   <div className="flex items-center justify-between relative z-10">
@@ -357,10 +361,10 @@ export default function Wallet() {
       </div>
 
       {/* Tab Content */}
-      <div className="min-h-[500px] animate-in fade-in slide-in-from-bottom-6 duration-700">
+      <div className="min-h-[200px] animate-in fade-in slide-in-from-bottom-6 duration-700 sm:min-h-[500px]">
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:gap-8">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-8">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-xl font-black text-gray-900 dark:text-white">آخر العمليات المالية</h3>
                 <button onClick={() => setActiveTab('transactions')} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">عرض الكل</button>
@@ -392,7 +396,7 @@ export default function Wallet() {
                   </div>
                 ))}
                 {transactions.length === 0 && (
-                  <div className="py-20 text-center space-y-4">
+                  <div className="space-y-4 py-12 text-center sm:py-20">
                     <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-gray-300">
                       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                     </div>
@@ -402,16 +406,16 @@ export default function Wallet() {
               </div>
             </div>
             
-            <div className="space-y-8">
+            <div className="space-y-4 sm:space-y-8">
               <h3 className="text-xl font-black text-gray-900 dark:text-white px-2">إرشادات هامة</h3>
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-8 rounded-[2.5rem] border-2 border-blue-100/50 dark:border-blue-800/30 space-y-6">
                 <div className="flex gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0">🛡️</div>
-                  <p className="text-[11px] font-bold text-blue-800 dark:text-blue-300 leading-relaxed pt-1">أموالك محمية بالكامل في حسابات المنصة حتى يتم تأكيد استلام المنتج ومطابقته للمواصفات.</p>
+                  <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 overflow-hidden"><img src="/Amana-Logo.svg" alt="أمانة" className="h-8 w-8 object-contain" /></div>
+                  <p className="text-[11px] font-bold text-blue-800 dark:text-blue-300 leading-relaxed pt-1">تظهر خدمة الشراء الآمن بهوية أمانة، وتبقى تفاصيل الطلب والشحن متاحة للمتابعة في سوقك.</p>
                 </div>
                 <div className="flex gap-4">
                   <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0">⏱️</div>
-                  <p className="text-[11px] font-bold text-blue-800 dark:text-blue-300 leading-relaxed pt-1">يتم تحرير الرصيد المعلق تلقائياً بعد مرور 7 أيام من شحن المنتج في حال عدم التأكيد اليدوي أو وجود نزاع.</p>
+                  <p className="text-[11px] font-bold text-blue-800 dark:text-blue-300 leading-relaxed pt-1">وفق المسار الحالي، يتحول الرصيد المعلق تلقائياً بعد 7 أيام من الشحن إذا لم يؤكد المشتري الاستلام ولم يوجد نزاع مفتوح.</p>
                 </div>
                 <div className="flex gap-4">
                   <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0">💸</div>
@@ -469,7 +473,7 @@ export default function Wallet() {
       {/* Withdrawal Modal - Mobile Hardened */}
       {showWithdrawModal && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-t-[2.5rem] sm:rounded-[3rem] w-full max-w-xl p-6 sm:p-10 space-y-6 sm:space-y-8 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 border border-gray-100 dark:border-slate-800 relative overflow-hidden max-h-[95vh] overflow-y-auto no-scrollbar">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-[3rem] w-full max-w-xl p-4 sm:p-10 space-y-4 sm:space-y-8 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 border border-gray-100 dark:border-slate-800 relative overflow-hidden max-h-[95vh] overflow-y-auto no-scrollbar">
             <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
             
             <div className="flex items-center justify-between relative z-10">
@@ -543,7 +547,9 @@ export default function Wallet() {
                       <span>المبلغ المستلم:</span>
                       <span>{Number(withdrawAmount).toLocaleString()} {formatCurrency(withdrawCurrency)}</span>
                     </div>
-                    <p className="text-[9px] font-bold text-gray-400 mt-1">* ملاحظة: هذا هو صافي الأرباح بعد خصم عمولة المنصة (1%) التي تمت عند اكتمال عملية البيع.</p>
+                    {AD_COMMISSION_ENABLED && (
+                      <p className="text-[9px] font-bold text-gray-400 mt-1">* ملاحظة: هذا هو صافي الأرباح بعد خصم عمولة المنصة (1%) التي تمت عند اكتمال عملية البيع.</p>
+                    )}
                   </div>
                 )}
               </div>

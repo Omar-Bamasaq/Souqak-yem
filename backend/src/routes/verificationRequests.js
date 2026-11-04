@@ -5,11 +5,11 @@ import { requireRole } from "../middleware/roles.js";
 import VerificationRequest from "../models/VerificationRequest.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { createNotification } from "../services/notificationService.js";
-import AdminNotification from "../models/AdminNotification.js";
+import { createAdminNotification, createNotification } from "../services/notificationService.js";
 import { uploadVerificationDocs, processImage } from "../middleware/upload.js";
 import adminAudit from "../middleware/adminAudit.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { isValidPhoneNumber, normalizePhone, phoneNumberQuery } from "../utils/securityRules.js";
 
 const router = Router();
 
@@ -70,22 +70,30 @@ router.post("/", auth, requireRole(["seller", "user"]), uploadVerificationDocs, 
       status: "pending"
     });
 
-    // Update user's temporary phone if not set (optional, based on requirement "phone is mandatory")
-    // Also set user's role to seller
-    await User.findByIdAndUpdate(req.user.id, { phone, role: "seller" });
+    const user = await User.findById(req.user.id).select("phone role");
+    if (user) {
+      user.role = "seller";
+      if (!user.phone) {
+        const normalizedPhone = normalizePhone(phone);
+        if (isValidPhoneNumber(normalizedPhone)) {
+          const phoneQuery = phoneNumberQuery(normalizedPhone);
+          phoneQuery._id = { $ne: user._id };
+          if (!(await User.exists(phoneQuery))) user.phone = normalizedPhone;
+        }
+      }
+      await user.save();
+    }
 
     // إنشاء إشعار للأدمن (Realtime)
     try {
       const requester = await User.findById(req.user.id).select("name").lean();
-      const adminNotif = await AdminNotification.create({
+      await createAdminNotification(req.app, {
         type: "verification",
         title: "طلب توثيق جديد (مجاني)",
         message: `طلب توثيق جديد من المستخدم: ${requester?.name || "غير معروف"}`,
         link: "/admin/verification-requests",
         data: { requestId: vr._id }
       });
-      const io = req.app.get("io");
-      if (io) io.emit("admin_notification:new", adminNotif);
     } catch (err) {
       console.error("فشل إنشاء إشعار الأدمن للتوثيق:", err);
     }

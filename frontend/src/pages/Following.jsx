@@ -26,7 +26,7 @@ export default function Following() {
   if (!user) return <div className="ds-card text-sm">الرجاء تسجيل الدخول</div>;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-xl font-black text-gray-900">البائعون الذين أتابعهم</h2>
         <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600 border border-blue-100">
@@ -35,13 +35,13 @@ export default function Following() {
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-12 sm:py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
         </div>
       )}
 
       {!loading && sellers.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-10 text-center sm:py-16">
           <div className="mb-4 rounded-full bg-gray-50 p-4 text-gray-300">
             <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />

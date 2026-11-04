@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../store/AuthContext.jsx';
 import { useChat } from '../store/ChatContext.jsx';
 import { useApi } from '../api/axios.js';
-import { uploadsUrl } from '../lib/uploads.js';
+import PrivateMessageImage from './PrivateMessageImage.jsx';
+import MessageText from './MessageText.jsx';
+import { findMatchingSupportFaq } from '../lib/supportFaqMatcher.js';
 
 export default function SupportChatFAB() {
   const { user } = useAuth();
@@ -15,6 +17,12 @@ export default function SupportChatFAB() {
   const [conversation, setConversation] = useState(null);
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
+  const [view, setView] = useState('bot');
+  const [faqs, setFaqs] = useState([]);
+  const [faqsLoading, setFaqsLoading] = useState(false);
+  const [faqError, setFaqError] = useState('');
+  const [botMessages, setBotMessages] = useState([]);
+  const [botText, setBotText] = useState('');
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -36,6 +44,29 @@ export default function SupportChatFAB() {
       setUnreadCount(0);
     }
   }, [isOpen, isAdmin]);
+
+  useEffect(() => {
+    if (!isOpen || isAdmin) return;
+    let active = true;
+    setFaqsLoading(true);
+    api.get('/support/faqs')
+      .then((res) => {
+        if (active) {
+          setFaqs(res.data);
+          setFaqError('');
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching support FAQs:', err);
+        if (active) setFaqError('تعذر تحميل الأسئلة الشائعة. حاول مرة أخرى لاحقاً.');
+      })
+      .finally(() => {
+        if (active) setFaqsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, isOpen, isAdmin]);
 
   useEffect(() => {
     if (!user || isAdmin) return;
@@ -75,7 +106,7 @@ export default function SupportChatFAB() {
     if (!isAdmin) {
       scrollToBottom();
     }
-  }, [messages, isAdmin]);
+  }, [messages, botMessages, isAdmin]);
 
   const fetchConversation = async () => {
     try {
@@ -94,6 +125,37 @@ export default function SupportChatFAB() {
     } catch (err) {
       console.error('Error fetching support messages:', err);
     }
+  };
+
+  const addBotQuestion = (question) => {
+    const faq = findMatchingSupportFaq(question, faqs);
+    const timestamp = Date.now();
+    setBotMessages((previous) => [
+      ...previous,
+      { id: `${timestamp}-question`, sender: 'user', text: question },
+      faq
+        ? { id: `${timestamp}-answer`, sender: 'bot', text: faq.answer }
+        : {
+            id: `${timestamp}-answer`,
+            sender: 'bot',
+            text: 'لم أجد إجابة مناسبة لهذا السؤال. يمكنك مراسلة فريق الدعم الفني وسيرد عليك أحد المختصين.',
+            question,
+            showContact: true
+          }
+    ]);
+  };
+
+  const handleContactSupport = (question) => {
+    setText(question);
+    setView('support');
+  };
+
+  const handleBotSubmit = (e) => {
+    e.preventDefault();
+    const question = botText.trim();
+    if (!question) return;
+    addBotQuestion(question);
+    setBotText('');
   };
 
   const handleDeleteConversation = async () => {
@@ -144,27 +206,6 @@ export default function SupportChatFAB() {
     setFiles(prev => [...prev, ...selectedFiles].slice(0, 5));
   };
 
-  const renderTextWithLinks = (text, isMe) => {
-    if (!text) return null;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, i) => {
-      if (part.match(urlRegex)) {
-        return (
-          <a
-            key={i}
-            href={part}
-            rel="noopener noreferrer"
-            className={`${isMe ? 'text-blue-100 underline hover:text-white' : 'text-blue-600 underline hover:text-blue-800'} break-all`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
-  };
-
   // If user is not logged in or is admin, we don't show the floating button
   if (!user || isAdmin) return null;
 
@@ -203,20 +244,22 @@ export default function SupportChatFAB() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-bold">الدعم الفني</h3>
-                <p className="text-[10px] opacity-80">نحن هنا لمساعدتك دائماً</p>
+                <h3 className="text-sm font-bold">{view === 'bot' ? 'مساعد سوقك' : 'الدعم الفني'}</h3>
+                <p className="text-[10px] opacity-80">{view === 'bot' ? 'إجابات فورية على الأسئلة الشائعة' : 'نحن هنا لمساعدتك دائماً'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={handleDeleteConversation}
-                className="p-1.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors"
-                title="حذف المحادثة"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+              {view === 'support' && (
+                <button
+                  onClick={handleDeleteConversation}
+                  className="p-1.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+                  title="حذف المحادثة"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 01-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
               {/* Close button for mobile inside the window */}
               <button 
                 onClick={() => setIsOpen(false)}
@@ -229,7 +272,69 @@ export default function SupportChatFAB() {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 border-b border-gray-100 bg-white p-2">
+            <button
+              type="button"
+              onClick={() => setView('bot')}
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${view === 'bot' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              المساعد الفوري
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('support')}
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${view === 'support' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              مراسلة الدعم
+            </button>
+          </div>
+
           {/* Messages */}
+          {view === 'bot' ? (
+            <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
+              <div className="rounded-xl bg-blue-50 p-3 text-center text-xs font-medium text-blue-700">
+                أهلاً بك في دعم سوقك. اختر سؤالاً شائعاً أو اكتب سؤالك للحصول على إجابة فورية.
+              </div>
+              {faqError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{faqError}</p>}
+              {botMessages.map((message) => (
+                <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${message.sender === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
+                    <p className="whitespace-pre-wrap">{message.text}</p>
+                    {message.showContact && (
+                      <button
+                        type="button"
+                        onClick={() => handleContactSupport(message.question)}
+                        className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                      >
+                        مراسلة الدعم الفني
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {faqsLoading ? (
+                <p className="text-center text-xs text-gray-400">جاري تحميل الأسئلة الشائعة...</p>
+              ) : faqs.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-gray-500">أسئلة شائعة</p>
+                  {faqs.map((faq) => (
+                    <button
+                      key={faq._id || faq.question}
+                      type="button"
+                      onClick={() => addBotQuestion(faq.question)}
+                      className="block w-full rounded-xl border border-gray-200 bg-white p-3 text-right text-xs font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      <span className="mb-1 block text-[10px] text-blue-600">{faq.category}</span>
+                      {faq.question}
+                    </button>
+                  ))}
+                </div>
+              ) : !faqError ? (
+                <p className="text-center text-xs text-gray-400">لا توجد أسئلة شائعة حالياً.</p>
+              ) : null}
+              <div ref={messagesEndRef} />
+            </div>
+          ) : (
           <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
             <div className="rounded-xl bg-blue-50 p-3 text-center text-xs font-medium text-blue-700">
               أهلاً بك في دعم سوقك. كيف يمكننا مساعدتك اليوم؟
@@ -246,18 +351,26 @@ export default function SupportChatFAB() {
                       : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                   }`}
                 >
-                  {msg.text && <p className="whitespace-pre-wrap">{renderTextWithLinks(msg.text, msg.senderRole === 'user')}</p>}
+                  {msg.text && <p className="whitespace-pre-wrap"><MessageText text={msg.text} linkClassName={`${msg.senderRole === "user" ? "text-blue-100 underline hover:text-white" : "text-blue-600 underline hover:text-blue-800"} break-all`} /></p>}
                   
                   {msg.images && msg.images.length > 0 && (
                     <div className={`mt-2 grid gap-2 ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       {msg.images.map((img, idx) => (
-                        <a key={idx} href={uploadsUrl(img)} rel="noopener noreferrer">
-                          <img 
-                            src={uploadsUrl(img)} 
-                            alt="attachment" 
+                        <div
+                          key={idx}
+                          className="block"
+                        >
+                          <PrivateMessageImage
+                            api={api}
+                            kind="support"
+                            conversationId={msg.conversationId || conversation?._id}
+                            messageId={msg._id}
+                            imageReference={img}
+                            alt="attachment"
                             className="rounded-lg max-h-40 w-full object-cover"
+                            onOpen={(url) => window.open(url, "_blank", "noopener,noreferrer")}
                           />
-                        </a>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -270,8 +383,33 @@ export default function SupportChatFAB() {
             ))}
             <div ref={messagesEndRef} />
           </div>
+          )}
 
           {/* Input */}
+          {view === 'bot' ? (
+            <form onSubmit={handleBotSubmit} className="border-t bg-white p-3">
+              <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                <input
+                  type="text"
+                  value={botText}
+                  onChange={(e) => setBotText(e.target.value)}
+                  placeholder="اكتب سؤالك هنا..."
+                  aria-label="اكتب سؤالك للمساعد"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={!botText.trim()}
+                  className="rounded-lg bg-blue-600 p-2 text-white transition-all hover:bg-blue-700 disabled:opacity-50"
+                  aria-label="إرسال السؤال"
+                >
+                  <svg className="h-4 w-4 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          ) : (
           <form onSubmit={handleSend} className="border-t bg-white p-3 space-y-2">
             {files.length > 0 && (
               <div className="flex flex-wrap gap-2 px-1">
@@ -317,6 +455,7 @@ export default function SupportChatFAB() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="اكتب رسالتك هنا..."
+                aria-label="رسالة الدعم الفني"
                 className="flex-1 bg-transparent text-sm outline-none"
               />
               
@@ -331,6 +470,7 @@ export default function SupportChatFAB() {
               </button>
             </div>
           </form>
+          )}
         </div>
       )}
     </div>

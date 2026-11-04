@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { subscribeToPush } from "../utils/pushNotifications.js";
 import { useApi } from "../api/axios.js";
@@ -10,7 +11,9 @@ import { useApi } from "../api/axios.js";
 export default function PushSubscriptionManager() {
   const { user } = useAuth();
   const api = useApi();
+  const location = useLocation();
   const [hasRequested, setHasRequested] = useState(false);
+  const isStoreRoute = location.pathname.startsWith("/store/");
 
   useEffect(() => {
     const handleSubscription = async () => {
@@ -23,7 +26,7 @@ export default function PushSubscriptionManager() {
       }
 
       // Request permission if we haven't already and it's not denied
-      if (!hasRequested && Notification.permission === "default") {
+      if (!hasRequested && Notification.permission === "default" && !isStoreRoute) {
         try {
           await Notification.requestPermission();
           setHasRequested(true);
@@ -43,7 +46,7 @@ export default function PushSubscriptionManager() {
     };
 
     handleSubscription();
-  }, [user, api, hasRequested]);
+  }, [user, api, hasRequested, isStoreRoute]);
 
   return null; // This component doesn't render anything
 }

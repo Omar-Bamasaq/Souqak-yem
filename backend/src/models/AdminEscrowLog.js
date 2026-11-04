@@ -7,6 +7,7 @@ const adminEscrowLogSchema = new mongoose.Schema(
       type: String, 
       enum: [
         "CONFIRM_PAYMENT", 
+        "COMPLETE_ORDER",
         "START_WITHDRAWAL_PROCESSING", 
         "COMPLETE_WITHDRAWAL", 
         "REJECT_WITHDRAWAL", 

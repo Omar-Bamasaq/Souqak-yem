@@ -6,15 +6,37 @@ import Conversation from "../models/Conversation.js";
 import ConversationMessage from "../models/ConversationMessage.js";
 import Ad from "../models/Ad.js";
 import Notification from "../models/Notification.js";
-import { createNotification } from "../services/notificationService.js";
-import { uploadImages } from "../middleware/upload.js";
+import StoreProfile from "../models/StoreProfile.js";
+import { createNotification, createStoreNotification, STORE_NOTIFICATION_TYPES } from "../services/notificationService.js";
+import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
+import { uploadMessageImages } from "../middleware/upload.js";
 import Block from "../models/Block.js";
 import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
 
 import { sendPushNotification } from "../services/pushService.js";
+import {
+  consolidateAdConversations,
+  findOrCreateAdConversation,
+  resolveCanonicalConversation
+} from "../services/adConversation.js";
 
 const router = Router();
+
+async function requireConversationParticipant(req, res, next) {
+  try {
+    const foundConversation = await Conversation.findById(req.params.id);
+    const conversation = await resolveCanonicalConversation(foundConversation);
+    if (!conversation) return res.status(404).json({ error: "Not found" });
+    if (!conversation.participants.some((participant) => String(participant) === String(req.user.id))) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    req.messageConversation = conversation;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
 
 // =============================================
 // STATIC ROUTES (MUST COME BEFORE DYNAMIC :id)
@@ -49,18 +71,44 @@ router.get("/unread-count", auth, async (req, res) => {
 router.get("/", auth, async (req, res) => {
   try {
     console.log("Fetching conversations for user:", req.user.id);
-    const list = await Conversation.find({ 
+    let list = await Conversation.find({ 
       participants: req.user.id,
       deletedBy: { $ne: req.user.id },
-      isDeletedByAdmin: { $ne: true }
+      isDeletedByAdmin: { $ne: true },
+      mergedInto: { $exists: false }
     })
       .populate({
         path: "adId",
-        refPath: "adModel"
+        model: "Ad"
       })
       .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
       .sort({ updatedAt: -1 })
       .lean();
+
+    const adConversationGroups = new Map();
+    for (const conversation of list) {
+      const adId = conversation.adId?._id || conversation.adId;
+      if (!adId || conversation.type === "DISPUTE" || conversation.participants?.length !== 2) continue;
+      const participantIds = conversation.participants.map((participant) => String(participant?._id || participant)).sort();
+      const key = `${adId}:${participantIds.join(":")}`;
+      adConversationGroups.set(key, [...(adConversationGroups.get(key) || []), { adId, participantIds }]);
+    }
+    const duplicateGroups = [...adConversationGroups.values()].filter((group) => group.length > 1);
+    if (duplicateGroups.length > 0) {
+      await Promise.all(duplicateGroups.map(({ adId, participantIds }) =>
+        consolidateAdConversations({ adId, participants: participantIds })
+      ));
+      list = await Conversation.find({ 
+        participants: req.user.id,
+        deletedBy: { $ne: req.user.id },
+        isDeletedByAdmin: { $ne: true },
+        mergedInto: { $exists: false }
+      })
+        .populate({ path: "adId", model: "Ad" })
+        .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
+        .sort({ updatedAt: -1 })
+        .lean();
+    }
 
     console.log("Conversations found:", list.length);
     if (list.length === 0) return res.json([]);
@@ -174,8 +222,6 @@ router.post("/open", auth, async (req, res) => {
     if (!adId) return res.status(400).json({ error: "adId required" });
     
     const ad = await Ad.findById(adId).lean();
-    const adModel = "Ad";
-
     if (!ad) {
       return res.status(400).json({ error: "الإعلان غير موجود" });
     }
@@ -215,20 +261,12 @@ router.post("/open", auth, async (req, res) => {
     
     if (blocked) return res.status(403).json({ error: "تم الحظر" });
     
-    let conv = await Conversation.findOne({ 
-      adId, 
-      adModel, 
-      participants: { $all: [buyerId, targetSellerId] } 
+    const { conversation: conv, created } = await findOrCreateAdConversation({
+      adId,
+      participants: [buyerId, targetSellerId]
     });
 
-    if (!conv) {
-      conv = await Conversation.create({ 
-        adId, 
-        adModel, 
-        participants: [buyerId, targetSellerId], 
-        lastMessage: "" 
-      });
-
+    if (created) {
       // زيادة عداد المتواصلين في الإعلان عند فتح أول محادثة بين المشتري والبائع لهذا الإعلان
       try {
         await Ad.findByIdAndUpdate(adId, { $inc: { contactsCount: 1 } });
@@ -280,10 +318,14 @@ router.get("/admin/trash", auth, requireRole(["admin"]), async (req, res) => {
 
 router.get("/:id", auth, async (req, res) => {
   try {
-    const conv = await Conversation.findById(req.params.id)
+    const foundConversation = await Conversation.findById(req.params.id);
+    const canonicalConversation = await resolveCanonicalConversation(foundConversation);
+    if (!canonicalConversation) return res.status(404).json({ error: "Not found" });
+
+    const conv = await Conversation.findById(canonicalConversation._id)
       .populate({
         path: "adId",
-        refPath: "adModel"
+        model: "Ad"
       })
       .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
       .lean();
@@ -354,7 +396,9 @@ router.get("/:id", auth, async (req, res) => {
 
 router.get("/:id/messages", auth, async (req, res) => {
   try {
-    const conv = await Conversation.findById(req.params.id).lean();
+    const foundConversation = await Conversation.findById(req.params.id);
+    const canonicalConversation = await resolveCanonicalConversation(foundConversation);
+    const conv = canonicalConversation?.toObject ? canonicalConversation.toObject() : canonicalConversation;
     if (!conv) return res.status(404).json({ error: "Not found" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "Forbidden" });
     
@@ -371,16 +415,20 @@ router.get("/:id/messages", auth, async (req, res) => {
   }
 });
 
-router.post("/:id/messages", auth, rateLimit({ windowMs: 10_000, max: 5 }), uploadImages.array("images", 5), async (req, res) => {
+router.post(
+  "/:id/messages",
+  auth,
+  rateLimit({ windowMs: 10_000, max: 5 }),
+  requireConversationParticipant,
+  uploadMessageImages.array("images", 5),
+  async (req, res) => {
   try {
     const { text } = req.body || {};
-    const conv = await Conversation.findById(req.params.id);
-    if (!conv) return res.status(404).json({ error: "Not found" });
-    if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "Forbidden" });
+    const conv = req.messageConversation;
     const counterpart = conv.participants.find((p) => String(p) !== String(req.user.id));
     const blocked = await Block.findOne({ blockerId: counterpart, blockedId: req.user.id }).lean();
     if (blocked) return res.status(403).json({ error: "لا يمكنك مراسلة هذا المستخدم" });
-    const filenames = (req.files || []).map((f) => f.filename);
+    const filenames = (req.files || []).map((file) => `private/${file.filename}`);
     if (!filenames.length && (!text || !String(text).trim())) return res.status(400).json({ error: "Empty message" });
     const msg = await ConversationMessage.create({
       conversationId: conv._id,
@@ -393,23 +441,51 @@ router.post("/:id/messages", auth, rateLimit({ windowMs: 10_000, max: 5 }), uplo
     // Remove both participants from deletedBy when a new message is sent
     conv.deletedBy = []; 
     await conv.save();
+    const storeAd = conv.adId
+      ? await Ad.findById(conv.adId).select("_id storeProfileId").lean()
+      : null;
+    const relatedStore = storeAd?.storeProfileId
+      ? await StoreProfile.findById(storeAd.storeProfileId).select("_id userId storeType slug").lean()
+      : null;
     // Notify all other participants
     for (const participant of conv.participants) {
       if (String(participant) === String(req.user.id)) continue;
-      
-      try {
-        const muted = (conv.mutedFor || []).find((u) => String(u) === String(participant));
-        if (!muted) {
-          await createNotification(req.app, {
-            userId: participant,
-            type: "message",
-            title: "رسالة جديدة",
-            body: msg.text || "صورة جديدة",
-            data: { conversationId: conv._id, adId: conv.adId }
+
+      if (relatedStore) {
+        const isStoreOwner = String(participant) === String(relatedStore.userId);
+        try {
+          await createStoreNotification(req.app, {
+            storeProfileId: relatedStore._id,
+            recipient: isStoreOwner ? "owner" : "subscribers",
+            recipientUserId: isStoreOwner ? null : participant,
+            type: isStoreOwner
+              ? STORE_NOTIFICATION_TYPES.CUSTOMER_MESSAGE
+              : STORE_NOTIFICATION_TYPES.MESSAGE_REPLY,
+            title: isStoreOwner ? "رسالة جديدة من عميل" : "رد جديد من المتجر",
+            body: msg.text || "أرسل الطرف الآخر صورة.",
+            link: `/messages?id=${conv._id}`,
+            data: { conversationId: String(conv._id), messageId: String(msg._id), adId: String(storeAd._id) }
           });
+        } catch (notificationError) {
+          console.error("Store conversation notification failed:", notificationError);
         }
-      } catch (err) {
-        console.error("Error sending message notification:", err);
+      }
+      
+      if (!relatedStore) {
+        try {
+          const muted = (conv.mutedFor || []).find((u) => String(u) === String(participant));
+          if (!muted) {
+            await createNotification(req.app, {
+              userId: participant,
+              type: "message",
+              title: "رسالة جديدة",
+              body: msg.text || "صورة جديدة",
+              data: { conversationId: conv._id, adId: conv.adId }
+            });
+          }
+        } catch (err) {
+          console.error("Error sending message notification:", err);
+        }
       }
 
       try {
@@ -517,12 +593,13 @@ router.patch("/:id/close", auth, async (req, res) => {
         buyerType: "DIRECT"
       });
 
-      const CommissionModel = mongoose.model("Commission");
-      const SoldListing = mongoose.model("SoldListing");
-      
-      const commissionAmount = Math.round(salePrice * 0.01);
-      
-      const commission = await CommissionModel.create({
+      if (AD_COMMISSION_ENABLED) {
+        const CommissionModel = mongoose.model("Commission");
+        const SoldListing = mongoose.model("SoldListing");
+        
+        const commissionAmount = calculateSellerCommission(salePrice);
+        
+        const commission = await CommissionModel.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
         buyerId: buyerId,
@@ -532,10 +609,10 @@ router.patch("/:id/close", auth, async (req, res) => {
         status: "unpaid",
         commissionStatus: "pending_payment",
         soldAt: new Date(),
-      });
+        });
 
-      const adWithCategory = await Ad.findById(conv.adId._id).populate("categoryId", "name").lean();
-      await SoldListing.create({
+        const adWithCategory = await Ad.findById(conv.adId._id).populate("categoryId", "name").lean();
+        await SoldListing.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
         buyerId: buyerId,
@@ -549,7 +626,8 @@ router.patch("/:id/close", auth, async (req, res) => {
         commissionStatus: commission.status,
         soldAt: new Date(),
         buyerType: "DIRECT"
-      });
+        });
+      }
 
     } catch (adErr) {
       console.error("Error updating ad status and creating commission on conversation close:", adErr);

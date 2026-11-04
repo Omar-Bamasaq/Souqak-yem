@@ -3,10 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { prepareFilesForUpload } from "../lib/imageCompression.js";
+import { isUserVerificationCurrent } from "../lib/userVerification.js";
+import { useAuth } from "../store/AuthContext.jsx";
 
 export default function SellerVerification() {
   const api = useApi();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const verificationCurrent = isUserVerificationCurrent(user);
   
   // Basic Info
   const [fullName, setFullName] = useState("");
@@ -93,8 +97,8 @@ export default function SellerVerification() {
 
   if (success) {
     return (
-      <div className="mx-auto max-w-lg rounded-3xl border-2 border-emerald-100 bg-white p-10 text-center shadow-xl animate-in zoom-in duration-300">
-        <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-4xl">
+      <div className="mx-auto max-w-lg rounded-3xl border-2 border-emerald-100 bg-white p-6 text-center shadow-xl animate-in zoom-in duration-300 sm:p-10">
+        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-4xl sm:mb-6 sm:h-20 sm:w-20">
           ✓
         </div>
         <h2 className="text-2xl font-black text-gray-900">تم إرسال طلب التوثيق</h2>
@@ -112,12 +116,15 @@ export default function SellerVerification() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-20 sm:pb-10">
+    <div className="max-w-3xl mx-auto space-y-4 pb-20 sm:space-y-6 sm:pb-10">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl sm:text-3xl font-black text-gray-900">توثيق الحساب المجاني</h2>
           <p className="text-sm sm:text-base text-gray-500 font-bold">عزز ثقة عملائك بشارة التوثيق الرسمية</p>
+          <p className="max-w-2xl text-sm leading-6 text-gray-600">
+            التوثيق مطلوب لإضافة مزاد أو المشاركة في المزادات، ويساعد على الحد من النصب والاحتيال وبناء بيئة أكثر أمانًا وثقة للجميع.
+          </p>
         </div>
         <Link 
           to="/seller/subscriptions" 
@@ -142,12 +149,24 @@ export default function SellerVerification() {
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center group hover:border-purple-200 transition-colors">
           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-50 rounded-xl flex items-center justify-center text-lg sm:text-xl mb-2 group-hover:scale-110 transition-transform">🎁</div>
-          <h4 className="font-black text-[10px] sm:text-sm text-gray-900">ميزات حصرية</h4>
-          <p className="hidden sm:block text-[10px] text-gray-400 font-bold mt-1">دخول مبكر للميزات والخصومات</p>
+          <h4 className="font-black text-[10px] sm:text-sm text-gray-900">إضافة مزاد</h4>
+          <p className="hidden sm:block text-[10px] text-gray-400 font-bold mt-1">والمشاركة في المزادات</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] border border-gray-100 p-5 sm:p-10 shadow-sm space-y-8">
+      {verificationCurrent ? (
+        <section role="status" className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center shadow-sm sm:p-10">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700">✓</div>
+          <h3 className="text-xl font-black text-emerald-900">حسابك موثّق حاليًا</h3>
+          <p className="mt-2 text-sm font-bold leading-6 text-emerald-800">
+            لا تحتاج إلى تقديم طلب توثيق جديد. يمكنك إعادة التوثيق بعد انتهاء صلاحية التوثيق الحالي.
+          </p>
+          <p className="mt-3 text-sm font-black text-emerald-900">
+            ينتهي التوثيق في {new Date(user.verificationExpiryDate).toLocaleDateString("ar-YE")}
+          </p>
+        </section>
+      ) : (
+      <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-gray-100 p-4 sm:rounded-[2.5rem] sm:p-10 shadow-sm space-y-5 sm:space-y-8">
         {/* Section 1: Basic Info */}
         <div className="space-y-5 sm:space-y-6">
           <h3 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-3 border-b border-gray-50 pb-4">
@@ -326,6 +345,7 @@ export default function SellerVerification() {
           {loading ? "جاري إرسال الطلب..." : "إرسال طلب التوثيق مجاناً"}
         </button>
       </form>
+        )}
     </div>
   );
 }

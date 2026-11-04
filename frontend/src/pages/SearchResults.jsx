@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import ProductCard from "../components/ProductCard.jsx";
+import SponsoredAdSlot from "../components/SponsoredAdSlot.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
 
 export default function SearchResults() {
@@ -165,7 +166,7 @@ export default function SearchResults() {
     verifiedOnly: searchParams.get("verifiedOnly") || false,
     featuredOnly: searchParams.get("featuredOnly") || false,
     adType: searchParams.get("adType") || "",
-    sort: searchParams.get("sort") || "best"
+    sort: searchParams.get("sort") || "new"
   };
 
   const setAdType = (type) => {
@@ -193,7 +194,7 @@ export default function SearchResults() {
 
   if (loading && page === 1) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-pulse">
           <div className="space-y-2">
             <div className="h-8 bg-gray-200 rounded-lg w-48"></div>
@@ -201,9 +202,9 @@ export default function SearchResults() {
           </div>
           <div className="h-10 bg-gray-200 rounded-xl w-32"></div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="flex flex-col gap-2.5 sm:gap-3">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="aspect-[4/5] bg-gray-200 rounded-3xl animate-pulse"></div>
+            <div key={i} className="h-32 rounded-2xl bg-gray-200 animate-pulse sm:h-40"></div>
           ))}
         </div>
       </div>
@@ -211,10 +212,10 @@ export default function SearchResults() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Info */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-2 sm:space-y-4">
           <div>
             <h1 className="text-2xl font-black text-gray-900">نتائج البحث</h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
@@ -356,14 +357,14 @@ export default function SearchResults() {
 
       {/* Results Grid */}
       {ads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
+        <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
           <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
             <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
           <h2 className="text-xl font-black text-gray-900 mb-2">عذراً، لم نجد نتائج!</h2>
-          <p className="text-sm text-gray-500 max-w-xs mb-6">جرب استخدام كلمات بحث مختلفة أو قم بإزالة بعض الفلاتر للحصول على نتائج أكثر.</p>
+          <p className="text-sm text-gray-500 max-w-xs mb-4 sm:mb-6">جرب استخدام كلمات بحث مختلفة أو قم بإزالة بعض الفلاتر للحصول على نتائج أكثر.</p>
           <button
             onClick={() => navigate("/")}
             className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
@@ -373,13 +374,13 @@ export default function SearchResults() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="flex flex-col gap-1.5 sm:gap-2">
             {ads.map((ad, index) => (
               <React.Fragment key={ad._id}>
                 {/* External Deal Alert - Inserted after 8 ads */}
                 {index === 8 && (
-                  <div className="col-span-2 lg:col-span-3 xl:col-span-4 mb-6">
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-blue-500/20">
+                  <div className="col-span-1 mb-3 sm:mb-6">
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-6 text-white flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-lg shadow-blue-500/20">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                           <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -400,17 +401,19 @@ export default function SearchResults() {
                     </div>
                   </div>
                 )}
+                {index === 4 && <SponsoredAdSlot position="between_ads" />}
                 <ProductCard
                   product={ad}
                   to={`/ad/${ad._id}`}
                   featured={!!ad.featured}
+                  displayMode="list"
                 />
               </React.Fragment>
             ))}
           </div>
 
           {/* Infinite Scroll Sentinel & Loading Indicator */}
-          <div ref={sentinelRef} className="mt-12 flex flex-col items-center justify-center pb-12 min-h-[100px]">
+          <div ref={sentinelRef} className="mt-8 flex min-h-20 flex-col items-center justify-center pb-8 sm:mt-12 sm:min-h-[100px] sm:pb-12">
             {loading && page > 1 && (
               <div className="flex flex-col items-center gap-3">
                 <div className="h-8 w-8 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
 import Logo from "./Logo.jsx";
@@ -20,17 +21,26 @@ export default function NavBar() {
   const { unread } = useChat();
   const { enabled: brokerageEnabled } = useBrokerageStatus();
   const [open, setOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [showMobileSearchSuggestions, setShowMobileSearchSuggestions] = useState(false);
   const [governorateId, setGovernorateId] = useState("");
   const { data: governorates = [] } = useGovernorates();
   const [unreadNotif, setUnreadNotif] = useState(0);
   const [favCount, setFavCount] = useState(0);
   const [activeConvId, setActiveConvId] = useState("");
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [mobileSuggestionsPosition, setMobileSuggestionsPosition] = useState({ top: 0, left: 0 });
+  const [myStore, setMyStore] = useState(null);
+  const [myFamilyProduction, setMyFamilyProduction] = useState(null);
   const api = useApi();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const dropdownRef = React.useRef(null);
+  const accountMenuRef = React.useRef(null);
+  const mobileSearchButtonRef = React.useRef(null);
+  const mobileSuggestionsRef = React.useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -41,6 +51,95 @@ export default function NavBar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (user) setOpen(false);
+  }, [user]);
+
+  useEffect(() => {
+    const openAccountMenu = () => setAccountMenuOpen(true);
+    window.addEventListener("account-menu:open", openAccountMenu);
+    return () => window.removeEventListener("account-menu:open", openAccountMenu);
+  }, []);
+
+  useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    document.body.style.overflow = "hidden";
+    const getFocusableElements = () => Array.from(
+      accountMenuRef.current?.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])') || []
+    );
+    getFocusableElements()[0]?.focus();
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusableElements = getFocusableElements();
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (!firstElement || !lastElement) return;
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!showMobileSearchSuggestions) return;
+
+    const updatePosition = () => {
+      const buttonRect = mobileSearchButtonRef.current?.getBoundingClientRect();
+      if (!buttonRect) return;
+      const popupWidth = 224;
+      setMobileSuggestionsPosition({
+        top: buttonRect.bottom + 8,
+        left: Math.max(8, Math.min(buttonRect.left, window.innerWidth - popupWidth - 8))
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [showMobileSearchSuggestions]);
+
+  useEffect(() => {
+    if (!user) {
+      setMyStore(null);
+      setMyFamilyProduction(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      api.get("/stores/me", { params: { storeType: "store" } }).catch(() => null),
+      api.get("/stores/me", { params: { storeType: "family-production" } }).catch(() => null)
+    ]).then(([storeRes, familyRes]) => {
+      if (cancelled) return;
+      setMyStore(storeRes?.data || null);
+      setMyFamilyProduction(familyRes?.data || null);
+    });
+    return () => { cancelled = true; };
+  }, [user, api]);
 
   useEffect(() => {
     (async () => {
@@ -147,30 +246,106 @@ export default function NavBar() {
     poll();
     return () => clearInterval(t);
   }, [user]);
-  const onSearch = (e) => {
-    e.preventDefault();
+  const handleSearchSubmit = (query = q) => {
     const params = new URLSearchParams();
-    if (q) params.set("q", q);
+    if (query.trim()) params.set("q", query.trim());
     if (governorateId) params.set("governorateId", governorateId);
+    setShowMobileSearchSuggestions(false);
     navigate(`/search?${params.toString()}`);
   };
+  const onSearch = (e) => {
+    e.preventDefault();
+    handleSearchSubmit();
+  };
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#061b45] backdrop-blur-2xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-950/30 md:border-blue-100/80 md:bg-white/80 md:hover:shadow-blue-100/50 dark:border-slate-700 dark:bg-slate-900/85 dark:hover:shadow-slate-900/40">
+    <>
+    <header className="app-top-bar fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#061b45] backdrop-blur-2xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-950/30 md:border-blue-100/80 md:bg-white/80 md:hover:shadow-blue-100/50 dark:border-slate-700 dark:bg-slate-900/85 dark:hover:shadow-slate-900/40">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500/60 to-transparent" />
       <div className="mx-auto max-w-6xl px-4">
-        <div className="flex h-[60px] items-center justify-between gap-4 md:h-[70px]">
+        <div className="flex h-[60px] items-center gap-2 md:h-[70px] md:justify-between md:gap-4">
           {/* Logo & Search Toggle on Mobile */}
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-4">
             <Link to="/" className="rounded-2xl border border-blue-100 bg-white/80 px-2.5 py-1.5 shadow-sm shadow-blue-100/40 transition-all hover:-translate-y-0.5 hover:shadow-md">
               <Logo />
             </Link>
           </div>
 
+          <form
+            onSubmit={onSearch}
+            onBlur={(event) => {
+              if (
+                !event.currentTarget.contains(event.relatedTarget) &&
+                !mobileSuggestionsRef.current?.contains(event.relatedTarget)
+              ) {
+                setShowMobileSearchSuggestions(false);
+              }
+            }}
+            className="relative flex min-w-0 flex-1 items-center md:hidden"
+          >
+            <div className="flex min-w-0 w-full items-center gap-1 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-white shadow-sm">
+              <svg aria-hidden="true" className="h-4 w-4 shrink-0 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="search"
+                inputMode="search"
+                placeholder="ابحث في سوقك..."
+                value={q}
+                onFocus={() => setShowMobileSearchSuggestions(true)}
+                onChange={(event) => setQ(event.target.value)}
+                aria-label="البحث"
+                aria-expanded={showMobileSearchSuggestions}
+                aria-controls="mobile-top-search-suggestions"
+                className="min-w-0 flex-1 bg-transparent text-[11px] font-bold text-white outline-none placeholder:text-white/60"
+              />
+              <div className="relative shrink-0">
+                <button
+                  ref={mobileSearchButtonRef}
+                  type={q.trim() ? "submit" : "button"}
+                  aria-label="تنفيذ البحث"
+                  onClick={() => {
+                    if (!q.trim()) setShowMobileSearchSuggestions(true);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-white transition-colors hover:bg-white/25"
+                >
+                  <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {showMobileSearchSuggestions && createPortal(
+              <div
+                ref={mobileSuggestionsRef}
+                id="mobile-top-search-suggestions"
+                style={{ top: mobileSuggestionsPosition.top, left: mobileSuggestionsPosition.left }}
+                className="fixed z-[100] w-56 rounded-xl border border-slate-200 bg-white p-2.5 text-right text-slate-800 shadow-xl shadow-blue-950/20"
+              >
+                <p className="mb-2 text-[10px] font-black text-slate-500">كلمات رائجة للبحث</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {["سيارة", "جوال", "بيت", "عقار", "أثاث", "وظائف"].map((keyword) => (
+                    <button
+                      key={keyword}
+                      type="button"
+                      onClick={() => handleSearchSubmit(keyword)}
+                      className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-800 transition-colors hover:bg-blue-100"
+                    >
+                      {keyword}
+                    </button>
+                  ))}
+                </div>
+              </div>,
+              document.body
+            )}
+          </form>
+
           {/* Search Bar - Hidden on small mobile, shown on tablet/desktop */}
           <div className="hidden md:flex flex-1 max-w-xl">
             <form onSubmit={onSearch} className="relative w-full group flex items-center">
               <div className="relative flex-1">
-                <input 
+                <input
+                  type="search"
+                  inputMode="search"
                   className="w-full rounded-full border border-blue-100/90 bg-white px-5 py-2.5 pr-12 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/15 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:bg-slate-800" 
                   placeholder="ابحث عن سيارات، عقارات، إلكترونيات..." 
                   value={q} 
@@ -203,16 +378,8 @@ export default function NavBar() {
           />
 
           {/* Mobile Actions - Simplified & Consistent */}
-          <div className="flex md:hidden flex-1 justify-end items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 md:hidden">
             <PWAInstallButton mobile={true} />
-            <button 
-              onClick={() => navigate("/search")}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white shadow-sm transition-all active:scale-90 md:border-slate-100 md:bg-white md:text-slate-600 dark:border-slate-800 dark:bg-slate-900"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
             {user && (
               <div className="relative">
                 <UserNotificationBell mobile={true} />
@@ -267,10 +434,14 @@ export default function NavBar() {
 
             {/* User Profile / Login */}
             {user ? (
-              <div className="relative" ref={dropdownRef}>
-                <button 
+              <button
+                  type="button"
+                  aria-label="فتح قائمة الحساب"
+                  aria-haspopup="dialog"
+                  aria-expanded={accountMenuOpen}
+                  aria-controls="account-side-menu"
                   className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 p-1.5 pr-3 text-white hover:bg-white/20 transition-all shadow-sm active:scale-95 md:border-slate-100 md:bg-white md:text-slate-900 md:hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
-                  onClick={() => setOpen((v) => !v)}
+                  onClick={() => setAccountMenuOpen(true)}
                 >
                   <div className="hidden sm:flex flex-col items-end mr-1">
                     <span className="text-xs font-black text-slate-900 dark:text-white leading-none">{user.name}</span>
@@ -291,57 +462,7 @@ export default function NavBar() {
                       user.name?.charAt(0) || 'U'
                     )}
                   </div>
-                </button>
-                {open && (
-                  <div className="absolute left-0 z-50 mt-2 w-52 sm:w-56 origin-top-left rounded-2xl border border-blue-100 bg-white p-2 shadow-2xl ring-1 ring-blue-100/40 animate-in fade-in zoom-in duration-200 max-h-[85vh] overflow-y-auto dark:border-slate-700 dark:bg-slate-800 dark:ring-slate-700/40">
-                    <div className="px-3 py-2 border-b mb-1 sticky top-0 bg-white dark:bg-slate-800 dark:border-slate-700 z-10">
-                      <p className="text-[10px] sm:text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">الحساب</p>
-                    </div>
-                    {!user.isEmailVerified && !user.managedAccount?.createdByAdmin && (
-                      <Link to="/verify-email" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg font-medium">تفعيل الحساب</Link>
-                    )}
-                    {!isAdminAccount && (
-                      <>
-                        <Link to="/wallet" className="flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-black hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <span>💳</span>
-                            <span>المحفظة والشراء الآمن</span>
-                          </div>
-                          <span className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded-md">جديد</span>
-                        </Link>
-                        <Link to="/seller" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">لوحة البائع</Link>
-                        {brokerageEnabled && (
-                          <Link to="/brokerage" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-black hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <span>🤝</span>
-                              <span>لوحة الوسيط</span>
-                            </div>
-                          </Link>
-                        )}
-                        <Link to="/my-ads" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">إعلاناتي</Link>
-                        <Link to="/favorites" className="flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">
-                          <span>المفضلة</span>
-                          {favCount > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white">{favCount}</span>}
-                        </Link>
-                        <Link to="/seller/subscriptions" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">خدمات سوقك</Link>
-                      </>
-                    )}
-                    
-                    <Link to="/messages" className="flex items-center justify-between px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg">
-                      <span>الرسائل</span>
-                      {unread > 0 && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">{unread}</span>}
-                    </Link>
-
-                    {isAdminAccount && (
-                      <Link to="/admin" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-blue-600 font-bold hover:bg-blue-50 rounded-lg">لوحة التحكم</Link>
-                    )}
-                    
-                    <div className="border-t my-1 pt-1">
-                      <button onClick={logout} className="flex w-full items-center gap-3 px-3 py-2 text-xs sm:text-sm text-red-600 hover:bg-red-50 rounded-lg font-medium">تسجيل الخروج</button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              </button>
             ) : (
               <div className="relative" ref={dropdownRef}>
                 <div className="hidden sm:flex items-center gap-1 sm:gap-2">
@@ -359,6 +480,7 @@ export default function NavBar() {
                 </button>
                 {open && (
                   <div className="absolute left-0 z-50 mt-2 w-44 sm:w-48 origin-top-left rounded-2xl border bg-white p-2 shadow-xl ring-1 ring-black/5 animate-in fade-in zoom-in duration-200">
+                    <Link to="/quote-requests" className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50">تسعيرة سوقك</Link>
                     <Link to="/login" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-50 rounded-lg font-medium">تسجيل الدخول</Link>
                     <Link to="/register" className="flex items-center gap-3 px-3 py-2 text-xs sm:text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-bold">إنشاء حساب جديد</Link>
                     <div className="border-t my-1 pt-1">
@@ -378,5 +500,193 @@ export default function NavBar() {
         </div>
       </div>
     </header>
+    {user && accountMenuOpen && createPortal(
+      <div className="fixed inset-0 z-[100]" dir="rtl">
+        <button
+          type="button"
+          aria-label="إغلاق قائمة الحساب"
+          onClick={() => setAccountMenuOpen(false)}
+          className="absolute inset-0 h-full w-full bg-slate-950/50 backdrop-blur-[2px]"
+        />
+        <aside
+          ref={accountMenuRef}
+          id="account-side-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="account-side-menu-title"
+          className="absolute right-0 top-0 flex h-full w-[min(22rem,90vw)] flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-lg font-black text-white">
+                {user.avatar ? (
+                  <img
+                    src={uploadsUrl(user.avatar, "thumb")}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = uploadsUrl(user.avatar, "full");
+                    }}
+                  />
+                ) : user.name?.charAt(0) || "U"}
+              </div>
+              <div className="min-w-0">
+                <h2 id="account-side-menu-title" className="truncate text-sm font-black text-slate-900 dark:text-white">{user.name}</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{isAdminAccount ? "إدارة سوقك" : "القائمة الرئيسية"}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAccountMenuOpen(false)}
+              aria-label="إغلاق القائمة"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <nav aria-label="روابط الحساب" className="flex-1 space-y-5 overflow-y-auto p-4">
+            {!user.isEmailVerified && !user.managedAccount?.createdByAdmin && (
+              <Link
+                to="/verify-email"
+                onClick={() => setAccountMenuOpen(false)}
+                className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-black text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+              >
+                <span aria-hidden="true">✉️</span>
+                تفعيل الحساب
+              </Link>
+            )}
+
+            <section>
+              <h3 className="mb-2 px-2 text-[11px] font-black text-slate-400">تصفح سوقك</h3>
+              <div className="space-y-1">
+                {[
+                  ["🔎", "تصفح الإعلانات", "/search"],
+                  ["🗂️", "تصفح الفئات", "/categories"],
+                  ["🏪", "تصفح المتاجر", "/stores"],
+                  ["🏠", "تصفح الأسر المنتجة", "/family-production"],
+                  ["💳", "خدمة الدفع الإلكتروني", "/wallet-services"],
+                  ["🔨", "تصفح المزادات", "/auctions"],
+                  ["📅", "تصفح الحجوزات", "/bookings"],
+                  ["🏷️", "تصفح طلبات التسعيرات", "/quote-requests"],
+                  ["🤝", "شركاء سوقك", "/partners"]
+                ].map(([icon, label, to]) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                  >
+                    <span aria-hidden="true" className="w-6 text-center text-base">{icon}</span>
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {!isAdminAccount && (
+              <section>
+                <h3 className="mb-2 px-2 text-[11px] font-black text-slate-400">خدماتك وإعلاناتك</h3>
+                <div className="space-y-1">
+                  {[
+                    ["➕", "إضافة إعلان", "/choose-add-type"],
+                    ["⭐", "ميز إعلانك", "/seller/feature-ad"],
+                    ["🛡️", "وثق حسابك", "/seller/verification"],
+                    ["🧰", "خدمات سوقك", "/seller/subscriptions"],
+                    ["📋", "إعلاناتي", "/my-ads"],
+                    ["🔨", "مزاداتي", "/my-auctions"],
+                    ["🧾", "طلباتي للتسعير", "/my-quote-requests"],
+                    ["💬", "عروضي على التسعيرات", "/my-quote-offers"],
+                    [myStore ? "🏬" : "🏪", myStore?.status === "pending" ? "متابعة طلب متجري" : myStore?.status === "rejected" ? "إعادة تقديم طلب المتجر" : myStore ? "إدارة متجري" : "أنشئ متجرك", myStore?.status === "rejected" || !myStore ? "/seller/store/create" : "/my-store"],
+                    [myFamilyProduction ? "🏡" : "🌱", myFamilyProduction?.status === "pending" ? "متابعة طلب الأسرة المنتجة" : myFamilyProduction?.status === "rejected" ? "إعادة تقديم طلب الأسرة المنتجة" : myFamilyProduction ? "إدارة الأسرة المنتجة" : "انضم إلى الأسر المنتجة", myFamilyProduction?.status === "rejected" || !myFamilyProduction ? "/family-production/register" : "/my-family-production"]
+                  ].map(([icon, label, to]) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                    >
+                      <span aria-hidden="true" className="w-6 text-center text-base">{icon}</span>
+                      {label}
+                    </Link>
+                  ))}
+                  {myStore && myStore.status === "active" && myStore.subscriptionStatus === "active" && myStore.slug && (
+                    <Link
+                      to={`/store/${myStore.slug}`}
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                    >
+                      <span aria-hidden="true" className="w-6 text-center text-base">🌐</span>
+                      عرض متجري
+                    </Link>
+                  )}
+                  {myFamilyProduction && myFamilyProduction.status === "active" && myFamilyProduction.subscriptionStatus === "active" && myFamilyProduction.slug && (
+                    <Link
+                      to={`/store/${myFamilyProduction.slug}`}
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                    >
+                      <span aria-hidden="true" className="w-6 text-center text-base">🌐</span>
+                      عرض مشروع الأسرة المنتجة
+                    </Link>
+                  )}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <h3 className="mb-2 px-2 text-[11px] font-black text-slate-400">حسابي</h3>
+              <div className="space-y-1">
+                {[
+                  ["👤", "مركز الحساب", "/account"],
+                  ["🔔", "الإشعارات", "/notifications"],
+                  ["✉️", "الرسائل", "/messages"],
+                  ["❤️", "المفضلة", "/favorites"],
+                  ["👥", "الحسابات التي أتابعها", "/following"],
+                  ...(!isAdminAccount ? [["💰", "المحفظة والشراء الآمن", "/wallet"]] : []),
+                  ["⚙️", "الإعدادات", "/account-settings"],
+                  ...(isAdminAccount ? [["🛠️", "لوحة التحكم", "/admin"]] : []),
+                  ...(brokerageEnabled && !isAdminAccount ? [["🤝", "لوحة الوسيط", "/brokerage"]] : []),
+                  ...(!isAdminAccount ? [["🎁", "سفراء سوقك", "/referrals"]] : [])
+                ].map(([icon, label, to]) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className="w-6 text-center text-base">{icon}</span>
+                      {label}
+                    </span>
+                    {to === "/messages" && unread > 0 && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-black text-white">{unread}</span>}
+                    {to === "/favorites" && favCount > 0 && <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-black text-white">{favCount}</span>}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </nav>
+
+          <div className="border-t border-slate-100 p-4 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => {
+                setAccountMenuOpen(false);
+                logout();
+              }}
+              className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-black text-red-600 transition hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              <span aria-hidden="true">↪</span>
+              تسجيل الخروج
+            </button>
+          </div>
+        </aside>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

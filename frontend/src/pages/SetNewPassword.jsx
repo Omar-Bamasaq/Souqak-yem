@@ -29,6 +29,11 @@ export default function SetNewPassword() {
       return;
     }
 
+    if (/[\s\p{Script=Arabic}]/u.test(password)) {
+      setError("لا تسمح كلمة المرور بالمسافات أو الأحرف العربية.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("كلمتا المرور غير متطابقتين.");
       return;
@@ -74,18 +79,9 @@ export default function SetNewPassword() {
           <div>
             <label className="block text-sm text-gray-700 dark:text-slate-300 mb-2 text-right">كلمة المرور الجديدة</label>
             <div className="relative">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-4 py-3 text-right pr-10 focus:border-blue-500 focus:outline-none" placeholder="••••••••" required />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500" aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}>
-                {showPassword ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.5 12c1.572 4.09 5.022 7 10.5 7s8.928-2.91 10.5-7a10.477 10.477 0 00-2.48-3.777M9.88 9.88A3 3 0 0114.12 14.12M6.61 6.61L17.39 17.39" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    <circle cx="12" cy="12" r="3.5" />
-                  </svg>
-                )}
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-4 py-3 pl-16 text-right focus:border-blue-500 focus:outline-none" placeholder="••••••••" required />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-semibold text-blue-600 hover:text-blue-700" aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"} aria-pressed={showPassword}>
+                {showPassword ? "إخفاء" : "إظهار"}
               </button>
             </div>
           </div>
@@ -93,18 +89,9 @@ export default function SetNewPassword() {
           <div>
             <label className="block text-sm text-gray-700 dark:text-slate-300 mb-2 text-right">تأكيد كلمة المرور</label>
             <div className="relative">
-              <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-4 py-3 text-right pr-10 focus:border-blue-500 focus:outline-none" placeholder="••••••••" required />
-              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-blue-500" aria-label={showConfirmPassword ? "إخفاء تأكيد كلمة المرور" : "إظهار تأكيد كلمة المرور"}>
-                {showConfirmPassword ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.5 12c1.572 4.09 5.022 7 10.5 7s8.928-2.91 10.5-7a10.477 10.477 0 00-2.48-3.777M9.88 9.88A3 3 0 0114.12 14.12M6.61 6.61L17.39 17.39" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    <circle cx="12" cy="12" r="3.5" />
-                  </svg>
-                )}
+              <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 px-4 py-3 pl-16 text-right focus:border-blue-500 focus:outline-none" placeholder="••••••••" required />
+              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-semibold text-blue-600 hover:text-blue-700" aria-label={showConfirmPassword ? "إخفاء تأكيد كلمة المرور" : "إظهار تأكيد كلمة المرور"} aria-pressed={showConfirmPassword}>
+                {showConfirmPassword ? "إخفاء" : "إظهار"}
               </button>
             </div>
           </div>

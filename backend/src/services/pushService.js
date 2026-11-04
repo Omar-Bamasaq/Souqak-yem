@@ -20,6 +20,31 @@ if (isPushConfigured) {
   console.error("Push notifications are disabled: VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required.");
 }
 
+export const sendPushToSubscription = async (subscription, payload) => {
+  if (!isPushConfigured) return { success: false, reason: "Push service is not configured" };
+  try {
+    await webPush.sendNotification(
+      { endpoint: subscription.endpoint, keys: subscription.keys },
+      JSON.stringify({
+        title: payload.title || "سوقك",
+        body: payload.body || "",
+        icon: payload.icon || "/pwa/icon-192x192.png",
+        badge: "/pwa/icon-96x96.png",
+        silent: false,
+        vibrate: [100, 50, 100],
+        data: { ...(payload.data || {}), url: payload.url || payload.data?.url || "/" }
+      })
+    );
+    return { success: true };
+  } catch (error) {
+    if ([401, 403, 404, 410].includes(error?.statusCode)) {
+      return { success: false, expired: true, statusCode: error.statusCode };
+    }
+    console.error("Store push delivery failed:", { statusCode: error?.statusCode });
+    return { success: false, statusCode: error?.statusCode };
+  }
+};
+
 /**
  * Send push notification to a specific user
  * @param {string} userId - ID of the user to notify
@@ -49,8 +74,8 @@ export const sendPushNotification = async (userId, payload) => {
       silent: false,
       vibrate: [100, 50, 100],
       data: {
-        url: payload.url || "/",
-        ...payload.data
+        ...payload.data,
+        url: payload.url || payload.data?.url || "/"
       }
     });
 

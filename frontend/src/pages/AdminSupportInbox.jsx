@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApi } from '../api/axios.js';
 import { useChat } from '../store/ChatContext.jsx';
 import { useAuth } from '../store/AuthContext.jsx';
-import { uploadsUrl } from '../lib/uploads.js';
+import PrivateMessageImage from '../components/PrivateMessageImage.jsx';
+import MessageText from '../components/MessageText.jsx';
 
 export default function AdminSupportInbox() {
   const api = useApi();
@@ -15,6 +16,13 @@ export default function AdminSupportInbox() {
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
+  const [activeSection, setActiveSection] = useState('messages');
+  const [faqs, setFaqs] = useState([]);
+  const [faqLoading, setFaqLoading] = useState(false);
+  const [faqSaving, setFaqSaving] = useState(false);
+  const [faqError, setFaqError] = useState('');
+  const [editingFaqId, setEditingFaqId] = useState(null);
+  const [faqDraft, setFaqDraft] = useState({ question: '', answer: '', category: '', keywords: '' });
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -135,6 +143,84 @@ export default function AdminSupportInbox() {
     }
   };
 
+  const fetchSupportFaqs = async () => {
+    setFaqLoading(true);
+    setFaqError('');
+    try {
+      const res = await api.get('/support/admin/faqs');
+      setFaqs(res.data);
+    } catch (err) {
+      console.error('Error fetching support FAQs:', err);
+      setFaqError('تعذر تحميل الأسئلة الشائعة.');
+    } finally {
+      setFaqLoading(false);
+    }
+  };
+
+  const startEditingFaq = (faq) => {
+    setEditingFaqId(faq?._id || null);
+    setFaqDraft(faq
+      ? {
+          question: faq.question,
+          answer: faq.answer,
+          category: faq.category || '',
+          keywords: (faq.keywords || []).join('، ')
+        }
+      : { question: '', answer: '', category: '', keywords: '' });
+    setFaqError('');
+  };
+
+  const handleSaveFaq = async (e) => {
+    e.preventDefault();
+    if (faqSaving) return;
+    setFaqSaving(true);
+    setFaqError('');
+    const payload = {
+      question: faqDraft.question.trim(),
+      answer: faqDraft.answer.trim(),
+      category: faqDraft.category.trim() || 'عام',
+      keywords: faqDraft.keywords.split(/[,،\n]/).map((keyword) => keyword.trim()).filter(Boolean)
+    };
+    try {
+      const response = editingFaqId
+        ? await api.patch(`/support/admin/faqs/${editingFaqId}`, payload)
+        : await api.post('/support/admin/faqs', payload);
+      setFaqs((previous) => {
+        const updated = editingFaqId
+          ? previous.map((faq) => faq._id === editingFaqId ? response.data : faq)
+          : [...previous, response.data];
+        return updated.sort((a, b) => a.sortOrder - b.sortOrder || a.question.localeCompare(b.question, 'ar'));
+      });
+      startEditingFaq(null);
+    } catch (err) {
+      console.error('Error saving support FAQ:', err);
+      setFaqError(err.response?.data?.error || 'تعذر حفظ السؤال الشائع.');
+    } finally {
+      setFaqSaving(false);
+    }
+  };
+
+  const handleToggleFaq = async (faq) => {
+    try {
+      const response = await api.patch(`/support/admin/faqs/${faq._id}`, { active: !faq.active });
+      setFaqs((previous) => previous.map((item) => item._id === faq._id ? response.data : item));
+    } catch (err) {
+      console.error('Error updating support FAQ status:', err);
+      setFaqError(err.response?.data?.error || 'تعذر تحديث حالة السؤال.');
+    }
+  };
+
+  const handleDeleteFaq = async (faq) => {
+    if (!window.confirm('هل تريد حذف هذا السؤال الشائع؟')) return;
+    try {
+      await api.delete(`/support/admin/faqs/${faq._id}`);
+      setFaqs((previous) => previous.filter((item) => item._id !== faq._id));
+    } catch (err) {
+      console.error('Error deleting support FAQ:', err);
+      setFaqError(err.response?.data?.error || 'تعذر حذف السؤال الشائع.');
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if ((!text.trim() && files.length === 0) || !activeConvId || sending) return;
@@ -199,29 +285,29 @@ export default function AdminSupportInbox() {
     }
   };
 
-  const renderTextWithLinks = (text, isMe) => {
-    if (!text) return null;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, i) => {
-      if (part.match(urlRegex)) {
-        return (
-          <a
-            key={i}
-            href={part}
-            rel="noopener noreferrer"
-            className={`${isMe ? 'text-blue-100 underline hover:text-white' : 'text-blue-600 underline hover:text-blue-800'} break-all`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
-  };
-
   return (
-    <div className="flex h-[calc(100vh-140px)] overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100 relative">
+    <div className="flex h-[calc(100vh-140px)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm relative">
+      <div className="flex gap-2 border-b border-gray-100 bg-gray-50/50 p-3">
+        <button
+          type="button"
+          onClick={() => setActiveSection('messages')}
+          className={`rounded-lg px-4 py-2 text-xs font-black transition-colors ${activeSection === 'messages' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-blue-50'}`}
+        >
+          مراسلات الدعم
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSection('faqs');
+            fetchSupportFaqs();
+          }}
+          className={`rounded-lg px-4 py-2 text-xs font-black transition-colors ${activeSection === 'faqs' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-blue-50'}`}
+        >
+          الأسئلة الشائعة والبوت
+        </button>
+      </div>
+      {activeSection === 'messages' ? (
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
       {/* Conversations List */}
       <div className={`w-full md:w-1/3 border-l border-gray-100 flex flex-col ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-5 border-b border-gray-100 bg-gray-50/50">
@@ -347,18 +433,26 @@ export default function AdminSupportInbox() {
                         : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                     }`}
                   >
-                    {msg.text && <p className="whitespace-pre-wrap font-bold leading-relaxed">{renderTextWithLinks(msg.text, msg.senderRole === 'admin')}</p>}
+                    {msg.text && <p className="whitespace-pre-wrap font-bold leading-relaxed"><MessageText text={msg.text} linkClassName={`${msg.senderRole === "admin" ? "text-blue-100 underline hover:text-white" : "text-blue-600 underline hover:text-blue-800"} break-all`} /></p>}
                     
                     {msg.images && msg.images.length > 0 && (
                       <div className={`mt-3 grid gap-2 ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {msg.images.map((img, idx) => (
-                          <a key={idx} href={uploadsUrl(img)} rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-gray-100/10">
-                            <img 
-                              src={uploadsUrl(img)} 
-                              alt="attachment" 
+                          <div
+                            key={idx}
+                            className="block overflow-hidden rounded-xl border border-gray-100/10"
+                          >
+                            <PrivateMessageImage
+                              api={api}
+                              kind="support"
+                              conversationId={msg.conversationId || activeConvId}
+                              messageId={msg._id}
+                              imageReference={img}
+                              alt="attachment"
                               className="w-full object-cover max-h-[300px] hover:scale-105 transition-transform duration-500"
+                              onOpen={(url) => window.open(url, "_blank", "noopener,noreferrer")}
                             />
-                          </a>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -450,6 +544,110 @@ export default function AdminSupportInbox() {
           </div>
         )}
       </div>
+      </div>
+      ) : (
+        <section className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto max-w-5xl space-y-6">
+            <header>
+              <h2 className="text-xl font-black text-gray-900">إدارة الأسئلة الشائعة</h2>
+              <p className="mt-1 text-sm text-gray-500">تُستخدم هذه الإجابات في المساعد الفوري دون الحاجة إلى ذكاء اصطناعي.</p>
+            </header>
+
+            <form onSubmit={handleSaveFaq} className="space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4 md:p-6">
+              <h3 className="font-black text-gray-800">{editingFaqId ? 'تعديل سؤال شائع' : 'إضافة سؤال شائع'}</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1 text-sm font-bold text-gray-700">
+                  السؤال
+                  <input
+                    required
+                    maxLength={180}
+                    value={faqDraft.question}
+                    onChange={(e) => setFaqDraft((draft) => ({ ...draft, question: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 outline-none focus:border-blue-500"
+                  />
+                </label>
+                <label className="space-y-1 text-sm font-bold text-gray-700">
+                  القسم
+                  <input
+                    maxLength={60}
+                    value={faqDraft.category}
+                    onChange={(e) => setFaqDraft((draft) => ({ ...draft, category: e.target.value }))}
+                    placeholder="مثال: الحساب، الإعلانات"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 outline-none focus:border-blue-500"
+                  />
+                </label>
+              </div>
+              <label className="block space-y-1 text-sm font-bold text-gray-700">
+                الإجابة
+                <textarea
+                  required
+                  maxLength={2000}
+                  rows={3}
+                  value={faqDraft.answer}
+                  onChange={(e) => setFaqDraft((draft) => ({ ...draft, answer: e.target.value }))}
+                  className="w-full resize-y rounded-xl border border-gray-200 bg-white px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </label>
+              <label className="block space-y-1 text-sm font-bold text-gray-700">
+                كلمات مفتاحية ومرادفات (افصل بينها بفاصلة)
+                <input
+                  value={faqDraft.keywords}
+                  onChange={(e) => setFaqDraft((draft) => ({ ...draft, keywords: e.target.value }))}
+                  placeholder="نسيت كلمة المرور، استعادة الحساب"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </label>
+              {faqError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{faqError}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={faqSaving}
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {faqSaving ? 'جارٍ الحفظ...' : editingFaqId ? 'حفظ التعديلات' : 'إضافة السؤال'}
+                </button>
+                {editingFaqId && (
+                  <button
+                    type="button"
+                    onClick={() => startEditingFaq(null)}
+                    className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-600"
+                  >
+                    إلغاء
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <div className="space-y-3">
+              <h3 className="font-black text-gray-800">الأسئلة الحالية</h3>
+              {faqLoading ? (
+                <p className="py-8 text-center text-sm text-gray-400">جاري تحميل الأسئلة...</p>
+              ) : faqs.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-400">لا توجد أسئلة شائعة.</p>
+              ) : faqs.map((faq) => (
+                <article key={faq._id} className={`rounded-xl border p-4 ${faq.active ? 'border-gray-100 bg-white' : 'border-gray-100 bg-gray-50 opacity-70'}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{faq.category || 'عام'}</span>
+                        {!faq.active && <span className="rounded-full bg-gray-200 px-2 py-1 text-[10px] font-bold text-gray-600">معطل</span>}
+                      </div>
+                      <h4 className="font-black text-gray-900">{faq.question}</h4>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{faq.answer}</p>
+                      {!!faq.keywords?.length && <p className="mt-2 text-xs text-gray-400">مرادفات: {faq.keywords.join('، ')}</p>}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => startEditingFaq(faq)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50">تعديل</button>
+                      <button type="button" onClick={() => handleToggleFaq(faq)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50">{faq.active ? 'تعطيل' : 'تفعيل'}</button>
+                      {!faq.key?.startsWith('default-') && <button type="button" onClick={() => handleDeleteFaq(faq)} className="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">حذف</button>}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

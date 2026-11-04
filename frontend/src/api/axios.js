@@ -84,7 +84,10 @@ export function useApi() {
         const requestUrl = originalRequest?.url || "";
         const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");
         
-        if (error.response?.status === 404) {
+        const isPrivateMessageRequest = requestUrl.startsWith("message-attachments/")
+          || /^conversations\/[^/]+\/messages(?:\/|$)/.test(requestUrl)
+          || /^support\/(?:my\/messages|conversations\/[^/]+\/messages|admin\/[^/]+\/messages)(?:\/|$)/.test(requestUrl);
+        if (error.response?.status === 404 && !isPrivateMessageRequest) {
           console.error(`[API 404] Failed request to: ${error.config.baseURL}${error.config.url}`);
         }
 

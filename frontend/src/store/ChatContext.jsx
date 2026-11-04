@@ -3,7 +3,8 @@ import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext.jsx";
 import { useApi } from "../api/axios.js";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin || "https://api.souqak-yem.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || new URL(API_URL, window.location.origin).origin;
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
@@ -32,6 +33,12 @@ export function ChatProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
+    if (!user && socket) {
+      socket.disconnect();
+      setSocket(null);
+      return;
+    }
+
     if (!socket && user) {
       const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],

@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { canInstallPWA, installPWA } from "../utils/pwaInstall.js";
 
+const GLOBAL_INSTALL_TARGET = "souqak";
+
 export default function PWAInstallButton({ mobile = false }) {
+  const location = useLocation();
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
-    const updateInstallState = () => setCanInstall(canInstallPWA());
-    const handleCanInstall = () => updateInstallState();
-    const handleInstalled = () => setCanInstall(false);
+    const updateInstallState = () => setCanInstall(canInstallPWA(GLOBAL_INSTALL_TARGET));
+    const handleCanInstall = (event) => {
+      if (event.detail?.target === GLOBAL_INSTALL_TARGET) updateInstallState();
+    };
+    const handleInstalled = (event) => {
+      if (event.detail?.target === GLOBAL_INSTALL_TARGET) setCanInstall(false);
+    };
 
     window.addEventListener("pwa:can-install", handleCanInstall);
     window.addEventListener("pwa:installed", handleInstalled);
@@ -21,10 +29,10 @@ export default function PWAInstallButton({ mobile = false }) {
   }, []);
 
   const handleClick = () => {
-    installPWA();
+    installPWA(GLOBAL_INSTALL_TARGET);
   };
 
-  if (!canInstall) return null;
+  if (!canInstall || location.pathname.startsWith("/store/")) return null;
 
   if (mobile) {
     return (

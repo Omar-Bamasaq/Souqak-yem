@@ -44,7 +44,7 @@ export default function Favorites() {
         )}
 
         {!loading && items.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+          <div className="flex flex-col items-center justify-center py-12 px-4 text-center sm:py-20">
             <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-4">
               <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -57,7 +57,7 @@ export default function Favorites() {
         )}
 
         {!loading && items.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 p-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-1.5 p-3 sm:gap-2 sm:p-4">
             {items.map((a) => (
               <ProductCard
                 key={a._id}
@@ -66,6 +66,7 @@ export default function Favorites() {
                 featured={!!a.featured}
                 governorateName={a.governorateId?.name || ""}
                 cityName={a.cityId?.name || ""}
+                displayMode="list"
               />
             ))}
           </div>

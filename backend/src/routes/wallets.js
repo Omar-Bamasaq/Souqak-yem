@@ -9,11 +9,11 @@ import ReferralProfile from "../models/ReferralProfile.js";
 import Transaction from "../models/Transaction.js";
 import Withdrawal from "../models/Withdrawal.js";
 import SystemSettings from "../models/SystemSettings.js";
+import { getExchangeRate } from "../utils/exchangeRates.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
-import { createNotification } from "../services/notificationService.js";
+import { createAdminNotification, createNotification } from "../services/notificationService.js";
 import { uploadIdDoc, processImage } from "../middleware/upload.js";
-import AdminNotification from "../models/AdminNotification.js";
 import User from "../models/User.js";
 import { sendAdminEmail } from "../utils/sendEmail.js";
 
@@ -82,7 +82,7 @@ router.post(
       }
       
       // Calculate USD equivalent
-      const rate = settings.exchangeRates[currency] || 1;
+      const rate = getExchangeRate(settings.exchangeRates, currency, settings.exchangeRatePairs);
       const amountInUsd = numAmount / rate;
       
       // Identity check
@@ -160,7 +160,7 @@ router.post(
       // إشعار لحظي للأدمن
       try {
         const user = await User.findById(req.user.id).select("name").lean();
-        const adminNotif = await AdminNotification.create({
+        await createAdminNotification(req.app, {
           type: "withdrawal",
           title: "طلب سحب جديد",
           message: `قام المستخدم ${user?.name || "غير معروف"} بطلب سحب مبلغ ${amount} ${currency}`,
@@ -168,8 +168,6 @@ router.post(
           data: { withdrawalId: withdrawal._id, amount, currency }
         });
 
-        const io = req.app.get("io");
-        if (io) io.emit("admin_notification:new", adminNotif);
       } catch (notifErr) {
         console.error("Admin withdrawal notification failed:", notifErr);
       }

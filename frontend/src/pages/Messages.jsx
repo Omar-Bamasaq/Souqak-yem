@@ -2,11 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 // Re-compilation trigger
 import { useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
+import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { useChat } from "../store/ChatContext.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
+import PrivateMessageImage from "../components/PrivateMessageImage.jsx";
+import MessageText from "../components/MessageText.jsx";
 
 const QUICK_REPLIES = {
   seller: [
@@ -305,6 +308,13 @@ export default function Messages() {
           const convRes = await api.get(`/conversations/${selectedId}`);
           setSelectedConv(convRes.data);
           setMuted(!!convRes.data.muted);
+          const canonicalConversationId = String(convRes.data._id || "");
+          if (canonicalConversationId && canonicalConversationId !== String(selectedId)) {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set("c", canonicalConversationId);
+            setSelectedId(canonicalConversationId);
+            navigate(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, { replace: true });
+          }
           
           // Also check if the counterpart is blocked
           if (convRes.data.counterpartId) {
@@ -579,29 +589,8 @@ export default function Messages() {
     closeMenu();
   };
 
-  const renderTextWithLinks = (text) => {
-    if (!text) return null;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, i) => {
-      if (part.match(urlRegex)) {
-        return (
-          <a
-            key={i}
-            href={part}
-            rel="noopener noreferrer"
-            className={`${text.includes('📍 موقعي الحالي') ? 'underline font-black text-blue-100 hover:text-white' : 'text-blue-600 underline hover:text-blue-800'} break-all`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
-  };
-
   return (
-    <div className={`grid grid-cols-1 gap-0 ${direct ? "" : "md:grid-cols-12"} h-full w-full overflow-hidden bg-white relative`}>
+    <div className={`grid min-h-0 grid-cols-1 gap-0 ${direct ? "" : "md:grid-cols-12"} h-full w-full overflow-hidden bg-white relative`}>
       {!direct && (
       <div className={`md:col-span-4 lg:col-span-3 flex flex-col overflow-hidden border-l border-gray-100 ${selectedId || selectedAdminId ? "hidden md:flex" : "flex"}`}>
         <div className="border-b px-4 py-4 flex items-center justify-between bg-gray-50/50">
@@ -731,7 +720,7 @@ export default function Messages() {
       </div>
       )}
       
-      <div className={`${direct ? "" : "md:col-span-8 lg:col-span-9"} flex flex-col overflow-hidden ${selectedId || selectedAdminId ? "flex" : "hidden md:flex"} relative bg-gray-50/30`}>
+      <div className={`${direct ? "" : "md:col-span-8 lg:col-span-9"} flex min-h-0 flex-col overflow-hidden ${selectedId || selectedAdminId ? "flex" : "hidden md:flex"} relative bg-gray-50/30`}>
         {!selectedId && !selectedAdminId && (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm border border-gray-100">
@@ -746,7 +735,7 @@ export default function Messages() {
         
         {/* Admin Message Content View */}
         {selectedAdminId && selectedAdminMsg && (
-          <div className="flex flex-col h-full overflow-hidden">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-amber-100 shadow-sm z-10">
               <div className="flex items-center gap-3">
                 <button 
@@ -795,7 +784,7 @@ export default function Messages() {
 
         {/* Regular Conversation Content View */}
         {selectedId && (
-          <div className="flex flex-col h-full overflow-hidden">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between bg-white border-b shadow-sm z-20">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button 
@@ -947,7 +936,7 @@ export default function Messages() {
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 custom-scrollbar bg-gray-50/20">
+            <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 custom-scrollbar bg-gray-50/20">
               {selectedConv?.favoriteNotice?.text && (
                 <div className="mx-auto mb-5 flex max-w-md items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-right shadow-sm dark:border-blue-900/40 dark:bg-blue-950/20">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">
@@ -967,9 +956,9 @@ export default function Messages() {
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                     </div>
                     <div>
-                      <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-100 mb-0.5">نصيحة سوقك: استخدم الشراء الآمن 🛡️</h4>
+                      <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-100 mb-0.5">الشراء الآمن عبر أمانة</h4>
                       <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                        لحماية حقك وضمان استعادة أموالك، ننصحك دائماً بإتمام الصفقة عبر نظام "الشراء الآمن".
+                        تابع الطلب والشحن عبر سوقك، وتعرّف على خدمة الوساطة المرتبطة بالشراء الآمن من أمانة.
                       </p>
                       <button onClick={() => navigate("/secure-deal-explanation")} className="mt-2 text-[9px] font-black text-emerald-600 bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-800 shadow-sm hover:bg-emerald-50 transition-all">تعرف على التفاصيل</button>
                     </div>
@@ -1045,13 +1034,21 @@ export default function Messages() {
                             إشعار إداري
                           </div>
                         )}
-                        {m.text && <div className="leading-relaxed whitespace-pre-wrap font-medium break-words">{renderTextWithLinks(m.text)}</div>}
+                        {m.text && <div className="leading-relaxed whitespace-pre-wrap font-medium break-words"><MessageText text={m.text} linkClassName={`${isMe ? "underline font-black text-blue-100 hover:text-white" : "underline font-black text-blue-700 hover:text-blue-900"} break-all`} /></div>}
                         {Array.isArray(m.images) && m.images.length > 0 && (
                           <div className={`mt-2 grid gap-2 ${m.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                             {m.images.map((img, i) => (
-                              <button key={i} className="overflow-hidden rounded-xl border border-black/5 hover:opacity-90 transition-all hover:scale-[1.02]" onClick={() => { setLbSrc(uploadsUrl(img)); setLbOpen(true); }}>
-                                <img src={uploadsUrl(img)} alt="" className="max-h-60 w-full object-cover" />
-                              </button>
+                              <div key={i} className="overflow-hidden rounded-xl border border-black/5 hover:opacity-90 transition-all hover:scale-[1.02]">
+                                <PrivateMessageImage
+                                  api={api}
+                                  kind="conversations"
+                                  conversationId={m.conversationId || selectedId}
+                                  messageId={m._id}
+                                  imageReference={img}
+                                  className="max-h-60 w-full object-cover"
+                                  onOpen={(url) => { setLbSrc(url); setLbOpen(true); }}
+                                />
+                              </div>
                             ))}
                           </div>
                         )}
@@ -1118,7 +1115,7 @@ export default function Messages() {
                 </div>
               )}
 
-              {showCommissionMsg && (
+              {AD_COMMISSION_ENABLED && showCommissionMsg && (
                 <div className="bg-green-50 border border-green-100 rounded-2xl p-5 my-2 mx-auto max-w-md shadow-sm animate-in fade-in zoom-in">
                   <div className="flex flex-col items-center text-center">
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
@@ -1143,7 +1140,7 @@ export default function Messages() {
             
             {/* Input Area */}
             {blocked ? (
-              <div className="border-t dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 p-6 text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <div className="shrink-0 border-t bg-gray-50 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-900/50">
                 <div className="inline-flex items-center gap-2 text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-full border border-red-100 dark:border-red-900/30">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1158,7 +1155,7 @@ export default function Messages() {
                 </button>
               </div>
             ) : (
-              <div className="bg-white border-t px-2 pb-1.5 pt-2 sm:px-3 sm:pb-1.5 sm:pt-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <div className="shrink-0 border-t bg-white px-2 pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] pt-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] sm:px-3">
               {/* Quick Replies Row */}
               {showQuickReplies && !selectedConv?.isClosed && !getAdInfo(selectedConv).sold && getAdInfo(selectedConv).status !== "expired" && selectedConv?.type !== 'DISPUTE' && (
                 <div className="flex flex-col gap-2 mb-3 animate-in slide-in-from-top-2 duration-200">
@@ -1570,7 +1567,7 @@ export default function Messages() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between px-1">
+                    {AD_COMMISSION_ENABLED && <div className="mt-4 flex items-center justify-between px-1">
                     <p className="text-[10px] font-bold text-gray-400">
                       سيتم احتساب رسوم خدمة رمزية (1%)
                     </p>
@@ -1579,7 +1576,7 @@ export default function Messages() {
                         {(Number(finalPrice) * 0.01).toLocaleString()} {finalCurrency === 'USD' ? '$' : 'ريال'}
                       </p>
                     )}
-                  </div>
+                    </div>}
                 </div>
 
                 <div className="flex gap-3 pt-2">
