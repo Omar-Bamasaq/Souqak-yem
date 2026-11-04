@@ -1,15 +1,16 @@
 
-import dotenv from "dotenv";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import fs from "fs";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config(); // Loads from .env in the current directory (backend/)
+import path from "path";
 
 import mongoose from "mongoose";
 import Category from "./src/models/Category.js";
 import CategoryAttribute from "./src/models/CategoryAttribute.js";
+import {
+  connectPrelaunchDatabase,
+  requireReferenceDataApproval,
+  resolvePrelaunchTarget,
+  safeErrorSummary
+} from "./src/lib/prelaunchDatabase.js";
 
 // Common attributes for multiple categories
 const carBrands = ["تويوتا", "هيونداي", "كيا", "نيسان", "لكزس", "هوندا", "فورد", "شيفروليه", "جيب", "مرسيدس", "بي إم دبليو", "جي إم سي", "دودج", "ميتسوبيشي", "مازدا", "سوزوكي", "شانجان", "جيلي", "هافال", "شيري", "إم جي", "أخرى"];
@@ -735,17 +736,18 @@ const categoriesData = [
     description: "قسم مخصص لبيع وشراء الأجهزة الإلكترونية بمختلف أنواعها.",
     subcategories: [
       { name: "جوالات", slug: "mobiles", sortOrder: 1, attributes: mobileAttributes },
-      { name: "أجهزة كمبيوتر مكتبية", slug: "desktop-computers", sortOrder: 2, attributes: computerAttributes },
-      { name: "لابتوبات", slug: "laptops", sortOrder: 3, attributes: laptopAttributes },
-      { name: "شاشات", slug: "screens", sortOrder: 4, attributes: screenAttributes },
-      { name: "كاميرات", slug: "cameras", sortOrder: 5, attributes: cameraAttributes },
-      { name: "أجهزة ألعاب إلكترونية", slug: "gaming-consoles", sortOrder: 6, attributes: gamingConsoleAttributes },
-      { name: "ملحقات الكمبيوتر", slug: "computer-accessories", sortOrder: 7, attributes: computerAccessoryAttributes },
-      { name: "الشبكات والاتصالات", slug: "networks-communications", sortOrder: 8, attributes: networkAttributes },
-      { name: "الصوتيات", slug: "audio-devices", sortOrder: 9, attributes: audioAttributes },
-      { name: "الطابعات والماسحات", slug: "printers-scanners", sortOrder: 10, attributes: printerScannerAttributes },
-      { name: "الساعات الذكية", slug: "smart-watches", sortOrder: 11, attributes: smartWatchAttributes },
-      { name: "الأجهزة اللوحية (تابلت)", slug: "tablets", sortOrder: 12, attributes: tabletAttributes },
+      { name: "أجهزة كمبيوتر", slug: "computers", sortOrder: 2, attributes: computerAttributes },
+      { name: "أجهزة كمبيوتر مكتبية", slug: "desktop-computers", sortOrder: 3, attributes: computerAttributes },
+      { name: "لابتوبات", slug: "laptops", sortOrder: 4, attributes: laptopAttributes },
+      { name: "شاشات", slug: "screens", sortOrder: 5, attributes: screenAttributes },
+      { name: "كاميرات", slug: "cameras", sortOrder: 6, attributes: cameraAttributes },
+      { name: "أجهزة ألعاب إلكترونية", slug: "gaming-consoles", sortOrder: 7, attributes: gamingConsoleAttributes },
+      { name: "ملحقات الكمبيوتر", slug: "computer-accessories", sortOrder: 8, attributes: computerAccessoryAttributes },
+      { name: "الشبكات والاتصالات", slug: "networks-communications", sortOrder: 9, attributes: networkAttributes },
+      { name: "الصوتيات", slug: "audio-devices", sortOrder: 10, attributes: audioAttributes },
+      { name: "الطابعات والماسحات", slug: "printers-scanners", sortOrder: 11, attributes: printerScannerAttributes },
+      { name: "الساعات الذكية", slug: "smart-watches", sortOrder: 12, attributes: smartWatchAttributes },
+      { name: "الأجهزة اللوحية (تابلت)", slug: "tablets", sortOrder: 13, attributes: tabletAttributes },
       { name: "أخرى", slug: "other-electronics", sortOrder: 999, attributes: [{ name: "device_type", label: "نوع الجهاز", type: "text" }] }
     ]
   },
@@ -787,6 +789,8 @@ const categoriesData = [
       { name: "أبقار", slug: "cows", sortOrder: 3, attributes: cowAttributes },
       { name: "طيور", slug: "birds", sortOrder: 4, attributes: birdAttributes },
       { name: "حيوانات أليفة", slug: "pets", sortOrder: 5, attributes: petAttributes },
+      { name: "أغذية الحيوانات الأليفة", slug: "pet-food", sortOrder: 6, attributes: [{ name: "animal_type", label: "الحيوان المناسب", type: "text" }, { name: "food_weight", label: "الوزن", type: "text" }] },
+      { name: "مستلزمات الحيوانات الأليفة", slug: "pet-accessories", sortOrder: 7, attributes: [{ name: "animal_type", label: "الحيوان المناسب", type: "text" }, { name: "accessory_type", label: "نوع المستلزم", type: "text" }] },
       { name: "أخرى", slug: "other-animals", sortOrder: 999, attributes: [{ name: "animal_type", label: "نوع الحيوان", type: "text" }] }
     ]
   },
@@ -909,6 +913,8 @@ const categoriesData = [
       { name: "عناية بالشعر", slug: "hair-care", sortOrder: 3, attributes: hairCareAttributes },
       { name: "عطور", slug: "perfumes", sortOrder: 4, attributes: perfumeAttributes },
       { name: "أدوات تجميل", slug: "beauty-tools", sortOrder: 5, attributes: beautyToolsAttributes },
+      { name: "صابون وعناية منزلية", slug: "handmade-soap", sortOrder: 6, attributes: [{ name: "ingredients", label: "المكونات", type: "text" }, { name: "skin_type", label: "نوع البشرة", type: "text" }] },
+      { name: "بخور", slug: "incense", sortOrder: 7, attributes: [{ name: "incense_type", label: "نوع البخور", type: "text" }] },
       { name: "أخرى", slug: "other-beauty", sortOrder: 999, attributes: [{ name: "care_type", label: "نوع المنتج", type: "text" }] }
     ]
   },
@@ -951,6 +957,13 @@ const categoriesData = [
       { name: "لحوم ودواجن", slug: "meat-poultry", sortOrder: 3, attributes: simplifiedFoodAttributes },
       { name: "منتجات ألبان", slug: "dairy-products", sortOrder: 4, attributes: simplifiedFoodAttributes },
       { name: "مواد بالجملة", slug: "wholesale-foods", sortOrder: 5, attributes: simplifiedFoodAttributes },
+      { name: "وجبات منزلية", slug: "homemade-meals", sortOrder: 6, attributes: [{ name: "ingredients", label: "المكونات", type: "text" }, { name: "serving_size", label: "عدد الوجبات", type: "number" }] },
+      { name: "مخبوزات", slug: "bakery-products", sortOrder: 7, attributes: [{ name: "ingredients", label: "المكونات", type: "text" }, { name: "production_date", label: "تاريخ الإعداد", type: "text" }] },
+      { name: "حلويات", slug: "sweets-desserts", sortOrder: 8, attributes: [{ name: "ingredients", label: "المكونات", type: "text" }, { name: "serving_size", label: "عدد القطع", type: "number" }] },
+      { name: "أغذية محفوظة ومجهزة", slug: "preserved-foods", sortOrder: 9, attributes: [{ name: "ingredients", label: "المكونات", type: "text" }, { name: "expiry_date", label: "تاريخ الانتهاء", type: "text" }] },
+      { name: "عسل", slug: "honey", sortOrder: 10, attributes: [{ name: "origin", label: "المنشأ", type: "text" }, { name: "net_weight", label: "الوزن الصافي", type: "text" }] },
+      { name: "بن وقهوة", slug: "coffee", sortOrder: 11, attributes: [{ name: "origin", label: "المنشأ", type: "text" }, { name: "roast_level", label: "درجة التحميص", type: "text" }] },
+      { name: "توابل وبهارات", slug: "spices", sortOrder: 12, attributes: [{ name: "origin", label: "المنشأ", type: "text" }, { name: "spice_type", label: "نوع التوابل", type: "text" }] },
       { name: "أخرى", slug: "other-food", sortOrder: 999, attributes: simplifiedFoodAttributes }
     ]
   },
@@ -1003,105 +1016,219 @@ const categoriesData = [
     subcategories: [
       { name: "أخرى", slug: "other-other", sortOrder: 999, attributes: [{ name: "item_type", label: "نوع العنصر", type: "text" }] }
     ]
+  },
+  {
+    name: "مواد البناء والسباكة والكهرباء",
+    slug: "building-materials",
+    sortOrder: 23,
+    description: "مواد ومستلزمات البناء والسباكة والأعمال الكهربائية.",
+    subcategories: [
+      { name: "مواد البناء", slug: "building-supplies", sortOrder: 1, attributes: [{ name: "material_type", label: "نوع المادة", type: "text" }, { name: "unit", label: "وحدة البيع", type: "text" }] },
+      { name: "مستلزمات السباكة", slug: "plumbing-supplies", sortOrder: 2, attributes: [{ name: "material_type", label: "نوع المستلزم", type: "text" }, { name: "size", label: "المقاس", type: "text" }] },
+      { name: "مستلزمات الكهرباء", slug: "electrical-supplies", sortOrder: 3, attributes: [{ name: "device_type", label: "نوع المستلزم الكهربائي", type: "text" }, { name: "voltage", label: "الجهد الكهربائي", type: "text" }] }
+    ]
+  },
+  {
+    name: "الذهب والمجوهرات والساعات",
+    slug: "jewelry-watches",
+    sortOrder: 24,
+    description: "قسم للمجوهرات والساعات والمنتجات المرتبطة بها.",
+    subcategories: [
+      { name: "ذهب ومجوهرات", slug: "gold-jewelry", sortOrder: 1, attributes: [{ name: "material", label: "المعدن", type: "text" }, { name: "weight", label: "الوزن", type: "text" }] },
+      { name: "مجوهرات وإكسسوارات", slug: "jewelry", sortOrder: 2, attributes: [{ name: "material", label: "الخامة", type: "text" }, { name: "jewelry_type", label: "نوع القطعة", type: "text" }] },
+      { name: "ساعات", slug: "watches", sortOrder: 3, attributes: [{ name: "brand", label: "الماركة", type: "text" }, { name: "watch_type", label: "نوع الساعة", type: "text" }] },
+      { name: "أخرى", slug: "other-jewelry", sortOrder: 999, attributes: [{ name: "jewelry_type", label: "نوع القطعة", type: "text" }] }
+    ]
+  },
+  {
+    name: "الزراعة ومستلزماتها",
+    slug: "agriculture-supplies",
+    sortOrder: 25,
+    description: "بذور ونباتات وأسمدة وأدوات ومستلزمات زراعية.",
+    subcategories: [
+      { name: "بذور ونباتات", slug: "seeds-plants", sortOrder: 1, attributes: [{ name: "plant_type", label: "نوع النبات", type: "text" }, { name: "season", label: "الموسم", type: "text" }] },
+      { name: "أسمدة وتربة", slug: "fertilizers-soil", sortOrder: 2, attributes: [{ name: "product_type", label: "نوع المنتج", type: "text" }, { name: "weight", label: "الوزن", type: "text" }] },
+      { name: "مستلزمات الري", slug: "irrigation-supplies", sortOrder: 3, attributes: [{ name: "irrigation_type", label: "نوع الري", type: "text" }, { name: "size", label: "المقاس", type: "text" }] },
+      { name: "أدوات زراعية", slug: "agricultural-tools", sortOrder: 4, attributes: gardenToolAttributes },
+      { name: "منتجات زراعية منزلية", slug: "garden-produce", sortOrder: 5, attributes: simplifiedFoodAttributes }
+    ]
+  },
+  {
+    name: "الأدوات المنزلية والديكور",
+    slug: "home-decor",
+    sortOrder: 26,
+    description: "أدوات منزلية ومستلزمات المطبخ والديكور.",
+    subcategories: [
+      { name: "أدوات المطبخ المنزلية", slug: "kitchenware", sortOrder: 1, attributes: [{ name: "material", label: "الخامة", type: "text" }, { name: "kitchenware_type", label: "نوع الأداة", type: "text" }] },
+      { name: "ديكور منزلي", slug: "home-decor-items", sortOrder: 2, attributes: [{ name: "decor_type", label: "نوع الديكور", type: "text" }, { name: "material", label: "الخامة", type: "text" }] },
+      { name: "إضاءة وديكور", slug: "lighting-decor", sortOrder: 3, attributes: [{ name: "lighting_type", label: "نوع الإضاءة", type: "text" }, { name: "power_source", label: "مصدر الطاقة", type: "text" }] },
+      { name: "منسوجات ومفروشات منزلية", slug: "textiles-linens", sortOrder: 4, attributes: [{ name: "fabric_type", label: "نوع القماش", type: "text" }, { name: "dimensions", label: "الأبعاد", type: "text" }] },
+      { name: "شموع", slug: "candles", sortOrder: 5, attributes: [{ name: "scent", label: "الرائحة", type: "text" }, { name: "material", label: "الخامة", type: "text" }] }
+    ]
+  },
+  {
+    name: "الهدايا والزهور",
+    slug: "gifts-flowers",
+    sortOrder: 27,
+    description: "هدايا وزهور وتنسيقات للمناسبات.",
+    subcategories: [
+      { name: "هدايا", slug: "gifts", sortOrder: 1, attributes: [{ name: "occasion", label: "المناسبة", type: "text" }, { name: "gift_type", label: "نوع الهدية", type: "text" }] },
+      { name: "زهور ونباتات للزينة", slug: "flowers", sortOrder: 2, attributes: [{ name: "flower_type", label: "نوع الزهور", type: "text" }, { name: "arrangement_type", label: "نوع التنسيق", type: "text" }] },
+      { name: "تنسيقات مناسبات", slug: "gift-arrangements", sortOrder: 3, attributes: [{ name: "occasion", label: "المناسبة", type: "text" }, { name: "arrangement_type", label: "نوع التنسيق", type: "text" }] }
+    ]
+  },
+  {
+    name: "منتجات يدوية وحرفية",
+    slug: "handmade-products",
+    sortOrder: 28,
+    description: "منتجات وحرف يدوية متنوعة من تنفيذ الأسر المنتجة.",
+    subcategories: [
+      { name: "منسوجات يدوية", slug: "handmade-textiles", sortOrder: 1, attributes: [{ name: "fabric_type", label: "نوع النسيج", type: "text" }, { name: "dimensions", label: "الأبعاد", type: "text" }] },
+      { name: "منتجات جلدية", slug: "leather-goods", sortOrder: 2, attributes: [{ name: "leather_type", label: "نوع الجلد", type: "text" }, { name: "product_type", label: "نوع المنتج", type: "text" }] },
+      { name: "منتجات خشبية", slug: "wooden-products", sortOrder: 3, attributes: [{ name: "wood_type", label: "نوع الخشب", type: "text" }, { name: "dimensions", label: "الأبعاد", type: "text" }] },
+      { name: "منتجات فخارية", slug: "pottery", sortOrder: 4, attributes: [{ name: "pottery_type", label: "نوع القطعة", type: "text" }, { name: "dimensions", label: "الأبعاد", type: "text" }] },
+      { name: "مجوهرات يدوية", slug: "handmade-jewelry", sortOrder: 5, attributes: [{ name: "material", label: "الخامة", type: "text" }, { name: "jewelry_type", label: "نوع القطعة", type: "text" }] },
+      { name: "هدايا يدوية", slug: "handmade-gifts", sortOrder: 6, attributes: [{ name: "occasion", label: "المناسبة", type: "text" }, { name: "material", label: "الخامة", type: "text" }] },
+      { name: "ديكورات يدوية", slug: "handmade-decor", sortOrder: 7, attributes: [{ name: "decor_type", label: "نوع الديكور", type: "text" }, { name: "material", label: "الخامة", type: "text" }] },
+      { name: "ألعاب تعليمية يدوية", slug: "educational-toys", sortOrder: 8, attributes: [{ name: "age_range", label: "الفئة العمرية", type: "text" }, { name: "learning_area", label: "المجال التعليمي", type: "text" }] },
+      { name: "رسم وفنون وخط", slug: "art-calligraphy", sortOrder: 9, attributes: [{ name: "art_type", label: "نوع العمل الفني", type: "text" }, { name: "dimensions", label: "الأبعاد", type: "text" }] },
+      { name: "صناعات تقليدية يمنية", slug: "yemeni-traditional", sortOrder: 10, attributes: [{ name: "craft_type", label: "نوع الحرفة", type: "text" }, { name: "region", label: "المنطقة", type: "text" }] },
+      { name: "نباتات منزلية", slug: "indoor-plants", sortOrder: 11, attributes: [{ name: "plant_type", label: "نوع النبات", type: "text" }, { name: "care_instructions", label: "إرشادات العناية", type: "text" }] }
+    ]
   }
 ];
 
-async function run() {
-  const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/yemen_market";
-  await mongoose.connect(mongoUri, { family: 4 });
-  console.log("Connected to DB:", mongoose.connection.name);
-  console.log("DB Host:", mongoose.connection.host);
-  console.log("DB Port:", mongoose.connection.port);
+async function upsertSeedDocument(Model, filter, update) {
+  const options = { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true };
+  try {
+    return await Model.findOneAndUpdate(filter, update, options);
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    const existing = await Model.findOne(filter);
+    if (!existing) throw error;
+    const updated = await Model.findOneAndUpdate(
+      filter,
+      { $set: update.$set || {} },
+      { ...options, upsert: false }
+    );
+    if (!updated) throw error;
+    return updated;
+  }
+}
 
-  console.log("Starting seeding of categories and attributes...");
+const legacyRootCategorySlugs = new Map([
+  ["cars", ["المركبات"]]
+]);
 
-  // Clear existing categories and attributes to ensure a fresh start matching the report exactly
-  // This is required to remove old/duplicated categories and reset all attributes.
-  // await CategoryAttribute.deleteMany({});
-  // await Category.deleteMany({});
-  // console.log("Cleared existing categories and attributes.");
+async function upsertMainCategory(CategoryModel, category) {
+  const existing = await CategoryModel.findOne({ slug: category.slug });
+  const legacyCategories = await Promise.all(
+    (legacyRootCategorySlugs.get(category.slug) || []).map((slug) => CategoryModel.findOne({ slug }))
+  );
+  const legacyCategory = legacyCategories.find(Boolean);
 
-  for (const catData of categoriesData) {
-    let mainCat = await Category.findOne({ slug: catData.slug });
-    if (!mainCat) {
-      mainCat = await Category.create({
-        name: catData.name,
-        slug: catData.slug,
-        description: catData.description,
-        sortOrder: catData.sortOrder || 0,
-        status: "active"
-      });
-      console.log(`Created Main Category: ${mainCat.name} (slug: ${mainCat.slug})`);
-    } else {
-      mainCat.name = catData.name;
-      mainCat.description = catData.description;
-      mainCat.sortOrder = catData.sortOrder || 0;
-      await mainCat.save();
-      console.log(`Updated Main Category: ${mainCat.name}`);
+  if (existing && legacyCategory) {
+    throw new Error(`Conflicting root categories exist for seed slug "${category.slug}".`);
+  }
+  if (legacyCategory) return legacyCategory;
+
+  return upsertSeedDocument(
+    CategoryModel,
+    { slug: category.slug },
+    {
+      $set: {
+        name: category.name,
+        description: category.description,
+        sortOrder: category.sortOrder || 0
+      },
+      $setOnInsert: { status: "active" }
     }
+  );
+}
 
-    if (catData.subcategories) {
-      for (const subCatData of catData.subcategories) {
-        let subCat = await Category.findOne({ slug: subCatData.slug });
-        if (!subCat) {
-          subCat = await Category.create({
-            name: subCatData.name,
-            slug: subCatData.slug,
-            parentId: mainCat._id,
-            sortOrder: subCatData.sortOrder || 0,
-            status: "active"
-          });
-          console.log(`  - Created Subcategory: ${subCat.name}`);
-        } else {
-          subCat.name = subCatData.name;
-          subCat.parentId = mainCat._id;
-          subCat.sortOrder = subCatData.sortOrder || 0;
-          await subCat.save();
-          console.log(`  - Updated Subcategory: ${subCat.name}`);
+async function assertNoConflictingRootCategories(CategoryModel, categoryData) {
+  for (const category of categoryData) {
+    const legacySlugs = legacyRootCategorySlugs.get(category.slug) || [];
+    if (!legacySlugs.length) continue;
+
+    const existing = await CategoryModel.findOne({ slug: category.slug });
+    const legacyCategories = await Promise.all(
+      legacySlugs.map((slug) => CategoryModel.findOne({ slug }))
+    );
+    if (existing && legacyCategories.some(Boolean)) {
+      throw new Error(`Conflicting root categories exist for seed slug "${category.slug}".`);
+    }
+  }
+}
+
+export async function seedCategories({
+  CategoryModel = Category,
+  CategoryAttributeModel = CategoryAttribute,
+  categoryData = categoriesData,
+  env = process.env
+} = {}) {
+  resolvePrelaunchTarget(env);
+  requireReferenceDataApproval(env);
+  await assertNoConflictingRootCategories(CategoryModel, categoryData);
+  let categoriesProcessed = 0;
+  let attributesProcessed = 0;
+
+  for (const category of categoryData) {
+    const mainCategory = await upsertMainCategory(CategoryModel, category);
+    categoriesProcessed += 1;
+
+    for (const subcategory of category.subcategories || []) {
+      const child = await upsertSeedDocument(
+        CategoryModel,
+        { slug: subcategory.slug },
+        {
+          $set: {
+            name: subcategory.name,
+            sortOrder: subcategory.sortOrder || 0
+          },
+          $setOnInsert: { status: "active", parentId: mainCategory._id }
         }
+      );
+      categoriesProcessed += 1;
 
-        const currentAttrNames = (subCatData.attributes || []).map(a => a.name);
-
-        // Delete attributes that are no longer in the definition for this subcategory
-        await CategoryAttribute.deleteMany({
-          categoryId: subCat._id,
-          name: { $nin: currentAttrNames }
-        });
-
-        if (subCatData.attributes) {
-          for (const attrData of subCatData.attributes) {
-            let attr = await CategoryAttribute.findOne({ 
-              categoryId: subCat._id, 
-              name: attrData.name 
-            });
-            if (!attr) {
-              await CategoryAttribute.create({
-                categoryId: subCat._id,
-                ...attrData,
-                required: false // Ensure it's optional
-              });
-              console.log(`    * Created Attribute: ${attrData.label} for ${subCat.name}`);
-            } else {
-              Object.assign(attr, attrData);
-              attr.required = false; // Ensure it's optional
-              await attr.save();
-              console.log(`    * Updated Attribute: ${attrData.label} for ${subCat.name}`);
-            }
+      for (const attribute of subcategory.attributes || []) {
+        await upsertSeedDocument(
+          CategoryAttributeModel,
+          { categoryId: child._id, name: attribute.name },
+          {
+            $set: {
+              ...attribute,
+              required: attribute.required ?? false
+            },
+            $setOnInsert: { categoryId: child._id }
           }
-        }
+        );
+        attributesProcessed += 1;
       }
     }
   }
 
-  console.log("Seeding complete!");
-  await mongoose.disconnect();
-  process.exit(0);
+  return { categoriesProcessed, attributesProcessed };
 }
 
-run().catch(async (err) => {
-  console.error("Seeding failed:", err);
+export async function run() {
+  const env = process.env;
+  resolvePrelaunchTarget(env);
+  requireReferenceDataApproval(env);
+  await connectPrelaunchDatabase(env);
   try {
+    await Category.createIndexes();
+    await CategoryAttribute.createIndexes();
+    const result = await seedCategories({ env });
+    console.log(`Reference category seed complete. Categories processed: ${result.categoriesProcessed}; attributes processed: ${result.attributesProcessed}.`);
+  } finally {
     await mongoose.disconnect();
-  } catch {}
-  process.exit(1);
-});
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  run().catch((error) => {
+    console.error("Reference category seed failed.", safeErrorSummary(error));
+    process.exitCode = 1;
+  });
+}

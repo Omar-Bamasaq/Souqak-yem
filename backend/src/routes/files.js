@@ -255,12 +255,6 @@ router.get(
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "SAMEORIGIN");
       res.setHeader("Content-Security-Policy", "frame-ancestors 'self';");
-      res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-      if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-      }
       res.sendFile(filePath, { headers: { "Content-Disposition": contentDisposition, "X-Content-Type-Options": "nosniff" } });
     } catch (error) {
       console.error("File access failed.", { name: error.name, code: error.code || null });

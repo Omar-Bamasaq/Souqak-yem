@@ -13,6 +13,7 @@ import { uploadMessageImages } from "../middleware/upload.js";
 import Block from "../models/Block.js";
 import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
+import { rejectClientSuppliedAttachmentRefs } from "../middleware/messageAttachments.js";
 
 import { sendPushNotification } from "../services/pushService.js";
 import {
@@ -421,6 +422,7 @@ router.post(
   rateLimit({ windowMs: 10_000, max: 5 }),
   requireConversationParticipant,
   uploadMessageImages.array("images", 5),
+  rejectClientSuppliedAttachmentRefs,
   async (req, res) => {
   try {
     const { text } = req.body || {};

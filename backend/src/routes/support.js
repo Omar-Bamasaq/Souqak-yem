@@ -2,6 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
+import { rejectClientSuppliedAttachmentRefs } from "../middleware/messageAttachments.js";
 import SupportConversation from "../models/SupportConversation.js";
 import SupportFaq from "../models/SupportFaq.js";
 import SupportMessage from "../models/SupportMessage.js";
@@ -359,7 +360,7 @@ router.get("/conversations/:id/messages", auth, async (req, res) => {
   }
 });
 
-router.post("/my/messages", auth, uploadMessageImages.array("images", 5), async (req, res) => {
+router.post("/my/messages", auth, uploadMessageImages.array("images", 5), rejectClientSuppliedAttachmentRefs, async (req, res) => {
   try {
     const { text } = req.body;
     const images = req.files ? req.files.map((file) => `private/${file.filename}`) : req.body.images;
@@ -555,7 +556,7 @@ router.get("/admin/:conversationId/messages", auth, requireRole(["admin"]), asyn
   }
 });
 
-router.post("/admin/:conversationId/messages", auth, requireRole(["admin"]), uploadMessageImages.array("images", 5), async (req, res) => {
+router.post("/admin/:conversationId/messages", auth, requireRole(["admin"]), uploadMessageImages.array("images", 5), rejectClientSuppliedAttachmentRefs, async (req, res) => {
   try {
     const { text } = req.body;
     const images = req.files ? req.files.map((file) => `private/${file.filename}`) : req.body.images;
