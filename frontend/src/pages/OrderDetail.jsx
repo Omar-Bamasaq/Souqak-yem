@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
-import { uploadsUrl } from "../lib/uploads.js";
+import { isSensitiveFilePath, uploadsUrl } from "../lib/uploads.js";
+import { normalizeProtectedFilePath, useProtectedFiles } from "../lib/protectedFiles.js";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
@@ -49,6 +50,10 @@ export default function OrderDetail() {
   });
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
+  const { urls: protectedFileUrls, contentTypes: protectedFileContentTypes, errors: protectedFileErrors, loading: protectedFilesLoading } = useProtectedFiles(api, [previewDoc]);
+  const previewUrl = isSensitiveFilePath(previewDoc)
+    ? protectedFileUrls[normalizeProtectedFilePath(previewDoc)] || null
+    : uploadsUrl(previewDoc);
 
   const handleReceiptSelection = async (index, file) => {
     if (!file) return;
@@ -274,8 +279,8 @@ export default function OrderDetail() {
     }
   };
 
-  if (loading) return <div className="py-20 flex justify-center"><LoadingSpinner size="lg" /></div>;
-  if (error) return <div className="py-20 text-center text-red-500 font-bold">{error}</div>;
+  if (loading) return <div className="flex justify-center py-12 sm:py-20"><LoadingSpinner size="lg" /></div>;
+  if (error) return <div className="py-12 text-center font-bold text-red-500 sm:py-20">{error}</div>;
   if (!order) return null;
 
   const formatCurrency = (currency) => {
@@ -313,12 +318,12 @@ export default function OrderDetail() {
 
   const statusMap = {
     PENDING_SELLER_APPROVAL: { label: "بانتظار موافقة البائع", color: "bg-amber-100 text-amber-700", step: 1 },
-    AWAITING_PAYMENT: { label: "بانتظار الدفع", color: "bg-blue-100 text-blue-700", step: 2 },
-    AWAITING_PAYMENT_CONFIRMATION: { label: "بانتظار تأكيد الإدارة", color: "bg-purple-100 text-purple-700", step: 2 },
-    PAID_CONFIRMED: { label: "تم تأكيد الدفع", color: "bg-emerald-100 text-emerald-700", step: 3 },
-    SHIPPED: { label: "تم الشحن", color: "bg-indigo-100 text-indigo-700", step: 4 },
-    DELIVERED: { label: "تم الاستلام", color: "bg-green-100 text-green-700", step: 5 },
-    COMPLETED: { label: "مكتمل", color: "bg-gray-100 text-gray-700", step: 5 },
+    AWAITING_PAYMENT: { label: "بانتظار الدفع", color: "bg-emerald-100 text-emerald-800", step: 2 },
+    AWAITING_PAYMENT_CONFIRMATION: { label: "بانتظار تأكيد الإدارة", color: "bg-lime-100 text-lime-800", step: 2 },
+    PAID_CONFIRMED: { label: "تم تأكيد الدفع", color: "bg-emerald-100 text-emerald-800", step: 3 },
+    SHIPPED: { label: "تم الشحن", color: "bg-green-100 text-green-800", step: 4 },
+    DELIVERED: { label: "تم الاستلام", color: "bg-green-100 text-green-800", step: 5 },
+    COMPLETED: { label: "مكتمل", color: "bg-emerald-100 text-emerald-800", step: 5 },
     DISPUTED: { label: "نزاع مفتوح", color: "bg-red-100 text-red-700", step: 0 },
     CANCELLED: { label: "ملغي", color: "bg-red-50 text-red-400", step: 0 }
   };
@@ -330,12 +335,12 @@ export default function OrderDetail() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-12 space-y-6 sm:space-y-10">
+    <div className="mx-auto max-w-4xl space-y-4 px-3 py-4 sm:space-y-10 sm:px-4 sm:py-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-gray-50 dark:border-slate-800 shadow-xl shadow-gray-50 dark:shadow-none">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center shadow-xl shadow-blue-100 dark:shadow-none shrink-0 overflow-hidden">
-            <img src="/assets/logo/app-icon.svg" alt="سوقك" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+            <img src="/Amana-Logo.svg" alt="أمانة" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
           </div>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-2xl font-black text-gray-900 dark:text-white truncate">طلب #{order._id.slice(-6).toUpperCase()}</h1>
@@ -347,9 +352,9 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:gap-10">
         {/* Left Column: Details */}
-        <div className="lg:col-span-2 space-y-6 sm:space-y-10">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-10">
           {/* Progress Steps */}
           {order.status !== 'DISPUTED' && order.status !== 'CANCELLED' && (
             <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-gray-50 dark:border-slate-800 shadow-lg shadow-gray-50 dark:shadow-none overflow-x-auto no-scrollbar">
@@ -365,15 +370,15 @@ export default function OrderDetail() {
                     <div className="flex flex-col items-center gap-2 sm:gap-3">
                       <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-black transition-all duration-500 ${
                         statusMap[order.status].step >= s.id 
-                          ? "bg-blue-600 text-white shadow-xl shadow-blue-100" 
+                          ? "bg-emerald-600 text-white shadow-xl shadow-emerald-100"
                           : "bg-gray-100 dark:bg-slate-800 text-gray-400"
                       }`}>
                         {statusMap[order.status].step > s.id ? "✓" : s.id}
                       </div>
-                      <span className={`text-[8px] sm:text-[10px] font-black uppercase tracking-tighter ${statusMap[order.status].step >= s.id ? "text-blue-600" : "text-gray-400"}`}>{s.label}</span>
+                      <span className={`text-[8px] sm:text-[10px] font-black uppercase tracking-tighter ${statusMap[order.status].step >= s.id ? "text-emerald-700" : "text-gray-400"}`}>{s.label}</span>
                     </div>
                     {i < 4 && (
-                      <div className={`h-0.5 sm:h-1 flex-1 mx-1 sm:mx-2 rounded-full transition-all duration-700 ${statusMap[order.status].step > s.id ? "bg-blue-600" : "bg-gray-100 dark:bg-slate-800"}`} />
+                      <div className={`h-0.5 sm:h-1 flex-1 mx-1 sm:mx-2 rounded-full transition-all duration-700 ${statusMap[order.status].step > s.id ? "bg-emerald-600" : "bg-gray-100 dark:bg-slate-800"}`} />
                     )}
                   </React.Fragment>
                 ))}
@@ -410,11 +415,11 @@ export default function OrderDetail() {
                 <span className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">رسوم الشحن</span>
                 <span className="font-black text-gray-900 dark:text-white text-sm sm:text-base">{order.shippingFee?.toLocaleString()} {formatCurrency(order.shippingCurrency || order.currency)}</span>
               </div>
-              <div className="p-4 sm:p-5 rounded-2xl bg-blue-50/30 dark:bg-blue-900/10 border-2 border-blue-50 dark:border-blue-900/20 flex justify-between items-center sm:flex-col sm:items-start sm:gap-1">
-                <span className="text-[9px] sm:text-[10px] font-black text-blue-400 uppercase tracking-widest">
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-emerald-100 dark:border-emerald-900/20 flex justify-between items-center sm:flex-col sm:items-start sm:gap-1">
+                <span className="text-[9px] sm:text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
                   {isSeller ? "إجمالي مستحقاتك" : "المبلغ الإجمالي"}
                 </span>
-                <span className="text-lg sm:text-xl font-black text-blue-600">
+                <span className="text-lg sm:text-xl font-black text-emerald-700 dark:text-emerald-400">
                   {order.currency === (order.shippingCurrency || order.currency) ? (
                     `${(isSeller ? (order.amount + (order.shippingPayer === 'buyer' && order.shippingCurrency === order.currency ? order.shippingFee : 0)) : order.totalAmount)?.toLocaleString()} ${formatCurrency(order.currency)}`
                   ) : (
@@ -431,7 +436,7 @@ export default function OrderDetail() {
           </div>
 
           {/* Dynamic Action Section */}
-          <div className="bg-white dark:bg-slate-900 p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-blue-100 dark:border-blue-900/30 shadow-2xl shadow-blue-50 dark:shadow-none space-y-6 sm:space-y-8 relative overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-10 rounded-2xl sm:rounded-[2.5rem] border-2 border-blue-100 dark:border-blue-900/30 shadow-2xl shadow-blue-50 dark:shadow-none space-y-4 sm:space-y-8 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
             
             <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-3 relative z-10">
@@ -482,7 +487,7 @@ export default function OrderDetail() {
 
               {/* Buyer Payment */}
               {order.status === 'AWAITING_PAYMENT' && isBuyer && (
-                <div className="space-y-8">
+                <div className="space-y-5 sm:space-y-8">
                   <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border-2 border-amber-100 dark:border-amber-900/20 rounded-3xl">
                     <div className="space-y-4">
                       <p className="text-sm font-black text-amber-900 dark:text-amber-400 leading-relaxed mb-4">
@@ -655,7 +660,7 @@ export default function OrderDetail() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => openPreview(uploadsUrl(p.receiptImage), `سند الدفع ${idx + 1}`)}
+                                  onClick={() => openPreview(p.receiptImage, `سند الدفع ${idx + 1}`)}
                                   className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-all"
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -690,7 +695,7 @@ export default function OrderDetail() {
 
               {/* Seller Shipping */}
               {order.status === 'PAID_CONFIRMED' && isSeller && (
-                <div className="space-y-8">
+                <div className="space-y-5 sm:space-y-8">
                   <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 border-2 border-emerald-100 dark:border-emerald-900/20 rounded-3xl space-y-3">
                     <p className="text-xs sm:text-sm font-black text-emerald-800 dark:text-emerald-400 leading-relaxed">تم استلام المبلغ وتأمينه بنجاح. يرجى شحن المنتج للمشتري وتزويدنا ببيانات الشحن فوراً.</p>
                   </div>
@@ -767,7 +772,7 @@ export default function OrderDetail() {
 
               {/* Buyer Delivery Confirmation */}
               {order.status === 'SHIPPED' && isBuyer && (
-                <div className="space-y-8">
+                <div className="space-y-5 sm:space-y-8">
                   <div className="p-6 bg-indigo-50 dark:bg-indigo-900/10 border-2 border-indigo-100 dark:border-indigo-900/20 rounded-3xl space-y-2">
                     <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">بيانات الشحن</p>
                     <p className="text-sm font-black text-indigo-800 dark:text-indigo-300 leading-relaxed">
@@ -778,7 +783,7 @@ export default function OrderDetail() {
                         <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">سند الشحن المرفق:</p>
                         <button
                           type="button"
-                          onClick={() => openPreview(uploadsUrl(order.shippingDetails.shippingReceipt), "سند الشحن")}
+                          onClick={() => openPreview(order.shippingDetails.shippingReceipt, "سند الشحن")}
                           className="inline-flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-indigo-100 dark:border-slate-800 hover:shadow-lg transition-all group"
                         >
                           <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">📄</div>
@@ -795,8 +800,8 @@ export default function OrderDetail() {
                   </button>
                   <div className="space-y-2 text-center">
                     <p className="text-[10px] font-bold text-gray-400">عند الضغط، سيتم تحويل المبلغ لحساب البائع فوراً.</p>
-                    <p className="text-[11px] font-black text-red-500 bg-red-50 dark:bg-red-900/10 py-2 px-4 rounded-xl border border-red-100 dark:border-red-900/20 inline-block">
-                      ⚠️ تنبيه: في حال عدم تأكيد الاستلام يدوياً، سيقوم النظام بتأكيد الطلب وتحرير المبلغ للبائع تلقائياً بعد مرور 7 أيام من تاريخ الشحن. في حالة وجود نزاع مفتوح، سيتم تعليق التحويل التلقائي ولن يتم تحرير المبلغ إلا بعد حل النزاع نهائياً.
+                    <p className="text-[11px] font-black text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/10 py-2 px-4 rounded-xl border border-amber-200 dark:border-amber-900/20 inline-block">
+                      ⚠️ وفق المسار الحالي، إذا لم تؤكد الاستلام، يؤكد النظام الطلب ويحرر المبلغ للبائع تلقائياً بعد 7 أيام من تاريخ الشحن. عند وجود نزاع مفتوح يتوقف التحرير التلقائي حتى حل النزاع.
                     </p>
                   </div>
                 </div>
@@ -883,22 +888,33 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-100 dark:shadow-none space-y-4 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-emerald-700 to-green-800 p-6 sm:p-8 rounded-[2.5rem] text-white shadow-2xl shadow-emerald-100 dark:shadow-none space-y-4 relative overflow-hidden group">
             <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10 space-y-2">
-              <h4 className="text-xs font-black uppercase tracking-widest text-blue-100">نظام حماية سوقك</h4>
-              <p className="text-[11px] font-bold text-blue-50/80 leading-relaxed">أموالك في أمان. لا يتم تسليم المبلغ للبائع إلا بعد تأكيد استلامك للسلعة ومطابقتها للمواصفات.</p>
+              <div className="flex items-center gap-2">
+                <img src="/Amana-Logo.svg" alt="أمانة" className="h-9 w-9 rounded-xl bg-white object-contain p-1" />
+                <h4 className="text-xs font-black uppercase tracking-widest text-emerald-100">الشراء الآمن عبر أمانة</h4>
+              </div>
+              <p className="text-[11px] font-bold text-emerald-50/90 leading-relaxed">سوقك يعرض الطلب ويتابع الشحن، وتظهر أمانة بهوية خدمة الوساطة المرتبطة بالشراء الآمن. تُعرض حالة العملية وإجراءاتها في صفحة الطلب.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
+      <DocumentPreviewModal
+        isOpen={!!previewDoc}
+        src={previewUrl}
+        onClose={() => setPreviewDoc(null)}
+        title={previewTitle}
+        contentType={protectedFileContentTypes[normalizeProtectedFilePath(previewDoc)]}
+        loading={protectedFilesLoading}
+        error={protectedFileErrors[normalizeProtectedFilePath(previewDoc)]}
+      />
 
       {/* Seller Review Modal */}
       {showReviewModal && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-t-[2.5rem] sm:rounded-3xl w-full max-w-lg p-8 sm:p-10 space-y-8 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 border border-gray-50 dark:border-slate-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-10 space-y-5 sm:space-y-8 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 border border-gray-50 dark:border-slate-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-inner mb-2">
               <div className="flex items-center gap-4 p-4">
                 <div className="h-16 w-16 rounded-xl bg-white dark:bg-slate-800 overflow-hidden border border-gray-100 dark:border-slate-700 shadow-sm shrink-0 group">
@@ -925,7 +941,7 @@ export default function OrderDetail() {
               </div>
             </div>
             
-            <div className="space-y-8">
+            <div className="space-y-5 sm:space-y-8">
               {/* Criteria Ratings */}
               <div className="space-y-6">
                 {[
@@ -1014,7 +1030,7 @@ export default function OrderDetail() {
       {/* Dispute Modal - Improved Design */}
       {showDisputeModal && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-t-[2.5rem] sm:rounded-3xl w-full max-w-lg p-8 sm:p-10 space-y-8 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 border border-gray-50 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-10 space-y-5 sm:space-y-8 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 border border-gray-50 dark:border-slate-800">
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">فتح نزاع مالي</h3>
               <p className="text-xs font-bold text-gray-400 leading-relaxed">يرجى توضيح المشكلة بدقة ليتسنى لفريق الإدارة مراجعة الطلب واتخاذ القرار المناسب.</p>

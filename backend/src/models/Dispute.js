@@ -28,9 +28,6 @@ const disputeSchema = new mongoose.Schema(
 
 disputeSchema.index({ createdAt: 1 });
 
-disputeSchema.index({ status: 1 });
-disputeSchema.index({ createdAt: 1 });
-
 disputeSchema.plugin(softDeletePlugin);
 
 export default mongoose.model("Dispute", disputeSchema);

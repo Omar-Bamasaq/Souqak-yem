@@ -9,6 +9,8 @@ const GovernorateSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+GovernorateSchema.index({ name: 1 }, { unique: true });
+
 function baseSlugify(input) {
   const s = String(input || "").trim().toLowerCase();
   const replaced = s.replace(/[\s_]+/g, "-");

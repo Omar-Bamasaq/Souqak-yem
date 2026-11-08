@@ -14,7 +14,6 @@ const TagSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-TagSchema.index({ slug: 1 });
 TagSchema.index({ categoryIds: 1 });
 TagSchema.index({ isPopular: 1, order: 1 });
 

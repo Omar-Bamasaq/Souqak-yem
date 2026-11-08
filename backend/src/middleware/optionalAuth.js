@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import { verifyAccessToken } from "../config/jwt.js";
 
-export default async function optionalAuth(req, res, next) {
+export function getOptionalAuthTokens(req) {
   const candidates = [];
   if (req.headers.authorization?.startsWith("Bearer ")) {
     candidates.push({ source: "header", token: req.headers.authorization.slice(7).trim() });
@@ -12,9 +12,11 @@ export default async function optionalAuth(req, res, next) {
   if (req.cookies?.token) {
     candidates.push({ source: "cookie-legacy", token: req.cookies.token });
   }
-  if (req.query?.access_token) {
-    candidates.push({ source: "query", token: String(req.query.access_token).trim() });
-  }
+  return candidates;
+}
+
+export default async function optionalAuth(req, res, next) {
+  const candidates = getOptionalAuthTokens(req);
   if (candidates.length === 0) return next();
 
   let ok = false;

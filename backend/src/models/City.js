@@ -10,4 +10,6 @@ const CitySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+CitySchema.index({ governorateId: 1, name: 1 }, { unique: true });
+
 export default mongoose.models.City || mongoose.model("City", CitySchema);

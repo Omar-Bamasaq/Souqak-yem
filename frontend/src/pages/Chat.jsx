@@ -28,7 +28,7 @@ export default function Chat() {
       ]);
       setChat(chatRes.data);
       setAd(adRes.data);
-      join(productId);
+      join(chatRes.data._id, productId);
     } catch {
       setErr("لا يمكنك الوصول إلى هذه المحادثة");
     }

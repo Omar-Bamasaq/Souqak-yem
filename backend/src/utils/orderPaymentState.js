@@ -28,3 +28,21 @@ export function clearRejectedPaymentDetails(currentDetails = {}) {
     submittedAt: null
   };
 }
+
+export function buildPaymentProofTransition(orderId, buyerId, paymentDetails) {
+  return {
+    filter: {
+      _id: orderId,
+      buyer: buyerId,
+      orderType: { $ne: "store" },
+      storeProfileId: null,
+      status: "AWAITING_PAYMENT"
+    },
+    update: {
+      $set: {
+        status: "AWAITING_PAYMENT_CONFIRMATION",
+        paymentDetails
+      }
+    }
+  };
+}

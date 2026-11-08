@@ -6,11 +6,43 @@ import { useApi } from "../api/axios.js";
 import { useAdsQuery } from "../hooks/useAdsQuery.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import ProductCard from "../components/ProductCard.jsx";
+import SponsoredAdSlot from "../components/SponsoredAdSlot.jsx";
 import CategoryGrid from "../components/CategoryGrid.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
 import SEO from "../components/SEO.jsx";
 import { useSsgData } from "../ssg/SsgDataContext.jsx";
+import IncompleteActions from "../components/IncompleteActions.jsx";
+import ServiceFeatureCarousel from "../components/ServiceFeatureCarousel.jsx";
+import ExpiringAuctions from "../components/ExpiringAuctions.jsx";
+
+const EMPTY_GOVERNORATES = [];
+
+const HOME_SERVICES = [
+  { label: "متاجر", to: "/stores", icon: "store", color: "text-blue-600", background: "bg-blue-50 dark:bg-blue-900/20" },
+  { label: "أسر منتجة", to: "/family-production", icon: "family", color: "text-fuchsia-600", background: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
+  { label: "خدمات الدفع الإلكتروني", to: "/wallet-services", icon: "payment", color: "text-cyan-600", background: "bg-cyan-50 dark:bg-cyan-900/20" },
+  { label: "تسعيرة", to: "/quote-requests", icon: "quote", color: "text-violet-600", background: "bg-violet-50 dark:bg-violet-900/20" },
+  { label: "مزادات", to: "/auctions", icon: "auction", color: "text-amber-600", background: "bg-amber-50 dark:bg-amber-900/20" },
+  { label: "حجوزات", to: "/bookings", icon: "booking", color: "text-emerald-600", background: "bg-emerald-50 dark:bg-emerald-900/20" }
+];
+
+function HomeServiceIcon({ name }) {
+  const iconPaths = {
+    store: <><path d="M3 10h18l-1.5-6h-15L3 10Z" /><path d="M5 10v10h14V10M9 20v-6h6v6M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" /></>,
+    family: <><path d="m3 10 9-7 9 7v10H3V10Z" /><path d="M9 20v-6h6v6M12 11s-3-1.5-3-3.5A1.8 1.8 0 0 1 12 6a1.8 1.8 0 0 1 3 1.5C15 9.5 12 11 12 11Z" /></>,
+    payment: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+    quote: <><path d="M20.5 13.5 13 21l-10-10V3h8l9.5 9.5a.7.7 0 0 1 0 1Z" /><circle cx="7.5" cy="7.5" r="1" /><path d="M12 8h4M12 11h5" /></>,
+    auction: <><path d="m14 5 5 5M4 20l8-8M8 4l5 5-4 4-5-5 4-4ZM16 12l4 4-4 4-4-4 4-4Z" /><path d="M3 21h18" /></>,
+    booking: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m-12 4h.01M12 14h.01M15 14h.01M9 17h.01M12 17h.01" /></>
+  };
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      {iconPaths[name]}
+    </svg>
+  );
+}
 
 export default function Home() {
   const { user } = useAuth();
@@ -18,7 +50,7 @@ export default function Home() {
   const initialHome = ssgData?.kind === "home" ? ssgData.data : null;
   const api = useApi();
   const { prefetchCategoryAds, prefetchNextPage } = useAdsQuery();
-  const { data: governoratesData = [] } = useGovernorates();
+  const { data: governoratesData = EMPTY_GOVERNORATES } = useGovernorates();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -85,6 +117,7 @@ export default function Home() {
 
   const handleSearchSubmit = (overrideQuery = null) => {
     const finalQuery = (typeof overrideQuery === "string" ? overrideQuery : q) || "";
+    setShowQuickSearch(false);
     const params = new URLSearchParams(searchParams);
     if (finalQuery.trim()) params.set("q", finalQuery.trim());
     else params.delete("q");
@@ -178,49 +211,6 @@ export default function Home() {
         includeSearchAction
       />
       <div className="-mx-4 min-h-screen bg-[#f7faff] dark:bg-slate-950 dark:text-slate-100 font-sans leading-relaxed sm:mx-0 sm:bg-slate-50">
-      <section className="relative mx-2 -mt-6 mb-4 overflow-hidden rounded-xl bg-blue-600 px-3.5 py-3.5 text-white shadow-lg shadow-blue-900/25 sm:hidden">
-        <div className="relative flex items-center justify-center">
-          <div className="relative z-10 w-full text-center">
-            <p className="mb-1 text-[10px] font-bold tracking-wide text-blue-100">وجهتك الأولى للتجارة في اليمن</p>
-            <h1 className="text-xl font-black leading-tight tracking-tight">سوقك، سوق اليمن بين يديك</h1>
-            <div className="mt-3 flex w-full items-center gap-2 rounded-xl bg-white/95 px-3 py-1.5 text-right shadow-lg shadow-blue-950/10">
-              <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="ابحث في سوقك..."
-                value={q}
-                onChange={(e) => updateFilters({ q: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
-                className="min-w-0 flex-1 bg-transparent text-[11px] font-bold text-slate-800 placeholder-slate-400 outline-none"
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-              {["سيارة", "جوال", "بيت", "عقار", "أثاث", "وظائف"].map((keyword) => (
-                <button
-                  key={keyword}
-                  type="button"
-                  onClick={() => handleSearchSubmit(keyword)}
-                  className="rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[9px] font-black text-white/90 backdrop-blur-sm transition-colors hover:bg-white/25"
-                >
-                  {keyword}
-                </button>
-              ))}
-            </div>
-            <Link
-              to="/choose-add-type"
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-blue-700 shadow-lg shadow-blue-950/15 transition-all hover:bg-blue-50 active:scale-95"
-            >
-              <span>أضف إعلانك الآن</span>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* Hero Section */}
       <section className="hidden sm:block relative -translate-y-2 sm:-translate-y-3 overflow-hidden rounded-b-[40px] sm:rounded-b-[60px] border-b border-blue-100/60 shadow-2xl shadow-blue-200/50 dark:border-slate-800 dark:shadow-slate-900/40">
         {/* Background */}
@@ -292,8 +282,14 @@ export default function Home() {
         </div>
       </section>
 
+      <div className="container mx-auto px-4 pb-2 pt-2 sm:pb-6 sm:pt-5">
+        <ServiceFeatureCarousel />
+      </div>
+
       {/* Main Content */}
       <main className="container mx-auto px-4 mt-0 sm:-mt-12 relative z-10">
+        {user && <div className="mb-5 sm:mb-8"><IncompleteActions userId={user._id || user.id} compact /></div>}
+        <ExpiringAuctions />
         <Link
           to="/platform-reviews"
           className="group -mt-4 mb-5 flex items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-lg shadow-blue-100/50 transition-all hover:-translate-y-0.5 hover:border-blue-300 sm:mt-0 sm:mb-8 sm:px-6 sm:py-4 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
@@ -319,6 +315,24 @@ export default function Home() {
           </div>
         </Link>
 
+        <Link
+          to="/partners"
+          className="mb-6 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:mb-8 sm:p-5"
+        >
+          <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+            <div className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-50 p-2 dark:bg-slate-800 sm:gap-3 sm:p-3">
+              <img src="/Amana-Logo.svg" alt="" loading="lazy" decoding="async" className="h-7 w-7 object-contain sm:h-9 sm:w-9" />
+              <span className="h-7 w-px bg-slate-200 dark:bg-slate-700" />
+              <img src="/tmam-full-logo.png" alt="" loading="lazy" decoding="async" className="h-7 w-12 object-contain sm:h-9 sm:w-16" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-slate-900 dark:text-white sm:text-base">تعرّف على شركائنا</h2>
+              <p className="mt-1 text-[11px] font-semibold leading-4 text-slate-500 dark:text-slate-400 sm:text-sm sm:leading-5">أمانة للوساطة، وتمام باي لخدمات الدفع الإلكتروني</p>
+            </div>
+          </div>
+          <span aria-hidden="true" className="shrink-0 text-lg font-black text-blue-600">←</span>
+        </Link>
+
         {/* Trust Highlights - Optimized for Mobile */}
         <section className="hidden sm:grid mb-10 sm:mb-16 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300 fill-mode-both">
           {[
@@ -338,11 +352,11 @@ export default function Home() {
         </section>
 
         {/* Categories Section */}
-        <section className="mb-1 sm:mb-16 py-3 sm:py-12 rounded-none sm:rounded-[40px] bg-transparent sm:bg-slate-100/50 dark:bg-transparent sm:dark:bg-slate-900/30 border-0 sm:border border-slate-200/50 dark:border-slate-800/50">
-          <div className="px-1 sm:px-6 mb-3 sm:mb-8 flex items-center justify-between">
+        <section className="mb-1 py-2 sm:mb-16 sm:py-12 lg:hidden rounded-none sm:rounded-[40px] bg-transparent sm:bg-slate-100/50 dark:bg-transparent sm:dark:bg-slate-900/30 border-0 sm:border border-slate-200/50 dark:border-slate-800/50">
+          <div className="px-1 sm:px-6 mb-2 sm:mb-8 flex items-center justify-between">
             <div>
-              <h3 className="text-lg sm:text-3xl font-black text-slate-900 dark:text-white mb-1">تصفح حسب الفئة</h3>
-              <p className="text-[10px] sm:text-base text-slate-500 dark:text-slate-400 font-bold">اكتشف جميع الأقسام المتاحة</p>
+              <h3 className="text-base sm:text-3xl font-black text-slate-900 dark:text-white mb-1">تصفح حسب الفئة</h3>
+              <p className="hidden text-[10px] sm:block sm:text-base text-slate-500 dark:text-slate-400 font-bold">اكتشف جميع الأقسام المتاحة</p>
             </div>
             <Link to="/categories" className="text-[11px] sm:text-sm font-black text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 group">
               عرض الكل
@@ -354,10 +368,57 @@ export default function Home() {
           <CategoryGrid isHome={true} />
         </section>
 
+        <section aria-labelledby="home-services-heading" className="mb-8 sm:mb-14">
+          <div className="mb-3 flex items-center justify-between px-1 sm:mb-5 sm:px-2">
+            <div>
+              <h3 id="home-services-heading" className="text-lg font-black text-slate-900 dark:text-white sm:text-2xl">خدمات سوقك</h3>
+              <p className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:text-sm">اكتشف خدمات التسوق والتجارة في سوقك</p>
+            </div>
+            <Link to="/seller/subscriptions" className="flex items-center gap-1 text-[11px] font-black text-blue-600 hover:underline dark:text-blue-400 sm:text-sm">
+              عرض الكل
+              <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-[-4px] sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+          </div>
+          <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-6 sm:gap-3 sm:overflow-visible sm:pb-0 sm:snap-none">
+            {HOME_SERVICES.map((service) => {
+              const content = (
+                <>
+                  <span className={`mb-1.5 flex h-11 w-11 items-center justify-center rounded-2xl ${service.background} ${service.color} sm:mb-2 sm:h-14 sm:w-14`}>
+                    <HomeServiceIcon name={service.icon} />
+                  </span>
+                  <span className="text-center text-[11px] font-black leading-4 text-slate-800 dark:text-slate-100 sm:text-sm sm:leading-5">
+                    {service.label}
+                  </span>
+                </>
+              );
+
+              return service.to ? (
+                <Link
+                  key={service.label}
+                  to={service.to}
+                  className="flex min-h-[88px] w-24 shrink-0 snap-start flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white px-1.5 py-2 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 sm:min-h-[112px] sm:w-auto sm:shrink sm:snap-align-none sm:rounded-3xl sm:py-3"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div
+                  key={service.label}
+                  aria-label={`${service.label} - قريبًا`}
+                  className="flex min-h-[88px] w-24 shrink-0 snap-start flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white px-1.5 py-2 dark:border-slate-800 dark:bg-slate-900 sm:min-h-[112px] sm:w-auto sm:shrink sm:snap-align-none sm:rounded-3xl sm:py-3"
+                >
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Recently Viewed Section */}
         {recentlyViewed.length > 0 && (
-          <section className="mb-12 sm:mb-16">
-            <div className="flex items-center justify-between mb-6 px-2">
+          <section className="mb-8 sm:mb-16">
+            <div className="flex items-center justify-between mb-4 sm:mb-6 px-2">
               <div>
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">شوهد مؤخراً</h3>
                 <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">تابع تصفح ما أعجبك سابقاً</p>
@@ -383,10 +444,24 @@ export default function Home() {
           </section>
         )}
 
-        <section className="mb-16">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-10 px-2">
+        <div className="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <aside className="sticky top-24 hidden self-start lg:block">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">الفئات الرئيسية</h3>
+              <Link to="/categories" className="shrink-0 text-xs font-bold text-blue-600 hover:underline dark:text-blue-400">
+                عرض الكل
+              </Link>
+            </div>
+            <div className="max-h-[calc(100vh-11rem)] overflow-y-auto overscroll-contain pr-1">
+              <CategoryGrid layout="sidebar" />
+            </div>
+          </div>
+        </aside>
+        <section className="mb-10 min-w-0 sm:mb-16">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-10 px-2">
             <div>
-              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2">أحدث الإعلانات</h3>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-1 sm:mb-2">أحدث الإعلانات</h3>
               <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-bold">إعلانات جديدة تضاف كل دقيقة</p>
             </div>
             
@@ -411,12 +486,14 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="flex flex-col gap-1.5 sm:gap-2">
             {products.map((product, index) => (
               <React.Fragment key={product._id}>
-                {/* Discovery banners - inserted after 10 and 20 products */}
+              {index === 4 && <SponsoredAdSlot position="home" />}
+              {index === 12 && <SponsoredAdSlot position="between_ads" />}
+              {/* Discovery banners - inserted after 10 and 20 products */}
                 {index === 10 && (
-                  <div className="col-span-2 mb-6 lg:col-span-3 xl:col-span-4">
+                  <div className="col-span-1 mb-3 sm:mb-6">
                     <div className="flex flex-col items-center justify-between gap-5 rounded-3xl border border-white/10 bg-gradient-to-r from-emerald-600 to-teal-700 p-5 text-white shadow-xl shadow-emerald-500/20 sm:flex-row sm:p-6">
                       <div className="flex min-w-0 items-center gap-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20">
@@ -436,7 +513,7 @@ export default function Home() {
                   </div>
                 )}
                 {index === 20 && (
-                  <div className="col-span-2 mb-6 lg:col-span-3 xl:col-span-4">
+                  <div className="col-span-1 mb-3 sm:mb-6">
                     <div className="flex flex-col items-center justify-between gap-5 rounded-3xl border border-white/10 bg-gradient-to-r from-blue-600 to-indigo-700 p-5 text-white shadow-xl shadow-blue-500/20 sm:flex-row sm:p-6">
                       <div className="flex min-w-0 items-center gap-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20">
@@ -462,6 +539,7 @@ export default function Home() {
                   governorateName={product.governorateId?.name}
                   cityName={product.cityId?.name}
                   prefetchAds={prefetchCategoryAds}
+                  displayMode="list"
                 />
               </React.Fragment>
             ))}
@@ -508,6 +586,7 @@ export default function Home() {
             )}
           </div>
         </section>
+        </div>
 
         <section className="mb-10 overflow-hidden rounded-3xl bg-blue-50/70 px-4 py-5 text-center sm:mb-16 sm:px-8 sm:py-8 dark:bg-slate-900/60">
           <h3 className="text-lg font-black text-slate-900 dark:text-white sm:text-2xl">منصة سوقك لكل احتياجاتك</h3>
@@ -521,12 +600,12 @@ export default function Home() {
         </section>
 
         {popularTags.length > 0 && (
-          <section className="mb-20 p-6 sm:p-12 rounded-[40px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+          <section className="mb-10 rounded-3xl p-4 sm:mb-20 sm:rounded-[40px] sm:p-12 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
             
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-8">
                 <div>
                   <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">الوسوم الرائجة الآن</h3>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mt-1">اكتشف ما يبحث عنه الجميع في اليمن</p>

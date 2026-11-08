@@ -4,6 +4,7 @@ import {
   normalizePhone,
   isValidPhoneNumber,
   isValidPassword,
+  phoneNumberQuery,
   generateTemporaryPassword,
   buildPasswordResetRequestMessage
 } from '../src/utils/securityRules.js';
@@ -25,6 +26,17 @@ test('password validation enforces length between 8 and 24 characters', () => {
   assert.equal(isValidPassword('Abc12345'), true);
   assert.equal(isValidPassword('short'), false);
   assert.equal(isValidPassword('A'.repeat(25)), false);
+  assert.equal(isValidPassword('Abc 12345'), false);
+  assert.equal(isValidPassword('كلمة12345'), false);
+});
+
+test('phone lookup accepts normalized and legacy Yemen number formats', () => {
+  const query = phoneNumberQuery('+967 771-234-567');
+  assert.ok(query);
+  const patterns = query.$or.map(({ phone }) => new RegExp(phone.$regex));
+  for (const value of ['771234567', '0771234567', '+967 771 234 567', '967-0771-234-567']) {
+    assert.equal(patterns.some((pattern) => pattern.test(value)), true, value);
+  }
 });
 
 test('temporary password is generated in the required size with no predictable pattern', () => {

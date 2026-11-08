@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import useModalHistory from "../hooks/useModalHistory.js";
 
 /**
  * A responsive Select component that renders a standard <select> on desktop
@@ -17,6 +18,7 @@ export default function MobileSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const closeSheet = useModalHistory(isOpen, () => setIsOpen(false));
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -24,12 +26,21 @@ export default function MobileSelect({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") closeSheet();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, closeSheet]);
+
   const selectedOption = options.find(opt => String(opt.value) === String(value));
   const displayValue = selectedOption ? selectedOption.label : placeholder;
 
   const handleSelect = (val) => {
     onChange({ target: { value: val } });
-    setIsOpen(false);
+    closeSheet();
   };
 
   if (!isMobile) {
@@ -83,9 +94,12 @@ export default function MobileSelect({
       </button>
 
       {isOpen && createPortal(
-        <div className="fixed inset-0 z-[999999] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsOpen(false)}>
+        <div className="fixed inset-0 z-[999999] flex items-end justify-center bg-black/50 pb-[env(safe-area-inset-bottom)] animate-in fade-in duration-150" onClick={() => closeSheet()}>
           <div 
-            className="w-full max-w-lg bg-white rounded-t-[2.5rem] shadow-2xl animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh] overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label={label || "اختر خياراً"}
+            className="mobile-select-sheet w-full max-w-lg bg-white rounded-t-[2rem] shadow-xl flex flex-col max-h-[85vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -93,7 +107,8 @@ export default function MobileSelect({
               <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-gray-200 rounded-full"></div>
               <h3 className="text-base font-black text-gray-900 mt-2">{label || "اختر خياراً"}</h3>
               <button 
-                onClick={() => setIsOpen(false)}
+                onClick={() => closeSheet()}
+                aria-label="إغلاق قائمة الخيارات"
                 className="absolute left-4 top-5 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -106,7 +121,7 @@ export default function MobileSelect({
             <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar scroll-smooth pb-12 max-h-[60vh]">
               <button
                 onClick={() => handleSelect("")}
-                className={`w-full p-4 rounded-2xl text-right text-sm font-bold transition-all border
+                className={`w-full p-4 rounded-2xl text-right text-sm font-bold transition-colors duration-150 active:scale-[0.99] border
                   ${!value ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm" : "bg-white border-gray-50 text-gray-500 hover:bg-gray-50"}
                 `}
               >
@@ -117,7 +132,7 @@ export default function MobileSelect({
                 <button
                   key={opt.value}
                   onClick={() => handleSelect(opt.value)}
-                  className={`w-full p-4 rounded-2xl text-right text-sm font-bold transition-all border flex items-center justify-between
+                  className={`w-full p-4 rounded-2xl text-right text-sm font-bold transition-colors duration-150 active:scale-[0.99] border flex items-center justify-between
                     ${String(value) === String(opt.value) 
                       ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100 scale-[1.02]" 
                       : "bg-white border-gray-100 text-gray-700 hover:bg-gray-50 hover:border-blue-100"}

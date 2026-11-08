@@ -65,6 +65,15 @@ export default function UserNotificationBell({ mobile = false }) {
   }, [user, socket]);
 
   useEffect(() => {
+    const refresh = () => {
+      fetchNotifications();
+      fetchUnreadCount();
+    };
+    window.addEventListener('notifications:refresh', refresh);
+    return () => window.removeEventListener('notifications:refresh', refresh);
+  }, [user]);
+
+  useEffect(() => {
     // Close dropdown on click outside
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -100,6 +109,8 @@ export default function UserNotificationBell({ mobile = false }) {
   };
 
   const getLinkForNotification = (notif) => {
+    if (notif.link) return notif.link;
+
     switch (notif.type) {
       case 'ad_status':
         // If it's a seller review notification, go to seller public profile reviews tab
@@ -115,9 +126,13 @@ export default function UserNotificationBell({ mobile = false }) {
       case 'purchase_rejected':
       case 'commission_reminder':
         return `/seller/commissions`;
+      case 'store_subscription':
+        return notif.data?.storeType === 'family-production' ? '/my-family-production' : '/my-store';
+      case 'store_order':
+        return notif.data?.storeType === 'family-production' ? '/my-family-production/orders' : '/my-store/orders';
       case 'verification_approved':
       case 'verification_rejected':
-        return `/seller/dashboard`;
+        return `/account`;
       default:
         return '/notifications';
     }
@@ -131,6 +146,10 @@ export default function UserNotificationBell({ mobile = false }) {
         return { bg: 'bg-indigo-50', icon: 'text-indigo-600', border: 'border-indigo-100' };
       case 'purchase_approved':
         return { bg: 'bg-green-50', icon: 'text-green-600', border: 'border-green-100' };
+      case 'store_subscription':
+        return { bg: 'bg-amber-50', icon: 'text-amber-700', border: 'border-amber-100' };
+      case 'store_order':
+        return { bg: 'bg-emerald-50', icon: 'text-emerald-700', border: 'border-emerald-100' };
       case 'purchase_rejected':
       case 'commission_reminder':
         return { bg: 'bg-red-50', icon: 'text-red-600', border: 'border-red-100' };

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import adsRouter from "../src/routes/ads.js";
+import requirePhoneVerification from "../src/middleware/requirePhoneVerification.js";
 
 test("POST /api/ads authorization preserves legacy roles and allows users", () => {
   const routeLayer = adsRouter.stack.find(
@@ -12,6 +13,10 @@ test("POST /api/ads authorization preserves legacy roles and allows users", () =
     layer.handle.toString().includes("roles.includes(req.user.role)")
   );
   assert.ok(roleGuard, "POST /api/ads must have a role guard");
+  assert.ok(
+    routeLayer.route.stack.some((layer) => layer.handle === requirePhoneVerification),
+    "POST /api/ads must enforce phone verification on the server"
+  );
 
   for (const role of ["user", "seller", "admin"]) {
     let nextCalled = false;

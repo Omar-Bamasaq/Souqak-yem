@@ -6,6 +6,7 @@ import ReferralProfile from "../models/ReferralProfile.js";
 import ReferralRelationship from "../models/ReferralRelationship.js";
 import Withdrawal from "../models/Withdrawal.js";
 import SystemSettings from "../models/SystemSettings.js";
+import { getExchangeRate } from "../utils/exchangeRates.js";
 import { getOrCreateWallet } from "../services/walletService.js";
 import { createReferralWithdrawalFinancials } from "../services/referralService.js";
 import ReferralCommission from "../models/ReferralCommission.js";
@@ -98,7 +99,7 @@ router.post("/withdrawals", requireBearerHeader, auth, requireRole(["seller", "b
     if (settings.referralProgram?.programEnabled === false) return res.status(403).json({ error: "برنامج سفراء سوقك متوقف حالياً" });
     const minimum = settings.referralProgram?.minimumWithdrawal?.[currency] ?? minimums[currency];
     if (amount < minimum) return res.status(422).json({ error: `الحد الأدنى للسحب هو ${minimum} ${currency}` });
-    const amountInUsd = amount / (settings.exchangeRates[currency] || 1);
+    const amountInUsd = amount / getExchangeRate(settings.exchangeRates, currency, settings.exchangeRatePairs);
     if (amountInUsd >= settings.withdrawalIdentityThresholdUsd) return res.status(422).json({ error: "يرجى استخدام مسار المحفظة وإرفاق مستند الهوية لهذا المبلغ." });
     const existing = await Withdrawal.findOne({ user: req.user.id, status: { $in: ["PENDING", "PROCESSING"] } });
     if (existing) return res.status(409).json({ error: "لديك طلب سحب قيد المراجعة" });

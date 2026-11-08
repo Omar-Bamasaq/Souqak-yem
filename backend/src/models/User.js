@@ -5,7 +5,6 @@ const userSchema = new mongoose.Schema(
     name: { 
       type: String, 
       required: true, 
-      unique: true,
       trim: true,
       validate: {
         validator: function(v) {
@@ -19,6 +18,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     avatar: { type: String, default: null }, // User profile image
     role: { type: String, enum: ["admin", "supervisor", "user", "seller", "buyer"], default: "user" },
+    isInitialAdmin: { type: Boolean, default: false, select: false },
     ambassadorCommissionRate: { type: Number, min: 0, default: 10 },
     permissions: {
       type: [{ type: String }],
@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema(
       initialPassword: { type: String, default: null }
     },
     phone: { type: String },
+    phoneVerifiedAt: { type: Date, default: null },
+    phoneRegistrationMode: { type: String, enum: ["standard", "legacy_trial", "instant"], default: "standard" },
+    idDocument: { type: String, default: null },
+    identityStatus: { type: String, enum: ["Pending", "Approved", "Rejected"], default: undefined },
+    isIdentityVerified: { type: Boolean, default: false },
     isVerifiedSeller: { type: Boolean, default: false },
     verified: { type: Boolean, default: false },
     verificationStatus: { 
@@ -102,6 +107,41 @@ const userSchema = new mongoose.Schema(
           ),
           default: () => ({ inApp: true, push: true, email: true })
         },
+        broker_request: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: true, push: true, email: true })
+        },
+        broker_approved: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: true, push: true, email: true })
+        },
+        deal_pending: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: true, push: true, email: true })
+        },
+        deal_confirmed: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: true, push: true, email: true })
+        },
+        complaint_resolved: {
+          type: new mongoose.Schema(
+            { inApp: { type: Boolean, default: true }, push: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
+            { _id: false }
+          ),
+          default: () => ({ inApp: true, push: true, email: true })
+        },
         admin_message: {
           type: new mongoose.Schema(
             { inApp: { type: Boolean, default: false }, push: { type: Boolean, default: true }, email: { type: Boolean, default: false } },
@@ -117,6 +157,11 @@ const userSchema = new mongoose.Schema(
         ad_status: { inApp: true, push: true, email: true },
         order: { inApp: true, push: true, email: true },
         wallet: { inApp: true, push: true, email: true },
+        broker_request: { inApp: true, push: true, email: true },
+        broker_approved: { inApp: true, push: true, email: true },
+        deal_pending: { inApp: true, push: true, email: true },
+        deal_confirmed: { inApp: true, push: true, email: true },
+        complaint_resolved: { inApp: true, push: true, email: true },
         admin_message: { inApp: false, push: true, email: false }
       })
     },
@@ -167,8 +212,15 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.index({ email: 1 });
 userSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+userSchema.index(
+  { isInitialAdmin: 1 },
+  { unique: true, partialFilterExpression: { isInitialAdmin: true } }
+);
+userSchema.index(
+  { phone: 1 },
+  { unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } }
+);
 userSchema.index({ role: 1, createdAt: -1 });
 
 export default mongoose.model("User", userSchema);

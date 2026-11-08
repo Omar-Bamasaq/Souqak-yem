@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import imageCompression from "browser-image-compression";
+import { normalizeImageUploadFile } from "../lib/imageCompression.js";
 import { useApi } from "../api/axios.js";
 import CategorySelect from "../components/CategorySelect.jsx";
 import { useSearchParams } from "react-router-dom";
@@ -22,6 +23,13 @@ const initialForm = {
   negotiable: false,
   priceOnContact: false
 };
+
+function isValidYemeniPhoneNumber(value) {
+  let digits = String(value || "").replace(/\D+/g, "");
+  if (digits.startsWith("966") || digits.startsWith("967")) digits = digits.slice(3);
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  return /^7\d{8}$/.test(digits);
+}
 
 export default function AdminManagedSellerAd() {
   const api = useApi();
@@ -139,11 +147,16 @@ export default function AdminManagedSellerAd() {
       }
     }
 
-    return preparedImages;
+    return preparedImages.map(normalizeImageUploadFile);
   };
 
   const submit = async (event) => {
     event.preventDefault();
+    if (!sellerId && !isValidYemeniPhoneNumber(form.phone)) {
+      setError("رقم الهاتف غير صالح. أدخل رقمًا يمنيًا من 9 أرقام يبدأ بـ 7، مع أو بدون رمز الدولة أو الصفر الأول.");
+      setMessage("");
+      return;
+    }
     setLoading(true);
     setMessage("");
     setError("");
@@ -212,7 +225,7 @@ export default function AdminManagedSellerAd() {
           </div>
           <div className="block text-sm font-bold text-gray-700">
             صور الإعلان
-            <input id="managed-ad-images-input" className="sr-only" type="file" accept="image/png,image/jpeg,image/jpg" multiple onChange={handleImages} />
+            <input id="managed-ad-images-input" className="sr-only" type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple onChange={handleImages} />
             <label htmlFor="managed-ad-images-input" className="mt-2 flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-700 transition hover:border-blue-500 hover:bg-blue-50">
               إضافة صور الإعلان
             </label>

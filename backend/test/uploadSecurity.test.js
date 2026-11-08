@@ -13,6 +13,13 @@ import {
   shouldConvertCategoryRasterImage
 } from "../src/services/publicImagePipeline.js";
 import publicUploads from "../src/middleware/publicUploads.js";
+import bookingsRouter from "../src/routes/bookings.js";
+import productsRouter from "../src/routes/products.js";
+import Product from "../src/models/Product.js";
+import BookingService from "../src/models/BookingService.js";
+import Governorate from "../src/models/Governorate.js";
+import City from "../src/models/City.js";
+import AdminNotification from "../src/models/AdminNotification.js";
 import {
   cleanupRequestUploadStagingDirectory
 } from "../src/services/requestUploadStaging.js";
@@ -22,6 +29,16 @@ let privateDirectory;
 let stagingDirectory;
 let server;
 let baseUrl;
+
+const validBookingBody = {
+  name: "استراحة الوادي",
+  type: "استراحة",
+  governorateId: "64d3d93a1a2b3c4d5e6f7788",
+  cityId: "64d3d93a1a2b3c4d5e6f7789",
+  location: "شارع المطار",
+  phones: JSON.stringify([{ type: "mobile", value: "777123456" }]),
+  whatsapp: JSON.stringify([{ type: "whatsapp", value: "967777123456" }])
+};
 
 function uploadForm(filename, content, mimeType = "image/jpeg", fieldName = "images") {
   const form = new FormData();
@@ -55,6 +72,27 @@ async function upload(filename, content, mimeType = "image/jpeg", endpoint = "/u
     method: "POST",
     body: uploadForm(filename, content, mimeType, endpoint === "/private-upload" ? "files" : "images")
   });
+}
+
+function responseRecorder() {
+  const result = { statusCode: 200, body: null };
+  return {
+    result,
+    status(code) { result.statusCode = code; return this; },
+    json(body) { result.body = body; return this; }
+  };
+}
+
+function bookingSubmissionHandler() {
+  const route = bookingsRouter.stack.find(
+    (layer) => layer.route?.path === "/" && layer.route.methods.post
+  );
+  assert.ok(route, "booking submission route should exist");
+  const uploadMiddleware = route.route.stack.find((layer) => layer.handle.uploadField === "images");
+  assert.ok(uploadMiddleware, "booking submission should use the shared secure image uploader");
+  assert.equal(uploadMiddleware.handle.uploadMethod, "array");
+  assert.equal(uploadMiddleware.handle.maxCount, 5);
+  return route.route.stack.at(-1).handle;
 }
 
 before(async () => {
@@ -276,6 +314,43 @@ test("ignores unsafe original filenames when choosing the storage path", async (
   assert.equal(path.basename(filePath), filename);
 });
 
+test("booking submission accepts and stores the sanitized uploaded image path", async () => {
+  const response = await upload("booking.jpg", await createImage());
+  assert.equal(response.status, 200);
+  const [file] = (await response.json()).files;
+  const originals = {
+    governorateFindOne: Governorate.findOne,
+    cityFindOne: City.findOne,
+    bookingCreate: BookingService.create,
+    notificationCreate: AdminNotification.create
+  };
+  let createdData;
+  Governorate.findOne = () => ({ select() { return this; }, lean: async () => ({ _id: validBookingBody.governorateId }) });
+  City.findOne = () => ({ select() { return this; }, lean: async () => ({ _id: validBookingBody.cityId }) });
+  BookingService.create = async (data) => {
+    createdData = data;
+    return { _id: "booking-test-id", ...data };
+  };
+  AdminNotification.create = async (data) => data;
+
+  try {
+    const res = responseRecorder();
+    await bookingSubmissionHandler()({
+      body: validBookingBody,
+      files: [{ filename: file.filename, path: file.path, mimetype: file.mimetype }],
+      user: { id: "booking-test-user" }
+    }, res);
+    assert.equal(res.result.statusCode, 201);
+    assert.equal(createdData.mainImage, `/uploads/${file.filename}`);
+    assert.equal(createdData.ownerId, "booking-test-user");
+  } finally {
+    Governorate.findOne = originals.governorateFindOne;
+    City.findOne = originals.cityFindOne;
+    BookingService.create = originals.bookingCreate;
+    AdminNotification.create = originals.notificationCreate;
+  }
+});
+
 test("keeps PDF receipts as private PDFs and validates their signature", async () => {
   const pdf = Buffer.from("%PDF-1.4\nSynthetic private receipt\n");
   const response = await upload("receipt.pdf", pdf, "application/pdf", "/private-upload");
@@ -394,6 +469,60 @@ test("category SVG and GIF formats remain outside the raster conversion path", (
   assert.equal(shouldConvertCategoryRasterImage("category.gif", { format: "gif", pages: 2 }), false);
 });
 
+test("new product uploads store the full WebP from the shared variant pipeline", async () => {
+  const uploadResponse = await upload("product.jpg", await createImage());
+  assert.equal(uploadResponse.status, 200);
+  const [file] = (await uploadResponse.json()).files;
+  const route = productsRouter.stack.find(
+    (layer) => layer.route?.path === "/" && layer.route.methods.post
+  );
+  assert.ok(route, "product creation route should exist");
+  const uploadMiddleware = route.route.stack.find(
+    (layer) => layer.handle.uploadField === "images"
+  )?.handle;
+  assert.ok(uploadMiddleware, "product creation should use the shared image uploader");
+  assert.equal(uploadMiddleware.producesPublicVariants, true);
+
+  const originalFindById = City.findById;
+  const originalCreate = Product.create;
+  let createdProduct;
+  City.findById = () => ({
+    lean: async () => ({
+      _id: "64d3d93a1a2b3c4d5e6f7789",
+      governorateId: "64d3d93a1a2b3c4d5e6f7788"
+    })
+  });
+  Product.create = async (data) => {
+    createdProduct = data;
+    return data;
+  };
+  try {
+    const result = responseRecorder();
+    await route.route.stack.at(-1).handle({
+      get: () => "",
+      hostname: "localhost",
+      user: { id: "test-seller", role: "seller", isPhoneVerified: true },
+      body: {
+        title: "Test product",
+        description: "Test description",
+        price: "100",
+        category: "Test",
+        governorateId: "64d3d93a1a2b3c4d5e6f7788",
+        cityId: "64d3d93a1a2b3c4d5e6f7789"
+      },
+      files: [file]
+    }, result);
+    assert.equal(result.result.statusCode, 201);
+    assert.deepEqual(createdProduct.images, [file.filename]);
+    for (const variant of Object.values(file.imageVariants)) {
+      assert.ok(fs.existsSync(path.join(publicDirectory, variant)));
+    }
+  } finally {
+    City.findById = originalFindById;
+    Product.create = originalCreate;
+  }
+});
+
 test("private message uploads remain outside the public image variant pipeline", () => {
   assert.equal(uploadImages.producesPublicVariants, true);
   assert.equal(uploadMessageImages.producesPublicVariants, false);
@@ -410,8 +539,12 @@ test("private-file authorization remains ahead of public static file serving", a
   );
   assert.ok(indexSource.indexOf('app.use("/uploads", filesRoutes)') < indexSource.indexOf('app.use("/uploads", publicUploads, express.static'));
   assert.match(filesSource, /optionalAuthFileAccess/);
+  assert.doesNotMatch(filesSource, /req\.query\.access_token/);
+  assert.match(filesSource, /isSafePrivateFilename\(filename\)/);
   assert.match(filesSource, /if \(!isAuthorized\)/);
+  assert.ok(filesSource.indexOf("if (!isAuthorized)") < filesSource.indexOf("fs.existsSync(filePath)"));
   assert.match(filesSource, /private, no-store/);
+  assert.match(filesSource, /"storePaymentDetails\.receiptImage": relativePath/);
 });
 
 test("does not serve rejected HTML or script extensions from the public uploads path", async () => {

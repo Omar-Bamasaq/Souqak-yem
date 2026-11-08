@@ -3,38 +3,10 @@ import { useApi } from "../api/axios.js";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
-import { useAuth } from "../store/AuthContext.jsx";
-
-function uploadsBaseUrl() {
-  let envUrl = import.meta.env.VITE_UPLOADS_URL;
-  if (!envUrl) {
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
-  }
-  if (envUrl.endsWith("/uploads")) return envUrl;
-  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
-}
-const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
-function protectedFileUrl(filename, token) {
-  if (!filename) return "";
-  if (filename.startsWith("http")) return filename;
-  let clean = filename;
-  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
-  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
-  const base = `${uploadsBaseUrl()}/${clean}`;
-  const isSensitive = SENSITIVE_KWS.some(kw => {
-    const c = clean.toLowerCase().replace(/\\/g, "/");
-    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
-  });
-  if (!isSensitive) return base;
-  if (!token) return base;
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
-}
+import { normalizeProtectedFilePath, useProtectedFiles } from "../lib/protectedFiles.js";
 
 export default function AdminEscrowMonitoring() {
   const api = useApi();
-  const { token: authToken } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,6 +15,8 @@ export default function AdminEscrowMonitoring() {
   const [pages, setPages] = useState(1);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewTitle, setPreviewTitle] = useState("معاينة المستند");
+  const { urls: protectedFileUrls, contentTypes: protectedFileContentTypes, errors: protectedFileErrors, loading: protectedFilesLoading } = useProtectedFiles(api, [previewDoc]);
+  const previewUrl = protectedFileUrls[normalizeProtectedFilePath(previewDoc)] || null;
 
   const statusMap = {
     PENDING_SELLER_APPROVAL: { label: "بانتظار موافقة البائع", color: "bg-amber-100 text-amber-700" },
@@ -95,9 +69,9 @@ export default function AdminEscrowMonitoring() {
     return map[currency] || currency;
   };
 
-  const openPreview = (src, title = "معاينة المستند") => {
-    if (!src) return;
-    setPreviewDoc(src);
+  const openPreview = (path, title = "معاينة المستند") => {
+    if (!path) return;
+    setPreviewDoc(path);
     setPreviewTitle(title);
   };
 
@@ -248,7 +222,7 @@ export default function AdminEscrowMonitoring() {
                                 <p className="text-[10px] text-gray-400 font-bold mb-1">رقم العملية {idx + 1}</p>
                                 <p className="text-xs font-black text-gray-900">{p.transactionNumber}</p>
                               </div>
-                              <button type="button" onClick={() => openPreview(protectedFileUrl(p.receiptImage, authToken), `سند الدفع ${idx + 1}`)} className="px-4 py-2 bg-white text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">معاينة السند</button>
+                              <button type="button" onClick={() => openPreview(p.receiptImage, `سند الدفع ${idx + 1}`)} className="px-4 py-2 bg-white text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">معاينة السند</button>
                             </div>
                           ))}
                         </div>
@@ -277,7 +251,7 @@ export default function AdminEscrowMonitoring() {
                           </div>
                           {order.shippingDetails.shippingReceipt && (
                             <div className="pt-4 border-t border-gray-200">
-                               <button type="button" onClick={() => openPreview(protectedFileUrl(order.shippingDetails.shippingReceipt, authToken), "سند الشحن")} className="flex w-full items-center gap-3 p-3 bg-white rounded-2xl border border-indigo-100 hover:shadow-md transition-all group text-right">
+                               <button type="button" onClick={() => openPreview(order.shippingDetails.shippingReceipt, "سند الشحن")} className="flex w-full items-center gap-3 p-3 bg-white rounded-2xl border border-indigo-100 hover:shadow-md transition-all group text-right">
                                 <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">📄</div>
                                 <div>
                                   <p className="text-xs font-black text-gray-900">سند الشحن المرفق</p>
@@ -317,7 +291,15 @@ export default function AdminEscrowMonitoring() {
         )}
       </div>
 
-      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
+      <DocumentPreviewModal
+        isOpen={!!previewDoc}
+        src={previewUrl}
+        onClose={() => setPreviewDoc(null)}
+        title={previewTitle}
+        contentType={protectedFileContentTypes[normalizeProtectedFilePath(previewDoc)]}
+        loading={protectedFilesLoading}
+        error={protectedFileErrors[normalizeProtectedFilePath(previewDoc)]}
+      />
 
       {/* Pagination */}
       {pages > 1 && (

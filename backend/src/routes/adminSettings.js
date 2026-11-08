@@ -3,6 +3,7 @@ import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import adminAudit from "../middleware/adminAudit.js";
 import SystemSettings from "../models/SystemSettings.js";
+import { normalizeExchangeRatePairs, normalizeExchangeRates } from "../utils/exchangeRates.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
 
@@ -14,8 +15,15 @@ router.get("/public", async (req, res) => {
     const settings = await SystemSettings.getSettings();
     res.json({
       withdrawalIdentityThresholdUsd: settings.withdrawalIdentityThresholdUsd,
-      exchangeRates: settings.exchangeRates,
-      brokerageEnabled: settings.brokerageEnabled !== false
+      exchangeRates: normalizeExchangeRates(
+        settings.exchangeRates?.toObject?.() || settings.exchangeRates,
+        settings.exchangeRatePairs?.toObject?.() || settings.exchangeRatePairs
+      ),
+      exchangeRatePairs: normalizeExchangeRatePairs(
+        settings.exchangeRatePairs?.toObject?.() || settings.exchangeRatePairs
+      ),
+      brokerageEnabled: settings.brokerageEnabled !== false,
+      exchangeRatesUpdatedAt: settings.exchangeRatesUpdatedAt
     });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -29,7 +37,12 @@ router.use(auth, requireRole(["admin"]));
 router.get("/", async (req, res) => {
   try {
     const settings = await SystemSettings.getSettings();
-    res.json(settings);
+    const response = settings.toObject();
+    const legacyRates = settings.exchangeRates?.toObject?.() || settings.exchangeRates;
+    const ratePairs = settings.exchangeRatePairs?.toObject?.() || settings.exchangeRatePairs;
+    response.exchangeRates = normalizeExchangeRates(legacyRates, ratePairs);
+    response.exchangeRatePairs = normalizeExchangeRatePairs(ratePairs);
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
@@ -46,10 +59,25 @@ router.patch(
       prohibitedKeywords: Joi.array().items(Joi.string()).optional(),
       withdrawalIdentityThresholdUsd: Joi.number().min(0).optional(),
       exchangeRates: Joi.object({
-        USD: Joi.number().min(0).optional(),
-        SAR: Joi.number().min(0).optional(),
-        YER: Joi.number().min(0).optional(),
-        YER_ADEN: Joi.number().min(0).optional()
+        USD: Joi.number().valid(1).optional(),
+        SAR: Joi.number().positive().optional(),
+        YER: Joi.number().positive().optional(),
+        YER_SANAA: Joi.number().positive().optional(),
+        YER_ADEN: Joi.number().positive().optional()
+      }).optional(),
+      exchangeRatePairs: Joi.object({
+        SAR: Joi.object({
+          buy: Joi.number().positive().required(),
+          sell: Joi.number().positive().required()
+        }).required(),
+        YER_SANAA: Joi.object({
+          buy: Joi.number().positive().required(),
+          sell: Joi.number().positive().required()
+        }).required(),
+        YER_ADEN: Joi.object({
+          buy: Joi.number().positive().required(),
+          sell: Joi.number().positive().required()
+        }).required()
       }).optional(),
       welcomePromotion: Joi.object({
         enabled: Joi.boolean().optional(),
@@ -80,6 +108,7 @@ router.patch(
         prohibitedKeywords,
         withdrawalIdentityThresholdUsd,
         exchangeRates,
+        exchangeRatePairs,
         welcomePromotion,
         brokerageEnabled,
         referralProgram
@@ -98,7 +127,21 @@ router.patch(
       if (prohibitedKeywords) updateData.prohibitedKeywords = prohibitedKeywords;
       if (withdrawalIdentityThresholdUsd !== undefined) updateData.withdrawalIdentityThresholdUsd = withdrawalIdentityThresholdUsd;
       if (exchangeRates) {
-        updateData.exchangeRates = { ...settings.exchangeRates, ...exchangeRates };
+        const existingRates = settings.exchangeRates?.toObject?.() || settings.exchangeRates || {};
+        const mergedRates = { ...existingRates, ...exchangeRates };
+        if (exchangeRates.YER !== undefined && exchangeRates.YER_SANAA === undefined) {
+          mergedRates.YER_SANAA = exchangeRates.YER;
+        }
+        updateData.exchangeRates = mergedRates;
+        updateData.exchangeRatesUpdatedAt = new Date();
+      }
+      if (exchangeRatePairs) {
+        const existingPairs = settings.exchangeRatePairs?.toObject?.() || settings.exchangeRatePairs || {};
+        updateData.exchangeRatePairs = {
+          ...normalizeExchangeRatePairs(existingPairs),
+          ...exchangeRatePairs
+        };
+        updateData.exchangeRatesUpdatedAt = new Date();
       }
       if (welcomePromotion) {
         updateData.welcomePromotion = { ...settings.welcomePromotion, ...welcomePromotion };
@@ -124,7 +167,12 @@ router.patch(
         { new: true, runValidators: true }
       );
       
-      res.json(updatedSettings);
+      const response = updatedSettings.toObject();
+      const legacyRates = updatedSettings.exchangeRates?.toObject?.() || updatedSettings.exchangeRates;
+      const ratePairs = updatedSettings.exchangeRatePairs?.toObject?.() || updatedSettings.exchangeRatePairs;
+      response.exchangeRates = normalizeExchangeRates(legacyRates, ratePairs);
+      response.exchangeRatePairs = normalizeExchangeRatePairs(ratePairs);
+      res.json(response);
     } catch (error) {
       console.error("Error updating admin settings:", error);
       res.status(500).json({ error: "Server error", details: error.message });

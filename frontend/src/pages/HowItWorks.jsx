@@ -26,12 +26,12 @@ const HowItWorks = () => {
       steps: [
         { title: 'ابحث عن طلبك', desc: 'استخدم محرك البحث المتقدم وفلترة العملات للوصول بدقة لما تحتاجه.', icon: '🔍' },
         { title: 'تواصل مع البائع', desc: 'استفسر عن التفاصيل عبر نظام المحادثات المباشر والآمن.', icon: '💬' },
-        { title: 'ادفع بضمان سوقك', desc: 'حول المبلغ لحساب الوساطة الخاص بنا؛ أموالك في أمان حتى تستلم المنتج.', icon: '🛡️' },
-        { title: 'استلم وأكد', desc: 'بعد فحص المنتج وتأكيد الاستلام، نقوم نحن بتحويل المبلغ للبائع.', icon: '📦' },
+        { title: 'استخدم الشراء الآمن عبر أمانة', desc: 'أرسل بيانات الدفع المطلوبة في صفحة الطلب، وتابع حالة العملية عبر خدمة الوساطة بهوية أمانة.', icon: '🛡️' },
+        { title: 'استلم وأكد', desc: 'تابع الشحن في سوقك وأكد الاستلام من صفحة الطلب؛ تُحدّث حالة الطلب وفق الإجراء الحالي.', icon: '📦' },
       ],
       faq: [
-        { q: 'ماذا لو لم يصلني المنتج؟', a: 'يمكنك فتح نزاع وسيقوم فريق الإدارة بالتحقق وإعادة أموالك فوراً.' },
-        { q: 'هل هناك عمولة على المشتري؟', a: 'نعم، تضاف عمولة رمزية قدرها 3% من قيمة المنتج كرسوم لخدمة "الشراء الآمن" والوساطة لضمان حقك.' },
+        { q: 'ماذا لو لم يصلني المنتج؟', a: 'يمكنك فتح نزاع من صفحة الطلب، وتراجعه الإدارة وفق الإجراء الحالي.' },
+        { q: 'هل هناك رسوم على المشتري؟', a: 'تعرض نافذة الطلب رسوم خدمة الشراء الآمن والإجمالي قبل الإرسال.' },
       ]
     },
     seller: {
@@ -43,7 +43,7 @@ const HowItWorks = () => {
         { title: 'استلم أرباحك', desc: 'بعد استلام المشتري، يضاف الرصيد لمحفظتك ويمكنك سحبه بالعملة التي تفضلها.', icon: '💰' },
       ],
       faq: [
-        { q: 'متى يتحرر الرصيد المعلق؟', a: 'يتحول الرصيد من معلق إلى متاح فور تأكيد المشتري للاستلام أو بعد مرور فترة الضمان.' },
+        { q: 'متى يتحرر الرصيد المعلق؟', a: 'وفق المسار الحالي، بعد تأكيد المشتري للاستلام أو تلقائياً بعد 7 أيام من الشحن إذا لم يوجد نزاع مفتوح.' },
         { q: 'كيف أسحب أرباحي؟', a: 'عبر طلب سحب من المحفظة، وسيصلك المبلغ لحسابك البنكي خلال 24 ساعة.' },
       ]
     },
@@ -66,7 +66,7 @@ const HowItWorks = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 pb-20 overflow-x-hidden">
       {/* Hero Section */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 pt-16 pb-28 px-4 text-center text-white relative overflow-hidden">
+      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 px-4 pt-10 pb-16 text-center text-white relative overflow-hidden sm:pt-16 sm:pb-28">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -left-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
@@ -79,10 +79,10 @@ const HowItWorks = () => {
           transition={{ duration: 0.6 }}
           className="relative z-10"
         >
-          <span className="inline-block px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-bold text-blue-100 mb-6 border border-white/10 uppercase tracking-wider">
+          <span className="inline-block px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-bold text-blue-100 mb-4 border border-white/10 uppercase tracking-wider sm:mb-6">
             دليلك الشامل للمنصة
           </span>
-          <h1 className="text-4xl sm:text-6xl font-black mb-6 leading-tight">
+          <h1 className="text-3xl sm:text-6xl font-black mb-3 leading-tight sm:mb-6">
             كيف يعمل <span className="text-blue-300">سوقك؟</span>
           </h1>
           <p className="text-blue-100 text-base sm:text-xl max-w-3xl mx-auto font-medium leading-relaxed px-4">
@@ -93,12 +93,12 @@ const HowItWorks = () => {
 
       <div className="max-w-6xl mx-auto px-4 -mt-12 relative z-20">
         {/* Tabs - Mobile Optimized */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-2 shadow-2xl border border-white/20 dark:border-slate-800 mb-12 flex flex-col sm:flex-row gap-1">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl p-1.5 shadow-2xl border border-white/20 dark:border-slate-800 mb-6 flex flex-col sm:flex-row sm:rounded-[2.5rem] sm:p-2 sm:mb-12 gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-3 py-4 sm:py-5 rounded-3xl font-black text-sm sm:text-base transition-all duration-300 ${
+              className={`flex-1 flex items-center justify-center gap-3 py-3 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-sm sm:text-base transition-all duration-300 ${
                 activeTab === tab.id 
                   ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/30 scale-[1.02]' 
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
@@ -118,7 +118,7 @@ const HowItWorks = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
-            className="space-y-16"
+            className="space-y-8 sm:space-y-16"
           >
             {/* Title Section */}
             <div className="text-center space-y-4">
@@ -127,23 +127,23 @@ const HowItWorks = () => {
                 animate={{ scale: 1 }}
                 className="inline-block p-3 bg-blue-100 dark:bg-blue-900/30 rounded-2xl mb-2"
               >
-                <span className="text-3xl">{tabs.find(t => t.id === activeTab).icon}</span>
+                {activeTab === "buyer" ? <img src="/Amana-Logo.svg" alt="أمانة" className="h-10 w-10 rounded-xl bg-white object-contain p-1" /> : <span className="text-3xl">{tabs.find(t => t.id === activeTab).icon}</span>}
               </motion.div>
               <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white">
                 {content[activeTab].title}
               </h2>
-              <div className="w-24 h-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 mx-auto rounded-full"></div>
+              <div className={`w-24 h-1.5 mx-auto rounded-full ${activeTab === "buyer" ? "bg-gradient-to-r from-emerald-500 to-green-700" : "bg-gradient-to-r from-blue-600 to-indigo-600"}`}></div>
             </div>
 
             {/* Steps Grid - Fully Responsive */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 sm:gap-8">
               {content[activeTab].steps.map((step, idx) => (
                 <motion.div 
                   key={idx}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-gray-100 dark:border-slate-800 shadow-xl shadow-gray-200/50 dark:shadow-none hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group relative overflow-hidden"
+                  className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-xl shadow-gray-200/50 dark:shadow-none hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group relative overflow-hidden sm:rounded-[3rem] sm:p-8"
                 >
                   <div className="absolute -right-6 -top-6 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-colors"></div>
                   
@@ -153,7 +153,7 @@ const HowItWorks = () => {
                     </div>
                     
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-black">
+                      <span className={`flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-black ${activeTab === "buyer" ? "bg-emerald-600" : "bg-blue-600"}`}>
                         {idx + 1}
                       </span>
                       <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
@@ -185,7 +185,7 @@ const HowItWorks = () => {
             </div>
 
             {/* FAQ Section - Modern Design */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-800 rounded-[3.5rem] p-8 sm:p-16 text-white relative overflow-hidden shadow-2xl">
+            <div className={`rounded-[3.5rem] p-8 sm:p-16 text-white relative overflow-hidden shadow-2xl ${activeTab === "buyer" ? "bg-gradient-to-br from-emerald-700 to-green-900" : "bg-gradient-to-br from-blue-600 to-indigo-800"}`}>
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full -ml-32 -mb-32 blur-3xl"></div>
               
@@ -217,6 +217,11 @@ const HowItWorks = () => {
                     </motion.div>
                   ))}
                 </div>
+                {activeTab === "buyer" && (
+                  <a href="https://amana-escrow.infinityfreeapp.com/" target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-50">
+                    تعرّف على أمانة
+                  </a>
+                )}
               </div>
             </div>
 

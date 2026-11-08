@@ -1,16 +1,17 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import multer from "multer";
-import path from "path";
+import { rateLimit as expressRateLimit } from "express-rate-limit";
 import User from "../models/User.js";
 import OtpCode from "../models/OtpCode.js";
 import auth, { sendAuthResponse } from "../middleware/auth.js";
-import { uploadIdDoc, uploadAvatar, processImage } from "../middleware/upload.js";
+import { uploadIdDoc, uploadAvatar } from "../middleware/upload.js";
 import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/emailSender.js";
-import { normalizePhone, isValidPhoneNumber, isValidPassword, generateTemporaryPassword, buildPasswordResetRequestMessage } from "../utils/securityRules.js";
+import { normalizePhone, isValidPhoneNumber, isValidPassword, generateTemporaryPassword, buildPasswordResetRequestMessage, phoneNumberQuery } from "../utils/securityRules.js";
 import PasswordResetRequest from "../models/PasswordResetRequest.js";
+import PhoneVerificationRequest from "../models/PhoneVerificationRequest.js";
 import { createAdminNotification } from "../services/notificationService.js";
 import { isPushConfigured } from "../services/pushService.js";
 import Order from "../models/Order.js";
@@ -25,6 +26,11 @@ import {
   JWT_ALGORITHM,
   inspectJwtClaimsOnly,
 } from "../config/jwt.js";
+import {
+  hasReachedPasswordResetOtpAttemptLimit,
+  isPasswordResetOtpLocked,
+  recordInvalidPasswordResetOtpAttempt
+} from "../services/passwordResetOtp.js";
 
 const router = Router();
 const rateLimitedAuthPaths = new Set([
@@ -49,12 +55,35 @@ router.use(rateLimit({
   skip: (req) => req.method !== "POST" || !rateLimitedAuthPaths.has(req.path),
   message: "محاولات كثيرة. يرجى الانتظار قبل إعادة المحاولة.",
 }));
+const phoneRegistrationLimit = expressRateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const phoneLoginLimit = expressRateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const accountRecoveryLimit = expressRateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+function canUseEmailAccountRecovery(user) {
+  return ["admin", "supervisor"].includes(user.role) || Boolean(user.managedAccount?.createdByAdmin);
+}
 
 /**
  * @swagger
  * /api/auth/register-email:
  *   post:
- *     summary: Register a new user using email
+ *     summary: Deprecated email registration endpoint
+ *     deprecated: true
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -74,15 +103,20 @@ router.use(rateLimit({
  *               password:
  *                 type: string
  *     responses:
- *       201:
- *         description: Verification code sent to email
+ *       410:
+ *         description: Registration is available by phone only
  *       400:
  *         description: Missing fields or user already exists
  */
-router.post("/register-email", async (req, res) => {
+router.post("/register-email", (_req, res) => {
+  return res.status(410).json({ error: "التسجيل متاح باستخدام رقم الهاتف فقط." });
+}, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: "جميع الحقول مطلوبة." });
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزًا دون مسافات أو حروف عربية." });
+    }
     
     // Validate username uniqueness and format
     const nameValidation = await validateUsername(name);
@@ -201,7 +235,8 @@ async function validateUsername(name, excludeUserId = null) {
  * @swagger
  * /api/auth/verify-email:
  *   post:
- *     summary: Verify email using OTP code
+ *     summary: Deprecated email registration verification endpoint
+ *     deprecated: true
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -218,12 +253,12 @@ async function validateUsername(name, excludeUserId = null) {
  *               code:
  *                 type: string
  *     responses:
- *       200:
- *         description: Email verified successfully
- *       400:
- *         description: Invalid or expired code
+ *       410:
+ *         description: Email-based account registration is disabled
  */
-router.post("/verify-email", async (req, res) => {
+router.post("/verify-email", (_req, res) => {
+  return res.status(410).json({ error: "تسجيل الحسابات الجديدة بالبريد الإلكتروني غير متاح." });
+}, async (req, res) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) return res.status(400).json({ error: "البريد الإلكتروني والرمز مطلوبان." });
@@ -314,7 +349,9 @@ router.post("/verify-email", async (req, res) => {
         email: user.email,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
-        verified: false
+        verified: false,
+        verificationStatus: user.verificationStatus,
+        verificationExpiryDate: user.verificationExpiryDate
       }
     });
 
@@ -324,7 +361,9 @@ router.post("/verify-email", async (req, res) => {
   }
 });
 
-router.post("/resend-otp", async (req, res) => {
+router.post("/resend-otp", (_req, res) => {
+  return res.status(410).json({ error: "إعادة إرسال رموز تسجيل البريد الإلكتروني غير متاحة." });
+}, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب." });
@@ -379,7 +418,7 @@ router.post("/resend-otp", async (req, res) => {
       expiresAt
     });
 
-    console.log(`[AUTH] Resend OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
+    console.log(`[AUTH] Resend OTP created in DB for: ${inputEmail} (sending in background)`);
 
     // ASYNCHRONOUS BACKGROUND EMAIL SENDING
     sendVerificationEmail(inputEmail, code).catch(err => {
@@ -396,7 +435,7 @@ router.post("/resend-otp", async (req, res) => {
   }
 });
 
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password", accountRecoveryLimit, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب." });
@@ -416,6 +455,9 @@ router.post("/forgot-password", async (req, res) => {
       // but usually for forgot password, we tell the user if the email is not found.
       // The user specifically asked "if email exists", so I'll check.
       return res.status(404).json({ error: "هذا البريد الإلكتروني غير مسجل لدينا." });
+    }
+    if (!canUseEmailAccountRecovery(user)) {
+      return res.status(403).json({ error: "استعادة الحسابات الشخصية متاحة عبر طلب الاستعادة بالهاتف." });
     }
 
     // Rate limiting: max 3 codes per 5 minutes
@@ -437,15 +479,12 @@ router.post("/forgot-password", async (req, res) => {
     // Store hashed code
     const hashedCode = await bcrypt.hash(code, 10);
     
-    await OtpCode.deleteMany({ email: inputEmail });
     await OtpCode.create({
       email: inputEmail,
       code: hashedCode,
       codeExpiresAt,
       expiresAt
     });
-
-    console.log(`[AUTH] Reset OTP created in DB for: ${inputEmail}. Code: ${code} (sending in background)`);
 
     // ASYNCHRONOUS BACKGROUND EMAIL SENDING
     sendPasswordResetEmail(inputEmail, code).catch(err => {
@@ -468,30 +507,42 @@ router.post("/verify-reset-otp", async (req, res) => {
 
     const inputEmail = String(email).trim().toLowerCase();
     const inputCode = String(code).trim();
+    const user = await User.findOne({ email: inputEmail });
+    if (!user) return res.status(404).json({ error: "المستخدم غير موجود." });
+    if (!canUseEmailAccountRecovery(user)) {
+      return res.status(403).json({ error: "استعادة الحسابات الشخصية متاحة عبر طلب الاستعادة بالهاتف." });
+    }
 
-    const otp = await OtpCode.findOne({ email: inputEmail }).sort({ createdAt: -1 });
+    const otp = await OtpCode.findOne({ email: inputEmail }).sort({ createdAt: -1, _id: -1 });
     if (!otp) {
       return res.status(400).json({ error: "رمز التحقق غير صالح أو منتهي الصلاحية." });
     }
 
-    if (otp.lockedUntil && otp.lockedUntil > new Date()) {
-      const remaining = Math.ceil((otp.lockedUntil - new Date()) / 1000 / 60);
-      return res.status(403).json({ error: `تم إدخال الرمز بشكل خاطئ عدة مرات، حاول مرة أخرى بعد ${remaining} دقائق.` });
+    if (isPasswordResetOtpLocked(otp)) {
+      const remaining = otp.lockedUntil
+        ? Math.ceil((otp.lockedUntil - new Date()) / 1000 / 60)
+        : 0;
+      return res.status(403).json({
+        error: remaining > 0
+          ? `تم إدخال الرمز بشكل خاطئ عدة مرات، حاول مرة أخرى بعد ${remaining} دقائق.`
+          : "تم تجاوز عدد محاولات الرمز. اطلب رمزًا جديدًا."
+      });
     }
 
     if (otp.codeExpiresAt < new Date()) {
       return res.status(400).json({ error: "رمز التحقق منتهي الصلاحية." });
     }
 
+    if (await hasReachedPasswordResetOtpAttemptLimit(OtpCode, inputEmail)) {
+      return res.status(403).json({ error: "تم تجاوز عدد محاولات الرمز. اطلب رمزًا جديدًا بعد انتهاء فترة الحظر." });
+    }
+
     const isMatch = await bcrypt.compare(inputCode, otp.code);
     if (!isMatch) {
-      otp.attempts += 1;
-      if (otp.attempts >= 5) {
-        otp.lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
-        await otp.save();
+      const attempt = await recordInvalidPasswordResetOtpAttempt(OtpCode, otp._id);
+      if (attempt.locked) {
         return res.status(403).json({ error: "تم إدخال الرمز بشكل خاطئ عدة مرات، حاول مرة أخرى بعد 10 دقائق." });
       }
-      await otp.save();
       return res.status(400).json({ error: "الرمز غير صحيح." });
     }
 
@@ -509,19 +560,45 @@ router.post("/reset-password", async (req, res) => {
 
     const inputEmail = String(email).trim().toLowerCase();
     const inputCode = String(code).trim();
+    if (!isValidPassword(String(newPassword))) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزًا دون مسافات أو حروف عربية." });
+    }
+    const user = await User.findOne({ email: inputEmail });
+    if (!user) return res.status(404).json({ error: "المستخدم غير موجود." });
+    if (!canUseEmailAccountRecovery(user)) {
+      return res.status(403).json({ error: "استعادة الحسابات الشخصية متاحة عبر طلب الاستعادة بالهاتف." });
+    }
 
-    const otp = await OtpCode.findOne({ email: inputEmail }).sort({ createdAt: -1 });
+    const otp = await OtpCode.findOne({ email: inputEmail }).sort({ createdAt: -1, _id: -1 });
     if (!otp) return res.status(400).json({ error: "انتهت جلسة إعادة التعيين. حاول مرة أخرى." });
+
+    if (isPasswordResetOtpLocked(otp)) {
+      const remaining = otp.lockedUntil
+        ? Math.ceil((otp.lockedUntil - new Date()) / 1000 / 60)
+        : 0;
+      return res.status(403).json({
+        error: remaining > 0
+          ? `تم إدخال الرمز بشكل خاطئ عدة مرات، حاول مرة أخرى بعد ${remaining} دقائق.`
+          : "تم تجاوز عدد محاولات الرمز. اطلب رمزًا جديدًا."
+      });
+    }
 
     if (otp.codeExpiresAt < new Date()) return res.status(400).json({ error: "رمز التحقق منتهي الصلاحية." });
 
+    if (await hasReachedPasswordResetOtpAttemptLimit(OtpCode, inputEmail)) {
+      return res.status(403).json({ error: "تم تجاوز عدد محاولات الرمز. اطلب رمزًا جديدًا بعد انتهاء فترة الحظر." });
+    }
+
     const isMatch = await bcrypt.compare(inputCode, otp.code);
-    if (!isMatch) return res.status(400).json({ error: "الرمز غير صحيح." });
+    if (!isMatch) {
+      const attempt = await recordInvalidPasswordResetOtpAttempt(OtpCode, otp._id);
+      if (attempt.locked) {
+        return res.status(403).json({ error: "تم إدخال الرمز بشكل خاطئ عدة مرات، حاول مرة أخرى بعد 10 دقائق." });
+      }
+      return res.status(400).json({ error: "الرمز غير صحيح." });
+    }
 
     // Update password
-    const user = await User.findOne({ email: inputEmail });
-    if (!user) return res.status(404).json({ error: "المستخدم غير موجود." });
-
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
@@ -540,7 +617,6 @@ router.post("/test-email", auth, requireRole(["admin"]), rateLimit({ windowMs: 6
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "البريد الإلكتروني مطلوب." });
     
-    console.log(`Testing email sending to: ${email}`);
     await sendVerificationEmail(email, "123456");
     
     res.json({ message: "Test email sent successfully" });
@@ -550,10 +626,15 @@ router.post("/test-email", auth, requireRole(["admin"]), rateLimit({ windowMs: 6
   }
 });
 
-router.post("/register", uploadIdDoc.single("idDocument"), async (req, res) => {
+router.post("/register", (_req, res) => {
+  return res.status(410).json({ error: "التسجيل متاح باستخدام رقم الهاتف فقط." });
+}, uploadIdDoc.single("idDocument"), async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: "جميع الحقول مطلوبة." });
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزًا دون مسافات أو حروف عربية." });
+    }
     
     // Validate username uniqueness and format
     const nameValidation = await validateUsername(name);
@@ -599,7 +680,7 @@ import useragent from "useragent";
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password, deviceType, fingerprint } = req.body;
+    const { email, password, deviceType, fingerprint, adminLogin } = req.body;
     const input = String(email || "").trim();
     const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     
@@ -610,6 +691,13 @@ router.post("/login", async (req, res) => {
     if (!user) {
       logSecurityEvent("Login failed: user not found", req, { email: input });
       return res.status(400).json({ error: "بيانات الدخول غير صحيحة." });
+    }
+    if (adminLogin === true && user.role !== "admin") {
+      logSecurityEvent("Admin login denied: insufficient role", req, { userId: user._id });
+      return res.status(403).json({ error: "بيانات الدخول غير صحيحة أو لا تملك صلاحية الأدمن." });
+    }
+    if (!canUseEmailAccountRecovery(user)) {
+      return res.status(403).json({ error: "سجّل الدخول باستخدام اسم المستخدم أو رقم الهاتف." });
     }
     
     // 1. Check Lockout
@@ -670,9 +758,12 @@ router.post("/login", async (req, res) => {
         role: user.role,
         permissions: Array.isArray(user.permissions) ? user.permissions : [],
         isEmailVerified: user.isEmailVerified,
+        phoneVerifiedAt: user.phoneVerifiedAt || null,
         isVerifiedSeller: user.isVerifiedSeller,
         verified: !!user.verified,
         verificationExpiresAt: user.verificationExpiresAt,
+        verificationStatus: user.verificationStatus,
+        verificationExpiryDate: user.verificationExpiryDate,
         identityStatus: user.identityStatus,
         idDocument: user.idDocument
       }
@@ -683,10 +774,10 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post("/phone-register", async (req, res) => {
+router.post("/phone-register", phoneRegistrationLimit, async (req, res) => {
   try {
     const { name, phone, password } = req.body || {};
-    if (!name || !phone) return res.status(400).json({ error: "جميع الحقول مطلوبة." });
+    if (!name || !phone || typeof password !== "string") return res.status(400).json({ error: "جميع الحقول مطلوبة." });
 
     const p = normalizePhone(phone);
     const n = String(name).trim();
@@ -695,56 +786,21 @@ router.post("/phone-register", async (req, res) => {
       return res.status(400).json({ error: "رقم الهاتف يجب أن يكون 9 أرقام فقط بدون زيادة أو نقصان." });
     }
 
-    if (password !== undefined && password !== null) {
-      if (!isValidPassword(String(password))) {
-        return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزاً." });
-      }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزًا دون مسافات أو حروف عربية." });
     }
 
-    let existing = await User.findOne({ phone: p });
+    const existing = await User.findOne(phoneNumberQuery(p));
+    if (existing) {
+      return res.status(409).json({ error: "هذا الرقم مسجل مسبقًا. يرجى تسجيل الدخول." });
+    }
 
-    const nameValidation = await validateUsername(n, existing?._id);
+    const nameValidation = await validateUsername(n);
     if (!nameValidation.isValid) {
       return res.status(400).json({ error: nameValidation.error });
     }
 
-    if (existing) {
-      if (existing.phoneTrialStatus === "Rejected") {
-        existing.name = n;
-        existing.phone = p;
-        existing.phoneTrialStatus = "Pending";
-        existing.isDisabled = false;
-        existing.mustResetPassword = false;
-        existing.temporaryPassword = null;
-        existing.temporaryPasswordExpiresAt = null;
-        await existing.save();
-
-        const token = signAccessToken({ id: existing._id, role: existing.role });
-        const claims = inspectJwtClaimsOnly(token);
-        console.log(
-          `[Auth][register/re-reg] temp token algo=${claims?.header?.alg || "?"} exp=7d (centralized) uid=${existing._id}`
-        );
-        return res.status(200).json({
-          token,
-          requiresActivation: true,
-          user: {
-            id: existing._id,
-            name: existing.name,
-            email: existing.email,
-            phone: existing.phone,
-            role: existing.role
-          }
-        });
-      }
-
-      if (existing.phoneTrialStatus === "Pending") {
-        return res.status(400).json({ error: "هذا الرقم قيد المراجعة حالياً. يرجى الانتظار." });
-      }
-
-      return res.status(400).json({ error: "هذا الرقم مسجل مسبقاً. يرجى تسجيل الدخول." });
-    }
-
-    const hash = await bcrypt.hash(String(password || Math.random().toString(36).slice(-10)), 10);
+    const hash = await bcrypt.hash(password, 10);
     const email = `${p}@phone.local`;
 
     const user = await User.create({
@@ -754,8 +810,10 @@ router.post("/phone-register", async (req, res) => {
       role: "user",
       phone: p,
       phoneTrial: false,
-      phoneTrialStatus: "Pending",
+      phoneTrialStatus: "Approved",
+      phoneRegistrationMode: "instant",
       isEmailVerified: true,
+      phoneVerifiedAt: null,
       mustResetPassword: false,
       temporaryPassword: null,
       temporaryPasswordExpiresAt: null
@@ -767,24 +825,27 @@ router.post("/phone-register", async (req, res) => {
 
     await createAdminNotification(req.app, {
       type: "new_user",
-      title: "طلب إنشاء حساب جديد",
-      message: `تم إرسال طلب إنشاء حساب جديد عبر الهاتف: ${user.name} - ${user.phone}`,
-      link: "/admin/phone-users",
+      title: "إنشاء حساب جديد عبر الهاتف",
+      message: `تم إنشاء حساب جديد عبر الهاتف: ${user.name} - ${user.phone}`,
+      link: "/admin/users",
       data: { userId: String(user._id), phone: user.phone, requestType: "phone_registration" }
     });
 
     res.status(201).json({
       token: accessToken,
-      requiresActivation: true,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        phoneVerifiedAt: null
       }
     });
   } catch (err) {
+    if (err?.code === 11000) {
+      return res.status(409).json({ error: "اسم المستخدم أو رقم الهاتف مسجل مسبقًا." });
+    }
     console.error("Phone register error:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم." });
   }
@@ -794,13 +855,13 @@ router.get("/phone-status/:phone", async (req, res) => {
   try {
     const user = await User.findOne({ phone: req.params.phone });
     if (!user) return res.status(404).json({ error: "المستخدم غير موجود." });
-    res.json({ status: user.phoneTrialStatus || "Pending" });
+    res.json({ status: user.phoneRegistrationMode === "instant" ? "Approved" : user.phoneTrialStatus || "Pending" });
   } catch (err) {
     res.status(500).json({ error: "حدث خطأ في الخادم." });
   }
 });
 
-router.post("/phone-login", async (req, res) => {
+router.post("/phone-login", phoneLoginLimit, async (req, res) => {
   try {
     const { identifier, password, deviceType } = req.body || {};
     const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -811,8 +872,8 @@ router.post("/phone-login", async (req, res) => {
       return res.status(400).json({ error: "اسم المستخدم أو رقم الهاتف وكلمة المرور مطلوبان." });
     }
 
-    const normalizedPhone = normalizePhone(input);
-    const byPhone = normalizedPhone ? await User.findOne({ phone: normalizedPhone }) : null;
+    const phoneQuery = phoneNumberQuery(input);
+    const byPhone = phoneQuery ? await User.findOne(phoneQuery) : null;
     const byName =
       (await User.findOne({ name: input })) ||
       (await User.findOne({ name: new RegExp(`^${esc(input)}$`, "i") }));
@@ -825,17 +886,18 @@ router.post("/phone-login", async (req, res) => {
     if (user.isDisabled) {
       return res.status(403).json({ error: "هذا الحساب محظور من قبل الإدارة." });
     }
+    if (user.isDeleted) {
+      return res.status(403).json({ error: "هذا الحساب محذوف." });
+    }
+
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const remaining = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
+      return res.status(403).json({ error: `تم حظر الحساب مؤقتاً بسبب محاولات خاطئة متكررة. حاول بعد ${remaining} دقيقة.` });
+    }
 
     if (user.managedAccount?.createdByAdmin && !user.isEmailVerified) {
       user.isEmailVerified = true;
       await user.save();
-    }
-
-    const isBypass = user.role === "admin" || String(user.name).toLowerCase() === "seller test";
-    if (!isBypass && user.phoneTrial !== true) {
-      const msg = user.phoneTrialStatus === "Rejected" ? "تم رفض التفعيل" : "الحساب قيد التفعيل";
-      const code = user.phoneTrialStatus === "Rejected" ? "REJECTED" : "PENDING";
-      return res.status(403).json({ error: msg, code });
     }
 
     const passwordMatches = await bcrypt.compare(rawPassword, user.password);
@@ -844,8 +906,20 @@ router.post("/phone-login", async (req, res) => {
       && (!user.temporaryPasswordExpiresAt || user.temporaryPasswordExpiresAt > new Date());
 
     if (!passwordMatches && !temporaryMatches) {
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = Date.now() + 15 * 60 * 1000;
+        user.loginAttempts = 0;
+      }
+      await user.save();
       return res.status(401).json({ error: "كلمة المرور غير صحيحة." });
     }
+
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    user.lastLoginAt = new Date();
+    user.lastLoginIp = req.clientIp || req.ip;
+    await user.save();
 
     if (user.mustResetPassword) {
       const { accessToken } = await sendAuthResponse(user, res);
@@ -860,9 +934,12 @@ router.post("/phone-login", async (req, res) => {
           role: user.role,
           permissions: Array.isArray(user.permissions) ? user.permissions : [],
           isEmailVerified: user.isEmailVerified,
+          phoneVerifiedAt: user.phoneVerifiedAt || null,
           isVerifiedSeller: user.isVerifiedSeller,
           verified: !!user.verified,
           verificationExpiresAt: user.verificationExpiresAt,
+          verificationStatus: user.verificationStatus,
+          verificationExpiryDate: user.verificationExpiryDate,
           avatar: user.avatar,
           identityStatus: user.identityStatus,
           idDocument: user.idDocument,
@@ -888,9 +965,12 @@ router.post("/phone-login", async (req, res) => {
         role: user.role,
         permissions: Array.isArray(user.permissions) ? user.permissions : [],
         isEmailVerified: user.isEmailVerified,
+        phoneVerifiedAt: user.phoneVerifiedAt || null,
         isVerifiedSeller: user.isVerifiedSeller,
         verified: !!user.verified,
         verificationExpiresAt: user.verificationExpiresAt,
+        verificationStatus: user.verificationStatus,
+        verificationExpiryDate: user.verificationExpiryDate,
         avatar: user.avatar,
         identityStatus: user.identityStatus,
           idDocument: user.idDocument,
@@ -903,7 +983,7 @@ router.post("/phone-login", async (req, res) => {
   }
 });
 
-router.post("/password-reset-request", async (req, res) => {
+router.post("/password-reset-request", accountRecoveryLimit, async (req, res) => {
   try {
     const { username, phone } = req.body || {};
     if (!username || !phone) {
@@ -1002,6 +1082,7 @@ router.get("/me", auth, async (req, res) => {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      phoneVerifiedAt: user.phoneVerifiedAt || null,
       role: user.role,
       permissions: Array.isArray(user.permissions) ? user.permissions : [],
       avatar: user.avatar,
@@ -1010,7 +1091,9 @@ router.get("/me", auth, async (req, res) => {
       idDocument: user.idDocument,
       isVerifiedSeller: !!user.isVerifiedSeller,
       verified: !!user.verified,
-      verificationExpiresAt: user.verificationExpiresAt
+      verificationExpiresAt: user.verificationExpiresAt,
+      verificationStatus: user.verificationStatus,
+      verificationExpiryDate: user.verificationExpiryDate
     });
   } catch {
     res.status(500).json({ error: "حدث خطأ في الخادم." });
@@ -1042,12 +1125,7 @@ router.post("/avatar", auth, (req, res, next) => {
     
     console.log('[AVATAR] Received file:', file.path);
 
-    // Process and optimize avatar image
-    const processedPath = await processImage(file.path, "avatar");
-    console.log('[AVATAR] Processed path:', processedPath);
-
-    const avatarFilename = path.basename(processedPath);
-    const avatarPath = `avatars/${avatarFilename}`;
+    const avatarPath = `avatars/${file.filename}`;
     console.log('[AVATAR] Database path:', avatarPath);
 
     const updated = await User.findByIdAndUpdate(
@@ -1110,7 +1188,9 @@ router.post("/activate-verification", auth, async (req, res) => {
     res.json({
       id: updated._id,
       isVerifiedSeller: updated.isVerifiedSeller,
-      verificationExpiresAt: updated.verificationExpiresAt
+      verificationExpiresAt: updated.verificationExpiresAt,
+      verificationStatus: updated.verificationStatus,
+      verificationExpiryDate: updated.verificationExpiryDate
     });
   } catch {
     res.status(500).json({ error: "حدث خطأ في الخادم." });
@@ -1180,8 +1260,34 @@ router.patch("/update-profile", auth, async (req, res) => {
       user.name = name.trim();
     }
 
-    if (phone) {
-      user.phone = phone.trim();
+    if (phone !== undefined && String(phone).trim()) {
+      const normalizedPhone = normalizePhone(phone);
+      if (!isValidPhoneNumber(normalizedPhone)) {
+        return res.status(400).json({ error: "رقم الهاتف غير صالح." });
+      }
+      const phoneQuery = phoneNumberQuery(normalizedPhone);
+      phoneQuery._id = { $ne: user._id };
+      if (await User.exists(phoneQuery)) {
+        return res.status(409).json({ error: "رقم الهاتف مسجل مسبقًا." });
+      }
+      if (normalizePhone(user.phone) !== normalizedPhone) {
+        user.phone = normalizedPhone;
+        user.phoneVerifiedAt = null;
+        await PhoneVerificationRequest.updateMany(
+          { user: user._id, status: { $in: ["pending_admin_review", "code_issued"] } },
+          {
+            $set: { status: "expired", codeHash: null, codeExpiresAt: null },
+            $push: {
+              actions: {
+                action: "expired",
+                actor: user._id,
+                at: new Date(),
+                note: "تغير رقم الهاتف"
+              }
+            }
+          }
+        );
+      }
     }
 
     await user.save();
@@ -1192,12 +1298,16 @@ router.patch("/update-profile", auth, async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        phoneVerifiedAt: user.phoneVerifiedAt || null,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
         isVerifiedSeller: user.isVerifiedSeller
       }
     });
   } catch (err) {
+    if (err?.code === 11000 && err?.keyPattern?.phone) {
+      return res.status(409).json({ error: "رقم الهاتف مسجل مسبقًا." });
+    }
     console.error("Update profile error:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم." });
   }
@@ -1248,8 +1358,8 @@ router.post("/change-password", auth, async (req, res) => {
       return res.status(400).json({ error: "كلمة المرور الحالية غير صحيحة." });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل." });
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ error: "كلمة المرور يجب أن تكون من 8 إلى 24 رمزًا دون مسافات أو حروف عربية." });
     }
 
     user.password = await bcrypt.hash(newPassword, 10);

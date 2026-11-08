@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
-export default function DocumentPreviewModal({ isOpen, src, onClose, title = "معاينة المستند" }) {
+export default function DocumentPreviewModal({
+  isOpen,
+  src,
+  onClose,
+  title = "معاينة المستند",
+  contentType = "",
+  loading = false,
+  error = ""
+}) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -115,12 +123,28 @@ export default function DocumentPreviewModal({ isOpen, src, onClose, title = "م
             onMouseUp={handleMouseUp}
             style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
           >
-            <img
-              src={src}
-              alt={title}
-              className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"
-              draggable={false}
-            />
+            {loading ? (
+              <p role="status" className="rounded-xl bg-white px-5 py-4 text-sm font-bold text-slate-800">
+                جاري تحميل الملف...
+              </p>
+            ) : error || !src ? (
+              <p role="alert" className="rounded-xl bg-white px-5 py-4 text-sm font-bold text-red-700">
+                {error || "تعذر تحميل الملف الخاص."}
+              </p>
+            ) : contentType.toLowerCase().includes("pdf") ? (
+              <iframe
+                src={src}
+                title={title}
+                className="h-[78vh] w-full rounded-2xl bg-white shadow-2xl"
+              />
+            ) : (
+              <img
+                src={src}
+                alt={title}
+                className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"
+                draggable={false}
+              />
+            )}
           </div>
         </div>
       </div>

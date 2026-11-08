@@ -4,7 +4,7 @@ import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import Commission from "../models/Commission.js";
 import Ad from "../models/Ad.js";
-import AdminNotification from "../models/AdminNotification.js";
+import { createAdminNotification } from "../services/notificationService.js";
 import { uploadCommissionDocs, processImage } from "../middleware/upload.js";
 import Joi from "joi";
 import { validateBody } from "../middleware/validate.js";
@@ -50,8 +50,7 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
       paymentReceiptPath = `receipts/${path.basename(processed)}`;
     }
     if (rawAdImage) {
-      const processed = await processImage(rawAdImage.path, "ads");
-      adImagePath = path.basename(processed);
+      adImagePath = rawAdImage.filename;
     }
     
     const commissionAmount = calculateSellerCommission(salePrice);
@@ -89,15 +88,13 @@ router.post("/", auth, requireRole(["seller"]), uploadCommissionDocs, async (req
 
     // إنشاء إشعار للأدمن (Realtime)
     try {
-      const adminNotif = await AdminNotification.create({
+      await createAdminNotification(req.app, {
         type: "commission",
         title: "طلب دفع عمولة جديد",
         message: `طلب دفع عمولة جديد من البائع: ${name}`,
         link: "/admin/sold-ads",
         data: { commissionId: created._id }
       });
-      const io = req.app.get("io");
-      if (io) io.emit("admin_notification:new", adminNotif);
     } catch (err) {
       console.error("فشل إنشاء إشعار الأدمن للعمولة:", err);
     }

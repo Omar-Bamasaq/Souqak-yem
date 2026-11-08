@@ -1,17 +1,23 @@
 import React, { useEffect, useState, useRef } from "react";
 import imageCompression from "browser-image-compression";
+import { normalizeImageUploadFile } from "../lib/imageCompression.js";
 import { useApi } from "../api/axios.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
 import CategorySelect from "../components/CategorySelect.jsx";
+import CategoryAttributeFields from "../components/CategoryAttributeFields.jsx";
 import { isConditionEnabled } from "../lib/categoryHelpers.js";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import MobileSelect from "../components/MobileSelect.jsx";
 import { useBrokerageApi } from "../api/brokerage.js";
 import { useBrokerageStatus } from "../store/BrokerageStatusContext.jsx";
 import { AD_COMMISSION_ENABLED } from "../config/commission.js";
+import { getStoreCategoriesForActivity } from "../utils/storeCategories.js";
+import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
+import SmartProgress from "../components/SmartProgress.jsx";
+import { calculateAdProgress, getAdProgressMessage } from "../utils/adProgress.js";
 
 export default function AddProduct() {
   const { data: governoratesData = [] } = useGovernorates();
@@ -20,7 +26,20 @@ export default function AddProduct() {
   const { enabled: brokerageEnabled } = useBrokerageStatus();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const adType = searchParams.get("type") || "sell"; // 'sell' or 'order'
+  const storeProductMode = searchParams.get("storeProduct") === "1";
+  const storeType = searchParams.get("storeType") === "family-production" ? "family-production" : "store";
+  const storeDashboardPath = storeType === "family-production" ? "/my-family-production" : "/my-store";
+  const adType = storeProductMode ? "sell" : searchParams.get("type") || "sell"; // 'sell' or 'order'
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [isAvailableForDelivery, setIsAvailableForDelivery] = useState(false);
+  const [supportsDelivery, setSupportsDelivery] = useState(false);
+  const [supportsDiscounts, setSupportsDiscounts] = useState(false);
+  const [supportsInventory, setSupportsInventory] = useState(false);
+  const [inventoryEnabled, setInventoryEnabled] = useState(false);
+  const [stockQuantity, setStockQuantity] = useState("0");
+  const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [discountType, setDiscountType] = useState("percentage");
+  const [discountValue, setDiscountValue] = useState("10");
   
   const categoryAttributeApi = useCategoryAttributeApi();
   const { user } = useAuth();
@@ -42,6 +61,8 @@ export default function AddProduct() {
     price: useRef(null),
     files: useRef(null),
   };
+  const formRef = useRef(null);
+  const errorRef = useRef(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -53,6 +74,7 @@ export default function AddProduct() {
   const [previews, setPreviews] = useState([]);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [phoneVerificationRequired, setPhoneVerificationRequired] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [isPreparingImages, setIsPreparingImages] = useState(false);
@@ -71,13 +93,28 @@ export default function AddProduct() {
   const [whatsapp, setWhatsApp] = useState("");
   const [negotiable, setNegotiable] = useState(false);
   const [priceOnContact, setPriceOnContact] = useState(false);
-  const [showConsent, setShowConsent] = useState(AD_COMMISSION_ENABLED && adType === "sell");
+  const [showConsent, setShowConsent] = useState(AD_COMMISSION_ENABLED && adType === "sell" && !storeProductMode);
   const [consentEnabledAt, setConsentEnabledAt] = useState(0);
-  const [commissionAgreed, setCommissionAgreed] = useState(!AD_COMMISSION_ENABLED || adType === "order");
+  const [commissionAgreed, setCommissionAgreed] = useState(!AD_COMMISSION_ENABLED || adType === "order" || storeProductMode);
   const [nowTs, setNowTs] = useState(Date.now());
   const [blockErr, setBlockErr] = useState("");
   const [pendingCommissionPayLink, setPendingCommissionPayLink] = useState("/seller/commissions");
   const [selectedMainCategoryName, setSelectedMainCategoryName] = useState("");
+  const [isStoreProduct, setIsStoreProduct] = useState(storeProductMode);
+  const [storeCategories, setStoreCategories] = useState([]);
+
+  useEffect(() => {
+    if (!err) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const target = errorRef.current || formRef.current;
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (errorRef.current) errorRef.current.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [err]);
 
   const CONDITION_ENABLED_CATEGORIES = [
     "السيارات",
@@ -120,8 +157,29 @@ export default function AddProduct() {
   };
 
   useEffect(() => {
-    checkPromo();
-  }, []);
+    if (!storeProductMode) checkPromo();
+  }, [storeProductMode]);
+
+  useEffect(() => {
+    if (!storeProductMode) return;
+    Promise.all([
+      api.get("/stores/me", { params: { storeType } }),
+      api.get("/stores/activities", { params: { type: storeType } })
+    ]).then(([{ data: store }, { data: activities }]) => {
+      if (store?.status === "active" && store?.subscriptionStatus === "active") {
+        setStoreCategories(getStoreCategoriesForActivity(store, activities));
+      }
+      setSupportsDelivery(store?.status === "active"
+        && store?.subscriptionStatus === "active"
+        && store?.subscription?.plan?.features?.delivery === true);
+      setSupportsDiscounts(store?.status === "active"
+        && store?.subscriptionStatus === "active"
+        && store?.subscription?.plan?.features?.discounts === true);
+      setSupportsInventory(store?.status === "active"
+        && store?.subscriptionStatus === "active"
+        && store?.subscription?.plan?.features?.inventory === true);
+    }).catch(() => {});
+  }, [api, storeProductMode, storeType]);
 
   useEffect(() => {
     setSelectedMainCategoryName("");
@@ -188,6 +246,7 @@ export default function AddProduct() {
 
   // Dynamic category attributes
   const [categoryAttributes, setCategoryAttributes] = useState([]);
+  const [categoryAttributesReady, setCategoryAttributesReady] = useState(true);
   const [attributeValues, setAttributeValues] = useState({});
 
   const handleFiles = (e) => {
@@ -269,7 +328,7 @@ export default function AddProduct() {
       }
     }
 
-    return preparedFiles;
+    return preparedFiles.map(normalizeImageUploadFile);
   };
 
   useEffect(() => {
@@ -284,13 +343,13 @@ export default function AddProduct() {
   }, []);
 
   useEffect(() => {
-    if (AD_COMMISSION_ENABLED && adType === "sell" && showConsent) {
+    if (AD_COMMISSION_ENABLED && adType === "sell" && !isStoreProduct && showConsent) {
       const start = Date.now();
       setConsentEnabledAt(start + 5000);
       const int = setInterval(() => setNowTs(Date.now()), 200);
       return () => clearInterval(int);
     }
-  }, [showConsent, adType]);
+  }, [showConsent, adType, isStoreProduct]);
 
   useEffect(() => {
     (async () => {
@@ -344,26 +403,36 @@ export default function AddProduct() {
 
   // Load category attributes when category changes
   useEffect(() => {
-    if (!categoryId) {
+    if (!categoryId || (!isStoreProduct && adType !== "sell")) {
       setCategoryAttributes([]);
       setAttributeValues({});
+      setCategoryAttributesReady(true);
       return;
     }
+    let cancelled = false;
+    setCategoryAttributes([]);
+    setAttributeValues({});
+    setCategoryAttributesReady(false);
     (async () => {
       try {
-        const res = await categoryAttributeApi.getCategoryAttributes(categoryId, { includeAncestors: true });
-        setCategoryAttributes(res.data || []);
-        // Reset attribute values
-        setAttributeValues({});
+        const res = await categoryAttributeApi.getCategoryAttributes(categoryId, { includeAncestors: !isStoreProduct });
+        if (!cancelled) {
+          setCategoryAttributes(res.data || []);
+          setCategoryAttributesReady(true);
+        }
       } catch (error) {
         console.error("Error loading category attributes:", error);
-        setCategoryAttributes([]);
+        if (!cancelled) setCategoryAttributes([]);
       }
     })();
-  }, [categoryId]);
+    return () => { cancelled = true; };
+  }, [categoryId, isStoreProduct]);
 
   const handleCategoryChange = (newCategoryId) => {
     setCategoryId(newCategoryId);
+    setCategoryAttributes([]);
+    setAttributeValues({});
+    setCategoryAttributesReady(!newCategoryId || (!isStoreProduct && adType !== "sell"));
     setValidationErrors(prev => ({ ...prev, categoryId: null }));
   };
 
@@ -383,25 +452,39 @@ export default function AddProduct() {
 
   const validateForm = () => {
     const errors = {};
-    if (!title.trim()) errors.title = "عنوان المنتج مطلوب";
+    if (!title.trim()) errors.title = isStoreProduct ? "اسم المنتج مطلوب" : "عنوان المنتج مطلوب";
     if (adType === "order") {
       if (!orderMainCategoryId) errors.categoryId = "يرجى اختيار الفئة";
     } else {
       if (!categoryId) errors.categoryId = "الفئة مطلوبة";
     }
-    if (!governorateId) errors.governorateId = "المحافظة مطلوبة";
-    if (!cityId) errors.cityId = "المدينة مطلوبة";
+    if (!isStoreProduct) {
+      if (!governorateId) errors.governorateId = "المحافظة مطلوبة";
+      if (!cityId) errors.cityId = "المدينة مطلوبة";
+    }
     
     // For 'order' type, price and images are optional
     if (adType !== "order") {
-      if (!priceOnContact && (!price || Number(price) <= 0)) errors.price = "يرجى إدخال السعر";
-      if (files.length === 0) errors.files = "يجب رفع صورة واحدة على الأقل";
+      if ((isStoreProduct || !priceOnContact) && (!price || Number(price) <= 0)) errors.price = "يرجى إدخال السعر";
+      if (!isStoreProduct && files.length === 0) errors.files = "يجب رفع صورة واحدة على الأقل";
+    }
+    if (isStoreProduct && supportsDiscounts && discountEnabled
+      && (discountType === "percentage"
+        ? (!Number.isInteger(Number(discountValue)) || Number(discountValue) < 1 || Number(discountValue) > 99)
+        : (!Number.isFinite(Number(discountValue)) || Number(discountValue) <= 0 || Number(discountValue) > Number(price)))) {
+      errors.discountValue = discountType === "percentage"
+        ? "أدخل نسبة خصم صحيحة من 1 إلى 99%."
+        : "أدخل مبلغ خصم أكبر من صفر ولا يتجاوز سعر المنتج.";
+    }
+    if (isStoreProduct && supportsInventory && inventoryEnabled
+      && (!stockQuantity.trim() || !Number.isSafeInteger(Number(stockQuantity)) || Number(stockQuantity) < 0)) {
+      errors.stockQuantity = "أدخل كمية مخزون صحيحة (عدد صحيح لا يقل عن صفر).";
     }
 
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
       scrollToFirstError(errors);
-      setErr("يرجى تعبئة الحقول المطلوبة قبل نشر الإعلان");
+      setErr(errors.discountValue || errors.stockQuantity || (isStoreProduct ? "يرجى تعبئة بيانات المنتج المطلوبة." : "يرجى تعبئة الحقول المطلوبة قبل نشر الإعلان"));
       return false;
     }
     return true;
@@ -411,10 +494,16 @@ export default function AddProduct() {
     e.preventDefault();
     setMsg("");
     setErr("");
+    setPhoneVerificationRequired(false);
     setValidationErrors({});
 
     if (!user) {
       setErr("يرجى تسجيل الدخول أولاً");
+      return;
+    }
+    if (!user.phoneVerifiedAt) {
+      setPhoneVerificationRequired(true);
+      setErr("يلزم توثيق رقم الهاتف قبل نشر الإعلان.");
       return;
     }
     if (AD_COMMISSION_ENABLED && !commissionAgreed) {
@@ -433,7 +522,7 @@ export default function AddProduct() {
         setIsPreparingImages(true);
         setPrepareStatus("جاري تجهيز الصور...");
         preparedFiles = await prepareFilesForUpload(files);
-        setPrepareStatus("جاري نشر الإعلان...");
+        setPrepareStatus(isStoreProduct ? "جارٍ إضافة المنتج..." : "جاري نشر الإعلان...");
       }
 
       const form = new FormData();
@@ -441,36 +530,57 @@ export default function AddProduct() {
       form.append("description", description);
       form.append("price", Number(price || 0));
       form.append("currency", currency);
-      form.append("governorateId", governorateId);
-      form.append("cityId", cityId);
+      if (!isStoreProduct) {
+        form.append("governorateId", governorateId);
+        form.append("cityId", cityId);
+      }
       if (categoryId) form.append("categoryId", categoryId);
       form.append("adType", adType);
+      if (isStoreProduct) {
+        form.append("storeProduct", "true");
+        form.append("storeType", storeType);
+        form.append("isAvailable", String(isAvailable));
+        form.append("isAvailableForDelivery", String(isAvailableForDelivery));
+        if (supportsDiscounts) {
+          form.append("discountEnabled", String(discountEnabled));
+          form.append("discountType", discountType);
+          form.append("discountValue", discountValue);
+        }
+        if (supportsInventory) {
+          form.append("inventoryEnabled", String(inventoryEnabled));
+          form.append("stockQuantity", stockQuantity);
+        }
+      }
 
-      form.append("condition", condition);
+      if (!isStoreProduct) form.append("condition", condition);
       form.append("negotiable", negotiable ? "true" : "false");
-      form.append("priceOnContact", priceOnContact ? "true" : "false");
+      if (!isStoreProduct) form.append("priceOnContact", priceOnContact ? "true" : "false");
 
       // Optional contact info: only send if seller really wants to show it
       const normalizedPhone = (phone || "").trim();
       const normalizedWhatsApp = (whatsapp || "").trim();
-      if (showPhone && normalizedPhone) {
+      if (!isStoreProduct && showPhone && normalizedPhone) {
         form.append("showPhone", true);
         form.append("phone", normalizedPhone);
       }
-      if (showWhatsApp && normalizedWhatsApp) {
+      if (!isStoreProduct && showWhatsApp && normalizedWhatsApp) {
         form.append("showWhatsApp", true);
         form.append("whatsapp", normalizedWhatsApp);
       }
-      selectedTags.forEach((tagId) => form.append("tags", tagId));
+      if (!isStoreProduct) selectedTags.forEach((tagId) => form.append("tags", tagId));
       preparedFiles.forEach((file) => form.append("images", file));
       
       // Add category attributes
-      const attributes = Object.entries(attributeValues).map(([attributeId, value]) => ({
-        attributeId,
-        value: Array.isArray(value) ? value.join(",") : String(value)
-      }));
+      const attributes = (isStoreProduct
+        ? categoryAttributes.map((attribute) => {
+            const attributeId = String(attribute.id || attribute._id);
+            return { attributeId, value: attributeValues[attributeId] };
+          })
+        : Object.entries(attributeValues).map(([attributeId, value]) => ({ attributeId, value }))
+      ).filter(({ value }) => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0))
+        .map(({ attributeId, value }) => ({ attributeId, value: Array.isArray(value) ? value.join(",") : String(value) }));
       
-      if (attributes.length > 0) {
+      if (isStoreProduct || attributes.length > 0) {
         form.append("attributes", JSON.stringify(attributes));
       }
       
@@ -494,7 +604,7 @@ export default function AddProduct() {
         }
       }
       
-      setMsg("✅ تم نشر الإعلان بنجاح");
+      setMsg(isStoreProduct ? "✅ تمت إضافة المنتج بنجاح" : "✅ تم نشر الإعلان بنجاح");
       setShowAfterPublishModal(true);
     }
     } catch (e) {
@@ -506,6 +616,9 @@ export default function AddProduct() {
         setErr(e.message);
       } else if (status === 401) {
         setErr("يرجى تسجيل الدخول أولاً");
+      } else if (status === 403 && data?.code === "PHONE_VERIFICATION_REQUIRED") {
+        setPhoneVerificationRequired(true);
+        setErr("يلزم توثيق رقم الهاتف قبل نشر الإعلان.");
       } else if (status === 403) {
         setErr("هذا الإجراء متاح للبائعين فقط");
       } else if (status === 400 && data) {
@@ -546,113 +659,20 @@ export default function AddProduct() {
     }
   };
 
-  const renderAttributeField = (attr) => {
-    const value = attributeValues[attr.id || attr._id] || "";
-    
-    switch (attr.type) {
-      case "text":
-        return (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => handleAttributeChange(attr.id || attr._id, e.target.value)}
-            placeholder={attr.placeholder || ""}
-            required={attr.required}
-            className="ds-input"
-          />
-        );
-      
-      case "number":
-        return (
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => handleAttributeChange(attr.id || attr._id, e.target.value)}
-            placeholder={attr.placeholder || ""}
-            required={attr.required}
-            className="ds-input"
-          />
-        );
-      
-      case "boolean":
-        return (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id={`attr-${attr.id || attr._id}`}
-              checked={value === true || value === "true"}
-              onChange={(e) => handleAttributeChange(attr.id || attr._id, e.target.checked)}
-              className="w-4 h-4 text-emerald-500 rounded"
-            />
-            <label htmlFor={`attr-${attr.id || attr._id}`} className="text-sm text-gray-700">
-              نعم
-            </label>
-          </div>
-        );
-      
-      case "select":
-        return (
-          <MobileSelect
-            value={value}
-            onChange={(e) => handleAttributeChange(attr.id || attr._id, e.target.value)}
-            required={attr.required}
-            options={attr.options?.map(opt => ({ value: opt, label: opt }))}
-            placeholder="اختر..."
-          />
-        );
-      
-      case "multiselect":
-        return (
-          <div className="flex flex-wrap gap-2">
-            {attr.options?.map((opt, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  const currentValues = Array.isArray(value) ? value : value ? [value] : [];
-                  const newValues = currentValues.includes(opt)
-                    ? currentValues.filter(v => v !== opt)
-                    : [...currentValues, opt];
-                  handleAttributeChange(attr.id || attr._id, newValues);
-                }}
-                className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                  (Array.isArray(value) ? value : [value]).includes(opt)
-                    ? "bg-emerald-500 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        );
-      
-      default:
-        return (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => handleAttributeChange(attr.id || attr._id, e.target.value)}
-            className="ds-input"
-          />
-        );
-    }
-  };
-
   if (blockErr) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-12">
-        <div className="rounded-[2.5rem] bg-white border border-red-100 p-10 text-center shadow-2xl shadow-red-50">
-          <div className="mb-6 flex justify-center">
+      <div className="mx-auto max-w-xl px-3 py-6 sm:px-4 sm:py-12">
+        <div className="rounded-3xl bg-white border border-red-100 p-5 text-center shadow-2xl shadow-red-50 sm:rounded-[2.5rem] sm:p-10">
+          <div className="mb-4 flex justify-center sm:mb-6">
             <div className="rounded-full bg-red-50 p-4 ring-8 ring-red-50/50">
               <svg className="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
           </div>
-          <h2 className="mb-4 text-2xl font-black text-gray-900">نشر الإعلان محجوب</h2>
+          <h2 className="mb-3 text-2xl font-black text-gray-900 sm:mb-4">{isStoreProduct ? "إضافة المنتج محجوبة" : "نشر الإعلان محجوب"}</h2>
           <p className="mb-3 text-gray-600 font-bold leading-relaxed">{blockErr}</p>
-          <p className="mb-8 text-sm font-bold leading-relaxed text-amber-700">
+          <p className="mb-5 text-sm font-bold leading-relaxed text-amber-700 sm:mb-8">
             بعد الموافقة على طلب الدفع من الإدارة، سيتم تفعيل إضافة الإعلان تلقائيًا.
           </p>
           <div className="flex flex-col gap-3">
@@ -675,7 +695,7 @@ export default function AddProduct() {
   }
 
   // Consent - Only show for sell type
-  if (AD_COMMISSION_ENABLED && adType === "sell" && showConsent) {
+  if (AD_COMMISSION_ENABLED && adType === "sell" && !isStoreProduct && showConsent) {
     return (
       <div className="min-h-[calc(100vh-70px)] bg-white flex flex-col px-4 py-4 sm:p-8">
         <div className="w-full max-w-3xl mx-auto flex-1 flex flex-col justify-center">
@@ -757,12 +777,41 @@ export default function AddProduct() {
     );
   }
 
+  const progress = calculateAdProgress({
+    mode: "add",
+    isStoreProduct,
+    adType,
+    title,
+    categoryId,
+    orderMainCategoryId,
+    governorateId,
+    cityId,
+    price,
+    priceOnContact,
+    files,
+    description,
+    showPhone,
+    phone,
+    showWhatsApp,
+    whatsapp,
+    categoryAttributes,
+    categoryAttributesReady: !isStoreProduct || categoryAttributesReady,
+    attributeValues,
+    supportsDiscounts,
+    discountEnabled,
+    discountType,
+    discountValue,
+    supportsInventory,
+    inventoryEnabled,
+    stockQuantity
+  });
+
   return (
-    <div className="mx-auto max-w-2xl ds-section p-6 sm:p-10 mb-20 sm:mb-0">
-      <h2 className="ds-title mb-6">{adType === "order" ? "إضافة طلب شراء منتج" : t("addProduct.formTitle")}</h2>
+    <div className="mx-auto mb-20 max-w-2xl ds-section p-4 sm:mb-0 sm:p-8">
+      <h2 className="ds-title mb-6">{isStoreProduct ? "إضافة منتج" : adType === "order" ? "إضافة طلب شراء منتج" : t("addProduct.formTitle")}</h2>
 
       {/* Welcome Promotion Banner */}
-      {promoEligibility.eligible && adType !== "order" && (
+      {promoEligibility.eligible && adType !== "order" && !isStoreProduct && (
         <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl p-3 mb-5 text-white shadow-xl shadow-orange-100 relative overflow-hidden group border-2 border-white sm:rounded-[2rem] sm:p-6 sm:mb-8 sm:border-4">
           <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:scale-150 transition-transform duration-700 sm:w-32 sm:h-32"></div>
           <div className="relative flex flex-col sm:flex-row items-center gap-2.5 sm:gap-6">
@@ -785,7 +834,7 @@ export default function AddProduct() {
         </div>
       )}
 
-      <form onSubmit={submit} className="flex flex-col gap-6">
+      <form ref={formRef} onSubmit={submit} className="flex flex-col gap-6">
         {adType === "order" && (
           <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-6">
             <p className="text-sm font-bold text-indigo-800">
@@ -793,6 +842,7 @@ export default function AddProduct() {
             </p>
           </div>
         )}
+        <SmartProgress percent={progress.percent} message={getAdProgressMessage(progress)} />
         
         {msg && (
           <div className="sticky top-20 z-10 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
@@ -800,18 +850,23 @@ export default function AddProduct() {
           </div>
         )}
         {err && (
-          <div className="sticky top-20 z-10 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <div ref={errorRef} role="alert" tabIndex={-1} className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
             ⚠ {err}
+            {phoneVerificationRequired && (
+              <Link to="/verify-phone" className="mr-2 inline-block font-black underline">
+                ابدأ توثيق رقم الهاتف
+              </Link>
+            )}
           </div>
         )}
 
         <div ref={formRefs.title} className="order-1 space-y-1">
         <label className="block text-sm font-bold text-gray-700">
-          {t("addProduct.labels.title")} <span className="text-red-500 mr-1">*</span>
+          {isStoreProduct ? "اسم المنتج" : t("addProduct.labels.title")} <span className="text-red-500 mr-1">*</span>
         </label>
         <input 
           className={`ds-input ${validationErrors.title ? "border-red-500 ring-2 ring-red-100" : ""}`}
-          placeholder={t("addProduct.labels.titlePh")} 
+          placeholder={isStoreProduct ? "أدخل اسم المنتج" : t("addProduct.labels.titlePh")}
           value={title} 
           onChange={(e) => {
             const nextTitle = e.target.value.slice(0, 30);
@@ -825,9 +880,9 @@ export default function AddProduct() {
       </div>
       
       <div ref={formRefs.categoryId} className="order-2 space-y-4">
-        <label className="block text-sm font-bold text-gray-700">
+        {!isStoreProduct && <label className="block text-sm font-bold text-gray-700">
           الفئة <span className="text-red-500 mr-1">*</span>
-        </label>
+        </label>}
         <div className={validationErrors.categoryId ? "rounded-xl border-2 border-red-500 p-1 bg-red-50/30" : ""}>
           {adType === "order" ? (
             <div className="space-y-4">
@@ -863,6 +918,16 @@ export default function AddProduct() {
                 </div>
               )}
             </div>
+          ) : isStoreProduct ? (
+            <MobileSelect
+              label="تصنيف المنتج"
+              value={categoryId}
+              onChange={(event) => handleCategoryChange(event.target.value)}
+              required={true}
+              options={storeCategories.map((category) => ({ value: category._id || category.id || category, label: category.name || "تصنيف المنتج" }))}
+              placeholder={storeCategories.length ? "اختر تصنيفًا من تصنيفات المتجر" : "لا توجد تصنيفات محددة للمتجر"}
+              disabled={storeCategories.length === 0}
+            />
           ) : (
             <CategorySelect
               value={categoryId}
@@ -874,28 +939,20 @@ export default function AddProduct() {
         </div>
         {validationErrors.categoryId && <p className="text-xs text-red-600 font-bold">{validationErrors.categoryId}</p>}
       </div>
-      
-      {/* Dynamic Category Attributes - Only for sell type */}
-      {adType === "sell" && categoryAttributes.length > 0 && (
-        <div className="order-11 space-y-4 rounded-lg border border-gray-200 p-4 bg-gray-50">
-          <h4 className="text-sm font-medium text-gray-700">معلومات إضافية (اختياري)</h4>
-          {categoryAttributes.map((attr) => (
-            <div key={attr.id || attr._id} className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">
-                {attr.label}
-                {attr.required && <span className="text-red-500 mr-1">*</span>}
-              </label>
-              {renderAttributeField(attr)}
-              {attr.helpText && (
-                <p className="text-xs text-gray-500">{attr.helpText}</p>
-              )}
-            </div>
-          ))}
+
+      {(isStoreProduct || adType === "sell") && categoryAttributes.length > 0 && (
+        <div className="order-11">
+          <CategoryAttributeFields
+            attributes={categoryAttributes}
+            values={attributeValues}
+            onChange={handleAttributeChange}
+            title={isStoreProduct ? "مواصفات المنتج" : "معلومات إضافية (اختياري)"}
+          />
         </div>
       )}
       
       {/* Condition - Only show for enabled categories */}
-      {isConditionEnabled(selectedMainCategoryName) && (
+      {!isStoreProduct && isConditionEnabled(selectedMainCategoryName) && (
         <div className="order-6 space-y-1">
           <label className="block text-sm font-medium text-gray-700">حالة المنتج</label>
           <div className="flex gap-2">
@@ -921,7 +978,7 @@ export default function AddProduct() {
       )}
       
       {/* Tags - Only for sell type */}
-      {adType === "sell" && availableTags.length > 0 && (
+      {!isStoreProduct && adType === "sell" && availableTags.length > 0 && (
         <div className="hidden">
           <label className="block text-sm font-medium text-gray-700">وسوم (اختياري)</label>
           <div className="flex flex-wrap gap-2">
@@ -950,7 +1007,7 @@ export default function AddProduct() {
       )}
       
       {/* Contact Info - Same for both types */}
-      <div className="order-10 space-y-3 rounded-lg border border-gray-200 p-4 bg-white">
+      {!isStoreProduct && <div className="order-10 space-y-3 rounded-lg border border-gray-200 p-4 bg-white">
         <h4 className="text-sm font-bold text-gray-700 mb-2">معلومات التواصل السريع</h4>
         <div className="flex items-center gap-2">
           <input
@@ -989,7 +1046,7 @@ export default function AddProduct() {
             onChange={(e) => setWhatsApp(e.target.value)}
           />
         )}
-      </div>
+      </div>}
       
       <div className="order-5 space-y-1">
         <label className="block text-sm font-medium text-gray-700">
@@ -1006,7 +1063,7 @@ export default function AddProduct() {
         <div className="text-left text-xs font-bold text-gray-400" dir="ltr">{description.length}/1000</div>
       </div>
 
-      <div className="order-9 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {!isStoreProduct && <div className="order-9 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div ref={formRefs.governorateId} className="space-y-1">
           <label className="block text-sm font-bold text-gray-700">
             المحافظة <span className="text-red-500 mr-1">*</span>
@@ -1044,7 +1101,7 @@ export default function AddProduct() {
           </div>
           {validationErrors.cityId && <p className="text-xs text-red-600 font-bold">{validationErrors.cityId}</p>}
         </div>
-      </div>
+      </div>}
 
       <div ref={formRefs.price} className="order-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1 col-span-1 sm:col-span-2">
@@ -1075,7 +1132,7 @@ export default function AddProduct() {
                 />
                 قابل للتفاوض
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              {!isStoreProduct && <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={priceOnContact}
@@ -1089,7 +1146,7 @@ export default function AddProduct() {
                   }}
                 />
                 السعر عند التواصل
-              </label>
+              </label>}
             </div>
           )}
 
@@ -1110,8 +1167,112 @@ export default function AddProduct() {
           />
         </div>
       </div>
+      {!priceOnContact && Number(price) > 0 && (
+        <CurrencyCalculator amount={price} currency={currency} />
+      )}
 
-      {AD_COMMISSION_ENABLED && adType === "sell" && !priceOnContact && Number(price) > 0 && (
+      {isStoreProduct && (
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">حالة المنتج <span className="text-red-500 mr-1">*</span></label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: true, label: "متوفر" },
+              { value: false, label: "غير متوفر" }
+            ].map((option) => (
+              <button
+                key={String(option.value)}
+                type="button"
+                aria-pressed={isAvailable === option.value}
+                onClick={() => setIsAvailable(option.value)}
+                className={`min-h-12 rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${isAvailable === option.value ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isStoreProduct && supportsDelivery && (
+        <label className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-950">
+          <input
+            type="checkbox"
+            checked={isAvailableForDelivery}
+            onChange={(event) => setIsAvailableForDelivery(event.target.checked)}
+            className="h-5 w-5 accent-amber-500"
+          />
+          متاح للتوصيل
+        </label>
+      )}
+      {isStoreProduct && supportsInventory && (
+        <section className="space-y-3 rounded-xl border border-violet-200 bg-violet-50 p-4">
+          <label className="flex items-center gap-3 text-sm font-bold text-violet-950">
+            <input
+              type="checkbox"
+              checked={inventoryEnabled}
+              onChange={(event) => setInventoryEnabled(event.target.checked)}
+              className="h-5 w-5 accent-violet-600"
+            />
+            تفعيل المخزون
+          </label>
+          {inventoryEnabled && (
+            <label className="block text-sm font-bold text-slate-700">
+              الكمية المتوفرة
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={stockQuantity}
+                onChange={(event) => setStockQuantity(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-violet-200 bg-white px-4 py-3"
+              />
+            </label>
+          )}
+        </section>
+      )}
+      {isStoreProduct && supportsDiscounts && (
+        <section className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <label className="flex items-center gap-3 text-sm font-bold text-rose-950">
+            <input
+              type="checkbox"
+              checked={discountEnabled}
+              onChange={(event) => setDiscountEnabled(event.target.checked)}
+              className="h-5 w-5 accent-rose-600"
+            />
+            خصم على المنتج
+          </label>
+          {discountEnabled && (
+            <>
+              <label className="block text-sm font-bold text-slate-700">
+                نوع الخصم
+                <select
+                  value={discountType}
+                  onChange={(event) => setDiscountType(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-rose-200 bg-white px-4 py-3"
+                >
+                  <option value="percentage">نسبة مئوية</option>
+                  <option value="fixed">مبلغ ثابت</option>
+                </select>
+              </label>
+              <label className="block text-sm font-bold text-slate-700">
+                {discountType === "percentage" ? "نسبة الخصم %" : `مبلغ الخصم (${currency})`}
+                <input
+                  type="number"
+                  min="1"
+                  max={discountType === "percentage" ? 99 : Number(price)}
+                  step={discountType === "percentage" ? "1" : "any"}
+                  value={discountValue}
+                  onChange={(event) => setDiscountValue(event.target.value)}
+                  required
+                  className="mt-2 w-full rounded-xl border border-rose-200 bg-white px-4 py-3"
+                />
+              </label>
+            </>
+          )}
+        </section>
+      )}
+
+      {AD_COMMISSION_ENABLED && !isStoreProduct && adType === "sell" && !priceOnContact && Number(price) > 0 && (
         <div className="order-8 mt-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-xs text-blue-900 sm:px-3 sm:py-2 sm:text-sm">
           <div className="font-semibold">عمولة المنصة على هذا الإعلان</div>
           <div className="text-[10px] sm:text-xs">نسبة العمولة: 1%</div>
@@ -1130,27 +1291,27 @@ export default function AddProduct() {
       
       <div ref={formRefs.files} className="order-4 space-y-1">
         <label className="block text-sm font-bold text-gray-700">
-          {t("addProduct.labels.images")} {adType !== "order" && <span className="text-red-500 mr-1">*</span>}
+          {isStoreProduct ? "صور المنتج" : t("addProduct.labels.images")} {adType !== "order" && !isStoreProduct && <span className="text-red-500 mr-1">*</span>}
         </label>
         <div className={`relative ${validationErrors.files ? "rounded-xl border-2 border-red-500 bg-red-50/30 p-1" : ""}`}>
           <input id="ad-images-input" className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleFiles} />
           <label htmlFor="ad-images-input" className="flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-700 transition hover:border-blue-500 hover:bg-blue-50">
-            إضافة صور الإعلان
+            {isStoreProduct ? "إضافة صور المنتج" : "إضافة صور الإعلان"}
           </label>
         </div>
         {validationErrors.files && <p className="text-xs text-red-600 font-bold">{validationErrors.files}</p>}
         <p className="text-xs text-gray-500">
-          {adType === "order" ? "يمكنك رفع صور توضيحية للمنتج الذي تطلبه (اختياري)." : "يفضل رفع صورة واحدة على الأقل، وحد أقصى 10 صور."}
+          {adType === "order" ? "يمكنك رفع صور توضيحية للمنتج الذي تطلبه (اختياري)." : isStoreProduct ? "يمكنك إضافة حتى 10 صور للمنتج." : "يفضل رفع صورة واحدة على الأقل، وحد أقصى 10 صور."}
         </p>
       </div>
       {previews.length > 0 && (
         <div className="order-4 mt-2 flex flex-wrap gap-3">
           {previews.map((src, i) => (
             <div key={src} className="relative">
-              <img src={src} alt={`صورة الإعلان ${i + 1}`} className="h-24 w-32 rounded-md object-cover" />
+              <img src={src} alt={`${isStoreProduct ? "صورة المنتج" : "صورة الإعلان"} ${i + 1}`} className="h-24 w-32 rounded-md object-cover" />
               <button
                 type="button"
-                aria-label={`حذف صورة الإعلان ${i + 1}`}
+                aria-label={`حذف ${isStoreProduct ? "صورة المنتج" : "صورة الإعلان"} ${i + 1}`}
                 onClick={() => removeFile(i)}
                 className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-lg font-bold leading-none text-white shadow-md transition-colors hover:bg-red-700"
               >
@@ -1162,7 +1323,7 @@ export default function AddProduct() {
       )}
 
       {/* Brokerage System */}
-      {adType === "sell" && brokerageEnabled && (
+      {!isStoreProduct && adType === "sell" && brokerageEnabled && (
         <div className="order-12 space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center gap-2">
             <input
@@ -1252,17 +1413,17 @@ export default function AddProduct() {
 
       {(prepareStatus || isPreparingImages || loading) && (
         <div className="order-12 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900">
-          {prepareStatus || (loading ? "جارٍ النشر..." : "جارٍ تجهيز الصور...")}
+          {prepareStatus || (loading ? (isStoreProduct ? "جارٍ حفظ المنتج..." : "جارٍ النشر...") : "جارٍ تجهيز الصور...")}
         </div>
       )}
 
       {/* Submit Button */}
       <button 
+        type="submit"
         className="order-[13] w-full h-16 rounded-[2rem] bg-gray-900 text-white font-black text-lg hover:bg-black disabled:opacity-50 transition-all shadow-2xl active:scale-[0.98]" 
         disabled={loading || isPreparingImages || !!blockErr} 
-        onClick={submit}
       >
-        {isPreparingImages ? "جارٍ تجهيز الصور..." : loading ? "جارٍ النشر..." : "نشر الإعلان الآن"}
+        {isPreparingImages ? "جارٍ تجهيز الصور..." : loading ? (isStoreProduct ? "جارٍ حفظ المنتج..." : "جارٍ النشر...") : isStoreProduct ? "إضافة المنتج" : "نشر الإعلان الآن"}
       </button>
       {showAfterPublishModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
@@ -1275,15 +1436,15 @@ export default function AddProduct() {
               </div>
             </div>
             <p className="text-center font-bold text-gray-900 text-lg mb-2">
-              {adType === "order" ? "تم نشر طلب الشراء بنجاح!" : "تم نشر الإعلان بنجاح!"}
+              {isStoreProduct ? "تمت إضافة المنتج بنجاح!" : adType === "order" ? "تم نشر طلب الشراء بنجاح!" : "تم نشر الإعلان بنجاح!"}
             </p>
             <p className="text-center text-sm text-gray-500 mb-8">
-              {adType === "order" 
-                ? "سيتم مراجعة طلبك من قبل الإدارة وسيظهر للجميع فور الموافقة عليه." 
+              {isStoreProduct ? "سيظهر المنتج في متجرك بعد مراجعته." : adType === "order"
+                ? "سيتم مراجعة طلبك من قبل الإدارة وسيظهر للجميع فور الموافقة عليه."
                 : "سيتم مراجعة إعلانك من قبل الإدارة في أقرب وقت."}
             </p>
             <div className="flex flex-col gap-3">
-              <Link
+              {!isStoreProduct && <Link
                 to="/seller/subscriptions"
                 className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-3.5 text-center text-sm font-black text-white hover:shadow-xl hover:shadow-orange-200 transition-all active:scale-95"
               >
@@ -1292,16 +1453,16 @@ export default function AddProduct() {
                   <span>بيع أسرع! ميز إعلانك الآن</span>
                 </div>
                 <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 skew-x-12"></div>
-              </Link>
+              </Link>}
               <button
                 type="button"
                 onClick={() => {
                   setShowAfterPublishModal(false);
-                  navigate("/my-ads");
+                  navigate(isStoreProduct ? storeDashboardPath : "/my-ads");
                 }}
                 className="rounded-xl border-2 border-gray-100 bg-gray-50/50 px-5 py-3 text-sm font-bold text-gray-700 hover:bg-white hover:border-gray-200 transition-all"
               >
-                عرض إعلاناتي
+                {isStoreProduct ? "العودة إلى منتجات المتجر" : "عرض إعلاناتي"}
               </button>
             </div>
           </div>

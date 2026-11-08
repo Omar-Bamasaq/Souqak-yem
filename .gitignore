@@ -12,20 +12,51 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+**/.env
+**/.env.*
+!**/.env.example
+**/*.env
+**/.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # Database data (Local Storage)
 backend/mongodb_data/
+**/mongodb_data/
+**/database-backups/
+**/db-backups/
+**/mongo-backups/
 
 # Logs
 backend/logs/*.log
 npm-debug.log*
+logs/
+**/logs/
+*.log
+*buildlog*
 
 # User Uploads (Local media)
+uploads/
 backend/uploads/
 !backend/uploads/.gitkeep
 !backend/uploads/categories/
 !backend/uploads/categories/*
 backend/private_uploads/
+**/private_uploads/
+**/private-documents/
+**/private_documents/
+**/documents/private/
+**/identity-documents/
+**/identity_documents/
+**/identity-docs/
+**/identity_docs/
+**/identity/
+**/identities/
+**/deeds/
 
 # IDE files
 .vscode/
@@ -40,3 +71,31 @@ Thumbs.db
 # Build outputs
 frontend/dist/
 frontend/build/
+**/dist/
+**/build/
+backend/vapid-new-keys.txt
+**/vapid-private*.txt
+backend/exports/production-data/
+**/production-data/
+**/backups/
+**/backup/
+*.dump
+*.bson
+*.archive
+*.sql
+*.zip
+*.7z
+*.sqlite
+*.sqlite3
+*.db
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.tar.gz
+*~
+
+# Temporary frontend prerender builds
+/frontend/.dist-prerender-*/
+/frontend/..dist-prerender-*/

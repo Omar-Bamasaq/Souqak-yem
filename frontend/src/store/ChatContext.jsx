@@ -3,7 +3,8 @@ import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext.jsx";
 import { useApi } from "../api/axios.js";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin || "https://api.souqak-yem.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || new URL(API_URL, window.location.origin).origin;
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
@@ -11,7 +12,9 @@ export function ChatProvider({ children }) {
   const api = useApi();
   const [unread, setUnread] = useState(0);
   const [socket, setSocket] = useState(null);
+  const [socketAuthenticated, setSocketAuthenticated] = useState(false);
   const activeProductRef = useRef(null);
+  const activeChatRef = useRef(null);
 
   const fetchUnreadCount = async () => {
     if (!user) return;
@@ -32,6 +35,13 @@ export function ChatProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
+    if (!user && socket) {
+      setSocketAuthenticated(false);
+      socket.disconnect();
+      setSocket(null);
+      return;
+    }
+
     if (!socket && user) {
       const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
@@ -39,11 +49,14 @@ export function ChatProvider({ children }) {
       });
 
       newSocket.on("connect", () => {
+        setSocketAuthenticated(false);
         const uid = user?.id || user?._id;
         if (uid) {
           newSocket.emit("join_user", { userId: uid });
         }
       });
+      newSocket.on("socket:authenticated", () => setSocketAuthenticated(true));
+      newSocket.on("disconnect", () => setSocketAuthenticated(false));
 
       newSocket.on("chat:new_message", (payload) => {
         const { productId, message } = payload || {};
@@ -97,9 +110,16 @@ export function ChatProvider({ children }) {
     }
   }, [user, socket]);
 
-  const join = (productId) => {
+  useEffect(() => {
+    if (socketAuthenticated && activeChatRef.current) {
+      socket?.emit("join", { chatId: activeChatRef.current.chatId });
+    }
+  }, [socket, socketAuthenticated]);
+
+  const join = (chatId, productId) => {
     activeProductRef.current = productId;
-    socket?.emit("join", { productId });
+    activeChatRef.current = { chatId };
+    if (socketAuthenticated) socket?.emit("join", { chatId });
     setUnread(0);
   };
 
@@ -107,11 +127,15 @@ export function ChatProvider({ children }) {
   useEffect(() => {
     const uid = user?.id || user?._id;
     if (uid && socket && socket.connected) {
+      setSocketAuthenticated(false);
       socket.emit("join_user", { userId: uid });
     }
   }, [user, socket]);
 
-  const value = useMemo(() => ({ socket, unread, setUnread, join }), [socket, unread]);
+  const value = useMemo(
+    () => ({ socket, socketAuthenticated, unread, setUnread, join }),
+    [socket, socketAuthenticated, unread]
+  );
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 

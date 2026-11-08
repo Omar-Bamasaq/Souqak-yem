@@ -5,6 +5,7 @@ import { useCategoryApi } from "../api/categories.js";
 import { useApi } from "../api/axios.js";
 import { useMainCategories } from "../hooks/useMainCategories.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
+import useModalHistory from "../hooks/useModalHistory.js";
 import MobileSelect from "./MobileSelect.jsx";
 
 function buildFilters(initialFilters = {}, preSelectedCategory = null) {
@@ -39,6 +40,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
   const { data: governorates = [] } = useGovernorates();
   
   const [filters, setFilters] = useState(buildFilters(initialFilters, preSelectedCategory));
+  const closeModal = useModalHistory(isOpen, onClose);
 
   const [subCategories, setSubCategories] = useState([]);
   const [cities, setCities] = useState([]);
@@ -50,6 +52,19 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
     setFilters(buildFilters(initialFilters, preSelectedCategory));
     setAttributeValues({});
   }, [isOpen, initialFilters, preSelectedCategory]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && !document.querySelector(".mobile-select-sheet")) {
+        closeModal();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, closeModal]);
 
   useEffect(() => {
     if (filters.categoryId) {
@@ -133,8 +148,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
       if (value) params.append(`attr_${key}`, value);
     });
 
-    navigate(`/search?${params.toString()}`);
-    onClose();
+    closeModal(() => navigate(`/search?${params.toString()}`));
   };
 
   const handleReset = () => {
@@ -145,15 +159,15 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div className="advanced-search-overlay fixed inset-0 bg-black/50 z-[99999] flex items-end justify-center p-0 sm:items-center sm:p-4" onClick={() => closeModal()}>
       <div 
-        className="bg-white rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col w-[95%] max-w-xl max-h-[90vh] overflow-hidden relative border border-gray-100"
+        className="advanced-search-sheet bg-white rounded-t-[2rem] shadow-xl sm:rounded-[2rem] flex flex-col w-full sm:w-[95%] max-w-xl max-h-[90vh] overflow-hidden relative border border-gray-100"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative flex items-center justify-center py-3 border-b flex-shrink-0 bg-white z-10">
           <h2 className="text-sm font-black text-gray-900">البحث المتقدم</h2>
           <button 
-            onClick={onClose} 
+            onClick={() => closeModal()}
             className="absolute left-2 top-2 p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -167,7 +181,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 px-1">كلمة البحث</label>
             <div className="relative">
               <input
-                type="text"
+                type="search"
                 value={filters.q}
                 onChange={(e) => setFilters({ ...filters, q: e.target.value })}
                 placeholder="ابحث عن سيارة، جوال، عقار..."

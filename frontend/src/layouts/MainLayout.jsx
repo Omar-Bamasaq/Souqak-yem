@@ -10,8 +10,11 @@ import CommissionReminderBar from "../components/CommissionReminderBar.jsx";
 import PendingReviewModal from "../components/PendingReviewModal.jsx";
 import SmartFollowUpModal from "../components/SmartFollowUpModal.jsx";
 import FloatingAdhkar from "../components/FloatingAdhkar.jsx";
+import InterstitialCampaign from "../components/InterstitialCampaign.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
 import { AD_COMMISSION_ENABLED } from "../config/commission.js";
+import ServiceFeatureCarousel from "../components/ServiceFeatureCarousel.jsx";
+import { getServicePageBanner } from "../lib/serviceFeatureBanners.js";
 
 const getOrCreateVisitorId = () => {
   const key = "souqak_visitor_id";
@@ -50,11 +53,14 @@ export default function MainLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const isMessagesRoute = location.pathname.startsWith("/messages");
+  const serviceBanner = getServicePageBanner(location.pathname);
+  const hasDedicatedBackLink = location.pathname.startsWith("/wallet-services/order/")
+    || location.pathname === "/wallet-services/custom-order";
   const [isChatRoom, setIsChatRoom] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return Boolean(params.get("c") || params.get("am") || params.get("direct"));
   });
-  const showBack = location.pathname !== "/" && !location.pathname.startsWith("/admin");
+  const showBack = location.pathname !== "/" && !location.pathname.startsWith("/admin") && !hasDedicatedBackLink;
   const trackedVisitorRef = useRef(false);
 
   const [toast, setToast] = useState({ open: false, message: "", type: "info" });
@@ -107,7 +113,7 @@ export default function MainLayout() {
   }, [user]);
   
   return (
-    <div className={`relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 ${isChatRoom ? "overflow-hidden pt-[60px] md:pt-[70px]" : "pb-20 pt-[60px] md:pb-0 md:pt-[70px]"} dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`}>
+    <div className={`app-shell ${isChatRoom ? "app-shell--chat" : ""} relative min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-slate-50 ${isChatRoom ? "overflow-hidden pt-[60px] md:pt-[70px]" : "pb-20 pt-[60px] md:pb-0 md:pt-[70px]"} dark:from-slate-950 dark:via-slate-900 dark:to-slate-950`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-blue-600/10 to-transparent" />
       {loading && (
         <div className="fixed top-20 right-4 z-50">
@@ -124,6 +130,7 @@ export default function MainLayout() {
       <NotificationPrompt />
       <PWAInstallPrompt />
       <CookieConsent />
+      <InterstitialCampaign />
       {user && (
         <>
           <PendingReviewModal />
@@ -131,9 +138,9 @@ export default function MainLayout() {
         </>
       )}
 
-      <main className={`relative mx-auto ${isChatRoom ? "h-[calc(100vh-120px)] w-full max-w-none px-0 py-0" : "max-w-6xl px-4 py-6 min-h-[calc(100vh-160px)]"}`}>
+      <main className={`app-main relative mx-auto ${isChatRoom ? "flex h-[calc(100dvh-60px-env(safe-area-inset-top,0px))] min-h-0 w-full max-w-none flex-col px-0 py-0 md:h-[calc(100dvh-70px)]" : "max-w-6xl px-3 py-4 sm:px-4 sm:py-6 min-h-[calc(100vh-160px)]"}`}>
         {showBack && !isChatRoom && (
-          <div className="mb-6">
+          <div className="mb-3 sm:mb-6">
             <button 
               onClick={() => window.history.back()}
               className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all active:scale-95"
@@ -145,7 +152,10 @@ export default function MainLayout() {
             </button>
           </div>
         )}
-        <Outlet />
+        {!isChatRoom && serviceBanner && location.pathname !== "/seller/subscriptions" && (
+          <ServiceFeatureCarousel variant="service" className="mb-4 sm:mb-6" />
+        )}
+        <div id="service-page-content" className={isChatRoom ? "min-h-0 flex-1 overflow-hidden" : ""}><Outlet /></div>
       </main>
 
       {!isChatRoom && (

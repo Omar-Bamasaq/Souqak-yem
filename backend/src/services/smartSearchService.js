@@ -1,4 +1,5 @@
 import Ad from "../models/Ad.js";
+import { applyPublicStoreFilter, getPublicStoreProfileIds } from "../utils/storePublicVisibility.js";
 import mongoose from "mongoose";
 
 /**
@@ -568,15 +569,17 @@ class SmartSearchService {
     const predictedCategoryIds = originalQuery ? await this.predictCategories(originalQuery) : [];
 
     // Check cache
+    const publicStoreProfileIds = await getPublicStoreProfileIds();
     const cacheParams = {
       originalQuery, categoryId, subCategoryId, governorateId, cityId,
       minPrice, maxPrice, conditions: finalCondition, page, limit, sort: finalSort,
-      verifiedOnly, featuredOnly, userLat, userLng, userId, adType: finalAdType
+      verifiedOnly, featuredOnly, userLat, userLng, userId, adType: finalAdType,
+      publicStoreProfileIds: publicStoreProfileIds.map(String).sort()
     };
     const cacheKey = this.getCacheKey(cacheParams);
     const cachedResult = this.getCachedResult(cacheKey);
     
-    if (cachedResult) {
+    if (cachedResult && !cachedResult.items?.some((item) => item.storeProfileId)) {
       return {
         ...cachedResult,
         fromCache: true,
@@ -587,13 +590,14 @@ class SmartSearchService {
     }
 
     // Build base filter
-    const filter = {
+    let filter = {
       status: "approved",
       expiresAt: { $gt: new Date() },
       isArchived: { $ne: true },
       sold: { $ne: true },
       isDeleted: { $ne: true }
     };
+    filter = applyPublicStoreFilter(filter, publicStoreProfileIds);
 
     // Find categories that match the query
     let searchCategoryIds = [];
@@ -720,6 +724,7 @@ class SmartSearchService {
         }
       })
       .populate("userId", "isVerifiedSeller isTrustedReseller name avatar sellerRating sellerReviewsCount")
+      .populate("storeProfileId", "storeName slug logo businessActivity storeType status")
       .lean();
 
     // Filter by conditions

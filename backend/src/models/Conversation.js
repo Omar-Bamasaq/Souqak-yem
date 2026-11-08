@@ -8,6 +8,8 @@ const conversationSchema = new mongoose.Schema(
     title: { type: String },
     disputeId: { type: mongoose.Schema.Types.ObjectId, ref: "Dispute", index: true },
     adId: { type: mongoose.Schema.Types.ObjectId, required: false, ref: "Ad", index: true },
+    adModel: { type: String, enum: ["Ad"], default: "Ad" },
+    mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: "Conversation" },
     favoriteNotice: {
       text: { type: String },
       actorName: { type: String },

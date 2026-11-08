@@ -1,69 +1,12 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
-import { useAuth } from "../store/AuthContext.jsx";
 import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
-import axios from "axios";
-
-function uploadsBaseUrl() {
-  let envUrl = import.meta.env.VITE_UPLOADS_URL;
-  if (!envUrl) {
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    envUrl = apiBase.replace(/\/api$/, "").replace(/\/$/, "") + "/uploads";
-  }
-  if (envUrl.endsWith("/uploads")) return envUrl;
-  return envUrl.endsWith("/") ? `${envUrl}uploads` : `${envUrl}/uploads`;
-}
-const SENSITIVE_KWS = ["receipts", "ids", "kyc", "documents"];
-function protectedFileUrl(filename, token) {
-  if (!filename) return "";
-  if (filename.startsWith("http")) return filename;
-  let clean = filename;
-  if (filename.startsWith("/uploads/")) clean = filename.replace("/uploads/", "");
-  else if (filename.startsWith("uploads/")) clean = filename.replace("uploads/", "");
-  const base = `${uploadsBaseUrl()}/${clean}`;
-  const isSensitive = SENSITIVE_KWS.some(kw => {
-    const c = clean.toLowerCase().replace(/\\/g, "/");
-    return c.startsWith(kw + "/") || c.includes("/" + kw + "/") || c === kw;
-  });
-  if (!isSensitive) return base;
-  if (!token) return base;
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
-}
+import { normalizeProtectedFilePath, useProtectedFiles } from "../lib/protectedFiles.js";
 
 const ID_PLACEHOLDER = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#f9fafb"/><circle cx="400" cy="200" r="60" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/><text x="400" y="230" font-family="Arial,sans-serif" font-size="72" font-weight="bold" fill="#dc2626" text-anchor="middle">!</text><text x="400" y="320" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#7f1d1d" text-anchor="middle">الصورة غير متوفرة</text><text x="400" y="370" font-family="Arial,sans-serif" font-size="16" fill="#991b1b" text-anchor="middle">تعذر تحميل مستند الهوية</text></svg>`);
 
-async function fetchProtectedImageBlob(filePath, token) {
-  if (!filePath || !token) return null;
-  try {
-    const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    let base = envBase.replace(/\/$/, "");
-    if (!base.endsWith("/api")) base = `${base}/api`;
-    const upBase = base.replace(/\/api$/, "") + "/uploads";
-    let clean = filePath;
-    if (filePath.startsWith("/uploads/")) clean = filePath.replace("/uploads/", "");
-    else if (filePath.startsWith("uploads/")) clean = filePath.replace("uploads/", "");
-    const fileUrl = `${upBase}/${clean}`;
-    const res = await axios.get(fileUrl, {
-      responseType: "blob",
-      timeout: 60000,
-      withCredentials: true,
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.data && res.data.type && res.data.type.includes("svg")) {
-      const text = await res.data.text();
-      if (text.includes("تسجيل الدخول مطلوب") || text.includes("وصول مرفوض")) return null;
-    }
-    return URL.createObjectURL(res.data);
-  } catch (err) {
-    console.error("[AdminVerificationRequests] blob fetch failed:", err.message);
-    return null;
-  }
-}
-
 export default function AdminVerificationRequests() {
   const api = useApi();
-  const { token: authToken } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState(null);
@@ -145,11 +88,17 @@ export default function AdminVerificationRequests() {
   };
 
   const req = requests.find((r) => r._id === openId);
+  const { urls: protectedFileUrls, contentTypes: protectedFileContentTypes, errors: protectedFileErrors, loading: protectedFilesLoading } = useProtectedFiles(api, [
+    req?.idFrontImage,
+    req?.idBackImage,
+    req?.selfieImage
+  ]);
+  const previewUrl = protectedFileUrls[normalizeProtectedFilePath(previewDoc)] || null;
 
-  const openPreview = (src, title) => {
-    if (!src) return;
+  const openPreview = (path, title) => {
+    if (!path) return;
     setPreviewTitle(title);
-    setPreviewDoc(src);
+    setPreviewDoc(path);
   };
 
   return (
@@ -254,7 +203,15 @@ export default function AdminVerificationRequests() {
         </div>
       )}
 
-      <DocumentPreviewModal isOpen={!!previewDoc} src={previewDoc} onClose={() => setPreviewDoc(null)} title={previewTitle} />
+      <DocumentPreviewModal
+        isOpen={!!previewDoc}
+        src={previewUrl}
+        onClose={() => setPreviewDoc(null)}
+        title={previewTitle}
+        contentType={protectedFileContentTypes[normalizeProtectedFilePath(previewDoc)]}
+        loading={protectedFilesLoading}
+        error={protectedFileErrors[normalizeProtectedFilePath(previewDoc)]}
+      />
 
       {/* Details Modal */}
       {openId && req && (
@@ -362,8 +319,8 @@ export default function AdminVerificationRequests() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 sm:gap-6">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">الهوية (الوجه الأمامي)</p>
-                    <button type="button" onClick={() => openPreview(protectedFileUrl(req.idFrontImage, authToken), "الهوية (الوجه الأمامي)")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
-                      <img src={protectedFileUrl(req.idFrontImage, authToken)} alt="ID Front" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" onError={(e) => { e.target.onerror = null; e.target.src = ID_PLACEHOLDER; }} />
+                    <button type="button" onClick={() => openPreview(req.idFrontImage, "الهوية (الوجه الأمامي)")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
+                      <img src={protectedFileUrls[normalizeProtectedFilePath(req.idFrontImage)] || ID_PLACEHOLDER} alt="ID Front" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
                     </button>
                   </div>
@@ -371,8 +328,8 @@ export default function AdminVerificationRequests() {
                   {req.idBackImage && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">الهوية (الوجه الخلفي)</p>
-                      <button type="button" onClick={() => openPreview(protectedFileUrl(req.idBackImage, authToken), "الهوية (الوجه الخلفي)")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
-                        <img src={protectedFileUrl(req.idBackImage, authToken)} alt="ID Back" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" onError={(e) => { e.target.onerror = null; e.target.src = ID_PLACEHOLDER; }} />
+                      <button type="button" onClick={() => openPreview(req.idBackImage, "الهوية (الوجه الخلفي)")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
+                        <img src={protectedFileUrls[normalizeProtectedFilePath(req.idBackImage)] || ID_PLACEHOLDER} alt="ID Back" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
                       </button>
                     </div>
@@ -381,8 +338,8 @@ export default function AdminVerificationRequests() {
                   {req.selfieImage && (
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-gray-400 px-1 uppercase tracking-tighter">صورة سيلفي مع الهوية</p>
-                      <button type="button" onClick={() => openPreview(protectedFileUrl(req.selfieImage, authToken), "صورة selfie مع الهوية")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
-                        <img src={protectedFileUrl(req.selfieImage, authToken)} alt="Selfie" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" onError={(e) => { e.target.onerror = null; e.target.src = ID_PLACEHOLDER; }} />
+                      <button type="button" onClick={() => openPreview(req.selfieImage, "صورة selfie مع الهوية")} className="block w-full rounded-2xl border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md transition-all group relative aspect-video sm:aspect-auto text-left">
+                        <img src={protectedFileUrls[normalizeProtectedFilePath(req.selfieImage)] || ID_PLACEHOLDER} alt="Selfie" className="w-full h-auto object-cover max-h-[250px] min-h-[150px]" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-xs">تكبير الصورة 🔍</div>
                       </button>
                     </div>

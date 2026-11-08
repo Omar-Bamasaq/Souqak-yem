@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { ensureCsrfToken } from "../api/csrf.js";
 
 const AuthContext = createContext(null);
 
@@ -14,10 +15,12 @@ export function AuthProvider({ children }) {
       const envBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       let base = envBase.replace(/\/$/, "");
       if (!base.endsWith("/api")) base = `${base}/api`;
+      const csrfToken = await ensureCsrfToken();
 
       const refreshRes = await axios.post(`${base}/auth/refresh-token`, {}, {
         withCredentials: true,
-        timeout: 8000
+        timeout: 8000,
+        headers: { "X-CSRF-Token": csrfToken }
       });
 
       const newToken = refreshRes.data.token;

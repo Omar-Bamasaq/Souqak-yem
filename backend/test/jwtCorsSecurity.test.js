@@ -2,7 +2,11 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import cors from "cors";
-import { corsOptions } from "../src/config/cors.js";
+import {
+  corsOptions,
+  isAllowedCorsOrigin,
+  socketAllowRequest
+} from "../src/config/cors.js";
 
 const jwtSecretNames = [
   "JWT_ACCESS_SECRET",
@@ -14,11 +18,11 @@ const jwtSecretNames = [
   "REFRESH_SECRET"
 ];
 const originalNodeEnv = process.env.NODE_ENV;
-process.env.NODE_ENV = "test";
 const originalJwtSecrets = new Map(
   jwtSecretNames.map((name) => [name, process.env[name]])
 );
 
+process.env.NODE_ENV = "test";
 for (const name of jwtSecretNames) process.env[name] = "";
 process.env.JWT_ACCESS_SECRET = "test-access-secret-not-for-production";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret-not-for-production";
@@ -34,13 +38,23 @@ after(() => {
   }
 });
 
+function withNodeEnv(value, callback) {
+  const original = process.env.NODE_ENV;
+  process.env.NODE_ENV = value;
+  try {
+    return callback();
+  } finally {
+    if (original === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = original;
+  }
+}
+
 function invokeCors(origin, { method = "GET", requestedHeaders } = {}) {
   const headers = new Map();
   let responseEnded = false;
   let nextError;
-  const middleware = cors(corsOptions);
 
-  middleware(
+  cors(corsOptions)(
     {
       headers: {
         ...(origin ? { origin } : {}),
@@ -68,14 +82,8 @@ function invokeCors(origin, { method = "GET", requestedHeaders } = {}) {
 }
 
 test("JWT secrets use configured variables and reject missing values", () => {
-  assert.equal(
-    jwtConfig.getAccessTokenSecret(),
-    "test-access-secret-not-for-production"
-  );
-  assert.equal(
-    jwtConfig.getRefreshTokenSecret(),
-    "test-refresh-secret-not-for-production"
-  );
+  assert.equal(jwtConfig.getAccessTokenSecret(), "test-access-secret-not-for-production");
+  assert.equal(jwtConfig.getRefreshTokenSecret(), "test-refresh-secret-not-for-production");
 
   for (const name of jwtSecretNames) process.env[name] = "";
   assert.throws(jwtConfig.getAccessTokenSecret, /access token secret is required/i);
@@ -96,19 +104,35 @@ test("JWT config import fails when access or refresh secrets are absent", () => 
   assert.doesNotMatch(result.stdout + result.stderr, /access_dev_secret|refresh_dev_secret/);
 });
 
-test("CORS preserves configured production and localhost origins", () => {
-  for (const origin of [
-    "https://souqak-yem.com",
-    "https://www.souqak-yem.com",
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:9000"
-  ]) {
-    const result = invokeCors(origin);
-    assert.equal(result.nextError, undefined, origin);
-    assert.equal(result.headers.get("access-control-allow-origin"), origin);
-    assert.equal(result.headers.get("access-control-allow-credentials"), "true");
-  }
+test("CORS permits configured origins and localhost only outside production", () => {
+  withNodeEnv("development", () => {
+    for (const origin of [
+      "https://souqak-yem.com",
+      "https://www.souqak-yem.com",
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:9000"
+    ]) {
+      const result = invokeCors(origin);
+      assert.equal(result.nextError, undefined, origin);
+      assert.equal(result.headers.get("access-control-allow-origin"), origin);
+      assert.equal(result.headers.get("access-control-allow-credentials"), "true");
+    }
+  });
+});
+
+test("CORS rejects preview and localhost origins in production", () => {
+  withNodeEnv("production", () => {
+    for (const origin of [
+      "https://souqak-beta.vercel.app",
+      "https://preview-123.vercel.app",
+      "http://localhost:5173"
+    ]) {
+      const result = invokeCors(origin);
+      assert.match(result.nextError?.message || "", /Origin not allowed by CORS/);
+      assert.equal(result.headers.has("access-control-allow-origin"), false);
+    }
+  });
 });
 
 test("CORS rejects untrusted origins without credential or allow-origin headers", () => {
@@ -126,21 +150,11 @@ test("CORS rejects untrusted origins without credential or allow-origin headers"
   }
 });
 
-test("CORS rejects localhost origins in production", () => {
-  process.env.NODE_ENV = "production";
-  try {
-    assert.equal(invokeCors("http://localhost:5173").nextError?.message, "Origin not allowed by CORS");
-  } finally {
-    process.env.NODE_ENV = "test";
-  }
-});
-
 test("CORS permits requests without an Origin header without an allow-origin header", () => {
   const result = invokeCors(undefined);
-
   assert.equal(result.nextError, undefined);
   assert.equal(result.headers.has("access-control-allow-origin"), false);
-  assert.equal(result.headers.has("access-control-allow-credentials"), true);
+  assert.equal(result.headers.get("access-control-allow-credentials"), "true");
 });
 
 test("CORS preflight permits the wallet-service idempotency header", () => {
@@ -154,4 +168,30 @@ test("CORS preflight permits the wallet-service idempotency header", () => {
   assert.equal(result.headers.get("access-control-allow-origin"), "http://localhost:5173");
   assert.match(result.headers.get("access-control-allow-methods") || "", /\bPOST\b/);
   assert.match(result.headers.get("access-control-allow-headers") || "", /\bIdempotency-Key\b/i);
+});
+
+test("Socket origin policy rejects absent and untrusted origins", () => {
+  withNodeEnv("production", () => {
+    for (const origin of [undefined, "http://localhost:5173", "https://attacker.example"]) {
+      let decision;
+      socketAllowRequest({ headers: origin ? { origin } : {} }, (_error, allowed) => {
+        decision = allowed;
+      });
+      assert.equal(decision, false);
+    }
+  });
+});
+
+test("Socket origin policy permits trusted production origin and development localhost", () => {
+  withNodeEnv("production", () => {
+    assert.equal(isAllowedCorsOrigin("https://souqak-yem.com"), true);
+    let decision;
+    socketAllowRequest({ headers: { origin: "https://souqak-yem.com" } }, (_error, allowed) => {
+      decision = allowed;
+    });
+    assert.equal(decision, true);
+  });
+  withNodeEnv("development", () => {
+    assert.equal(isAllowedCorsOrigin("http://localhost:5173"), true);
+  });
 });

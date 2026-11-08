@@ -14,7 +14,8 @@ import {
   releaseBalance, 
   refundAvailableBalance, 
   adminAdjustBalance, 
-  removePendingBalance 
+  removePendingBalance,
+  withFinancialTransaction
 } from "../services/walletService.js";
 import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
@@ -32,7 +33,7 @@ router.use(auth, requireRole(["admin"]));
 router.get("/orders", async (req, res) => {
   try {
     const { status, page = 1, limit = 20, includeDeleted } = req.query;
-    const filter = {};
+    const filter = { orderType: { $ne: "store" }, storeProfileId: null };
     
     if (status) {
       filter.status = status;
@@ -65,30 +66,68 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   async (req, res) => {
     try {
-      // استخدام findOneAndUpdate مع الحالة لضمان عدم التكرار (Idempotency)
-      const order = await Order.findOneAndUpdate(
-        { _id: req.params.id, status: "AWAITING_PAYMENT_CONFIRMATION" },
-        { 
-          status: "PAID_CONFIRMED",
-          verifiedByAdminId: req.user.id,
-          verifiedAt: new Date()
-        },
-        { new: true }
-      );
+      const eligibleOrder = await Order.findOne({
+        _id: req.params.id,
+        orderType: { $ne: "store" },
+        storeProfileId: null,
+        status: "AWAITING_PAYMENT_CONFIRMATION"
+      }).lean();
+      if (!eligibleOrder) return res.status(400).json({ error: "الطلب غير موجود أو تم معالجته مسبقاً." });
 
-      if (!order) {
-          // قد يكون الطلب غير موجود أو تم تأكيده مسبقاً من مسؤول آخر
-          return res.status(400).json({ error: "الطلب غير موجود أو تم معالجته مسبقاً." });
-      }
+      const order = await withFinancialTransaction(async (session) => {
+        const claimedOrder = await Order.findOneAndUpdate(
+          {
+            _id: req.params.id,
+            orderType: { $ne: "store" },
+            storeProfileId: null,
+            status: "AWAITING_PAYMENT_CONFIRMATION"
+          },
+          {
+            $set: {
+              status: "PAID_CONFIRMED",
+              verifiedByAdminId: req.user.id,
+              verifiedAt: new Date()
+            }
+          },
+          { new: true, session }
+        );
 
-      // تسجيل العملية في سجل الإدارة
-      await AdminEscrowLog.create({
-        admin: req.user.id,
-        actionType: "CONFIRM_PAYMENT",
-        targetType: "Order",
-        targetId: order._id,
-        ipAddress: req.ip
+        if (!claimedOrder) return null;
+        if (!claimedOrder.seller) throw new Error("بيانات البائع غير متوفرة في الطلب.");
+
+        const productAmount = Number(claimedOrder.sellerAmount) || 0;
+        await addPendingBalance(
+          claimedOrder.seller,
+          productAmount,
+          `إضافة رصيد معلق للمنتج #${claimedOrder._id}`,
+          claimedOrder.currency,
+          claimedOrder._id,
+          { session, operationKey: "PRODUCT" }
+        );
+
+        if (claimedOrder.shippingFee > 0 && claimedOrder.shippingPayer === "buyer") {
+          await addPendingBalance(
+            claimedOrder.seller,
+            claimedOrder.shippingFee,
+            `إضافة رصيد شحن معلق للطلب #${claimedOrder._id}`,
+            claimedOrder.shippingCurrency,
+            claimedOrder._id,
+            { session, operationKey: "SHIPPING" }
+          );
+        }
+
+        await AdminEscrowLog.create([{
+          admin: req.user.id,
+          actionType: "CONFIRM_PAYMENT",
+          targetType: "Order",
+          targetId: claimedOrder._id,
+          ipAddress: req.ip
+        }], { session });
+
+        return claimedOrder;
       });
+
+      if (!order) return res.status(400).json({ error: "الطلب غير موجود أو تم معالجته مسبقاً." });
 
       // تحديث حالة الإعلان (Listing Visibility Logic)
       try {
@@ -100,35 +139,6 @@ router.patch(
         });
       } catch (adErr) {
         console.error("Failed to update ad visibility on payment confirm:", adErr);
-      }
-
-      // إضافة رصيد معلق للبائع
-      try {
-        if (!order.seller) {
-          throw new Error("بيانات البائع غير متوفرة في الطلب.");
-        }
-        
-        // 1. إضافة رصيد المنتج
-        const productAmount = Number(order.sellerAmount) || 0;
-        await addPendingBalance(order.seller, productAmount, `إضافة رصيد معلق للمنتج #${order._id}`, order.currency, order._id);
-        
-        // 2. إضافة رصيد الشحن (كعملية منفصلة دائماً إذا كان المشتري هو من يدفعه)
-        if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-          await addPendingBalance(order.seller, order.shippingFee, `إضافة رصيد شحن معلق للطلب #${order._id}`, order.shippingCurrency, order._id);
-        }
-      } catch (walletErr) {
-        console.error("Wallet pending balance update failed:", walletErr);
-        // نرجع حالة الطلب كما كانت إذا فشل تحديث المحفظة
-        try {
-          order.status = "AWAITING_PAYMENT_CONFIRMATION";
-          await order.save();
-        } catch (revertErr) {
-          console.error("Critical: Failed to revert order status in adminEscrow:", revertErr);
-        }
-        return res.status(500).json({ 
-          error: "فشل تحديث رصيد البائع في المحفظة.",
-          details: walletErr.message 
-        });
       }
 
       // إشعار للبائع
@@ -177,13 +187,20 @@ router.patch(
     try {
       const currentOrder = await Order.findOne({
         _id: req.params.id,
+        orderType: { $ne: "store" },
+        storeProfileId: null,
         status: "AWAITING_PAYMENT_CONFIRMATION"
       }).lean();
 
       if (!currentOrder) return res.status(400).json({ error: "الطلب غير موجود أو معالج مسبقاً." });
 
-      const order = await Order.findByIdAndUpdate(
-        req.params.id,
+      const order = await Order.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          orderType: { $ne: "store" },
+          storeProfileId: null,
+          status: "AWAITING_PAYMENT_CONFIRMATION"
+        },
         {
           status: "AWAITING_PAYMENT",
           verifiedByAdminId: req.user.id,
@@ -398,7 +415,9 @@ router.get("/disputes", async (req, res) => {
       .populate("openedBy", "name email")
       .sort({ createdAt: -1 })
       .lean();
-    res.json(disputes);
+    res.json(disputes.filter((dispute) =>
+      dispute.order?.orderType !== "store" && !dispute.order?.storeProfileId
+    ));
   } catch (err) {
     console.error("Admin disputes fetch error:", err);
     res.status(500).json({ error: "حدث خطأ في الخادم أثناء جلب النزاعات." });
@@ -495,21 +514,64 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   async (req, res) => {
     try {
-      const order = await Order.findOneAndUpdate(
-        { _id: req.params.id, status: { $in: ["SHIPPED", "DELIVERED", "PAID_CONFIRMED"] } },
-        { status: "COMPLETED" },
-        { new: true }
-      );
+      const eligibleOrder = await Order.findOne({
+        _id: req.params.id,
+        orderType: { $ne: "store" },
+        storeProfileId: null,
+        status: { $in: ["SHIPPED", "DELIVERED"] }
+      }).lean();
+      if (!eligibleOrder) return res.status(400).json({ error: "الطلب غير جاهز للإكمال." });
+
+      const order = await withFinancialTransaction(async (session) => {
+        const claimedOrder = await Order.findOneAndUpdate(
+          {
+            _id: req.params.id,
+            orderType: { $ne: "store" },
+            storeProfileId: null,
+            status: { $in: ["SHIPPED", "DELIVERED"] }
+          },
+          { $set: { status: "COMPLETED" } },
+          { new: true, session }
+        );
+
+        if (!claimedOrder) return null;
+
+        const productAmount = Number(claimedOrder.sellerAmount) || 0;
+        if (productAmount > 0) {
+          await releaseBalance(
+            claimedOrder.seller,
+            productAmount,
+            claimedOrder._id,
+            claimedOrder.currency,
+            "PRODUCT",
+            { session }
+          );
+        }
+
+        if (claimedOrder.shippingFee > 0 && claimedOrder.shippingPayer === "buyer") {
+          await releaseBalance(
+            claimedOrder.seller,
+            claimedOrder.shippingFee,
+            claimedOrder._id,
+            claimedOrder.shippingCurrency,
+            "SHIPPING",
+            { session }
+          );
+        }
+
+        await AdminEscrowLog.create([{
+          admin: req.user.id,
+          actionType: "COMPLETE_ORDER",
+          targetType: "Order",
+          targetId: claimedOrder._id,
+          ipAddress: req.ip
+        }], { session });
+
+        return claimedOrder;
+      });
 
       if (!order) return res.status(400).json({ error: "الطلب غير جاهز للإكمال." });
 
-      // تحرير الرصيد (المنتج والشحن) كعمليات منفصلة
-      const productAmount = Number(order.sellerAmount) || 0;
-      await releaseBalance(order.seller, productAmount, order._id, order.currency, "PRODUCT");
-      
-      if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-        await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
-      }
       await ReferralEngine.createSafePurchaseCommission(order);
 
       res.json(order);
@@ -531,94 +593,118 @@ router.patch(
   async (req, res) => {
     try {
       const { resolution, notes } = req.body;
-      const dispute = await Dispute.findOneAndUpdate(
-        { _id: req.params.id, status: "OPEN" },
-        { 
-          status: resolution === "RELEASE_TO_SELLER" ? "RESOLVED_SELLER" : "RESOLVED_BUYER",
-          resolutionNotes: notes,
-          resolvedAt: new Date()
-        },
-        { new: true }
-      ).populate("order");
+      const currentDispute = await Dispute.findOne({
+        _id: req.params.id,
+        status: "OPEN"
+      }).populate("order");
+      if (!currentDispute || currentDispute.order?.orderType === "store" || currentDispute.order?.storeProfileId) {
+        return res.status(400).json({ error: "النزاع غير موجود أو تم حله مسبقاً." });
+      }
 
-      if (!dispute) return res.status(400).json({ error: "النزاع غير موجود أو تم حله مسبقاً." });
-
-      const order = dispute.order;
-      
-      if (resolution === "RELEASE_TO_SELLER") {
-          // تحرير المبلغ للبائع (سواء كان في حالة الدفع أو الشحن)
-          const oldStatus = order.status;
-          order.status = "COMPLETED";
-          await order.save();
-          
-          // تحويل الرصيد للمتاح
-          try {
-            const amountToRelease = Number(order.sellerAmount) || 0;
-            await releaseBalance(order.seller, amountToRelease, order._id, order.currency, "PRODUCT");
-
-            // تحرير رصيد الشحن أيضاً
-            if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-              await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
+      const settlement = await withFinancialTransaction(async (session) => {
+        const dispute = await Dispute.findOneAndUpdate(
+          { _id: req.params.id, status: "OPEN" },
+          {
+            $set: {
+              status: resolution === "RELEASE_TO_SELLER" ? "RESOLVED_SELLER" : "RESOLVED_BUYER",
+              resolutionNotes: notes,
+              resolvedAt: new Date()
             }
-            await ReferralEngine.createSafePurchaseCommission(order);
-          } catch (walletErr) {
-            console.error("Resolve dispute releaseBalance failed:", walletErr);
-            // Revert status
-            try {
-              order.status = oldStatus;
-              await order.save();
-            } catch (revertErr) {
-              console.error("Critical: Failed to revert order status in resolve dispute:", revertErr);
-            }
-            throw walletErr; // Will be caught by outer catch
+          },
+          { new: true, session }
+        );
+        if (!dispute) return null;
+
+        const order = await Order.findOneAndUpdate(
+          {
+            _id: currentDispute.order._id,
+            orderType: { $ne: "store" },
+            storeProfileId: null,
+            status: "DISPUTED"
+          },
+          { $set: { status: resolution === "RELEASE_TO_SELLER" ? "COMPLETED" : "CANCELLED" } },
+          { new: true, session }
+        );
+        if (!order) throw new Error("حالة الطلب لا تسمح بتسوية النزاع.");
+
+        if (resolution === "RELEASE_TO_SELLER") {
+          const productAmount = Number(order.sellerAmount) || 0;
+          if (productAmount > 0) {
+            await releaseBalance(order.seller, productAmount, order._id, order.currency, "PRODUCT", { session });
           }
-      } else {
-          // استرداد للمشتري (إلغاء الطلب)
-          const oldStatus = order.status;
-          order.status = "CANCELLED";
-          await order.save();
+          if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
+            await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING", { session });
+          }
+        } else {
+          await refundAvailableBalance(
+            order.buyer,
+            order.totalAmount,
+            `استرداد كامل للطلب #${order._id} (حل نزاع لصالح المشتري)`,
+            order.currency,
+            order._id,
+            { session, operationKey: "DISPUTE" }
+          );
 
-          // إعادة الرصيد للمشتري
-          try {
-            await refundAvailableBalance(
-              order.buyer, 
-              order.totalAmount, 
-              `استرداد كامل للطلب #${order._id} (حل نزاع لصالح المشتري)`, 
+          const productAmount = Number(order.sellerAmount) || 0;
+          if (productAmount > 0) {
+            await removePendingBalance(
+              order.seller,
+              productAmount,
+              `إزالة رصيد المنتج المعلق للطلب #${order._id}`,
               order.currency,
-              order._id // تمرير الـ orderId لربط المعاملة بالطلب لضمان دقة المحاسبة
+              order._id,
+              { session, operationKey: "PRODUCT" }
             );
-
-            // إزالة الرصيد المعلق من البائع (لأنه تم إلغاء الطلب بعد تأكيد الدفع)
-            const productAmount = Number(order.sellerAmount) || 0;
-            if (productAmount > 0) {
-              await removePendingBalance(order.seller, productAmount, `إزالة رصيد المنتج المعلق للطلب #${order._id}`, order.currency, order._id);
-            }
-            if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-              await removePendingBalance(order.seller, order.shippingFee, `إزالة رصيد الشحن المعلق للطلب #${order._id}`, order.shippingCurrency, order._id);
-            }
-            await ReferralEngine.reverseForSource("SAFE_PURCHASE", order._id, "استرداد الطلب لصالح المشتري");
-          } catch (walletErr) {
-            console.error("Resolve dispute refund/remove pending failed:", walletErr);
-            // Revert status
-            try {
-              order.status = oldStatus;
-              await order.save();
-            } catch (revertErr) {
-              console.error("Critical: Failed to revert order status in resolve dispute refund:", revertErr);
-            }
-            throw walletErr;
           }
-
-          // إعادة إظهار الإعلان عند إلغاء الطلب (Listing Visibility Logic)
-          try {
-            await Ad.findByIdAndUpdate(order.ad, {
-              status: "AVAILABLE",
-              isVisible: true,
-              sold: false
-            });
-          } catch (adErr) {
-            console.error("Failed to restore ad visibility on dispute refund:", adErr);
+          if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
+            await removePendingBalance(
+              order.seller,
+              order.shippingFee,
+              `إزالة رصيد الشحن المعلق للطلب #${order._id}`,
+              order.shippingCurrency,
+              order._id,
+              { session, operationKey: "SHIPPING" }
+            );
           }
+        }
+
+        await AdminEscrowLog.create([{
+          admin: req.user.id,
+          actionType: "RESOLVE_DISPUTE",
+          targetType: "Dispute",
+          targetId: dispute._id,
+          details: { resolution, notes },
+          ipAddress: req.ip
+        }], { session });
+
+        return { dispute, order };
+      });
+
+      if (!settlement) return res.status(400).json({ error: "النزاع غير موجود أو تم حله مسبقاً." });
+      const { dispute, order } = settlement;
+
+      if (resolution === "RELEASE_TO_SELLER") {
+        try {
+          await ReferralEngine.createSafePurchaseCommission(order);
+        } catch (commissionErr) {
+          console.error("Safe-purchase referral commission creation failed:", commissionErr);
+        }
+      } else {
+        try {
+          await ReferralEngine.reverseForSource("SAFE_PURCHASE", order._id, "استرداد الطلب لصالح المشتري");
+        } catch (commissionErr) {
+          console.error("Safe-purchase referral commission reversal failed:", commissionErr);
+        }
+
+        try {
+          await Ad.findByIdAndUpdate(order.ad, {
+            status: "AVAILABLE",
+            isVisible: true,
+            sold: false
+          });
+        } catch (adErr) {
+          console.error("Failed to restore ad visibility on dispute refund:", adErr);
+        }
       }
 
       // إغلاق محادثة النزاع تلقائياً إن وجدت
@@ -630,15 +716,6 @@ router.patch(
       } catch (convErr) {
         console.error("Failed to auto-close conversation on dispute resolve:", convErr);
       }
-
-      await AdminEscrowLog.create({
-        admin: req.user.id,
-        actionType: "RESOLVE_DISPUTE",
-        targetType: "Dispute",
-        targetId: dispute._id,
-        details: { resolution, notes },
-        ipAddress: req.ip
-      });
 
       // إشعارات للأطراف
       await createNotification(req.app, {
@@ -711,7 +788,13 @@ router.get("/system-balance", async (req, res) => {
     // حساب التدفقات بناءً على ما دفعه المشتري فعلياً (Total Amount)
     // هذا يشمل: سعر المنتج + رسوم حماية المشتري + رسوم الشحن (إذا دفعها المشتري)
     const orderStats = await Order.aggregate([
-      { $match: { status: { $in: ["PAID_CONFIRMED", "SHIPPED", "DELIVERED", "COMPLETED"] } } },
+      {
+        $match: {
+          orderType: { $ne: "store" },
+          storeProfileId: null,
+          status: { $in: ["PAID_CONFIRMED", "SHIPPED", "DELIVERED", "COMPLETED"] }
+        }
+      },
       {
         $group: {
           _id: "$currency",

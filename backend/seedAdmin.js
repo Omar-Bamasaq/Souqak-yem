@@ -1,58 +1,99 @@
-/*
-How to run:
-  node seedAdmin.js
-*/
-import dotenv from "dotenv";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import fs from "fs";
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootEnv = join(__dirname, "..", ".env.local");
-const backendEnv = join(__dirname, ".env.local");
-if (fs.existsSync(rootEnv)) dotenv.config({ path: rootEnv });
-if (fs.existsSync(backendEnv)) dotenv.config({ path: backendEnv });
-dotenv.config();
+import path from "path";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import User from "./src/models/User.js";
+import {
+  connectPrelaunchDatabase,
+  resolvePrelaunchTarget,
+  safeErrorSummary
+} from "./src/lib/prelaunchDatabase.js";
 
-async function run() {
-  const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/yemen_market";
-  await mongoose.connect(mongoUri);
-  const adminEmail = "123@souqak.com";
-  const adminPassword = "123";
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
-
-  const existingAdmin = await User.findOne({
-    $or: [{ role: "admin" }, { email: adminEmail }]
-  });
-
-  if (existingAdmin) {
-    existingAdmin.name = "Main Admin";
-    existingAdmin.email = adminEmail;
-    existingAdmin.password = passwordHash;
-    existingAdmin.role = "admin";
-    existingAdmin.isEmailVerified = true;
-    await existingAdmin.save();
-    console.log(`Admin updated: ${existingAdmin.email}`);
-  } else {
-    const admin = await User.create({
-      name: "Main Admin",
-      email: adminEmail,
-      password: passwordHash,
-      role: "admin",
-      isEmailVerified: true
-    });
-    console.log(`Admin created: ${admin.email}`);
+function requireAdminApproval(env) {
+  if (env.PRELAUNCH_ADMIN_APPROVED !== "YES") {
+    throw new Error("PRELAUNCH_ADMIN_APPROVED=YES is required to create the initial administrator.");
   }
-  await mongoose.disconnect();
-  process.exit(0);
 }
 
-run().catch(async (err) => {
-  console.error("Seeding failed:", err && err.message ? err.message : err);
+function readAdminCredentials(env) {
+  const name = typeof env.PRELAUNCH_ADMIN_NAME === "string"
+    ? env.PRELAUNCH_ADMIN_NAME.trim()
+    : "";
+  const email = typeof env.PRELAUNCH_ADMIN_EMAIL === "string"
+    ? env.PRELAUNCH_ADMIN_EMAIL.trim().toLowerCase()
+    : "";
+  const password = typeof env.PRELAUNCH_ADMIN_PASSWORD === "string"
+    ? env.PRELAUNCH_ADMIN_PASSWORD
+    : "";
+
+  if (!name || !email || !password) {
+    throw new Error("PRELAUNCH_ADMIN_NAME, PRELAUNCH_ADMIN_EMAIL, and PRELAUNCH_ADMIN_PASSWORD are required.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("PRELAUNCH_ADMIN_EMAIL must be a valid email address.");
+  }
+  const passwordBytes = Buffer.byteLength(password, "utf8");
+  if (passwordBytes < 16 || passwordBytes > 72) {
+    throw new Error("PRELAUNCH_ADMIN_PASSWORD must be 16-72 UTF-8 bytes.");
+  }
+
+  return { name, email, password };
+}
+
+export async function createInitialAdmin({
+  UserModel = User,
+  passwordHasher = bcrypt.hash,
+  env = process.env
+} = {}) {
+  requireAdminApproval(env);
+  resolvePrelaunchTarget(env);
+  const { name, email, password } = readAdminCredentials(env);
+  if (typeof UserModel.createIndexes === "function") {
+    await UserModel.createIndexes();
+  }
+  const existing = await UserModel.findOne({
+    $or: [{ role: "admin" }, { email }]
+  });
+  if (existing) {
+    throw new Error("Initial administrator creation is allowed only when no administrator or matching email exists.");
+  }
+
+  const passwordHash = await passwordHasher(password, 12);
   try {
+    await UserModel.create({
+      name,
+      email,
+      password: passwordHash,
+      role: "admin",
+      isInitialAdmin: true,
+      isEmailVerified: true
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new Error("Initial administrator creation conflicted with an existing account.");
+    }
+    throw error;
+  }
+
+  return { created: true };
+}
+
+export async function run(env = process.env, connect = connectPrelaunchDatabase) {
+  requireAdminApproval(env);
+  resolvePrelaunchTarget(env);
+  readAdminCredentials(env);
+  await connect(env);
+  try {
+    await createInitialAdmin({ env });
+    console.log("Initial administrator created.");
+  } finally {
     await mongoose.disconnect();
-  } catch {}
-  process.exit(1);
-});
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  run().catch((error) => {
+    console.error("Initial administrator creation failed.", safeErrorSummary(error));
+    process.exitCode = 1;
+  });
+}

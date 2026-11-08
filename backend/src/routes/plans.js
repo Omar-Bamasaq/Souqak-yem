@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Plan from "../models/Plan.js";
 import { getFinalPrice } from "../utils/planUtils.js";
+import { normalizeStorePlanFeatures } from "../utils/storeFeatureUtils.js";
 
 const router = Router();
 
@@ -12,8 +13,9 @@ router.get("/", async (req, res) => {
     const plans = await Plan.find(filter).sort({ type: 1, durationInDays: 1 }).lean();
     
     // Add discount info
-    const plansWithDiscounts = plans.map(plan => ({
+    const plansWithDiscounts = plans.map((plan) => ({
       ...plan,
+      ...(["store", "family-production"].includes(plan.type) ? { features: normalizeStorePlanFeatures(plan.features) } : {}),
       ...getFinalPrice(plan)
     }));
 

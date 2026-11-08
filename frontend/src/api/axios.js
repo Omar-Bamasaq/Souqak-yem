@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
 import { IS_MAINTENANCE } from "../config/maintenance.js";
-import { clearCsrfToken, ensureCsrfToken } from "./csrf.js";
+import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./csrf.js";
 
 let apiInstance = null;
 let isRefreshing = false;
@@ -70,7 +70,7 @@ export function useApi() {
       if (token) config.headers.Authorization = `Bearer ${token}`;
 
       const nonGetMethods = ["post", "put", "delete", "patch"];
-      if (nonGetMethods.includes(config.method?.toLowerCase())) {
+      if (nonGetMethods.includes(config.method?.toLowerCase()) && isApiRequest(config)) {
         config.headers["X-CSRF-Token"] = await ensureCsrfToken();
       }
 
@@ -85,7 +85,10 @@ export function useApi() {
         const requestUrl = originalRequest?.url || "";
         const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");
         
-        if (error.response?.status === 404) {
+        const isPrivateMessageRequest = requestUrl.startsWith("message-attachments/")
+          || /^conversations\/[^/]+\/messages(?:\/|$)/.test(requestUrl)
+          || /^support\/(?:my\/messages|conversations\/[^/]+\/messages|admin\/[^/]+\/messages)(?:\/|$)/.test(requestUrl);
+        if (error.response?.status === 404 && !isPrivateMessageRequest) {
           console.error(`[API 404] Failed request to: ${error.config.baseURL}${error.config.url}`);
         }
 
@@ -109,9 +112,11 @@ export function useApi() {
             const refreshBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
             let b = refreshBase.replace(/\/$/, "");
             if (!b.endsWith("/api")) b = `${b}/api`;
+            const csrfToken = await ensureCsrfToken();
             
             const refreshRes = await axios.post(`${b}/auth/refresh-token`, {}, {
-              withCredentials: true
+              withCredentials: true,
+              headers: { "X-CSRF-Token": csrfToken }
             });
             
             const newToken = refreshRes.data.token;

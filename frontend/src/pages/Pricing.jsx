@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { t } from "../i18n/index.js";
@@ -6,11 +6,15 @@ import CountdownTimer from "../components/CountdownTimer.jsx";
 import BankAccountsDisplay from "../components/BankAccountsDisplay.jsx";
 import { useSearchParams, Link } from "react-router-dom";
 import { prepareFilesForUpload } from "../lib/imageCompression.js";
+import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
+import { useDraftAction } from "../hooks/useDraftActions.js";
 
 export default function Pricing() {
   const api = useApi();
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const userId = user?._id || user?.id;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const draftAction = useDraftAction(api, userId, "featured_ad_upgrade");
   const [plans, setPlans] = useState([]);
   const [ads, setAds] = useState([]);
   const [banks, setBanks] = useState([]);
@@ -26,6 +30,10 @@ export default function Pricing() {
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [draftStarted, setDraftStarted] = useState(false);
+  const [referencesLoaded, setReferencesLoaded] = useState(false);
+  const [resumedDraft, setResumedDraft] = useState(false);
+  const submissionCompletedRef = useRef(false);
 
   const load = async () => {
     try {
@@ -44,12 +52,55 @@ export default function Pricing() {
       }
     } catch (e) {
       setErr("فشل تحميل البيانات");
+    } finally {
+      setReferencesLoaded(true);
     }
   };
 
   useEffect(() => {
     load();
   }, [user]);
+
+  useEffect(() => {
+    const draftId = searchParams.get("draftActionId");
+    if (!draftId || !referencesLoaded || !userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const draft = await draftAction.resume(draftId);
+        if (cancelled) return;
+        const plan = plans.find((item) => item._id === draft.planId && item.type === "featured");
+        const ad = ads.find((item) => item._id === draft.adId);
+        if (draft.type !== "featured_ad_upgrade"
+          || !plan
+          || !ad
+          || draft.currentStep !== 2) {
+          throw new Error("هذه العملية لم تعد متاحة بهذه البيانات. يمكنك بدء العملية من جديد.");
+        }
+        setSelectedPlan(plan);
+        setSelectedAd(draft.adId);
+        setStep(draft.currentStep);
+        setDraftStarted(true);
+        setResumedDraft(true);
+        setSearchParams((current) => {
+          const next = new URLSearchParams(current);
+          next.delete("draftActionId");
+          return next;
+        }, { replace: true });
+      } catch (resumeError) {
+        if (!cancelled) setErr(resumeError.response?.data?.error || resumeError.message || "تعذر استئناف العملية.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ads, draftAction.resume, plans, referencesLoaded, searchParams, setSearchParams, userId]);
+
+  useEffect(() => {
+    if (submissionCompletedRef.current || !draftStarted || selectedPlan?.type !== "featured") return;
+    draftAction.scheduleSave(2, {}, {
+      adId: selectedAd || null,
+      planId: selectedPlan._id
+    });
+  }, [draftAction.scheduleSave, draftStarted, selectedAd, selectedPlan]);
 
   const handleReceiptFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -123,6 +174,7 @@ export default function Pricing() {
 
     setSelectedPlan(plan);
     setStep(2);
+    if (plan.type === "featured") setDraftStarted(true);
     // Scroll to top or step container
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -134,6 +186,13 @@ export default function Pricing() {
     setLoading(true);
 
     try {
+      const savedDraft = selectedPlan.type === "featured"
+        ? await draftAction.persist(2, {}, {
+          adId: selectedAd || null,
+          planId: selectedPlan._id
+        })
+        : null;
+      const draftActionId = savedDraft?._id || draftAction.draftId;
       const fd = new FormData();
       fd.append("planId", selectedPlan._id);
       if (selectedPlan.type === "featured") {
@@ -142,11 +201,15 @@ export default function Pricing() {
       if (receiptFile) {
         fd.append("paymentReceipt", receiptFile);
       }
+      if (selectedPlan.type === "featured" && draftActionId) fd.append("draftActionId", draftActionId);
       
       await api.post("/purchase-requests", fd, {
         headers: { "Content-Type": "multipart/form-data" }
       });
       
+      submissionCompletedRef.current = true;
+      if (selectedPlan.type === "featured" && draftActionId) draftAction.removeDraft(draftActionId);
+      if (selectedPlan.type === "featured") draftAction.clear();
       setSuccess(true);
       setMsg(t("pricing.requestActivated"));
     } catch (e) {
@@ -158,9 +221,9 @@ export default function Pricing() {
 
   if (success) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
-        <div className="rounded-[2.5rem] bg-white border border-gray-100 p-10 text-center shadow-2xl shadow-blue-50 animate-in zoom-in duration-500">
-          <div className="mb-6 flex justify-center">
+      <div className="mx-auto max-w-2xl px-3 py-6 sm:px-4 sm:py-12">
+        <div className="rounded-3xl bg-white border border-gray-100 p-6 text-center shadow-2xl shadow-blue-50 animate-in zoom-in duration-500 sm:rounded-[2.5rem] sm:p-10">
+          <div className="mb-4 flex justify-center sm:mb-6">
             <div className="rounded-full bg-green-50 p-4 ring-8 ring-green-50/50">
               <svg className="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -168,15 +231,15 @@ export default function Pricing() {
             </div>
           </div>
           <h2 className="mb-4 text-3xl font-black text-gray-900">تم استلام طلبك بنجاح!</h2>
-          <p className="mb-10 text-gray-600 font-bold leading-relaxed">
+          <p className="mb-6 text-gray-600 font-bold leading-relaxed sm:mb-10">
             سيتم مراجعة طلب التمييز الخاص بك من قبل الإدارة وتفعيله في أقرب وقت ممكن.
           </p>
           <div className="flex flex-col gap-3">
             <Link
-              to="/seller"
+              to="/account"
               className="w-full rounded-2xl bg-blue-600 py-4 text-base font-black text-white transition-all hover:bg-blue-700 shadow-xl shadow-blue-100 active:scale-95"
             >
-              العودة للوحة التحكم
+              العودة إلى حسابي
             </Link>
           </div>
         </div>
@@ -185,7 +248,9 @@ export default function Pricing() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 space-y-12">
+    <div className="mx-auto max-w-6xl space-y-6 px-3 py-5 sm:space-y-12 sm:px-4 sm:py-12">
+      {draftAction.error && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">{draftAction.error}</div>}
+      {resumedDraft && selectedPlan?.type === "featured" && <p className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-800">أعد رفع سند الدفع للمتابعة؛ لا تُحفظ الملفات ضمن العمليات غير المكتملة.</p>}
       {step === 1 && (
         <>
           <div className="text-center space-y-4">
@@ -207,7 +272,7 @@ export default function Pricing() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 sm:gap-8">
         {/* Welcome Promotion Trial Card */}
         {trialEligibility && (trialEligibility.eligible || trialEligibility.reason === "quota_full") && (
           <div className="relative group flex flex-col bg-gradient-to-br from-amber-400 to-orange-500 rounded-[2.5rem] border-4 border-white transition-all duration-500 hover:shadow-2xl hover:shadow-orange-100 hover:-translate-y-2 overflow-hidden shadow-xl">
@@ -346,6 +411,11 @@ export default function Pricing() {
 
                   {/* Badges */}
                   <div className="absolute top-4 inset-x-0 flex flex-col items-center gap-2 z-20">
+                    {p.isMostPopular && (
+                      <span className="bg-amber-300 text-amber-950 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg">
+                        الأكثر طلبًا
+                      </span>
+                    )}
                     {p.isPopularOffer && (
                       <span className="bg-white text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-widest">
                         الأكثر شراءً
@@ -397,6 +467,10 @@ export default function Pricing() {
                       <div className="mt-2 text-[10px] font-black text-white/50 uppercase tracking-tighter">
                         صلاحية لمدة {p.durationInDays} يوم
                       </div>
+                      <CurrencyCalculator
+                        amount={p.isSaleRunning ? p.finalPrice : p.price}
+                        currency={p.currency}
+                      />
                     </div>
 
                     {/* Countdown Timer */}
@@ -471,7 +545,7 @@ export default function Pricing() {
       )}
 
       {step === 2 && selectedPlan && (
-        <div className="max-w-3xl mx-auto space-y-8 animate-in slide-in-from-bottom-8 duration-500">
+        <div className="max-w-3xl mx-auto space-y-5 sm:space-y-8 animate-in slide-in-from-bottom-8 duration-500">
           <div className="flex items-center justify-between">
             <button 
               onClick={() => setStep(1)}
@@ -498,7 +572,7 @@ export default function Pricing() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmitRequest} className="p-8 space-y-8">
+            <form onSubmit={handleSubmitRequest} className="space-y-5 p-4 sm:space-y-8 sm:p-8">
               <div className="space-y-6">
                 <div className="rounded-3xl border border-gray-100 bg-gray-50/50 p-6">
                   <h3 className="text-sm font-black text-gray-900 mb-6 flex items-center gap-2">

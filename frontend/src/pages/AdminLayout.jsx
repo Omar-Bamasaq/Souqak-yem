@@ -59,6 +59,7 @@ export default function AdminLayout() {
   const [openSections, setOpenSections] = useState({
     market: false,
     finance: false,
+    souqakServices: false,
     users: false,
     system: false
   });
@@ -74,6 +75,7 @@ export default function AdminLayout() {
       icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
       links: [
         { to: "/admin/ads", label: "الإعلانات" },
+        { to: "/admin/auctions", label: "المزادات" },
         { to: "/admin/sold-ads", label: "الإعلانات المباعة" },
         { to: "/admin/archived-ads", label: "الأرشيف" },
         { to: "/admin/deleted-ads", label: "الإعلانات المحذوفة" },
@@ -93,7 +95,24 @@ export default function AdminLayout() {
         { to: "/admin/finance-hub?tab=escrow", label: "🛡️ الوساطة والمالية" },
         { to: "/admin/finance-hub?tab=commissions", label: "💰 المبيعات والعمولات" },
         { to: "/admin/finance-hub?tab=withdrawals", label: "💸 المحفظة والسحوبات" },
-        { to: "/admin/finance-hub?tab=plans", label: "📦 الباقات والحسابات" }
+        { to: "/admin/finance-hub?tab=plans", label: "📦 الباقات والحسابات" },
+      ]
+    },
+    {
+      id: "souqakServices",
+      label: "إدارة خدمات سوقك",
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M5 7V5a2 2 0 012-2h10a2 2 0 012 2v2m-14 0v12a2 2 0 002 2h10a2 2 0 002-2V7M8 12h8m-8 4h5" /></svg>,
+      links: [
+        { to: "/admin/bookings", label: "حجوزات سوقك" },
+        { to: "/admin/store-requests", label: "طلبات المتاجر" },
+        { to: "/admin/store-directory", label: "قائمة المتاجر" },
+        { to: "/admin/plans", label: "باقات الخدمات الترويجية" },
+        { to: "/admin/featured-requests", label: "طلبات الترويج والإعلانات" },
+        { to: "/admin/verification-requests", label: "طلبات توثيق الحسابات" },
+        { to: "/admin/quote-requests", label: "طلبات التسعير" },
+        { to: "/admin/referrals", label: "السفراء والمكافآت" },
+        { to: "/admin/wallet-service-orders", label: "طلبات خدمات الدفع" },
+        { to: "/admin/wallet-services", label: "كتالوج خدمات الدفع ورسومها" }
       ]
     },
     {
@@ -113,6 +132,7 @@ export default function AdminLayout() {
         { to: "/admin/users", label: "المستخدمون" },
         { to: "/admin/supervisors", label: "المشرفون والصلاحيات", adminOnly: true },
         { to: "/admin/phone-users", label: "مستخدمو الرقم" },
+        { to: "/admin/phone-verification", label: "طلبات توثيق الهاتف" },
         { to: "/admin/password-reset-requests", label: "طلبات استعادة كلمة المرور" },
         { to: "/admin/deleted-users", label: "الحسابات المحذوفة" }
       ]
@@ -125,7 +145,6 @@ export default function AdminLayout() {
         { to: "/admin/analytics", label: "إحصائيات المنصة" },
         { to: "/admin/platform-reviews", label: "تقييمات المنصة" },
         { to: "/admin/brokerage", label: "إدارة التسويق" },
-        { to: "/admin/referrals", label: "سفراء سوقك" },
         { to: "/admin/activity-logs", label: "سجل النشاطات" },
         { to: "/admin/recycle-bin", label: "سلة المهملات" },
         { to: "/admin/system-health", label: "مراقبة النظام" },
@@ -149,6 +168,7 @@ export default function AdminLayout() {
       "/admin/dashboard": "dashboard",
       "/admin/support-inbox": "support_inbox",
       "/admin/ads": "ads",
+      "/admin/auctions": "auctions",
       "/admin/sold-ads": "sold_ads",
       "/admin/archived-ads": "archived_ads",
       "/admin/deleted-ads": "deleted_ads",
@@ -157,11 +177,15 @@ export default function AdminLayout() {
       "/admin/governorates": "governorates",
       "/admin/cities": "cities",
       "/admin/reports": "reports",
+      "/admin/bookings": "bookings",
       "/admin/finance-hub": "finance_hub",
+      "/admin/wallet-services": "finance_hub",
+      "/admin/wallet-service-orders": "finance_hub",
       "/admin/managed-sellers/new-ad": "managed_seller_ad",
       "/admin/managed-sellers": "managed_sellers",
       "/admin/users": "users",
       "/admin/phone-users": "phone_users",
+      "/admin/phone-verification": "phone_users",
       "/admin/password-reset-requests": "password_reset_requests",
       "/admin/deleted-users": "deleted_users",
       "/admin/analytics": "analytics",

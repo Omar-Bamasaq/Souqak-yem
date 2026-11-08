@@ -1,10 +1,13 @@
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 import { Router } from "express";
 import auth from "../middleware/auth.js";
 import { requireMainAdmin, requireRole } from "../middleware/roles.js";
 import Ad from "../models/Ad.js";
 import User from "../models/User.js";
+import QuoteRequest from "../models/QuoteRequest.js";
 import PurchaseRequest from "../models/PurchaseRequest.js";
+import Plan from "../models/Plan.js";
 import fs from "fs";
 import path from "path";
 import Notification from "../models/Notification.js";
@@ -30,7 +33,7 @@ import Review from "../models/Review.js";
 import Joi from "joi";
 import { validateBody, validateQuery } from "../middleware/validate.js";
 import PasswordResetRequest from "../models/PasswordResetRequest.js";
-import { generateTemporaryPassword, normalizePhone, isValidPhoneNumber, isValidPassword } from "../utils/securityRules.js";
+import { generateTemporaryPassword, normalizePhone, isValidPhoneNumber, isValidPassword, phoneNumberQuery } from "../utils/securityRules.js";
 import { ADMIN_PERMISSIONS } from "../config/adminPermissions.js";
 
 import { createNotification } from "../services/notificationService.js";
@@ -43,6 +46,7 @@ import City from "../models/City.js";
 import ListingService from "../services/listingService.js";
 
 const router = Router();
+const pageData = (page, limit, total) => ({ page, limit, total, pages: Math.ceil(total / limit) });
 
 router.use(auth, requireRole(["admin"]), adminAudit());
 
@@ -110,6 +114,116 @@ router.get("/stats", async (req, res) => {
   } catch (error) {
     console.error("Admin stats error:", error);
     res.status(500).json({ error: "حدث خطأ في الخادم أثناء جلب الإحصائيات." });
+  }
+});
+
+router.get("/quote-requests", async (req, res) => {
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+    const filter = {};
+
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.moderationStatus) filter.moderationStatus = req.query.moderationStatus;
+    if (req.query.flagged === "true") filter.flagged = true;
+    if (req.query.q) {
+      const term = String(req.query.q).trim();
+      if (term) {
+        const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        filter.$or = [{ itemName: regex }, { description: regex }, { specifications: regex }];
+      }
+    }
+    if (req.query.from || req.query.to) {
+      filter.createdAt = {};
+      if (req.query.from) {
+        const from = new Date(req.query.from);
+        if (Number.isNaN(from.getTime())) return res.status(400).json({ error: "تاريخ البداية غير صحيح." });
+        filter.createdAt.$gte = from;
+      }
+      if (req.query.to) {
+        const to = new Date(req.query.to);
+        if (Number.isNaN(to.getTime())) return res.status(400).json({ error: "تاريخ النهاية غير صحيح." });
+        to.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = to;
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      QuoteRequest.find(filter)
+        .populate("ownerId", "name phone email")
+        .populate("governorateId", "name")
+        .populate("cityId", "name")
+        .populate("categoryId", "name")
+        .populate("moderatedBy", "name")
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      QuoteRequest.countDocuments(filter)
+    ]);
+
+    res.json({ items, ...pageData(page, limit, total) });
+  } catch (error) {
+    console.error("Admin quote requests list failed:", error);
+    res.status(500).json({ error: "تعذر تحميل طلبات التسعير للإدارة." });
+  }
+});
+
+router.patch("/quote-requests/:id/moderate", async (req, res) => {
+  try {
+    if (!req.params?.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "معرّف الطلب غير صحيح." });
+    }
+    const action = String(req.body?.action || "").trim();
+    const reason = String(req.body?.reason || "").trim();
+    const notes = String(req.body?.notes || "").trim();
+    const validActions = ["pending_review", "hidden", "rejected", "approved", "deleted"];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ error: "إجراء المراجعة غير صحيح." });
+    }
+    if (["pending_review", "hidden", "rejected", "deleted"].includes(action) && !reason) {
+      return res.status(400).json({ error: "يجب إدخال سبب للمراجعة أو الحظر." });
+    }
+
+    const item = await QuoteRequest.findById(req.params.id).select("ownerId moderationStatus status itemName").lean();
+    if (!item) return res.status(404).json({ error: "الطلب غير موجود." });
+
+    if (action === "deleted") {
+      await QuoteRequest.findByIdAndDelete(req.params.id);
+      await createNotification(req.app, {
+        userId: item.ownerId,
+        type: "quote_status",
+        title: "تم حذف طلب التسعيرة",
+        body: `تم حذف طلبك ${item.itemName} من قبل الإدارة: ${reason}`,
+        data: { quoteRequestId: req.params.id, url: `/quote-requests` }
+      }).catch(() => {});
+      return res.json({ ok: true, message: "تم حذف الطلب." });
+    }
+
+    const update = {
+      moderationStatus: action === "approved" ? "approved" : action,
+      moderationReason: reason,
+      moderationNotes: notes || reason,
+      moderatedBy: req.user.id,
+      moderatedAt: new Date(),
+      flagged: action !== "approved" ? true : Boolean(item.flagged)
+    };
+
+    const updated = await QuoteRequest.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
+    await createNotification(req.app, {
+      userId: item.ownerId,
+      type: "quote_status",
+      title: action === "approved" ? "تمت إعادة النشر" : action === "pending_review" ? "تم تعليق طلبك للمراجعة" : action === "hidden" ? "تم إخفاء طلبك" : "تم رفض طلبك",
+      body: action === "approved"
+        ? `تمت إعادة نشر طلبك ${item.itemName} بعد مراجعة الإدارة.`
+        : `تم اتخاذ قرار إدارى على طلبك ${item.itemName}: ${reason}`,
+      data: { quoteRequestId: req.params.id, url: `/quote-requests/${req.params.id}` }
+    }).catch(() => {});
+
+    return res.json({ ok: true, item: updated });
+  } catch (error) {
+    console.error("Quote request moderation failed:", error);
+    res.status(500).json({ error: "تعذر تحديث حالة الطلب الإداري." });
   }
 });
 
@@ -629,7 +743,7 @@ router.post(
       if (!city) return res.status(400).json({ error: "المدينة لا تتبع المحافظة المحددة." });
 
       if (!managedSeller) {
-        const existingPhone = await User.findOne({ phone: cleanPhone, isDeleted: { $ne: true } }).select("_id name").lean();
+        const existingPhone = await User.findOne(phoneNumberQuery(cleanPhone)).select("_id name").lean();
         if (existingPhone) return res.status(409).json({ error: "يوجد حساب مرتبط بهذا الرقم بالفعل." });
       }
 
@@ -907,7 +1021,7 @@ router.get("/users", async (req, res) => {
       .sort(sortSpec)
       .lean();
     const mapped = users.map((u) => {
-      const byPhone = !!(u.phoneTrial || (u.email && /@trial\.local$/i.test(u.email)));
+      const byPhone = !!(u.phoneTrial || (u.email && /@(?:trial|phone)\.local$/i.test(u.email)));
       return {
         ...u,
         phoneDisplay: byPhone ? (u.phone || "—") : "—",
@@ -1166,12 +1280,13 @@ router.post("/commissions/:id/remind", async (req, res) => {
     const commission = await Commission.findById(req.params.id);
     if (!commission) return res.status(404).json({ error: "Commission not found" });
 
-    await Notification.create({
+    await createNotification(req.app, {
       userId: commission.sellerId,
       type: "commission_reminder",
       title: "تذكير بدفع عمولة الموقع",
       body: `يرجى سداد عمولة الموقع للإعلان المباع بقيمة ${commission.commissionAmount} ${commission.currency} لتجنب تعليق الحساب.`,
-      data: { commissionId: commission._id }
+      data: { commissionId: commission._id },
+      link: "/seller/commissions"
     });
 
     res.json({ ok: true, message: "تم إرسال التذكير بنجاح" });
@@ -1342,26 +1457,88 @@ router.get("/archived-ads", async (req, res) => {
 
 router.get("/purchase-requests", async (req, res) => {
   try {
-    const prs = await PurchaseRequest.find()
+    const { status, serviceType, from, to, q } = req.query;
+    if (status && !["Pending", "Approved", "Rejected"].includes(status)) {
+      return res.status(400).json({ error: "Invalid request status" });
+    }
+    if (serviceType && !["featured", "placement", "interstitial", "social"].includes(serviceType)) {
+      return res.status(400).json({ error: "Invalid advertising service type" });
+    }
+    const filter = {};
+    const adPlanIds = await Plan.find({ type: "featured" }).distinct("_id");
+    const conditions = [{ "planSnapshot.type": "featured" }, { plan: { $in: adPlanIds } }];
+    if (status) filter.status = status;
+    if (from || to) {
+      const createdAt = {};
+      if (from) {
+        const fromDate = new Date(from);
+        if (Number.isNaN(fromDate.getTime())) return res.status(400).json({ error: "Invalid start date" });
+        createdAt.$gte = fromDate;
+      }
+      if (to) {
+        const toDate = new Date(to);
+        if (Number.isNaN(toDate.getTime())) return res.status(400).json({ error: "Invalid end date" });
+        toDate.setHours(23, 59, 59, 999);
+        createdAt.$lte = toDate;
+      }
+      filter.createdAt = createdAt;
+    }
+    if (serviceType === "social") {
+      conditions.push({ $or: [
+        { "campaign.socialPromotionRequested": true },
+        { "planSnapshot.socialPromotionRequested": true }
+      ] });
+    } else if (serviceType) {
+      const planTypeFilter = serviceType === "featured"
+        ? { $or: [{ adServiceType: "featured" }, { adServiceType: { $exists: false } }] }
+        : { adServiceType: serviceType };
+      const matchingPlanIds = await Plan.find({ type: "featured", ...planTypeFilter }).distinct("_id");
+      conditions.push({ $or: [
+        { "planSnapshot.adServiceType": serviceType },
+        { "campaign.serviceType": serviceType },
+        { plan: { $in: matchingPlanIds } }
+      ] });
+    }
+    if (q) {
+      const term = String(q).trim().slice(0, 100);
+      if (term) {
+        const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const [userIds, productIds, planIds] = await Promise.all([
+          User.find({ $or: [{ name: regex }, { phone: regex }, { email: regex }] }).distinct("_id"),
+          Ad.find({ title: regex }).distinct("_id"),
+          Plan.find({ name: regex }).distinct("_id")
+        ]);
+        conditions.push({ $or: [
+          { "planSnapshot.name": regex },
+          { user: { $in: userIds } },
+          { product: { $in: productIds } },
+          { plan: { $in: planIds } }
+        ] });
+      }
+    }
+    filter.$and = conditions;
+    const prs = await PurchaseRequest.find(filter)
       .populate("user", "name email isVerifiedSeller verified verifiedAt verificationExpiresAt")
-      .populate("plan", "name type durationInDays price")
-      .populate("product", "title featured featuredUntil featuredAt featuredExpiresAt")
+      .populate("plan", "name description type durationInDays price currency adServiceType adPositions interstitialDelaySeconds frequencyCapHours socialPromotionIncluded socialPromotionPrice")
+      .populate("product", "title images status featured featuredUntil featuredAt featuredExpiresAt")
+      .populate("campaign.adminExtensions.extendedBy", "name")
       .sort({ createdAt: -1 })
       .lean();
     const enriched = prs.map((r) => {
       const base = { ...r };
-      if (r.plan?.type === "verification") {
+      if ((r.planSnapshot?.type || r.plan?.type) === "verification") {
         base.verification = {
           verifiedAt: r.user?.verifiedAt || null,
           verified: !!r.user?.verified,
           verificationExpiresAt: r.user?.verificationExpiresAt || null
         };
-      } else if (r.plan?.type === "featured" && r.product) {
+      } else if ((r.planSnapshot?.type || r.plan?.type) === "featured" && r.product) {
         // Fallbacks when product doesn't yet have dates (legacy records)
         const featuredAt = r.product?.featuredAt || (r.status === "Approved" ? r.updatedAt : null);
         let featuredExpiresAt = r.product?.featuredExpiresAt || r.product?.featuredUntil || null;
-        if (!featuredExpiresAt && featuredAt && r.plan?.durationInDays) {
-          featuredExpiresAt = new Date(new Date(featuredAt).getTime() + r.plan.durationInDays * 24 * 60 * 60 * 1000);
+        const durationInDays = r.duration || r.planSnapshot?.durationInDays || r.plan?.durationInDays;
+        if (!featuredExpiresAt && featuredAt && durationInDays) {
+          featuredExpiresAt = new Date(new Date(featuredAt).getTime() + durationInDays * 24 * 60 * 60 * 1000);
         }
         base.featured = {
           featuredAt,
@@ -1372,7 +1549,8 @@ router.get("/purchase-requests", async (req, res) => {
       return base;
     });
     res.json(enriched);
-  } catch {
+  } catch (error) {
+    console.error("Failed to load admin purchase requests:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -1647,12 +1825,16 @@ router.get("/phone-users", async (req, res) => {
     // Show users who are in "Pending" status for phone verification
     // OR users who have a phone but no status yet (legacy support)
     // We also include Approved/Rejected but the UI will filter or show status
-    const filter = { 
-      phone: { $exists: true, $ne: "" }
+    const filter = {
+      phone: { $exists: true, $ne: "" },
+      $or: [
+        { phoneRegistrationMode: "legacy_trial" },
+        { phoneRegistrationMode: { $exists: false } }
+      ]
     };
     if (q) {
       const rx = new RegExp(String(q), "i");
-      filter.$or = [{ name: rx }, { phone: rx }];
+      filter.$and = [{ $or: [{ name: rx }, { phone: rx }] }];
     }
     console.log("Filter used:", JSON.stringify(filter));
     const users = await User.find(filter).select("_id name phone role phoneTrialStatus createdAt").sort({ createdAt: -1 }).lean();
@@ -1669,6 +1851,11 @@ router.patch("/phone-users/:id/status", async (req, res) => {
     const { status } = req.body || {};
     console.log(`Admin status update request for user ${req.params.id} with status: ${status}`);
     if (!["approved", "rejected"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+    const targetUser = await User.findById(req.params.id).select("phoneRegistrationMode").lean();
+    if (!targetUser) return res.status(404).json({ error: "User not found" });
+    if (targetUser.phoneRegistrationMode && targetUser.phoneRegistrationMode !== "legacy_trial") {
+      return res.status(409).json({ error: "هذا الحساب لا يتبع مسار التفعيل القديم؛ استخدم طلبات توثيق الهاتف للتحقق من ملكية الرقم." });
+    }
     
     if (status === "rejected") {
       // Set status to Rejected and DISABLE the account so they appear as disabled and can't login

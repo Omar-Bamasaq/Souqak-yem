@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildPaymentProofTransition,
   buildReplacementPaymentDetails,
   clearRejectedPaymentDetails
 } from '../src/utils/orderPaymentState.js';
@@ -36,4 +37,33 @@ test('clearRejectedPaymentDetails removes all submitted proof data', () => {
   assert.equal(rejected.bankName, '');
   assert.deepEqual(rejected.payments, []);
   assert.equal(rejected.submittedAt, null);
+});
+
+test('payment proof transition only claims orders that are awaiting payment', () => {
+  const paymentDetails = {
+    bankName: 'بنك الكريمي',
+    payments: [{ transactionNumber: 'TX-1', receiptImage: 'receipts/proof.webp' }],
+    submittedAt: new Date('2026-10-27T00:00:00.000Z')
+  };
+  const transition = buildPaymentProofTransition('order-1', 'buyer-1', paymentDetails);
+
+  assert.deepEqual(transition.filter, {
+    _id: 'order-1',
+    buyer: 'buyer-1',
+    orderType: { $ne: 'store' },
+    storeProfileId: null,
+    status: 'AWAITING_PAYMENT'
+  });
+  assert.equal(transition.update.$set.status, 'AWAITING_PAYMENT_CONFIRMATION');
+  assert.equal(transition.update.$set.paymentDetails, paymentDetails);
+
+  const compareAndSet = (currentStatus) => (
+    currentStatus === transition.filter.status
+      ? transition.update.$set.status
+      : null
+  );
+  assert.equal(compareAndSet('AWAITING_PAYMENT'), 'AWAITING_PAYMENT_CONFIRMATION');
+  for (const status of ['PENDING_SELLER_APPROVAL', 'AWAITING_PAYMENT_CONFIRMATION', 'PAID_CONFIRMED', 'SHIPPED', 'DELIVERED', 'DISPUTED']) {
+    assert.equal(compareAndSet(status), null, `${status} must not accept another payment proof`);
+  }
 });

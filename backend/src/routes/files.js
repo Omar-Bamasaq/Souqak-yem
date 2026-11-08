@@ -21,15 +21,13 @@ import {
   JWT_ALGORITHM,
   getAccessSecretFingerprint,
 } from "../config/jwt.js";
+import WalletServiceOrder from "../models/WalletServiceOrder.js";
+import { hasAdminPermission } from "../config/adminPermissions.js";
+import { isSafePrivateFilename } from "../lib/safePrivateFilename.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadDir = path.resolve(__dirname, "..", "..", "uploads");
-
-const _ACCESS_FP = getAccessSecretFingerprint();
-console.log(
-  `[FilesRoute] Verify using Access secret len=${_ACCESS_FP.length} sha=${_ACCESS_FP.sha256first12} algo=${JWT_ALGORITHM}`
-);
 
 const router = Router();
 const privateAttachmentCache = new Map();
@@ -41,9 +39,10 @@ async function isPrivateMessageAttachment(filename) {
   if (cached && cached.expiresAt > Date.now()) return cached.isPrivate;
 
   const lookupNames = getMessageAttachmentLookupNames(filename);
+  const attachmentReferences = [...lookupNames, ...lookupNames.map((name) => `private/${name}`)];
   const [conversationMessage, supportMessage] = await Promise.all([
-    ConversationMessage.exists({ images: { $in: lookupNames } }),
-    SupportMessage.exists({ images: { $in: lookupNames } })
+    ConversationMessage.exists({ images: { $in: attachmentReferences } }),
+    SupportMessage.exists({ images: { $in: attachmentReferences } })
   ]);
   const isPrivate = Boolean(conversationMessage || supportMessage);
 
@@ -94,28 +93,12 @@ function sendErrorResponse(req, res, status, jsonMessage, svgMessage, svgSubtitl
 }
 
 async function optionalAuthFileAccess(req, res, next) {
-  console.log("[FileDebug]", {
-    method: req.method,
-    path: req.path,
-    hasCookieToken: !!(req.cookies?.token || req.cookies?.accessToken),
-    hasQueryToken: !!req.query?.access_token,
-    hasAuthorizationHeader: !!req.headers.authorization,
-    origin: req.headers.origin || null,
-  });
-
   const candidates = [];
 
   if (req.headers.authorization?.startsWith("Bearer ")) {
     candidates.push({
       source: "header",
       token: req.headers.authorization.slice(7).trim(),
-    });
-  }
-
-  if (req.query?.access_token) {
-    candidates.push({
-      source: "query",
-      token: String(req.query.access_token).trim(),
     });
   }
 
@@ -134,7 +117,6 @@ async function optionalAuthFileAccess(req, res, next) {
   }
 
   if (candidates.length === 0) {
-    console.log(`[FileAuth] No token found (${req.method} ${req.path}) — cookie, query, and header all empty`);
     return next();
   }
 
@@ -142,12 +124,9 @@ async function optionalAuthFileAccess(req, res, next) {
 
   for (const candidate of candidates) {
     try {
-      const claims = inspectJwtClaimsOnly(candidate.token);
-      const alg = claims?.header?.alg || "?";
       const payload = verifyAccessToken(candidate.token);
       const uid = payload.userId || payload.id;
       if (!uid) {
-        console.log(`[FileAuth] JWT (source=${candidate.source} alg=${alg}) has no userId/id claim for ${req.path} — trying next`);
         continue;
       }
       const user = await User.findById(uid).lean();
@@ -160,26 +139,16 @@ async function optionalAuthFileAccess(req, res, next) {
           identityStatus: user.identityStatus,
           isVerifiedSeller: !!user.isVerifiedSeller
         };
-        console.log(`[FileAuth] OK (${candidate.source} alg=${alg}) — ${user.role} user ${user._id} for ${req.path}`);
         authenticated = true;
         break;
       } else if (!user) {
-        console.log(`[FileAuth] JWT (source=${candidate.source} alg=${alg}) valid but user not found for uid=${uid} — trying next`);
         continue;
       } else {
-        console.log(`[FileAuth] JWT (source=${candidate.source} alg=${alg}) valid but user disabled/deleted: ${uid} — trying next`);
         continue;
       }
-    } catch (err) {
-      const claims = inspectJwtClaimsOnly(candidate.token);
-      const alg = claims?.header?.alg || "?";
-      console.log(`[FileAuth] JWT verify FAILED (source=${candidate.source} alg=${alg}) for ${req.path}: ${err.message} — trying next`);
+    } catch {
       continue;
     }
-  }
-
-  if (!authenticated) {
-    console.log(`[FileAuth] All ${candidates.length} token candidates failed for ${req.path} — req.user = null`);
   }
 
   next();
@@ -191,8 +160,17 @@ router.get(
   async (req, res) => {
     try {
       const { folder, filename } = req.params;
+      if (!isSafePrivateFilename(filename)) {
+        return sendErrorResponse(req, res, 400,
+          "Invalid file name",
+          "طلب غير صالح",
+          "اسم الملف غير صالح"
+        );
+      }
       const userId = req.user?.id;
       const isAdmin = req.user?.role === "admin";
+      const canManageWalletServices = req.user?.role === "supervisor"
+        && hasAdminPermission(req.user, "finance_hub");
 
       const sensitiveFolders = ["ids", "kyc", "documents", "receipts"];
       if (!sensitiveFolders.includes(folder)) {
@@ -204,14 +182,6 @@ router.get(
       }
 
       const filePath = path.join(uploadDir, folder, filename);
-
-      if (!fs.existsSync(filePath)) {
-        return sendErrorResponse(req, res, 404,
-          "File not found",
-          "الملف غير متوفر",
-          "قد يكون السند قد تم حذفه أو الرابط غير صحيح"
-        );
-      }
 
       let isAuthorized = isAdmin;
 
@@ -242,7 +212,8 @@ router.get(
               { $or: [{ buyer: userId }, { seller: userId }] },
               { $or: [
                 { "paymentDetails.payments.receiptImage": relativePath },
-                { "shippingDetails.shippingReceipt": relativePath }
+                { "shippingDetails.shippingReceipt": relativePath },
+                { "storePaymentDetails.receiptImage": relativePath }
               ]}
             ]
           }).lean();
@@ -254,6 +225,19 @@ router.get(
               paymentReceipt: relativePath
             }).lean();
             if (pr) isAuthorized = true;
+          }
+
+          if (!isAuthorized) {
+            const walletServiceOrder = await WalletServiceOrder.findOne({
+              $or: [
+                { paymentReceipt: relativePath },
+                { "previousPaymentReceipts.path": relativePath }
+              ]
+            }).select("user").lean();
+            if (walletServiceOrder && (
+              String(walletServiceOrder.user) === String(userId)
+              || canManageWalletServices
+            )) isAuthorized = true;
           }
 
           if (!isAuthorized) {
@@ -278,16 +262,7 @@ router.get(
         }
       }
 
-      console.log("[FileAuthCheck]", {
-        path: req.path,
-        userId: userId || null,
-        userRole: req.user?.role || null,
-        isAdmin,
-        isAuthorized,
-        relativePath: `${folder}/${filename}`,
-      });
       if (!userId && !isAdmin) {
-        console.log("[FileAuthCheck] FAIL 401 — (!userId && !isAdmin) both true. userId:", userId, "isAdmin:", isAdmin);
         return sendErrorResponse(req, res, 401,
           "Unauthorized: No token provided",
           "تسجيل الدخول مطلوب",
@@ -296,11 +271,18 @@ router.get(
       }
 
       if (!isAuthorized) {
-        console.log("[FileAuthCheck] FAIL 403 — isAuthorized=false. userId:", userId, "isAdmin:", isAdmin, "userRole:", req.user?.role);
         return sendErrorResponse(req, res, 403,
           "غير مصرح لك بالوصول لهذا الملف.",
           "وصول مرفوض",
           "هذا السند خاص بمستخدم آخر"
+        );
+      }
+
+      if (!fs.existsSync(filePath)) {
+        return sendErrorResponse(req, res, 404,
+          "File not found",
+          "الملف غير متوفر",
+          "قد يكون السند قد تم حذفه أو الرابط غير صحيح"
         );
       }
 
@@ -311,15 +293,9 @@ router.get(
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "SAMEORIGIN");
       res.setHeader("Content-Security-Policy", "frame-ancestors 'self';");
-      res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-      if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-      }
       res.sendFile(filePath, { headers: { "Content-Disposition": contentDisposition, "X-Content-Type-Options": "nosniff" } });
     } catch (error) {
-      console.error("File access error:", error);
+      console.error("File access failed.", { name: error.name, code: error.code || null });
       return sendErrorResponse(req, res, 500,
         "Internal server error",
         "خطأ في الخادم",
