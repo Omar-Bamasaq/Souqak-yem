@@ -66,6 +66,14 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   async (req, res) => {
     try {
+      const eligibleOrder = await Order.findOne({
+        _id: req.params.id,
+        orderType: { $ne: "store" },
+        storeProfileId: null,
+        status: "AWAITING_PAYMENT_CONFIRMATION"
+      }).lean();
+      if (!eligibleOrder) return res.status(400).json({ error: "الطلب غير موجود أو تم معالجته مسبقاً." });
+
       const order = await withFinancialTransaction(async (session) => {
         const claimedOrder = await Order.findOneAndUpdate(
           {
@@ -506,6 +514,14 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   async (req, res) => {
     try {
+      const eligibleOrder = await Order.findOne({
+        _id: req.params.id,
+        orderType: { $ne: "store" },
+        storeProfileId: null,
+        status: { $in: ["SHIPPED", "DELIVERED"] }
+      }).lean();
+      if (!eligibleOrder) return res.status(400).json({ error: "الطلب غير جاهز للإكمال." });
+
       const order = await withFinancialTransaction(async (session) => {
         const claimedOrder = await Order.findOneAndUpdate(
           {

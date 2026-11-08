@@ -329,7 +329,9 @@ router.get("/",
         }
       }
     }
-    let sortSpec = { featured: -1, publishedAt: -1, createdAt: -1 };
+    let sortSpec = sort === "new"
+      ? { publishedAt: -1, featured: -1, createdAt: -1 }
+      : { featured: -1, publishedAt: -1, createdAt: -1 };
     if (sort === "price_asc" || sort === "cheap") sortSpec = { featured: -1, price: 1, publishedAt: -1, createdAt: -1 };
     else if (sort === "price_desc" || sort === "expensive") sortSpec = { featured: -1, price: -1, publishedAt: -1, createdAt: -1 };
     else if (sort === "old") sortSpec = { featured: -1, publishedAt: 1, createdAt: 1 };

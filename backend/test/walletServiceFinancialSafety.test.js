@@ -21,6 +21,7 @@ const originalWalletCreate = Wallet.create;
 const originalTransactionFindOne = Transaction.findOne;
 const originalTransactionCreate = Transaction.create;
 const originalOrderFindOneAndUpdate = Order.findOneAndUpdate;
+const originalOrderFindOne = Order.findOne;
 const originalEscrowLogCreate = AdminEscrowLog.create;
 const originalAdFindByIdAndUpdate = Ad.findByIdAndUpdate;
 const originalUserFindById = User.findById;
@@ -46,6 +47,9 @@ function query(value) {
   return {
     session() {
       return this;
+    },
+    lean() {
+      return Promise.resolve(value);
     },
     then(resolve, reject) {
       return Promise.resolve(value).then(resolve, reject);
@@ -140,6 +144,19 @@ function installMocks() {
     Object.assign(state.order, update.$set || update);
     return structuredClone(state.order);
   };
+  Order.findOne = (filter) => {
+    const order = state.order;
+    const matchesStatus = !filter.status
+      || (Array.isArray(filter.status.$in)
+        ? filter.status.$in.includes(order?.status)
+        : filter.status === order?.status);
+    const matches = order
+      && String(filter._id) === String(order._id)
+      && matchesStatus
+      && (filter.orderType?.$ne !== "store" || order.orderType !== "store")
+      && (filter.storeProfileId !== null || !order.storeProfileId);
+    return query(matches ? structuredClone(order) : null);
+  };
   AdminEscrowLog.create = async (documents) => {
     state.adminLogs.push(...documents.map((document) => ({ ...document })));
     return documents;
@@ -180,6 +197,7 @@ test.after(() => {
   Wallet.create = originalWalletCreate;
   Transaction.findOne = originalTransactionFindOne;
   Transaction.create = originalTransactionCreate;
+  Order.findOne = originalOrderFindOne;
   Order.findOneAndUpdate = originalOrderFindOneAndUpdate;
   AdminEscrowLog.create = originalEscrowLogCreate;
   Ad.findByIdAndUpdate = originalAdFindByIdAndUpdate;

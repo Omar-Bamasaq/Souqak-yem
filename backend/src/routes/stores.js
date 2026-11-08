@@ -1349,8 +1349,12 @@ router.post("/", auth, requireRole(["user", "seller", "buyer"]), draftActionWrit
       return res.status(409).json({ error: "You already have a profile for this service" });
     }
     if (existing?.status === "rejected") {
-      storeName = existing.storeName;
-      activityKey = existing.activityKey;
+      if (typeof existing.storeName === "string" && existing.storeName.trim()) {
+        storeName = existing.storeName;
+      }
+      if (typeof existing.activityKey === "string" && existing.activityKey.trim()) {
+        activityKey = existing.activityKey;
+      }
     }
 
     const activity = storeType === "family-production"
@@ -1358,8 +1362,11 @@ router.post("/", auth, requireRole(["user", "seller", "buyer"]), draftActionWrit
       : getStoreActivity(activityKey);
     if (!activity) return res.status(400).json({ error: "A valid activityKey is required" });
 
-    const slugValidation = existing?.status === "rejected"
-      ? { valid: true, slug: existing.slug }
+    const existingSlug = existing?.status === "rejected" && typeof existing.slug === "string"
+      ? validateStoreSlug(existing.slug)
+      : null;
+    const slugValidation = existingSlug?.valid
+      ? existingSlug
       : validateStoreSlug(req.body?.slug);
     if (!slugValidation.valid) return res.status(400).json({ error: slugValidation.message });
     const slugCollision = await StoreProfile.exists({
