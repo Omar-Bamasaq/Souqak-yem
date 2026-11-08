@@ -59,7 +59,13 @@ export default function AccountSettings() {
 
   // Notification States
   const defaultAdminPushPrefs = { inApp: false, push: true, email: false };
+  const defaultBrokeragePrefs = { inApp: true, push: true, email: false };
   const [notifPrefs, setNotifPrefs] = useState(() => ({
+    broker_request: { ...defaultBrokeragePrefs },
+    broker_approved: { ...defaultBrokeragePrefs },
+    deal_pending: { ...defaultBrokeragePrefs },
+    deal_confirmed: { ...defaultBrokeragePrefs },
+    complaint_resolved: { ...defaultBrokeragePrefs },
     ...(user?.notificationPrefs || {}),
     admin_message: {
       ...defaultAdminPushPrefs,
@@ -111,13 +117,14 @@ export default function AccountSettings() {
   };
 
   const toggleNotif = async (category, type) => {
-    const isEnablingPush = type === 'push' && !notifPrefs[category][type];
+    const currentPrefs = notifPrefs[category] || defaultBrokeragePrefs;
+    const isEnablingPush = type === 'push' && !currentPrefs[type];
     
     const newPrefs = {
       ...notifPrefs,
       [category]: {
-        ...notifPrefs[category],
-        [type]: !notifPrefs[category][type]
+        ...currentPrefs,
+        [type]: !currentPrefs[type]
       }
     };
     
@@ -175,14 +182,13 @@ export default function AccountSettings() {
     setPwError("");
 
     // Validate password language
-    const arabicRegex = /[\u0600-\u06FF]/;
-    if (arabicRegex.test(newPassword)) {
-      setPwError("يجب أن تحتوي كلمة المرور على أحرف إنجليزية وأرقام فقط");
+    if (/[\s\p{Script=Arabic}]/u.test(newPassword)) {
+      setPwError("لا تسمح كلمة المرور بالمسافات أو الأحرف العربية");
       return;
     }
 
-    if (newPassword.length < 8) {
-      setPwError("يجب أن تكون كلمة المرور 8 أحرف على الأقل");
+    if (newPassword.length < 8 || newPassword.length > 24) {
+      setPwError("كلمة المرور يجب أن تكون من 8 إلى 24 رمزاً");
       return;
     }
 
@@ -222,7 +228,7 @@ export default function AccountSettings() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-20 sm:pb-10 px-4 sm:px-0">
+    <div className="max-w-2xl mx-auto space-y-4 pb-20 sm:space-y-6 sm:pb-10 px-3 sm:px-0">
       {/* Mobile Top Header */}
       <div className="sm:hidden flex items-center justify-between pt-4 mb-2">
         <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 rounded-full shadow-sm border border-gray-100 dark:border-slate-800">
@@ -232,13 +238,13 @@ export default function AccountSettings() {
         <div className="w-10"></div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 sm:p-10 border-2 border-gray-50 dark:border-slate-800 shadow-sm overflow-hidden relative">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:rounded-[2.5rem] sm:p-10 border-2 border-gray-50 dark:border-slate-800 shadow-sm overflow-hidden relative">
         {/* Background Accent for Mobile */}
         <div className="sm:hidden absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-blue-50/50 dark:from-blue-900/10 to-transparent pointer-events-none"></div>
 
         <div className="relative z-10">
           {/* User Profile Header */}
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-10 text-center sm:text-right">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-6 sm:mb-10 text-center sm:text-right">
             <div className="w-24 h-24 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-3xl text-white font-black shadow-xl shadow-blue-500/20 border-4 border-white dark:border-slate-800 overflow-hidden">
               {user?.avatar ? (
                 <img 
@@ -270,6 +276,14 @@ export default function AccountSettings() {
               <p className="text-sm text-gray-500 dark:text-slate-400 font-bold mb-3">{user?.email}</p>
               
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                {user?.phone && (
+                  <Link
+                    to="/verify-phone"
+                    className={`px-3 py-1 text-[10px] font-black rounded-full border ${user.phoneVerifiedAt ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100"}`}
+                  >
+                    {user.phoneVerifiedAt ? "الهاتف موثّق" : "الهاتف غير موثّق — ابدأ التوثيق"}
+                  </Link>
+                )}
                 <span className="px-3 py-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 text-[10px] font-black rounded-full border border-gray-200 dark:border-slate-700 uppercase">
                   {user?.role === 'admin' ? 'مسؤول النظام' : user?.verificationStatus === 'verified' ? 'حساب موثق' : 'عضو نشط'}
                 </span>
@@ -289,7 +303,7 @@ export default function AccountSettings() {
           </div>
 
           {/* Quick Links Grid (Mobile Only) */}
-          <div className="grid grid-cols-2 gap-3 mb-10 sm:hidden">
+          <div className="grid grid-cols-2 gap-2.5 mb-6 sm:hidden">
             {quickLinks.map((link) => (
               <Link 
                 key={link.title} 
@@ -304,7 +318,7 @@ export default function AccountSettings() {
 
           <h1 className="hidden sm:block text-2xl font-black text-slate-900 dark:text-white mb-6">الإعدادات والأمان</h1>
           
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Quick Settings List */}
             <div className="grid gap-2">
               <button 
@@ -590,6 +604,11 @@ export default function AccountSettings() {
                   className="w-full bg-gray-50 dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 transition-all text-sm font-bold"
                   placeholder="7XXXXXXXX"
                 />
+                {user?.phone && (
+                  <Link to="/verify-phone" className="mt-2 inline-block text-xs font-bold text-blue-600 underline">
+                    {user.phoneVerifiedAt ? "عرض حالة توثيق الهاتف" : "توثيق رقم الهاتف"}
+                  </Link>
+                )}
               </div>
 
               {editError && (
@@ -786,13 +805,8 @@ export default function AccountSettings() {
                     onChange={() => toggleNotif('message', 'push')} 
                     loading={notifLoading}
                   />
-                  <NotificationToggle 
-                    label="تنبيهات البريد الإلكتروني" 
-                    checked={notifPrefs.message?.email} 
-                    onChange={() => toggleNotif('message', 'email')} 
-                    loading={notifLoading}
-                  />
                 </div>
+                <p className="text-xs leading-6 text-slate-500">إشعارات البريد مخصصة لبريد الطلبات الخاص بملفات المتاجر والأسر المنتجة.</p>
               </div>
 
               {/* Category: Admin Push */}

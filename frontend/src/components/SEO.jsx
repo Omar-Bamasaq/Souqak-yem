@@ -1,9 +1,11 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { createBreadcrumbList } from '../lib/structuredData.js';
+import { resolveCanonicalUrl, resolveSiteBaseUrl, resolveSiteUrl } from '../lib/siteUrl.js';
 
-const SEO = ({ title, description, image, url, type = 'website', price, currency, canonicalUrl, indexable = true, breadcrumbs = [], includeSearchAction = false }) => {
+const SEO = ({ title, description, image, url, type = 'website', canonicalUrl, indexable = true, breadcrumbs = [], includeSearchAction = false, jsonLd }) => {
   const siteName = 'سوقك';
-  const baseUrl = 'https://souqak-yem.com';
+  const baseUrl = resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL);
   const defaultDescription = 'سوقك هو منصة يمنية موثوقة للبيع والشراء والإعلانات المبوبة، مع ميزة الشراء الآمن في السيارات، العقارات، الإلكترونيات والمنتجات والخدمات.';
   const metaDescription = description || defaultDescription;
   const cleanDescription = String(metaDescription).replace(/<[^>]*>?/gm, '').trim().substring(0, 160);
@@ -13,60 +15,45 @@ const SEO = ({ title, description, image, url, type = 'website', price, currency
     ? (/\|\s*سوقك\s*$/.test(safeTitle) ? safeTitle : `${safeTitle} | سوقك`)
     : 'سوقك - سوق اليمن للإعلانات والبيع والشراء';
   const metaImage = image ? (image.startsWith('http') ? image : `${baseUrl}${image.startsWith('/') ? image : `/${image}`}`) : `${baseUrl}/logo.png`;
-  const canonical = canonicalUrl ? (canonicalUrl.startsWith('http') ? canonicalUrl : `${baseUrl}${canonicalUrl.startsWith('/') ? canonicalUrl : `/${canonicalUrl}`}`) : `${baseUrl}/`;
-  const currentUrl = url ? (url.startsWith('http') ? url : `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`) : canonical;
+  const canonical = resolveCanonicalUrl(canonicalUrl, baseUrl);
+  const currentUrl = resolveSiteUrl(url || canonical, baseUrl);
   const robotsContent = indexable ? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' : 'noindex,nofollow';
+  const breadcrumbList = createBreadcrumbList(breadcrumbs, baseUrl);
 
   const baseJsonLd = {
     '@context': 'https://schema.org',
-    '@type': type === 'product' ? 'Product' : type === 'collection' ? 'CollectionPage' : 'WebSite',
+    '@type': type === 'collection' ? 'CollectionPage' : 'WebSite',
     name: safeTitle,
     description: cleanDescription,
     url: currentUrl,
     image: metaImage,
-    ...(type === 'product' && price ? {
-      offers: {
-        '@type': 'Offer',
-        price: Number(price) || 0,
-        priceCurrency: currency || 'YER',
-        availability: 'https://schema.org/InStock'
-      }
-    } : {}),
-    ...(type !== 'product' ? {
+    alternateName: 'Souqak',
+    inLanguage: 'ar-YE',
+    publisher: {
+      '@type': 'Organization',
+      name: 'سوقك',
       alternateName: 'Souqak',
-      inLanguage: 'ar-YE',
-      publisher: {
-        '@type': 'Organization',
-        name: 'سوقك',
-        alternateName: 'Souqak',
-        url: baseUrl,
-        logo: `${baseUrl}/logo.png`
-      },
-      ...(includeSearchAction ? { potentialAction: {
-        '@type': 'SearchAction',
-        target: `${baseUrl}/search?q={search_term_string}`,
-        'query-input': 'required name=search_term_string'
-      } } : {})
-    } : {})
+      url: baseUrl,
+      logo: `${baseUrl}/logo.png`
+    },
+    ...(includeSearchAction ? { potentialAction: {
+      '@type': 'SearchAction',
+      target: `${baseUrl}/search?q={search_term_string}`,
+      'query-input': 'required name=search_term_string'
+    } } : {})
   };
 
-  const jsonLd = breadcrumbs.length > 0
-    ? {
+  const pageJsonLd = jsonLd !== undefined
+    ? jsonLd
+    : breadcrumbList
+      ? {
       '@context': 'https://schema.org',
       '@graph': [
         baseJsonLd,
-        {
-          '@type': 'BreadcrumbList',
-          itemListElement: breadcrumbs.map((breadcrumb, index) => ({
-            '@type': 'ListItem',
-            position: index + 1,
-            name: breadcrumb.name,
-            item: breadcrumb.url
-          }))
-        }
+        breadcrumbList
       ]
     }
-    : baseJsonLd;
+      : baseJsonLd;
 
   return (
     <Helmet>
@@ -90,10 +77,7 @@ const SEO = ({ title, description, image, url, type = 'website', price, currency
       <meta name="twitter:description" content={cleanDescription} />
       <meta name="twitter:image" content={metaImage} />
 
-      {price && <meta property="product:price:amount" content={String(price)} />}
-      {currency && <meta property="product:price:currency" content={currency} />}
-
-      <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      {pageJsonLd && <script type="application/ld+json">{JSON.stringify(pageJsonLd).replace(/</g, '\\u003c')}</script>}
     </Helmet>
   );
 };

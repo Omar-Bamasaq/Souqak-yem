@@ -5,7 +5,11 @@ import Favorite from "../models/Favorite.js";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/roles.js";
 import adminAudit from "../middleware/adminAudit.js";
-import { createNotification } from "../services/notificationService.js";
+import {
+  createNotification,
+  createStoreNotification,
+  STORE_NOTIFICATION_TYPES
+} from "../services/notificationService.js";
 import Joi from "joi";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
 
@@ -62,6 +66,7 @@ router.patch(
     const { status } = req.body || {};
     const ad = await Ad.findById(req.params.id);
     if (!ad) return res.status(404).json({ error: "Not found" });
+    const previousStatus = ad.status;
     ad.status = status;
     if (status === "approved") {
       const now = new Date();
@@ -70,6 +75,24 @@ router.patch(
       ad.expireReminderSent = false;
     }
     await ad.save();
+    if (status === "approved" && previousStatus !== "approved" && ad.storeProfileId) {
+      await createStoreNotification(req.app, {
+        storeProfileId: ad.storeProfileId,
+        type: STORE_NOTIFICATION_TYPES.NEW_ARRIVAL,
+        title: "منتج جديد في المتجر",
+        body: `أُضيف ${ad.title} إلى المتجر.`,
+        data: { productId: String(ad._id), eventId: `${ad._id}:${ad.publishedAt?.getTime() || "published"}` }
+      });
+      if (ad.discountEnabled === true) {
+        await createStoreNotification(req.app, {
+          storeProfileId: ad.storeProfileId,
+          type: STORE_NOTIFICATION_TYPES.DISCOUNT_ACTIVATED,
+          title: "عرض جديد من المتجر",
+          body: `تم نشر ${ad.title} مع خصم.`,
+          data: { productId: String(ad._id), eventId: `${ad._id}:${ad.publishedAt?.getTime() || "published"}` }
+        });
+      }
+    }
 
     // إرسال إشعار للمستخدم بتحديث حالة إعلانه
     try {

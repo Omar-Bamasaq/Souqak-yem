@@ -86,21 +86,21 @@ export default function SellerDashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <h2 className="ds-title">لوحة البائع</h2>
 
       {/* Analytics Overview Section - Grid 2x2 on Mobile */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
         {loading && !analytics ? (
-          // Skeletons - square on mobile
+          // Compact placeholders match the analytics cards on mobile.
           Array(4).fill(0).map((_, i) => (
-            <div key={i} className="ds-card animate-pulse bg-gray-100 dark:bg-gray-800 border-none aspect-square md:aspect-auto md:h-32 rounded-2xl md:rounded-3xl"></div>
+            <div key={i} className="ds-card animate-pulse bg-gray-100 dark:bg-gray-800 border-none min-h-28 md:h-32 rounded-2xl md:rounded-3xl"></div>
           ))
         ) : (
           <>
-            {/* 1. Wallet Balance Card - Square compact */}
-            <div className="ds-card bg-gradient-to-br from-brand-600 to-brand-800 text-white border-none shadow-lg md:shadow-xl rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
-              <div className="flex justify-between items-start flex-1">
+            {/* 1. Wallet Balance Card */}
+            <div className="ds-card bg-gradient-to-br from-brand-600 to-brand-800 text-white border-none shadow-lg md:shadow-xl rounded-2xl md:rounded-3xl p-2.5 sm:p-4 md:p-5 flex flex-col min-h-28 md:min-h-[140px]">
+              <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="text-white/80 text-[10px] sm:text-xs md:text-xs font-bold mb-0.5 sm:mb-1">الرصيد المتاح</div>
                   <div className="text-base sm:text-lg md:text-2xl font-black leading-tight break-words">
@@ -114,7 +114,7 @@ export default function SellerDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-white/15 flex justify-between items-center gap-1.5">
+              <div className="mt-auto pt-2 sm:mt-4 sm:pt-3 border-t border-white/15 flex justify-between items-center gap-1.5">
                 <div className="text-[9px] sm:text-[10px] text-white/70 font-bold truncate">
                   معلق: {analytics?.wallet?.pendingBalance?.toLocaleString() || 0}
                 </div>
@@ -124,9 +124,9 @@ export default function SellerDashboard() {
               </div>
             </div>
 
-            {/* 2. Revenue Card - Square compact */}
-            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
-              <div className="flex justify-between items-start flex-1">
+            {/* 2. Revenue Card */}
+            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-2.5 sm:p-4 md:p-5 flex flex-col min-h-28 md:min-h-[140px]">
+              <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">إجمالي المبيعات</div>
                   <div className="text-base sm:text-lg md:text-2xl font-black leading-tight break-words text-emerald-600">
@@ -140,16 +140,16 @@ export default function SellerDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
+              <div className="mt-auto pt-2 sm:mt-4 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
                 <span className="inline-block w-full text-center text-[9px] sm:text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 px-2 py-0.5 sm:py-1 rounded-full truncate">
                   مكتملة: {analytics?.orders?.completed || 0}
                 </span>
               </div>
             </div>
 
-            {/* 3. Ad Views Card - Square compact */}
-            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
-              <div className="flex justify-between items-start flex-1">
+            {/* 3. Ad Views Card */}
+            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-2.5 sm:p-4 md:p-5 flex flex-col min-h-28 md:min-h-[140px]">
+              <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">مشاهدات الإعلانات</div>
                   <div className="text-xl sm:text-2xl md:text-3xl font-black leading-tight break-words text-blue-600">
@@ -163,16 +163,16 @@ export default function SellerDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
+              <div className="mt-auto pt-2 sm:mt-4 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
                 <span className="inline-block w-full text-center text-[9px] sm:text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 px-2 py-0.5 sm:py-1 rounded-full truncate">
                   المتابعون: {analytics?.followers || 0}
                 </span>
               </div>
             </div>
 
-            {/* 4. Escrow/Active Orders Card - Square compact */}
-            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col aspect-square md:aspect-auto md:h-auto md:min-h-[140px]">
-              <div className="flex justify-between items-start flex-1">
+            {/* 4. Escrow/Active Orders Card */}
+            <div className="ds-card bg-white dark:bg-slate-800 border-none shadow-sm hover:shadow-md md:hover:shadow-lg transition-shadow rounded-2xl md:rounded-3xl p-2.5 sm:p-4 md:p-5 flex flex-col min-h-28 md:min-h-[140px]">
+              <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                   <div className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">طلبات الشحن</div>
                   <div className="text-xl sm:text-2xl md:text-3xl font-black leading-tight break-words text-amber-600">
@@ -185,7 +185,7 @@ export default function SellerDashboard() {
                   </svg>
                 </div>
               </div>
-              <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
+              <div className="mt-auto pt-2 sm:mt-4 sm:pt-3 border-t border-gray-100 dark:border-gray-700/50">
                 <span className="inline-block w-full text-center text-[9px] sm:text-[10px] font-bold text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full truncate">
                   {analytics?.orders?.pendingRevenue?.toLocaleString() || 0} {getCurrencySymbol(analytics?.wallet?.currency)}
                 </span>

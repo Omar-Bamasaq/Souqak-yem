@@ -1,24 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApi } from '../api/axios.js';
-import { io } from 'socket.io-client';
+import { useChat } from '../store/ChatContext.jsx';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin || 'https://api.souqak-yem.com';
-
 export default function AdminNotificationBell() {
   const api = useApi();
+  const { socket } = useChat() || {};
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const socketRef = useRef();
   const dropdownRef = useRef();
+  const notificationIds = useRef(new Set());
 
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/admin/notifications');
-      setNotifications(res.data.items || []);
+      const items = res.data.items || [];
+      notificationIds.current = new Set(items.map((item) => item._id).filter(Boolean));
+      setNotifications(items);
     } catch (err) {
       console.error('Error fetching admin notifications:', err);
     }
@@ -36,42 +37,55 @@ export default function AdminNotificationBell() {
   useEffect(() => {
     fetchNotifications();
     fetchUnreadCount();
+  }, []);
 
-    // Setup Socket.IO
-    socketRef.current = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-    });
+  useEffect(() => {
+    if (!socket) return undefined;
+    const handleNewNotification = (notification) => {
+      if (!notification?._id || notificationIds.current.has(notification._id)) return;
+      notificationIds.current.add(notification._id);
+      setNotifications((prev) => [notification, ...prev].slice(0, 20));
+      if (!notification.isRead) {
+        setUnreadCount((prev) => prev + 1);
+        fetchUnreadCount();
+      }
+    };
+    const refresh = () => {
+      fetchNotifications();
+      fetchUnreadCount();
+    };
 
-    socketRef.current.on('admin_notification:new', (notification) => {
-      setNotifications((prev) => [notification, ...prev]);
-      setUnreadCount((prev) => prev + 1);
-      
-      // Play a subtle notification sound if needed
-      // new Audio('/notification-sound.mp3').play().catch(() => {});
-    });
+    socket.on('admin_notification:new', handleNewNotification);
+    socket.on('connect', refresh);
+    if (socket.connected) refresh();
+    return () => {
+      socket.off('admin_notification:new', handleNewNotification);
+      socket.off('connect', refresh);
+    };
+  }, [socket]);
 
-    // Close dropdown on click outside
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-
     return () => {
-      if (socketRef.current) socketRef.current.disconnect();
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
   const markAsRead = async (id) => {
+    const wasUnread = notifications.some((notification) => notification._id === id && !notification.isRead);
     try {
       await api.patch(`/admin/notifications/${id}/read`);
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      if (wasUnread) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
     } catch (err) {
       console.error('Error marking notification as read:', err);
     }
@@ -116,7 +130,10 @@ export default function AdminNotificationBell() {
         return { bg: 'bg-pink-50', icon: 'text-pink-600', border: 'border-pink-100' };
       case 'new_order':
       case 'order_updated':
+      case 'booking_submission':
         return { bg: 'bg-emerald-50', icon: 'text-emerald-600', border: 'border-emerald-100' };
+      case 'store_subscription':
+        return { bg: 'bg-blue-50', icon: 'text-blue-600', border: 'border-blue-100' };
       case 'new_support_ticket':
       case 'support_reply':
         return { bg: 'bg-orange-50', icon: 'text-orange-600', border: 'border-orange-100' };
@@ -125,6 +142,7 @@ export default function AdminNotificationBell() {
         return { bg: 'bg-lime-50', icon: 'text-lime-600', border: 'border-lime-100' };
       case 'new_ad_report':
       case 'report_handled':
+      case 'quote_request_report':
         return { bg: 'bg-rose-50', icon: 'text-rose-600', border: 'border-rose-100' };
       default:
         return { bg: 'bg-gray-50', icon: 'text-gray-600', border: 'border-gray-100' };
@@ -214,8 +232,11 @@ export default function AdminNotificationBell() {
                         {(notif.type === 'new_user' || notif.type === 'user_verified' || notif.type === 'user_banned') && (
                           <svg className={`w-5 h-5 ${styles.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                         )}
-                        {(notif.type === 'new_order' || notif.type === 'order_updated') && (
+                        {(notif.type === 'new_order' || notif.type === 'order_updated' || notif.type === 'booking_submission') && (
                           <svg className={`w-5 h-5 ${styles.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        )}
+                        {notif.type === 'store_subscription' && (
+                          <svg className={`w-5 h-5 ${styles.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M5 10v10h14V10M4 10l1-6h14l1 6M9 20v-6h6v6" /></svg>
                         )}
                         {(notif.type === 'new_support_ticket' || notif.type === 'support_reply') && (
                           <svg className={`w-5 h-5 ${styles.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4v-4z" /></svg>
@@ -223,7 +244,7 @@ export default function AdminNotificationBell() {
                         {(notif.type === 'new_platform_review' || notif.type === 'admin_reply_to_review') && (
                           <svg className={`w-5 h-5 ${styles.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.382-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                         )}
-                        {(notif.type === 'new_ad_report' || notif.type === 'report_handled') && (
+                        {(notif.type === 'new_ad_report' || notif.type === 'report_handled' || notif.type === 'quote_request_report') && (
                           <svg className={`w-5 h-5 ${styles.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         )}
                       </div>

@@ -3,8 +3,9 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useCategoryApi } from "../api/categories.js";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
 import { useApi } from "../api/axios.js";
-import { uploadsUrl } from "../lib/uploads.js";
+import CategoryIcon from "../components/CategoryIcon.jsx";
 import ProductCard from "../components/ProductCard.jsx";
+import SponsoredAdSlot from "../components/SponsoredAdSlot.jsx";
 import { useMainCategories } from "../hooks/useMainCategories.js";
 import CategoryTree from "../components/CategoryTree.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
@@ -500,7 +501,7 @@ export default function CategoryPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 py-8 text-center sm:py-16">
         <h1 className="text-2xl font-bold text-red-600 mb-4">خطأ</h1>
         <p className="text-gray-600 mb-4">{error}</p>
         <Link to="/" className="text-emerald-600 hover:underline">
@@ -512,7 +513,7 @@ export default function CategoryPage() {
 
   if (!category) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 py-8 text-center sm:py-16">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">الفئة غير موجودة</h1>
         <p className="text-gray-600 mb-4">لا يمكن العثور على الفئة المطلوبة</p>
         <Link to="/" className="text-emerald-600 hover:underline">
@@ -523,13 +524,11 @@ export default function CategoryPage() {
   }
 
   const activeCategory = selectedSubcategory || category;
-  const canonicalPath = subSlug
-    ? `/category/${slug}?sub=${encodeURIComponent(subSlug)}`
-    : `/category/${slug}`;
+  const canonicalPath = `/category/${slug}`;
   const categoryBreadcrumbs = [
-    { name: "الرئيسية", url: "https://souqak-yem.com/" },
-    { name: category.name, url: `https://souqak-yem.com/category/${category.slug}` },
-    ...(selectedSubcategory ? [{ name: selectedSubcategory.name, url: `https://souqak-yem.com${canonicalPath}` }] : [])
+    { name: "الرئيسية", url: "/" },
+    { name: category.name, url: `/category/${category.slug}` },
+    ...(selectedSubcategory ? [{ name: selectedSubcategory.name, url: canonicalPath }] : [])
   ];
 
   const handleGlobalSearch = () => {
@@ -646,22 +645,16 @@ export default function CategoryPage() {
                 
                 {/* Image Container (small on mobile: 80px → 96px → 128px → 256px) */}
                 <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-48 md:h-48 lg:w-64 lg:h-64 rounded-[1.25rem] sm:rounded-[1.5rem] md:rounded-[2rem] lg:rounded-[2.5rem] bg-white/15 backdrop-blur-xl border border-white/25 md:border-2 shadow-lg md:shadow-2xl overflow-hidden p-1.5 sm:p-2 md:p-4">
-                  {category.image ? (
-                    <img
-                      src={uploadsUrl(category.image, "thumb")}
-                      alt={category.name}
-                      className="w-full h-full rounded-xl sm:rounded-[1.25rem] md:rounded-[2rem] object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full rounded-xl sm:rounded-[1.25rem] md:rounded-[2rem] bg-white/20 flex items-center justify-center text-3xl sm:text-4xl md:text-6xl lg:text-7xl">
-                      {getCategoryIcon(category)}
-                    </div>
-                  )}
+                  <CategoryIcon
+                    category={category}
+                    size="100%"
+                    className="relative z-10 h-full w-full rounded-xl object-contain text-slate-800 sm:rounded-[1.25rem] md:rounded-[2rem]"
+                  />
                 </div>
 
                 {/* Floating Icon Badge (compact mobile: 28px → 32px → 56px) */}
                 <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 md:-top-4 md:-right-4 w-7 h-7 sm:w-8 sm:h-8 md:w-14 md:h-14 rounded-xl sm:rounded-2xl bg-white text-blue-600 flex items-center justify-center text-base sm:text-lg md:text-3xl shadow-xl md:shadow-2xl border border-blue-100 md:border-2 rotate-6 hover:rotate-0 transition-transform">
-                  {getCategoryIcon(category)}
+                  <CategoryIcon category={category} size={34} className="text-blue-600" />
                 </div>
               </div>
             </div>
@@ -700,7 +693,7 @@ export default function CategoryPage() {
                   <div className={`h-14 w-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm transition-transform group-hover:scale-110 ${
                     selectedSubcategory?.id === child.id ? "bg-white/20" : "bg-blue-50 dark:bg-slate-800"
                   }`}>
-                    {getCategoryIcon(child)}
+                    <CategoryIcon category={child} size={36} className="text-blue-600" />
                   </div>
                   <div className="text-center mt-1">
                     <p className="text-[12px] font-black truncate max-w-[90px]">{child.name}</p>
@@ -802,7 +795,7 @@ export default function CategoryPage() {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-8 pt-4">
+      <div className="flex flex-col gap-4 pt-3 lg:flex-row lg:gap-8 lg:pt-4">
         {/* Sidebar - Desktop Only */}
         <aside className="hidden lg:block w-72 flex-shrink-0 space-y-6">
           <div className="sticky top-24">
@@ -811,7 +804,7 @@ export default function CategoryPage() {
         </aside>
 
         {/* Ads Grid */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-black text-gray-900">
               {selectedSubcategory ? `إعلانات ${selectedSubcategory.name}` : "أحدث الإعلانات"}
@@ -825,7 +818,7 @@ export default function CategoryPage() {
           </div>
 
           {ads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-3xl border border-dashed border-gray-200 sm:py-20">
               <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
                 <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 01-2-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -835,19 +828,22 @@ export default function CategoryPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3">
-                {ads.map((ad) => (
+              <div className="flex flex-col gap-1.5 sm:gap-2">
+                {ads.map((ad, index) => (
+                  <Fragment key={ad._id}>
+                  {index === 4 && <SponsoredAdSlot position="category" />}
                   <ProductCard
-                    key={ad._id}
                     product={ad}
                     to={`/ad/${ad._id}`}
                     featured={!!ad.featured}
+                    displayMode="list"
                   />
+                  </Fragment>
                 ))}
               </div>
 
               {/* Infinite Scroll Sentinel & Loading Indicator */}
-              <div ref={sentinelRef} className="mt-12 flex flex-col items-center justify-center pb-12 min-h-[100px]">
+              <div ref={sentinelRef} className="mt-8 flex min-h-20 flex-col items-center justify-center pb-8 sm:mt-12 sm:min-h-[100px] sm:pb-12">
                 {loading && page > 1 && (
                   <div className="flex flex-col items-center gap-3">
                     <div className="h-8 w-8 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>

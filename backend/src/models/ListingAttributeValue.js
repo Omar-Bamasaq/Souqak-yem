@@ -24,7 +24,6 @@ const ListingAttributeValueSchema = new mongoose.Schema(
 
 // Compound indexes for efficient queries
 ListingAttributeValueSchema.index({ listingId: 1, attributeId: 1 }, { unique: true });
-ListingAttributeValueSchema.index({ attributeId: 1 });
 
 const ListingAttributeValue = mongoose.model("ListingAttributeValue", ListingAttributeValueSchema);
 

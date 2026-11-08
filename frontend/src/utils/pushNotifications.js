@@ -1,77 +1,83 @@
 /**
  * Subscribe user to push notifications
  */
-export const subscribeToPush = async (api) => {
+export const subscribeToPush = async (api, { requestPermission = true, storeScoped = false } = {}) => {
   if (!api) {
-    console.error("API instance is required for push subscription");
-    return;
+    throw new Error("API instance is required for push subscription");
   }
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    console.log("Push notifications not supported");
-    return;
+    return null;
   }
 
-  try {
-    // 1. Request permission
+  const registration = await getActiveServiceWorkerRegistration();
+  if (!registration) {
+    return null;
+  }
+
+  if (Notification.permission !== "granted") {
+    if (!requestPermission || Notification.permission === "denied") return null;
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.log("Notification permission denied");
-      return;
+    if (permission !== "granted") return null;
+  }
+
+  // Fetch the current key before reusing a browser subscription. A key
+  // rotation makes the old subscription unusable by the production server.
+  const { data } = await api.get("/auth/vapid-public-key");
+  const vapidPublicKey = data?.publicKey;
+  if (!vapidPublicKey) {
+    throw new Error("Push notifications are not configured on the server");
+  }
+  const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+
+  let existingSubscription = await registration.pushManager.getSubscription();
+  if (existingSubscription) {
+    const storedVapidKey = localStorage.getItem("souqak-push-vapid-key");
+    const subscriptionKey = existingSubscription.options?.applicationServerKey;
+    const hasKeyChanged = !storedVapidKey || storedVapidKey !== vapidPublicKey;
+    const hasKnownDifferentKey = subscriptionKey && !sameBytes(subscriptionKey, applicationServerKey);
+
+    if (hasKeyChanged || hasKnownDifferentKey) {
+      await existingSubscription.unsubscribe();
+      existingSubscription = null;
     }
+  }
 
-    const registration = await navigator.serviceWorker.ready;
-
-    // Fetch the current key before reusing a browser subscription. A key
-    // rotation makes the old subscription unusable by the production server.
-    const { data } = await api.get("/auth/vapid-public-key");
-    const vapidPublicKey = data?.publicKey;
-    if (!vapidPublicKey) {
-      throw new Error("Push notifications are not configured on the server");
-    }
-    const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-
-    // 2. Check if already subscribed
-    let existingSubscription = await registration.pushManager.getSubscription();
-    if (existingSubscription) {
-      const storedVapidKey = localStorage.getItem("souqak-push-vapid-key");
-      const subscriptionKey = existingSubscription.options?.applicationServerKey;
-      const hasKeyChanged = !storedVapidKey || storedVapidKey !== vapidPublicKey;
-      const hasKnownDifferentKey = subscriptionKey && !sameBytes(subscriptionKey, applicationServerKey);
-
-      if (hasKeyChanged || hasKnownDifferentKey) {
-        await existingSubscription.unsubscribe();
-        existingSubscription = null;
-      }
-    }
-
-    if (existingSubscription) {
-      // Send to backend just in case it's not saved there
-      await api.post("/auth/subscribe", {
-        subscription: existingSubscription,
-        deviceType: getDeviceType()
-      });
-      localStorage.setItem("souqak-push-vapid-key", vapidPublicKey);
-      return;
-    }
-
-    // 3. Subscribe
-    const subscription = await registration.pushManager.subscribe({
+  if (!existingSubscription) {
+    existingSubscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey
     });
+  }
 
-    // 4. Send to backend
+  const subscriptionJson = existingSubscription.toJSON();
+  if (!storeScoped) {
     await api.post("/auth/subscribe", {
-      subscription,
+      subscription: subscriptionJson,
       deviceType: getDeviceType()
     });
-    localStorage.setItem("souqak-push-vapid-key", vapidPublicKey);
-
-    console.log("User subscribed to push notifications");
-  } catch (error) {
-    console.error("Failed to subscribe to push notifications:", error);
   }
+  localStorage.setItem("souqak-push-vapid-key", vapidPublicKey);
+
+  return subscriptionJson;
 };
+
+async function getActiveServiceWorkerRegistration() {
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return null;
+  if (registration.active) return registration;
+
+  let timeout;
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => {
+        timeout = setTimeout(() => resolve(null), 10000);
+      })
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 /**
  * Helper to get device type

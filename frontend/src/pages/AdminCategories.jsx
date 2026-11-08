@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useCategoryApi } from "../api/categories.js";
 import { useCategoryAttributeApi } from "../api/categoryAttributes.js";
-import { uploadsUrl } from "../lib/uploads.js";
-
-// Removed hardcoded API_BASE_URL as we use uploadsUrl helper
+import CategoryIcon from "../components/CategoryIcon.jsx";
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +35,7 @@ export default function AdminCategories() {
     description: "",
     parentId: "",
     sortOrder: 0,
-    status: "active",
-    image: null,
-    imagePreview: ""
+    status: "active"
   });
 
   const categoryApi = useCategoryApi();
@@ -81,11 +77,6 @@ export default function AdminCategories() {
       formDataToSend.append("parentId", formData.parentId || "");
       formDataToSend.append("sortOrder", formData.sortOrder || 0);
       formDataToSend.append("status", formData.status || "active");
-      
-      if (formData.image && formData.image instanceof File) {
-        formDataToSend.append("image", formData.image);
-      }
-
       if (editingCategory) {
         await categoryApi.updateCategory(editingCategory.id, formDataToSend);
       } else {
@@ -149,9 +140,7 @@ export default function AdminCategories() {
       description: category.description || "",
       parentId: category.parentId || "",
       sortOrder: category.sortOrder || 0,
-      status: category.status,
-      image: null,
-      imagePreview: category.image || ""
+      status: category.status
     });
     setShowModal(true);
   };
@@ -174,9 +163,7 @@ export default function AdminCategories() {
       description: "",
       parentId: "",
       sortOrder: 0,
-      status: "active",
-      image: null,
-      imagePreview: ""
+      status: "active"
     });
   };
 
@@ -402,18 +389,8 @@ export default function AdminCategories() {
                             </div>
 
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-10 w-10 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
-                                {category.image ? (
-                                  <img
-                                    src={uploadsUrl(category.image)}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="h-full w-full flex items-center justify-center text-gray-300">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                  </div>
-                                )}
+                              <div className="h-10 w-10 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform flex items-center justify-center">
+                                <CategoryIcon category={category} size={28} className="text-slate-600" />
                               </div>
                               <div className="min-w-0">
                                 <h3 className="font-bold text-gray-900 text-sm truncate">{category.name}</h3>
@@ -482,18 +459,8 @@ export default function AdminCategories() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8h16M4 16h16" />
                                   </svg>
                                 </div>
-                                <div className="h-10 w-10 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0">
-                                  {category.image ? (
-                                    <img
-                                      src={uploadsUrl(category.image)}
-                                      alt=""
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="h-full w-full flex items-center justify-center text-gray-300">
-                                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    </div>
-                                  )}
+                                <div className="h-10 w-10 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                  <CategoryIcon category={category} size={28} className="text-slate-600" />
                                 </div>
                                 <div>
                                   <h3 className="font-black text-gray-900 text-sm">{category.name}</h3>
@@ -591,53 +558,15 @@ export default function AdminCategories() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 px-1">صورة الفئة (اختياري)</label>
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden flex items-center justify-center relative group">
-                        {formData.imagePreview ? (
-                          <>
-                            <img 
-                              src={formData.image instanceof File ? formData.imagePreview : uploadsUrl(formData.imagePreview)} 
-                              alt="Category Preview" 
-                              className="w-full h-full object-cover" 
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setFormData({ ...formData, image: null, imagePreview: "" })}
-                              className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                            >
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          </>
-                        ) : (
-                          <div className="text-gray-300">
-                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          </div>
-                        )}
-                      </div>
-                      <label className="flex-1">
-                        <div className="w-full h-10 rounded-xl border-2 border-dashed border-gray-100 hover:border-blue-500/30 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2 cursor-pointer">
-                          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-                          <span className="text-[10px] font-black text-blue-600 uppercase">اختر صورة</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              setFormData({
-                                ...formData,
-                                image: file,
-                                imagePreview: URL.createObjectURL(file)
-                              });
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
+                  <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                    <CategoryIcon
+                      category={editingCategory}
+                      size={40}
+                      className="text-blue-700"
+                    />
+                    <p className="text-xs font-bold leading-5 text-blue-800">
+                      تُختار رسمة الفئة تلقائيًا حسب مفتاحها، ولا يلزم رفع صورة.
+                    </p>
                   </div>
 
                   <div>

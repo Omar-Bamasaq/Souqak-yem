@@ -51,7 +51,7 @@ router.post("/:productId", auth, async (req, res) => {
     chat.messages.push({ sender: req.user.id, text, createdAt: new Date() });
     await chat.save();
     const io = req.app.get("io");
-    if (io) io.to(`chat:${req.params.productId}`).emit("chat:new_message", { productId: req.params.productId, message: { sender: req.user.id, text, createdAt: new Date().toISOString() } });
+    if (io) io.to(`chat:${chat._id}`).emit("chat:new_message", { productId: req.params.productId, message: { sender: req.user.id, text, createdAt: new Date().toISOString() } });
     res.status(201).json({ ok: true });
   } catch {
     res.status(500).json({ error: "Server error" });

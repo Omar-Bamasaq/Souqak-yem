@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import mongoose from "mongoose";
 import Category from "../models/Category.js";
 import CategoryAttribute from "../models/CategoryAttribute.js";
@@ -347,25 +348,21 @@ router.put("/:id", authenticate, requireAdmin, uploadCategoryImage.single("image
     if (sortOrder !== undefined) category.sortOrder = sortOrder;
     if (status !== undefined) category.status = status;
 
+    const previousImage = req.file ? category.image : null;
     if (req.file) {
-      console.log("Processing new image upload:", req.file.filename);
-      // Delete old image if exists
-      if (category.image) {
-        try {
-          const oldFilename = category.image.split('/').pop();
-          console.log("Deleting old image:", oldFilename);
-          await ImageUploadService.deleteFile(oldFilename);
-        } catch (deleteError) {
-          console.log("Could not delete old image:", deleteError.message);
-          // Continue even if delete fails
-        }
-      }
       const validated = await ImageUploadService.validateUploadedFile(req.file, req);
-      console.log("Image validated:", validated.url);
       category.image = validated.url;
     }
 
     await category.save();
+
+    if (previousImage) {
+      try {
+        await ImageUploadService.deleteFile(path.basename(previousImage));
+      } catch (deleteError) {
+        console.log("Could not delete replaced category image:", deleteError.message);
+      }
+    }
     
     // Invalidate cache
     CategoryService.invalidateCache();

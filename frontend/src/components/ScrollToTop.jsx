@@ -1,19 +1,109 @@
 import { useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 
+const SCROLL_POSITIONS_KEY = "souqak-scroll-positions";
+const MAX_SAVED_POSITIONS = 100;
+
+function readSavedPositions() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(SCROLL_POSITIONS_KEY) || "{}");
+    return new Map(Object.entries(value));
+  } catch {
+    return new Map();
+  }
+}
+
+function getScrollPosition() {
+  return {
+    x: window.scrollX || document.documentElement.scrollLeft || 0,
+    y: window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0
+  };
+}
+
+function scrollToPosition(position) {
+  window.scrollTo(position.x, position.y);
+  document.documentElement.scrollTo(position.x, position.y);
+  document.body.scrollTo(position.x, position.y);
+  document.getElementById("root")?.scrollTo(position.x, position.y);
+}
+
 /**
  * Component that scrolls the window to the top whenever the location changes,
- * but only for new navigations (PUSH/REPLACE).
- * It allows the browser to restore scroll position on BACK/FORWARD (POP).
+ * but only for new navigations (PUSH/REPLACE). It saves and restores scroll
+ * positions for each history entry on BACK/FORWARD (POP).
  * It also ignores scrolling if only the 'page' parameter changes in the URL.
  */
 export default function ScrollToTop() {
-  const { pathname, search } = useLocation();
+  const { pathname, search, hash, key } = useLocation();
   const navType = useNavigationType();
   const prevPathname = useRef(pathname);
   const prevSearch = useRef(search);
+  const positionsRef = useRef(readSavedPositions());
+  const activeKeyRef = useRef(key);
 
   useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    const saveCurrentPosition = () => {
+      const positions = positionsRef.current;
+      positions.delete(activeKeyRef.current);
+      positions.set(activeKeyRef.current, getScrollPosition());
+      while (positions.size > MAX_SAVED_POSITIONS) {
+        positions.delete(positions.keys().next().value);
+      }
+      try {
+        sessionStorage.setItem(SCROLL_POSITIONS_KEY, JSON.stringify(Object.fromEntries(positions)));
+      } catch {
+        // In-memory restoration still works when session storage is unavailable.
+      }
+    };
+
+    window.addEventListener("scroll", saveCurrentPosition, { passive: true });
+    window.addEventListener("pagehide", saveCurrentPosition);
+    return () => {
+      saveCurrentPosition();
+      window.removeEventListener("scroll", saveCurrentPosition);
+      window.removeEventListener("pagehide", saveCurrentPosition);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const previousKey = activeKeyRef.current;
+    if (previousKey !== key) {
+      activeKeyRef.current = key;
+    }
+
+    if (navType === "POP") {
+      const position = positionsRef.current.get(key);
+      if (position) {
+        let cancelled = false;
+        const restore = () => {
+          if (!cancelled) scrollToPosition(position);
+        };
+        const cancelRestoration = () => {
+          cancelled = true;
+        };
+        const frameId = requestAnimationFrame(restore);
+        const timeouts = [0, 100, 300, 800].map((delay) => setTimeout(restore, delay));
+        window.addEventListener("wheel", cancelRestoration, { once: true, passive: true });
+        window.addEventListener("touchstart", cancelRestoration, { once: true, passive: true });
+        window.addEventListener("keydown", cancelRestoration, { once: true });
+
+        prevPathname.current = pathname;
+        prevSearch.current = search;
+        return () => {
+          cancelled = true;
+          cancelAnimationFrame(frameId);
+          timeouts.forEach(clearTimeout);
+          window.removeEventListener("wheel", cancelRestoration);
+          window.removeEventListener("touchstart", cancelRestoration);
+          window.removeEventListener("keydown", cancelRestoration);
+        };
+      }
+    }
+
     // Only scroll to top on new navigation (PUSH or REPLACE)
     if (navType !== "POP") {
       const normalizedPathname = pathname.replace(/\/$/, "");
@@ -63,13 +153,9 @@ export default function ScrollToTop() {
         }
       }
 
-      if (shouldScroll) {
+      if (shouldScroll && !hash) {
         const scrollToTop = () => {
-          window.scrollTo(0, 0);
-          document.documentElement.scrollTo(0, 0);
-          document.body.scrollTo(0, 0);
-          const root = document.getElementById('root');
-          if (root) root.scrollTo(0, 0);
+          scrollToPosition({ x: 0, y: 0 });
         };
 
         // 1. Synchronous attempt
@@ -95,7 +181,7 @@ export default function ScrollToTop() {
     // Update refs anyway to track changes
     prevPathname.current = pathname;
     prevSearch.current = search;
-  }, [pathname, search, navType]);
+  }, [key, pathname, search, navType]);
 
   return null;
 }

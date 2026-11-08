@@ -31,13 +31,15 @@ async function checkAdFollowUps() {
 
     for (const ad of adsToRemind) {
       try {
-        await createNotification(null, {
+        const notification = await createNotification(null, {
           userId: ad.userId,
           type: "ad_status_followup",
           title: "هل تم بيع إعلانك؟ 🤔",
           body: `مرت 7 أيام على نشر إعلانك "${ad.title}". هل تم بيعه؟ أخبرنا الآن!`,
-          data: { adId: ad._id, action: "check_status" }
+          data: { adId: ad._id, action: "check_status" },
+          eventKey: `ad-followup:${ad._id}`
         });
+        if (!notification) throw new Error(`Could not create follow-up notification for ad ${ad._id}`);
 
         // تحديث حالة التذكير في الإعلان
         ad.followUpStatus = "sent";

@@ -29,14 +29,22 @@ export default function Notifications() {
   const handleNotificationClick = async (n) => {
     if (!n.isRead) await markRead(n._id);
     
-    if (n.type === "message" && n.data?.conversationId) {
-      navigate(`/messages?id=${n.data.conversationId}`);
+    if (n.storeProfileId && n.link) {
+      navigate(n.link);
+    } else if (n.link) {
+      navigate(n.link);
+    } else if (n.type === "message" && n.data?.conversationId) {
+      navigate(`/messages?chat=${n.data.conversationId}`);
     } else if (n.type === "admin_message") {
       navigate("/messages");
     } else if (n.type === "order" && n.data?.orderId) {
       navigate(`/orders/${n.data.orderId}`);
+    } else if (n.type === "store_order") {
+      navigate(n.data?.storeType === "family-production" ? "/my-family-production/orders" : "/my-store/orders");
     } else if (n.type === "wallet") {
       navigate("/wallet");
+    } else if (n.type === "wallet_service" && n.data?.walletServiceOrderId) {
+      navigate(`/wallet-services/${n.data.walletServiceOrderId}/payment`);
     }
   };
 

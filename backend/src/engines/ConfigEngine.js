@@ -59,22 +59,24 @@ const DEFAULT_CONFIG = {
 };
 
 export default class ConfigEngine {
-  static async initializeDefaults() {
+  static async initializeDefaults(ConfigModel = BrokerageConfig) {
+    await ConfigModel.createIndexes();
     for (const [key, defaultValue] of Object.entries(DEFAULT_CONFIG)) {
       const category = this._inferCategory(key);
       const type = this._inferType(defaultValue);
-      
-      const existing = await BrokerageConfig.findOne({ key });
-      if (!existing) {
-        await BrokerageConfig.create({
-          key,
-          category,
-          value: defaultValue,
-          type,
-          description: `Default value for ${key}`,
-          updatedBy: null, // TODO: Replace with system user ID
-        });
-      }
+
+      await ConfigModel.findOneAndUpdate(
+        { key },
+        {
+          $setOnInsert: {
+            category,
+            value: defaultValue,
+            type,
+            description: `Default value for ${key}`
+          }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
+      );
     }
   }
 

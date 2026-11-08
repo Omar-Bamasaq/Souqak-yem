@@ -32,7 +32,7 @@ const BrokerageConfigSchema = new mongoose.Schema(
     version: { type: Number, default: 1 },
     previousValue: { type: mongoose.Schema.Types.Mixed, default: null },
     
-    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     updatedAt: { type: Date, default: Date.now }
   },
   { timestamps: true }

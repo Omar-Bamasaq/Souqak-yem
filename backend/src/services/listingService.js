@@ -6,15 +6,46 @@ class ListingService {
   /**
    * Get attributes for a listing with their values
    */
-  static async getListingAttributes(listingId) {
+  static async getListingAttributes(listingId, { categoryId, strictCategory = false } = {}) {
     const values = await ListingAttributeValue.find({ listingId })
-      .populate("attributeId", "name label type options")
+      .populate("attributeId", "name label type options categoryId sortOrder")
       .lean();
 
-    return values.map((v) => ({
+    return values
+      .filter((value) => !strictCategory || String(value.attributeId?.categoryId) === String(categoryId))
+      .sort((first, second) => (first.attributeId?.sortOrder || 0) - (second.attributeId?.sortOrder || 0))
+      .map((v) => ({
       ...v,
       attributeId: v.attributeId || { name: "", label: "" },
-    }));
+      }));
+  }
+
+  static async getListingAttributesForListings(listingIds) {
+    const ids = Array.isArray(listingIds) ? listingIds.filter(Boolean) : [];
+    if (ids.length === 0) return {};
+
+    const values = await ListingAttributeValue.find({ listingId: { $in: ids } })
+      .populate("attributeId", "name label type categoryId sortOrder")
+      .lean();
+    const listings = await Ad.find({ _id: { $in: ids } }).select("_id categoryId").lean();
+    const categoryByListing = new Map(listings.map((listing) => [String(listing._id), String(listing.categoryId || "")]));
+    const grouped = {};
+
+    for (const value of values) {
+      const listingId = String(value.listingId);
+      if (String(value.attributeId?.categoryId) !== categoryByListing.get(listingId)) continue;
+      if (!grouped[listingId]) grouped[listingId] = [];
+      grouped[listingId].push({
+        ...value,
+        attributeId: value.attributeId || { name: "", label: "" }
+      });
+    }
+
+    for (const listingValues of Object.values(grouped)) {
+      listingValues.sort((first, second) => (first.attributeId?.sortOrder || 0) - (second.attributeId?.sortOrder || 0));
+    }
+
+    return grouped;
   }
 
   /**
@@ -30,8 +61,14 @@ class ListingService {
    * Save attribute values for a listing
    * This replaces existing values for the given attributes
    */
-  static async saveAttributeValues(listingId, attributes) {
-    if (!Array.isArray(attributes) || attributes.length === 0) {
+  static async saveAttributeValues(listingId, attributes, { strictCategory = false } = {}) {
+    if (typeof attributes === "undefined") {
+      return [];
+    }
+    if (!Array.isArray(attributes)) {
+      attributes = [];
+    }
+    if (!strictCategory && attributes.length === 0) {
       return [];
     }
 
@@ -41,7 +78,8 @@ class ListingService {
     }
 
     const categoryId = listing.categoryId.toString();
-    const attrIds = attributes.map((a) => a.attributeId).filter(Boolean);
+    const submittedAttributes = Array.isArray(attributes) ? attributes : [];
+    const attrIds = submittedAttributes.map((a) => a.attributeId).filter(Boolean);
 
     const Category = (await import("../models/Category.js")).default;
     const startCategory = await Category.findById(categoryId).lean();
@@ -53,21 +91,58 @@ class ListingService {
       current = await Category.findById(current.parentId).lean();
     }
 
-    const validAttrs = await CategoryAttribute.find({
-      _id: { $in: attrIds },
-      categoryId: { $in: chainIds },
-    }).lean();
+    const validAttrs = await CategoryAttribute.find(strictCategory
+      ? { categoryId }
+      : { _id: { $in: attrIds }, categoryId: { $in: chainIds } }
+    ).lean();
 
     const validAttrIds = new Set(validAttrs.map((a) => String(a._id)));
 
+    if (strictCategory) {
+      if (new Set(attrIds.map(String)).size !== attrIds.length || attrIds.some((id) => !validAttrIds.has(String(id)))) {
+        throw new Error("An attribute does not belong to the selected category");
+      }
+
+      const submittedById = new Map(submittedAttributes.map((attribute) => [String(attribute.attributeId), attribute.value]));
+      for (const attribute of validAttrs) {
+        const value = submittedById.get(String(attribute._id));
+        const isEmpty = value === undefined || value === null || (typeof value === "string" && value.trim() === "") || (Array.isArray(value) && value.length === 0);
+        if (attribute.required && isEmpty) {
+          throw new Error(`${attribute.label} is required`);
+        }
+        if (isEmpty) continue;
+
+        if (attribute.type === "number") {
+          const numberValue = Number(value);
+          if (!Number.isFinite(numberValue)) throw new Error(`${attribute.label} must be a number`);
+          if (attribute.validation?.min != null && numberValue < attribute.validation.min) throw new Error(`${attribute.label} is below the minimum`);
+          if (attribute.validation?.max != null && numberValue > attribute.validation.max) throw new Error(`${attribute.label} exceeds the maximum`);
+        } else if (attribute.type === "select" || attribute.type === "multiselect") {
+          const values = attribute.type === "multiselect"
+            ? (Array.isArray(value) ? value : String(value).split(",").map((entry) => entry.trim()).filter(Boolean))
+            : [String(value)];
+          if (values.some((entry) => !attribute.options?.includes(entry))) {
+            throw new Error(`${attribute.label} contains an invalid option`);
+          }
+        } else if (attribute.type === "boolean" && ![true, false, "true", "false"].includes(value)) {
+          throw new Error(`${attribute.label} must be true or false`);
+        } else if (attribute.type === "text" && attribute.validation?.pattern) {
+          if (!new RegExp(attribute.validation.pattern).test(String(value))) {
+            throw new Error(`${attribute.label} has an invalid format`);
+          }
+        }
+      }
+    }
+
     // Filter only valid attributes
-    const docs = attributes
+    const docs = submittedAttributes
       .filter(
         (a) =>
           validAttrIds.has(String(a.attributeId)) &&
           typeof a.value !== "undefined" &&
           a.value !== null &&
-          a.value !== ""
+          a.value !== "" &&
+          !(Array.isArray(a.value) && a.value.length === 0)
       )
       .map((a) => ({
         listingId,
@@ -75,7 +150,13 @@ class ListingService {
         value: Array.isArray(a.value) ? a.value.join(",") : String(a.value),
       }));
 
-    if (docs.length === 0) {
+    if (strictCategory) {
+      await ListingAttributeValue.deleteMany({
+        listingId,
+        attributeId: { $in: validAttrs.map((attribute) => attribute._id) },
+      });
+      if (docs.length === 0) return [];
+    } else if (docs.length === 0) {
       return [];
     }
 
@@ -95,6 +176,15 @@ class ListingService {
    */
   static async deleteAttributeValues(listingId) {
     await ListingAttributeValue.deleteMany({ listingId });
+  }
+
+  static async deleteAttributeValuesForCategory(listingId, categoryId) {
+    const attributes = await CategoryAttribute.find({ categoryId }).select("_id").lean();
+    if (attributes.length === 0) return { deletedCount: 0 };
+    return ListingAttributeValue.deleteMany({
+      listingId,
+      attributeId: { $in: attributes.map((attribute) => attribute._id) },
+    });
   }
 
   /**

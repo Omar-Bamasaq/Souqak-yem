@@ -49,6 +49,18 @@ const AdSchema = new mongoose.Schema(
     
     // Sale Info
     sold: { type: Boolean, default: false, index: true },
+    isAvailable: { type: Boolean, default: true },
+    isAvailableForDelivery: { type: Boolean, default: false },
+    inventoryEnabled: { type: Boolean, default: false },
+    stockQuantity: {
+      type: Number,
+      min: 0,
+      default: 0,
+      validate: { validator: Number.isSafeInteger, message: "stockQuantity must be a non-negative integer" }
+    },
+    discountEnabled: { type: Boolean, default: false },
+    discountType: { type: String, enum: ["percentage", "fixed"], default: "percentage" },
+    discountValue: { type: Number, min: 0, default: 1 },
     soldAt: { type: Date },
     lastSoldReminderAt: { type: Date },
     soldReminderCount: { type: Number, default: 0 },
@@ -63,6 +75,7 @@ const AdSchema = new mongoose.Schema(
     // Media & Ownership
     images: [{ type: String }],
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    storeProfileId: { type: mongoose.Schema.Types.ObjectId, ref: "StoreProfile", default: null, index: true },
     tags: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }],
     tagNames: [{ type: String }],
     

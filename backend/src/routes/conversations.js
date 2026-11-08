@@ -6,32 +6,39 @@ import Conversation from "../models/Conversation.js";
 import ConversationMessage from "../models/ConversationMessage.js";
 import Ad from "../models/Ad.js";
 import Notification from "../models/Notification.js";
-import { createNotification } from "../services/notificationService.js";
+import StoreProfile from "../models/StoreProfile.js";
+import { createNotification, createStoreNotification, STORE_NOTIFICATION_TYPES } from "../services/notificationService.js";
 import { AD_COMMISSION_ENABLED, calculateSellerCommission } from "../config/commission.js";
 import { uploadMessageImages } from "../middleware/upload.js";
+import { rejectClientSuppliedAttachmentRefs } from "../middleware/messageAttachments.js";
 import Block from "../models/Block.js";
 import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
 import {
   getUploadedMessageAttachmentNames,
   isSafeMessageAttachmentFilename,
-  rejectClientSuppliedAttachmentRefs,
   resolveMessageAttachmentPath,
   sendMessageAttachment
 } from "../services/privateMessageAttachments.js";
 
 import { sendPushNotification } from "../services/pushService.js";
+import {
+  consolidateAdConversations,
+  findOrCreateAdConversation,
+  resolveCanonicalConversation
+} from "../services/adConversation.js";
 
 const router = Router();
 
 async function requireConversationParticipant(req, res, next) {
   try {
-    const conversation = await Conversation.findById(req.params.id);
+    const foundConversation = await Conversation.findById(req.params.id);
+    const conversation = await resolveCanonicalConversation(foundConversation);
     if (!conversation) return res.status(404).json({ error: "Not found" });
     if (!conversation.participants.some((participant) => String(participant) === String(req.user.id))) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    req.conversation = conversation;
+    req.messageConversation = conversation;
     return next();
   } catch (error) {
     return next(error);
@@ -44,15 +51,15 @@ async function requireConversationParticipant(req, res, next) {
 
 router.get("/unread-count", auth, async (req, res) => {
   try {
-    const convs = await Conversation.find({ 
+    const convs = await Conversation.find({
       participants: req.user.id,
       deletedBy: { $ne: req.user.id },
       isDeletedByAdmin: { $ne: true }
     }).select("_id").lean();
-    
+
     const ids = convs.map((c) => c._id);
     if (ids.length === 0) return res.json({ count: 0 });
-    
+
     const count = await ConversationMessage.countDocuments({
       conversationId: { $in: ids },
       status: { $ne: "read" },
@@ -60,7 +67,7 @@ router.get("/unread-count", auth, async (req, res) => {
       deletedBy: { $ne: req.user.id },
       isDeleted: { $ne: true }
     });
-    
+
     res.json({ count });
   } catch (error) {
     console.error("Error fetching unread count:", error);
@@ -71,31 +78,57 @@ router.get("/unread-count", auth, async (req, res) => {
 router.get("/", auth, async (req, res) => {
   try {
     console.log("Fetching conversations for user:", req.user.id);
-    const list = await Conversation.find({ 
+    let list = await Conversation.find({
       participants: req.user.id,
       deletedBy: { $ne: req.user.id },
-      isDeletedByAdmin: { $ne: true }
+      isDeletedByAdmin: { $ne: true },
+      mergedInto: { $exists: false }
     })
       .populate({
         path: "adId",
-        refPath: "adModel"
+        model: "Ad"
       })
       .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
       .sort({ updatedAt: -1 })
       .lean();
+
+    const adConversationGroups = new Map();
+    for (const conversation of list) {
+      const adId = conversation.adId?._id || conversation.adId;
+      if (!adId || conversation.type === "DISPUTE" || conversation.participants?.length !== 2) continue;
+      const participantIds = conversation.participants.map((participant) => String(participant?._id || participant)).sort();
+      const key = `${adId}:${participantIds.join(":")}`;
+      adConversationGroups.set(key, [...(adConversationGroups.get(key) || []), { adId, participantIds }]);
+    }
+    const duplicateGroups = [...adConversationGroups.values()].filter((group) => group.length > 1);
+    if (duplicateGroups.length > 0) {
+      await Promise.all(duplicateGroups.map(({ adId, participantIds }) =>
+        consolidateAdConversations({ adId, participants: participantIds })
+      ));
+      list = await Conversation.find({
+        participants: req.user.id,
+        deletedBy: { $ne: req.user.id },
+        isDeletedByAdmin: { $ne: true },
+        mergedInto: { $exists: false }
+      })
+        .populate({ path: "adId", model: "Ad" })
+        .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
+        .sort({ updatedAt: -1 })
+        .lean();
+    }
 
     console.log("Conversations found:", list.length);
     if (list.length === 0) return res.json([]);
 
     const convIds = list.map(c => c._id);
     const unreadCounts = await ConversationMessage.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           conversationId: { $in: convIds.map(id => new mongoose.Types.ObjectId(id)) },
           status: { $ne: "read" },
           senderId: { $ne: new mongoose.Types.ObjectId(req.user.id) },
           deletedBy: { $ne: new mongoose.Types.ObjectId(req.user.id) }
-        } 
+        }
       },
       { $group: { _id: "$conversationId", count: { $sum: 1 } } }
     ]);
@@ -118,7 +151,7 @@ router.get("/", auth, async (req, res) => {
     const missingUsers = await User.find({ _id: { $in: counterpartIds } })
       .select("name avatar isVerifiedSeller isOnline lastSeen")
       .lean();
-    
+
     const userMap = new Map(missingUsers.map(u => [u._id.toString(), u]));
 
     const withUnread = list.map((c) => {
@@ -127,7 +160,7 @@ router.get("/", auth, async (req, res) => {
         const counterpart = participants.find(
           (p) => p && String(p._id || p) !== String(req.user.id)
         );
-        
+
         let counterpartName = "مستخدم";
         let counterpartId = null;
         let counterpartAvatar = null;
@@ -158,16 +191,16 @@ router.get("/", auth, async (req, res) => {
 
         const muted = Array.isArray(c.mutedFor) ? !!c.mutedFor.find((u) => String(u) === String(req.user.id)) : false;
         const isPinned = Array.isArray(c.pinnedBy) ? !!c.pinnedBy.find((u) => String(u) === String(req.user.id)) : false;
-        
-        return { 
-          ...c, 
-          unreadCount: countMap[c._id.toString()] || 0, 
-          counterpartName, 
-          counterpartId, 
+
+        return {
+          ...c,
+          unreadCount: countMap[c._id.toString()] || 0,
+          counterpartName,
+          counterpartId,
           counterpartAvatar,
-          counterpartIsVerified, 
-          counterpartIsOnline, 
-          counterpartLastSeen, 
+          counterpartIsVerified,
+          counterpartIsOnline,
+          counterpartLastSeen,
           muted,
           isPinned
         };
@@ -194,10 +227,8 @@ router.post("/open", auth, async (req, res) => {
   try {
     const { adId, participantId } = req.body;
     if (!adId) return res.status(400).json({ error: "adId required" });
-    
-    const ad = await Ad.findById(adId).lean();
-    const adModel = "Ad";
 
+    const ad = await Ad.findById(adId).lean();
     if (!ad) {
       return res.status(400).json({ error: "الإعلان غير موجود" });
     }
@@ -215,7 +246,7 @@ router.post("/open", auth, async (req, res) => {
       // Find conversation between current user and the provided participant
       buyerId = currentUserId;
       targetSellerId = participantId;
-      
+
       // We must ensure the order of participants doesn't matter for the search
       // The model uses participants: [buyerId, sellerId] but we use $all
     } else {
@@ -227,30 +258,22 @@ router.post("/open", auth, async (req, res) => {
         return res.status(400).json({ error: "Cannot message own ad" });
       }
     }
-    
-    const blocked = await Block.findOne({ 
+
+    const blocked = await Block.findOne({
       $or: [
-        { blockerId: targetSellerId, blockedId: buyerId }, 
+        { blockerId: targetSellerId, blockedId: buyerId },
         { blockerId: buyerId, blockedId: targetSellerId }
-      ] 
+      ]
     }).lean();
-    
+
     if (blocked) return res.status(403).json({ error: "تم الحظر" });
-    
-    let conv = await Conversation.findOne({ 
-      adId, 
-      adModel, 
-      participants: { $all: [buyerId, targetSellerId] } 
+
+    const { conversation: conv, created } = await findOrCreateAdConversation({
+      adId,
+      participants: [buyerId, targetSellerId]
     });
 
-    if (!conv) {
-      conv = await Conversation.create({ 
-        adId, 
-        adModel, 
-        participants: [buyerId, targetSellerId], 
-        lastMessage: "" 
-      });
-
+    if (created) {
       // زيادة عداد المتواصلين في الإعلان عند فتح أول محادثة بين المشتري والبائع لهذا الإعلان
       try {
         await Ad.findByIdAndUpdate(adId, { $inc: { contactsCount: 1 } });
@@ -302,10 +325,14 @@ router.get("/admin/trash", auth, requireRole(["admin"]), async (req, res) => {
 
 router.get("/:id", auth, async (req, res) => {
   try {
-    const conv = await Conversation.findById(req.params.id)
+    const foundConversation = await Conversation.findById(req.params.id);
+    const canonicalConversation = await resolveCanonicalConversation(foundConversation);
+    if (!canonicalConversation) return res.status(404).json({ error: "Not found" });
+
+    const conv = await Conversation.findById(canonicalConversation._id)
       .populate({
         path: "adId",
-        refPath: "adModel"
+        model: "Ad"
       })
       .populate("participants", "name avatar isVerifiedSeller isOnline lastSeen")
       .lean();
@@ -317,7 +344,7 @@ router.get("/:id", auth, async (req, res) => {
 
     const participants = Array.isArray(conv.participants) ? conv.participants : [];
     const counterpart = participants.find(p => p && String(p._id || p) !== String(req.user.id));
-    
+
     let counterpartName = "مستخدم";
     let counterpartId = null;
     let counterpartAvatar = null;
@@ -404,31 +431,40 @@ router.get("/:id/attachments/:filename", auth, async (req, res) => {
 
 router.get("/:id/messages", auth, async (req, res) => {
   try {
-    const conv = await Conversation.findById(req.params.id).lean();
+    const foundConversation = await Conversation.findById(req.params.id);
+    const canonicalConversation = await resolveCanonicalConversation(foundConversation);
+    const conv = canonicalConversation?.toObject ? canonicalConversation.toObject() : canonicalConversation;
     if (!conv) return res.status(404).json({ error: "Not found" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "Forbidden" });
-    
+
     // Filter out messages deleted by the user
-    const msgs = await ConversationMessage.find({ 
+    const msgs = await ConversationMessage.find({
       conversationId: conv._id,
       deletedBy: { $ne: req.user.id },
       isDeleted: { $ne: true }
     }).sort({ createdAt: 1 }).populate("senderId", "name avatar role").lean();
-    
+
     res.json(msgs);
   } catch {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-router.post("/:id/messages", auth, rateLimit({ windowMs: 10_000, max: 5 }), requireConversationParticipant, uploadMessageImages.array("images", 5), rejectClientSuppliedAttachmentRefs, async (req, res) => {
+router.post(
+  "/:id/messages",
+  auth,
+  rateLimit({ windowMs: 10_000, max: 5 }),
+  requireConversationParticipant,
+  uploadMessageImages.array("images", 5),
+  rejectClientSuppliedAttachmentRefs,
+  async (req, res) => {
   try {
     const { text } = req.body || {};
-    const conv = req.conversation;
+    const conv = req.messageConversation;
     const counterpart = conv.participants.find((p) => String(p) !== String(req.user.id));
     const blocked = await Block.findOne({ blockerId: counterpart, blockedId: req.user.id }).lean();
     if (blocked) return res.status(403).json({ error: "لا يمكنك مراسلة هذا المستخدم" });
-    const filenames = getUploadedMessageAttachmentNames(req.files);
+    const filenames = getUploadedMessageAttachmentNames(req.files).map((filename) => `private/${filename}`);
     if (!filenames.length && (!text || !String(text).trim())) return res.status(400).json({ error: "Empty message" });
     const msg = await ConversationMessage.create({
       conversationId: conv._id,
@@ -439,25 +475,53 @@ router.post("/:id/messages", auth, rateLimit({ windowMs: 10_000, max: 5 }), requ
     });
     conv.lastMessage = msg.text;
     // Remove both participants from deletedBy when a new message is sent
-    conv.deletedBy = []; 
+    conv.deletedBy = [];
     await conv.save();
+    const storeAd = conv.adId
+      ? await Ad.findById(conv.adId).select("_id storeProfileId").lean()
+      : null;
+    const relatedStore = storeAd?.storeProfileId
+      ? await StoreProfile.findById(storeAd.storeProfileId).select("_id userId storeType slug").lean()
+      : null;
     // Notify all other participants
     for (const participant of conv.participants) {
       if (String(participant) === String(req.user.id)) continue;
-      
-      try {
-        const muted = (conv.mutedFor || []).find((u) => String(u) === String(participant));
-        if (!muted) {
-          await createNotification(req.app, {
-            userId: participant,
-            type: "message",
-            title: "رسالة جديدة",
-            body: msg.text || "صورة جديدة",
-            data: { conversationId: conv._id, adId: conv.adId }
+
+      if (relatedStore) {
+        const isStoreOwner = String(participant) === String(relatedStore.userId);
+        try {
+          await createStoreNotification(req.app, {
+            storeProfileId: relatedStore._id,
+            recipient: isStoreOwner ? "owner" : "subscribers",
+            recipientUserId: isStoreOwner ? null : participant,
+            type: isStoreOwner
+              ? STORE_NOTIFICATION_TYPES.CUSTOMER_MESSAGE
+              : STORE_NOTIFICATION_TYPES.MESSAGE_REPLY,
+            title: isStoreOwner ? "رسالة جديدة من عميل" : "رد جديد من المتجر",
+            body: msg.text || "أرسل الطرف الآخر صورة.",
+            link: `/messages?id=${conv._id}`,
+            data: { conversationId: String(conv._id), messageId: String(msg._id), adId: String(storeAd._id) }
           });
+        } catch (notificationError) {
+          console.error("Store conversation notification failed:", notificationError);
         }
-      } catch (err) {
-        console.error("Error sending message notification:", err);
+      }
+
+      if (!relatedStore) {
+        try {
+          const muted = (conv.mutedFor || []).find((u) => String(u) === String(participant));
+          if (!muted) {
+            await createNotification(req.app, {
+              userId: participant,
+              type: "message",
+              title: "رسالة جديدة",
+              body: msg.text || "صورة جديدة",
+              data: { conversationId: conv._id, adId: conv.adId }
+            });
+          }
+        } catch (err) {
+          console.error("Error sending message notification:", err);
+        }
       }
 
       try {
@@ -510,7 +574,7 @@ router.patch("/:id/mute", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "Not found" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "Forbidden" });
-    
+
     const mutedFor = conv.mutedFor || [];
     if (!mutedFor.find(u => String(u) === String(req.user.id))) {
       conv.mutedFor = [...mutedFor, req.user.id];
@@ -527,7 +591,7 @@ router.patch("/:id/unmute", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "Not found" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "Forbidden" });
-    
+
     conv.mutedFor = (conv.mutedFor || []).filter(u => String(u) !== String(req.user.id));
     await conv.save();
     res.json({ muted: false });
@@ -540,7 +604,7 @@ router.patch("/:id/close", auth, async (req, res) => {
   try {
     const conv = await Conversation.findById(req.params.id).populate("adId");
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
-    
+
     if (String(conv.adId.userId) !== String(req.user.id)) {
       return res.status(403).json({ error: "غير مصرح لك بإغلاق هذه المحادثة" });
     }
@@ -550,7 +614,7 @@ router.patch("/:id/close", auth, async (req, res) => {
     await conv.save();
 
     const buyerId = conv.participants.find(p => String(p) !== String(req.user.id));
-    
+
     const { finalPrice, finalCurrency } = req.body || {};
     const salePrice = (finalPrice && Number(finalPrice) > 0) ? Number(finalPrice) : (Number(conv.adId.price) || 0);
     const currency = finalCurrency || conv.adId.currency || "YER_ADEN";
@@ -568,9 +632,9 @@ router.patch("/:id/close", auth, async (req, res) => {
       if (AD_COMMISSION_ENABLED) {
         const CommissionModel = mongoose.model("Commission");
         const SoldListing = mongoose.model("SoldListing");
-        
+
         const commissionAmount = calculateSellerCommission(salePrice);
-        
+
         const commission = await CommissionModel.create({
         adId: conv.adId._id,
         sellerId: req.user.id,
@@ -632,14 +696,14 @@ router.patch("/:id/close", auth, async (req, res) => {
       const recipient = conv.participants.find((p) => String(p) !== String(req.user.id));
       if (io) {
         io.to(`conv:${conv._id}`).emit("conversation:closed", { conversationId: String(conv._id) });
-        io.to(`conv:${conv._id}`).emit("conversation:new_message", { 
-          conversationId: String(conv._id), 
-          message: { ...msg.toObject(), createdAt: new Date().toISOString() } 
+        io.to(`conv:${conv._id}`).emit("conversation:new_message", {
+          conversationId: String(conv._id),
+          message: { ...msg.toObject(), createdAt: new Date().toISOString() }
         });
         if (recipient) {
-          io.to(`user:${recipient}`).emit("conversation:new_message", { 
-            conversationId: String(conv._id), 
-            message: { ...msg.toObject(), createdAt: new Date().toISOString() } 
+          io.to(`user:${recipient}`).emit("conversation:new_message", {
+            conversationId: String(conv._id),
+            message: { ...msg.toObject(), createdAt: new Date().toISOString() }
           });
         }
       }
@@ -657,7 +721,7 @@ router.patch("/:id/pin", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "غير مصرح لك" });
-    
+
     const pinnedBy = conv.pinnedBy || [];
     if (!pinnedBy.find(u => String(u) === String(req.user.id))) {
       conv.pinnedBy = [...pinnedBy, req.user.id];
@@ -674,7 +738,7 @@ router.patch("/:id/unpin", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "غير مصرح لك" });
-    
+
     conv.pinnedBy = (conv.pinnedBy || []).filter(u => String(u) !== String(req.user.id));
     await conv.save();
     res.json({ isPinned: false });
@@ -688,7 +752,7 @@ router.delete("/:id", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "غير مصرح لك" });
-    
+
     // Add user to deletedBy instead of actual deletion to hide it for this user
     const deletedBy = conv.deletedBy || [];
     if (!deletedBy.find(u => String(u) === String(req.user.id))) {
@@ -713,7 +777,7 @@ router.delete("/:id/messages/:messageId", auth, async (req, res) => {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     if (!conv.participants.find((p) => String(p) === String(req.user.id))) return res.status(403).json({ error: "غير مصرح لك" });
-    
+
     const msg = await ConversationMessage.findOne({ _id: req.params.messageId, conversationId: conv._id });
     if (!msg) return res.status(404).json({ error: "الرسالة غير موجودة" });
 
@@ -722,7 +786,7 @@ router.delete("/:id/messages/:messageId", auth, async (req, res) => {
       msg.deletedBy = [...deletedBy, req.user.id];
       await msg.save();
     }
-    
+
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Server error" });
@@ -734,12 +798,12 @@ router.post("/:id/admin-trash", auth, requireRole(["admin"]), async (req, res) =
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     if (conv.isDeletedByAdmin) return res.status(400).json({ error: "المحادثة موجودة في سلة المهملات بالفعل" });
-    
+
     conv.isDeletedByAdmin = true;
     conv.deletedByAdminAt = new Date();
     conv.deletedByAdminId = req.user.id;
     await conv.save();
-    
+
     res.json({ ok: true, message: "تم نقل المحادثة إلى سلة المهملات" });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -751,12 +815,12 @@ router.post("/:id/admin-restore", auth, requireRole(["admin"]), async (req, res)
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
     if (!conv.isDeletedByAdmin) return res.status(400).json({ error: "المحادثة ليست في سلة المهملات" });
-    
+
     conv.isDeletedByAdmin = false;
     conv.deletedByAdminAt = null;
     conv.deletedByAdminId = null;
     await conv.save();
-    
+
     res.json({ ok: true, message: "تم استعادة المحادثة بنجاح" });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -767,10 +831,10 @@ router.delete("/:id/admin-permanent", auth, requireRole(["admin"]), async (req, 
   try {
     const conv = await Conversation.findById(req.params.id);
     if (!conv) return res.status(404).json({ error: "المحادثة غير موجودة" });
-    
+
     await ConversationMessage.deleteMany({ conversationId: conv._id });
     await Conversation.findByIdAndDelete(conv._id);
-    
+
     res.json({ ok: true, message: "تم حذف المحادثة نهائياً" });
   } catch (error) {
     res.status(500).json({ error: "Server error" });

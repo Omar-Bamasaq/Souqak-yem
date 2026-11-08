@@ -12,6 +12,7 @@ import Dispute from "../models/Dispute.js";
 import Commission from "../models/Commission.js";
 import PurchaseRequest from "../models/PurchaseRequest.js";
 import dayjs from "dayjs";
+import { getVisitorRateLimitKey } from "../lib/visitorRateLimitKey.js";
 
 const router = Router();
 const VISITOR_KEY_SALT = process.env.VISITOR_KEY_SALT || "souqak-visitor-v1";
@@ -67,14 +68,7 @@ const visitorTrackRateLimit = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const trustedUserId = req.user?.id || null;
-    if (trustedUserId) return `uid:${trustedUserId}`;
-
-    const ipKey = req.clientIp || req.ip || "unknown";
-    const guestCookie = typeof req.cookies?.souqak_visitor_id === "string" ? req.cookies.souqak_visitor_id.trim() : "guest-no-cookie";
-    return `ip:${ipKey}:${guestCookie}`;
-  },
+  keyGenerator: getVisitorRateLimitKey,
   message: {
     error: "Too many requests. Please wait a moment before refreshing the page."
   }

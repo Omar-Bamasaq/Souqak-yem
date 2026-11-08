@@ -7,7 +7,12 @@ if (!cached) {
 }
 
 export async function connectDB() {
-  if (cached.conn) return cached.conn;
+  if (cached.conn && mongoose.connection.readyState === 1) return cached.conn;
+
+  if (mongoose.connection.readyState === 0 || mongoose.connection.readyState === 3) {
+    cached.conn = null;
+    cached.promise = null;
+  }
 
   const uri = process.env.MONGODB_URI;
   if (!uri) {
@@ -16,6 +21,7 @@ export async function connectDB() {
 
   if (!cached.promise) {
     cached.promise = mongoose.connect(uri, {
+      autoIndex: false,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       family: 4 // Force IPv4 to avoid localhost issues
@@ -24,7 +30,7 @@ export async function connectDB() {
 
   try {
     cached.conn = await cached.promise;
-    console.log("MongoDB Connected Successfully to:", uri.substring(0, 30) + "...");
+    console.log("MongoDB Connected Successfully");
     return cached.conn;
   } catch (err) {
     cached.promise = null; // Reset promise so we can retry

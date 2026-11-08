@@ -13,9 +13,13 @@ import { ThemeProvider } from "./store/ThemeContext.jsx";
 import { BrokerageStatusProvider } from "./store/BrokerageStatusContext.jsx";
 import { PublicSsgContent } from "./ssg/PublicSsgContent.mjs";
 import { SsgDataProvider } from "./ssg/SsgDataContext.jsx";
+import { resolveSiteBaseUrl } from "./lib/siteUrl.js";
 import "./index.css";
 
 const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
+const publicSiteBaseUrl = resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL);
+const publicApiOrigin = (import.meta.env.VITE_API_URL || "https://api.souqak-yem.com/api")
+  .replace(/\/api\/?$/, "");
 
 axios.interceptors.request.use(async (config) => {
   if (IS_MAINTENANCE) {
@@ -88,7 +92,14 @@ function SsgAppTransition({ ssgData, app }) {
     setShowSsg(false);
   }, []);
 
-  return showSsg ? <PublicSsgContent kind={ssgData.kind} data={ssgData.data} /> : app;
+  return showSsg ? (
+    <PublicSsgContent
+      kind={ssgData.kind}
+      data={ssgData.data}
+      siteBaseUrl={publicSiteBaseUrl}
+      apiOrigin={publicApiOrigin}
+    />
+  ) : app;
 }
 
 const rootElement = document.getElementById("root");

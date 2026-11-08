@@ -31,7 +31,7 @@ async function expireWelcomePromotions() {
         const stats = ad.promotionStats || {};
         
         // Notify the user about the results
-        await createNotification(null, {
+        const notification = await createNotification(null, {
           userId: ad.userId,
           type: "welcome_promotion_expired",
           title: "🎁 انتهت التجربة المجانية",
@@ -40,8 +40,10 @@ async function expireWelcomePromotions() {
             adId: ad._id, 
             action: "show_welcome_summary",
             stats: stats
-          }
+          },
+          eventKey: `welcome-promotion-expired:${ad._id}:${new Date(ad.welcomePromotionEndDate).getTime()}`
         });
+        if (!notification) throw new Error(`Could not create expiry notification for ad ${ad._id}`);
 
         // Update ad status
         ad.featured = false;

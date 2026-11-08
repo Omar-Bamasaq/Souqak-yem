@@ -1,6 +1,6 @@
 const allowedOrigins = [
   "https://souqak-yem.com",
-  "https://www.souqak-yem.com",
+  "https://www.souqak-yem.com"
 ];
 
 export function isAllowedCorsOrigin(origin) {

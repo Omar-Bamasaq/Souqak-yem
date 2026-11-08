@@ -74,7 +74,7 @@ export default function TagPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 py-8 text-center sm:py-16">
         <h1 className="text-2xl font-bold text-red-600 mb-4">خطأ</h1>
         <p className="text-gray-600 mb-4">{error}</p>
         <Link to="/" className="text-emerald-600 hover:underline">
@@ -86,7 +86,7 @@ export default function TagPage() {
 
   if (!tag) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 py-8 text-center sm:py-16">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">الوسم غير موجود</h1>
         <p className="text-gray-600 mb-4">لا يمكن العثور على الوسم المطلوب</p>
         <Link to="/" className="text-emerald-600 hover:underline">
@@ -97,7 +97,7 @@ export default function TagPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
       {/* Breadcrumbs */}
       <nav className="mb-4 text-sm text-gray-500">
         <Link to="/" className="hover:text-emerald-600">الرئيسية</Link>
@@ -107,10 +107,10 @@ export default function TagPage() {
 
       {/* Tag Header */}
       <div 
-        className="rounded-lg shadow-sm p-6 mb-8 text-white"
+        className="rounded-lg shadow-sm p-4 mb-5 text-white sm:p-6 sm:mb-8"
         style={{ backgroundColor: tag.color || "#6366f1" }}
       >
-        <h1 className="text-3xl font-bold mb-2">#{tag.name}</h1>
+        <h1 className="text-2xl font-bold mb-2 sm:text-3xl">#{tag.name}</h1>
         {tag.description && <p className="opacity-90">{tag.description}</p>}
       </div>
 
@@ -121,9 +121,9 @@ export default function TagPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-1.5 sm:gap-2">
             {ads.map((ad) => (
-              <ProductCard key={ad._id} product={ad} featured={!!ad.featured} to={`/ad/${ad._id}`} />
+              <ProductCard key={ad._id} product={ad} featured={!!ad.featured} to={`/ad/${ad._id}`} displayMode="list" />
             ))}
           </div>
 

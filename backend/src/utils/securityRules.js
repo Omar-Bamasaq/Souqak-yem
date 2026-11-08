@@ -20,10 +20,28 @@ export function isValidPhoneNumber(value) {
 
 export function isValidPassword(value) {
   if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length < 8 || trimmed.length > 24) return false;
-  if (/\s/.test(trimmed)) return false;
+  if (value.length < 8 || value.length > 24) return false;
+  if (/\s/.test(value) || /\p{Script=Arabic}/u.test(value)) return false;
   return true;
+}
+
+export function phoneNumberQuery(value) {
+  const normalized = normalizePhone(value);
+  if (!isValidPhoneNumber(normalized)) return null;
+
+  const variants = new Set([
+    normalized,
+    `0${normalized}`,
+    `967${normalized}`,
+    `9670${normalized}`,
+    `966${normalized}`,
+    `9660${normalized}`
+  ]);
+  return {
+    $or: [...variants].map((digits) => ({
+      phone: { $regex: `^\\D*${digits.split("").join("\\D*")}\\D*$` }
+    }))
+  };
 }
 
 export function generateTemporaryPassword(length = 16) {

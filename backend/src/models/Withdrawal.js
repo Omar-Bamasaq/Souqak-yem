@@ -39,7 +39,6 @@ const withdrawalSchema = new mongoose.Schema(
 
 withdrawalSchema.index({ status: 1 });
 withdrawalSchema.index({ createdAt: -1 });
-withdrawalSchema.index({ user: 1 });
 withdrawalSchema.index({ createdAt: 1 });
 
 withdrawalSchema.plugin(softDeletePlugin);

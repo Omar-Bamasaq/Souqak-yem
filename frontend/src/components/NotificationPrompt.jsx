@@ -3,24 +3,27 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { useApi } from "../api/axios.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { subscribeToPush } from "../utils/pushNotifications.js";
+import { useLocation } from "react-router-dom";
 
 export default function NotificationPrompt() {
   const { user, setUser } = useAuth();
   const api = useApi();
+  const location = useLocation();
+  const isStoreRoute = location.pathname.startsWith("/store/");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Show if user is logged in
     // Condition: DB says they haven't seen it
-    if (user && user.hasSeenNotificationPrompt === false) {
+    if (user && user.hasSeenNotificationPrompt === false && !isStoreRoute) {
       // Delay slightly for better UX
       const timer = setTimeout(() => setShow(true), 2000);
       return () => {
         clearTimeout(timer);
       };
     }
-  }, [user]);
+  }, [user, isStoreRoute]);
 
   const markAsSeen = async () => {
     try {
@@ -39,7 +42,7 @@ export default function NotificationPrompt() {
       // First mark as seen in DB so it never shows again
       await markAsSeen();
 
-      const allEnabled = { inApp: true, push: true, email: true };
+      const allEnabled = { inApp: true, push: true, email: false };
       const allDisabled = { inApp: false, push: false, email: false };
       const prefsValue = enabled ? allEnabled : allDisabled;
 
@@ -103,7 +106,7 @@ export default function NotificationPrompt() {
     }));
   };
 
-  if (!show) return null;
+  if (!show || isStoreRoute) return null;
 
   return (
     <AnimatePresence>

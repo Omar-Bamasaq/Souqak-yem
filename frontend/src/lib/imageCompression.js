@@ -20,6 +20,73 @@ export function isPdfFile(file) {
   return type === "application/pdf" || name.endsWith(".pdf");
 }
 
+export async function convertImageToWebp(file) {
+  if (!file || !isImageFile(file)) {
+    throw new Error("يرجى اختيار صورة سند بصيغة JPG أو PNG أو WebP.");
+  }
+  if (/heic|heif/i.test(String(file.type || file.name || ""))) {
+    throw new Error("صيغة HEIC/HEIF غير مدعومة. يرجى اختيار صورة JPG أو PNG.");
+  }
+  if (!supportsWebp()) {
+    throw new Error("تحويل الصور إلى WebP غير مدعوم في هذا المتصفح.");
+  }
+
+  try {
+    const converted = await imageCompression(file, {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1800,
+      useWebWorker: true,
+      initialQuality: 0.85,
+      fileType: "image/webp",
+      alwaysKeepResolution: false,
+      maxIteration: 10,
+    });
+    if (converted.type !== "image/webp") {
+      throw new Error("لم يتم تحويل الصورة إلى WebP.");
+    }
+    const baseName = String(file.name || "payment-receipt").replace(/\.[^.]+$/, "");
+    return new File([converted], `${baseName}.webp`, {
+      type: "image/webp",
+      lastModified: file.lastModified || Date.now(),
+    });
+  } catch (error) {
+    console.error("[imageCompression] WebP conversion failed:", error);
+    throw new Error("تعذر تحويل صورة السند إلى WebP. يرجى اختيار صورة أخرى.");
+  }
+}
+
+export function normalizeImageUploadFile(file, index = 0) {
+  const mimeType = String(file?.type || "").toLowerCase();
+  const extension = String(file?.name || "").split(".").pop()?.toLowerCase();
+  const extensionMimeTypes = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    jfif: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+  const normalizedMimeType = mimeType === "image/jpg"
+    ? "image/jpeg"
+    : ["image/jpeg", "image/png", "image/webp"].includes(mimeType)
+      ? mimeType
+      : extensionMimeTypes[extension];
+
+  if (!normalizedMimeType) {
+    throw new Error("نوع الصورة غير مدعوم. يرجى اختيار صورة JPG أو PNG أو WebP.");
+  }
+
+  const normalizedExtension = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  }[normalizedMimeType];
+
+  return new File([file], `upload-image-${index + 1}.${normalizedExtension}`, {
+    type: normalizedMimeType,
+    lastModified: file.lastModified || Date.now(),
+  });
+}
+
 export async function compressImageFile(file, options = {}) {
   if (!file || !isImageFile(file)) {
     return file;
@@ -98,7 +165,7 @@ export async function prepareFilesForUpload(files, options = {}) {
       },
     });
 
-    prepared.push(compressed);
+    prepared.push(normalizeImageUploadFile(compressed, index));
   }
 
   return prepared;

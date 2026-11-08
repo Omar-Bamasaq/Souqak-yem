@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 import dns from "dns";
-import { getFrontendBaseUrl } from "./siteUrl.js";
 
 const ipv4Lookup = (hostname, options, callback) => {
   return dns.lookup(hostname, { family: 4 }, callback);
@@ -45,11 +44,6 @@ function createTransporter(account, port = 465) {
     pool: true,
     family: 4, // Force IPv4
     lookup: ipv4Lookup,
-    tls: {
-      rejectUnauthorized: false
-    },
-    debug: process.env.NODE_ENV !== "production",
-    logger: process.env.NODE_ENV !== "production"
   });
 
   console.log(`[TRANSPORTER CREATED] for ${account.user} on port ${port}`);
@@ -204,47 +198,12 @@ ${code}
   return await sendMailWithFallback(mailOptions, "Reset OTP");
 }
 
-export async function sendSafePurchaseNotification(to, sellerName, adTitle, orderId, price, currency, shippingFee, shippingCurrency, deliveryText) {
-  const mailOptions = {
-    to,
-    replyTo: "non.reply.yourplatform@gmail.com",
-    subject: "طلب شراء آمن جديد - سوقك",
-    text: `
-مرحباً ${sellerName}،
-
-لديك طلب شراء آمن جديد على إعلانك: "${adTitle}".
-
-تفاصيل الطلب:
-- رقم الطلب: ${orderId.toString().slice(-6)}
-- السعر: ${price} ${currency}
-- التوصيل: ${deliveryText}
-- رسوم التوصيل: ${shippingFee} ${shippingCurrency}
-
-يرجى مراجعة الطلب والموافقة عليه من خلال لوحة التحكم الخاصة بك.
-
-تحياتنا،
-فريق منصة سوقك
-    `,
-    html: `
-      <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-        <h2 style="color: #0b89ed;">طلب شراء آمن جديد</h2>
-        <p style="font-size: 16px; color: #333;">مرحباً <strong>${sellerName}</strong>،</p>
-        <p style="font-size: 16px; color: #333;">لقد تلقيت طلب شراء آمن جديد لإعلانك:</p>
-        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #0b89ed; text-align: right;">
-          <div style="font-weight: bold; color: #0526a3; margin-bottom: 5px;">${adTitle}</div>
-          <div style="font-size: 14px; color: #666;">رقم الطلب: #${orderId.toString().slice(-6)}</div>
-          <div style="font-size: 14px; color: #666;">السعر المتفق عليه: ${price} ${currency}</div>
-          <div style="font-size: 14px; color: #666;">التوصيل: ${deliveryText}</div>
-          <div style="font-size: 14px; color: #666;">رسوم التوصيل: ${shippingFee} ${shippingCurrency}</div>
-        </div>
-        <p style="color: #666; font-size: 14px; margin-bottom: 25px;">يرجى التوجه إلى حسابك للموافقة على الطلب أو رفضه.</p>
-        <a href="${getFrontendBaseUrl()}/profile/orders" style="background: #0b89ed; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">مراجعة الطلب</a>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 25px;">
-        <p style="color: #999; font-size: 12px; margin-top: 10px;">تحياتنا،<br>فريق منصة سوقك</p>
-      </div>
-    `
-  };
-
-  return await sendMailWithFallback(mailOptions, "Safe Purchase Notification");
+export async function sendStoreOrderEmail(options) {
+  const result = await sendMailWithFallback({
+    to: options.to,
+    subject: options.subject,
+    text: options.text,
+    html: options.html
+  }, "STORE_ORDER");
+  return result.success;
 }
-

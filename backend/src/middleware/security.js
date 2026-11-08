@@ -47,7 +47,6 @@ export const securityHeaders = helmet({
  * This middleware checks for a 'x-csrf-token' header against a 'csrfToken' cookie.
  */
 export const csrfProtection = (req, res, next) => {
-  // Methods that don't need CSRF protection
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
   if (safeMethods.includes(req.method)) {
     const token = req.cookies?.csrfToken || crypto.randomBytes(32).toString("hex");
@@ -68,18 +67,20 @@ export const csrfProtection = (req, res, next) => {
   const tokenFromHeader = req.headers["x-csrf-token"];
   const cookieBuffer = typeof tokenFromCookie === "string" ? Buffer.from(tokenFromCookie) : null;
   const headerBuffer = typeof tokenFromHeader === "string" ? Buffer.from(tokenFromHeader) : null;
-  const tokensMatch =
-    cookieBuffer &&
-    headerBuffer &&
-    cookieBuffer.length === headerBuffer.length &&
-    crypto.timingSafeEqual(cookieBuffer, headerBuffer);
+  const tokensMatch = cookieBuffer
+    && headerBuffer
+    && cookieBuffer.length === headerBuffer.length
+    && crypto.timingSafeEqual(cookieBuffer, headerBuffer);
 
   if (!tokensMatch) {
-    logSecurityEvent("CSRF validation failed", req, { 
-      tokenInCookie: !!tokenFromCookie, 
-      tokenInHeader: !!tokenFromHeader 
+    logSecurityEvent("CSRF validation failed", req, {
+      tokenInCookie: Boolean(tokenFromCookie),
+      tokenInHeader: Boolean(tokenFromHeader)
     });
-    return res.status(403).json({ error: "Invalid CSRF token", code: "CSRF_TOKEN_INVALID" });
+    return res.status(403).json({
+      error: "Invalid CSRF token",
+      code: "CSRF_TOKEN_INVALID"
+    });
   }
 
   next();

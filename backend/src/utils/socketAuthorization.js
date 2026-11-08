@@ -31,3 +31,10 @@ export async function isConversationParticipant(Conversation, userId, conversati
     participants: userId
   }));
 }
+export async function isChatParticipant(Chat, userId, chatId) {
+  if (!userId || !/^[a-f\d]{24}$/i.test(String(chatId || ""))) return false;
+  return Boolean(await Chat.exists({
+    _id: chatId,
+    $or: [{ buyer: userId }, { seller: userId }]
+  }));
+}

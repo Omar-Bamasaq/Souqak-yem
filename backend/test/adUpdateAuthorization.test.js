@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import adsRouter from "../src/routes/ads.js";
 import Ad from "../src/models/Ad.js";
 import City from "../src/models/City.js";
+import StoreProfile from "../src/models/StoreProfile.js";
+import StoreSubscription from "../src/models/StoreSubscription.js";
 import SystemSettings from "../src/models/SystemSettings.js";
 import ListingService from "../src/services/listingService.js";
 
@@ -40,7 +42,13 @@ function response() {
 
 function query(value) {
   return {
+    select() {
+      return this;
+    },
     populate() {
+      return this;
+    },
+    sort() {
       return this;
     },
     lean() {
@@ -63,6 +71,7 @@ function makeAd(overrides = {}) {
     governorateId: "507f1f77bcf86cd799439013",
     cityId: "507f1f77bcf86cd799439014",
     categoryId: "507f1f77bcf86cd799439015",
+    storeProfileId: null,
     condition: "used",
     tags: [],
     tagNames: [],
@@ -84,9 +93,11 @@ function makeAd(overrides = {}) {
   return ad;
 }
 
-async function invoke({ role, owner, body = {}, files = [], adOverrides = {} }) {
+async function invoke({ role, owner, body = {}, files = [], adOverrides = {}, activeStore = null }) {
   const ad = makeAd({ userId: owner, ...adOverrides });
   const originalFindById = Ad.findById;
+  const originalStoreFindOne = StoreProfile.findOne;
+  const originalSubscriptionFindOne = StoreSubscription.findOne;
   const originalCityFindById = City.findById;
   const originalSettings = SystemSettings.getSettings;
   const originalSaveAttributes = ListingService.saveAttributeValues;
@@ -96,6 +107,8 @@ async function invoke({ role, owner, body = {}, files = [], adOverrides = {} }) 
     saveCount += 1;
   };
   Ad.findById = () => query(ad);
+  StoreProfile.findOne = () => query(activeStore);
+  StoreSubscription.findOne = () => query({ status: "active", endDate: new Date(Date.now() + 86400000) });
   City.findById = () => ({ lean: async () => ({ governorateId: ad.governorateId }) });
   SystemSettings.getSettings = async () => ({
     prohibitedKeywords: [],
@@ -120,6 +133,8 @@ async function invoke({ role, owner, body = {}, files = [], adOverrides = {} }) 
     return { ad, res, saveCount, attributesSaved };
   } finally {
     Ad.findById = originalFindById;
+    StoreProfile.findOne = originalStoreFindOne;
+    StoreSubscription.findOne = originalSubscriptionFindOne;
     City.findById = originalCityFindById;
     SystemSettings.getSettings = originalSettings;
     ListingService.saveAttributeValues = originalSaveAttributes;
@@ -140,6 +155,42 @@ test("user and seller owners can update an ad", async () => {
     assert.equal(result.res.statusCode, 200);
     assert.equal(result.ad.title, "Updated");
   }
+});
+
+test("store-owned ad edits keep contact data on StoreProfile", async () => {
+  const result = await invoke({
+    role: "seller",
+    owner: "507f1f77bcf86cd799439012",
+    adOverrides: { storeProfileId: "507f1f77bcf86cd799439016" },
+    activeStore: { _id: "507f1f77bcf86cd799439016", selectedCategories: ["507f1f77bcf86cd799439015"] },
+    body: { categoryId: "507f1f77bcf86cd799439015", showPhone: true, phone: "777123456", showWhatsApp: true, whatsapp: "967777123456" }
+  });
+
+  assert.equal(result.res.statusCode, 200);
+  assert.deepEqual(result.ad.contactInfo, {
+    showPhone: false,
+    phone: "",
+    showWhatsApp: false,
+    whatsapp: ""
+  });
+});
+
+test("normal ads from store owners keep their own contact data", async () => {
+  const result = await invoke({
+    role: "seller",
+    owner: "507f1f77bcf86cd799439012",
+    activeStore: { _id: "507f1f77bcf86cd799439016", selectedCategories: [] },
+    body: { showPhone: true, phone: "777123456", showWhatsApp: true, whatsapp: "967777123456" }
+  });
+
+  assert.equal(result.res.statusCode, 200);
+  assert.equal(result.ad.storeProfileId, null);
+  assert.deepEqual(result.ad.contactInfo, {
+    showPhone: true,
+    phone: "777123456",
+    showWhatsApp: true,
+    whatsapp: "967777123456"
+  });
 });
 
 test("buyer is rejected by the PATCH role guard", () => {

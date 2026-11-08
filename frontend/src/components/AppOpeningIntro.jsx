@@ -37,7 +37,7 @@ export default function AppOpeningIntro() {
   const [showLoader, setShowLoader] = useState(false);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
 
-  const authPages = ["/login", "/register", "/forgot-password", "/phone-forgot-password", "/set-new-password", "/verify-email"];
+  const authPages = ["/login", "/admin-login", "/register", "/forgot-password", "/phone-forgot-password", "/set-new-password", "/verify-email"];
   const isAuthPage = authPages.includes(location.pathname);
 
   useEffect(() => {
@@ -46,13 +46,11 @@ export default function AppOpeningIntro() {
     markIntroAsSeen();
     setIsVisible(true);
 
-    const taglineTimer = window.setTimeout(() => setShowTagline(true), 1000);
-    const loaderTimer = window.setTimeout(() => setShowLoader(true), 3000);
+    const taglineTimer = window.setTimeout(() => setShowTagline(true), 550);
     const closeTimer = window.setTimeout(() => setIsVisible(false), 4000);
 
     return () => {
       window.clearTimeout(taglineTimer);
-      window.clearTimeout(loaderTimer);
       window.clearTimeout(closeTimer);
     };
   }, []);
@@ -128,6 +126,13 @@ export default function AppOpeningIntro() {
           <div className="opening-orb opening-orb-two" />
 
           <div className="opening-content">
+            <div className="opening-welcome-badge">
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M16.25 8.33c0 4.17-6.25 9.17-6.25 9.17S3.75 12.5 3.75 8.33a6.25 6.25 0 1 1 12.5 0Z" stroke="currentColor" strokeWidth="1.6" />
+                <circle cx="10" cy="8.25" r="2.1" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+              <span>السوق اليمني الأقرب لك</span>
+            </div>
             <div className="opening-logo-stage">
               <span className="opening-ring opening-ring-one" />
               <span className="opening-ring opening-ring-two" />
@@ -135,12 +140,22 @@ export default function AppOpeningIntro() {
               <img
                 src="/assets/logo/opening-logo.svg"
                 alt="سوقك"
-                className="opening-logo h-28 w-28 object-contain sm:h-36 sm:w-36"
+                className="opening-logo h-32 w-32 object-contain sm:h-36 sm:w-36"
               />
             </div>
 
             <div className={`opening-tagline-wrap ${showTagline ? "is-visible" : ""}`}>
-              <p className="opening-tagline text-base font-black sm:text-lg">سوق اليمن بين يديك</p>
+              <p className="opening-heading">أهلاً بك في سوقك</p>
+              <p className="opening-tagline">بيع، اشترِ، واكتشف كل ما تحتاجه من حولك.</p>
+              <div className="opening-market-categories" aria-label="أقسام السوق">
+                <span>سيارات</span>
+                <i />
+                <span>عقارات</span>
+                <i />
+                <span>أجهزة</span>
+                <i />
+                <span>والمزيد</span>
+              </div>
               <span className="opening-tagline-line" />
             </div>
 
@@ -155,7 +170,7 @@ export default function AppOpeningIntro() {
             </div>
           </div>
 
-          <div className="opening-footer-mark"><span /> سوقك <span /> سوق اليمن الرقمي</div>
+          <div className="opening-footer-mark"><span /> سوقك <span /> من صنعاء إلى عدن، سوق واحد يجمعنا</div>
         </div>
       )}
 

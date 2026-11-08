@@ -1,6 +1,6 @@
 import Order from "../models/Order.js";
 import Dispute from "../models/Dispute.js";
-import { releaseBalance } from "../services/walletService.js";
+import { releaseBalance, withFinancialTransaction } from "../services/walletService.js";
 import { createNotification } from "../services/notificationService.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -38,31 +38,64 @@ async function autoConfirmOrders() {
                 continue;
             }
 
-            order.status = "DELIVERED";
-            await order.save();
+            const settledOrder = await withFinancialTransaction(async (session) => {
+                const claimedOrder = await Order.findOneAndUpdate(
+                    {
+                        _id: order._id,
+                        orderType: { $ne: "store" },
+                        storeProfileId: null,
+                        status: "SHIPPED",
+                        "shippingDetails.shippedAt": { $lte: sevenDaysAgo }
+                    },
+                    { $set: { status: "DELIVERED" } },
+                    { new: true, session }
+                );
+                if (!claimedOrder) return null;
 
-            // تحرير الرصيد للبائع
-            await releaseBalance(order.seller, order.sellerAmount, order._id);
+                const amountToRelease = Number(claimedOrder.sellerAmount) || 0;
+                if (amountToRelease > 0) {
+                    await releaseBalance(
+                        claimedOrder.seller,
+                        amountToRelease,
+                        claimedOrder._id,
+                        claimedOrder.currency,
+                        "PRODUCT",
+                        { session }
+                    );
+                }
+                if (claimedOrder.shippingFee > 0 && claimedOrder.shippingPayer === "buyer") {
+                    await releaseBalance(
+                        claimedOrder.seller,
+                        claimedOrder.shippingFee,
+                        claimedOrder._id,
+                        claimedOrder.shippingCurrency,
+                        "SHIPPING",
+                        { session }
+                    );
+                }
+                return claimedOrder;
+            });
+            if (!settledOrder) continue;
 
             // إشعار للبائع
             await createNotification(null, {
-                userId: order.seller,
+                userId: settledOrder.seller,
                 title: "تأكيد استلام تلقائي",
-                body: `تم تأكيد استلام الطلب #${order._id} تلقائياً لمرور 7 أيام على الشحن. تم نقل الرصيد لمحفظتك.`,
+                body: `تم تأكيد استلام الطلب #${settledOrder._id} تلقائياً لمرور 7 أيام على الشحن. تم نقل الرصيد لمحفظتك.`,
                 type: "order",
-                data: { orderId: order._id }
+                data: { orderId: settledOrder._id }
             });
 
             // إشعار للمشتري
             await createNotification(null, {
-                userId: order.buyer,
+                userId: settledOrder.buyer,
                 title: "تأكيد استلام تلقائي",
-                body: `تم تأكيد استلام الطلب #${order._id} تلقائياً بعد مرور 7 أيام من الشحن.`,
+                body: `تم تأكيد استلام الطلب #${settledOrder._id} تلقائياً بعد مرور 7 أيام من الشحن.`,
                 type: "order",
-                data: { orderId: order._id }
+                data: { orderId: settledOrder._id }
             });
 
-            console.log(`Order #${order._id} auto-confirmed.`);
+            console.log(`Order #${settledOrder._id} auto-confirmed.`);
         }
 
         console.log("Done.");

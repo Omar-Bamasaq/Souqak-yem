@@ -4,10 +4,34 @@ const orderSchema = new mongoose.Schema(
   {
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    ad: { type: mongoose.Schema.Types.ObjectId, ref: "Ad", required: true },
+    orderType: { type: String, enum: ["secure", "store"], default: "secure", index: true },
+    storeProfileId: { type: mongoose.Schema.Types.ObjectId, ref: "StoreProfile", default: null, index: true },
+    storeOwnerEmailNotificationAttemptedAt: { type: Date, default: null, select: false },
+    storeOwnerEmailNotificationSentAt: { type: Date, default: null, select: false },
+    ad: { type: mongoose.Schema.Types.ObjectId, ref: "Ad", default: null },
+    items: [{
+      productId: { type: mongoose.Schema.Types.ObjectId, ref: "Ad", default: null },
+      title: { type: String, required: true },
+      originalPrice: { type: Number, min: 0 },
+      discountType: { type: String, enum: ["percentage", "fixed"] },
+      discountValue: { type: Number, min: 0, default: 0 },
+      unitPrice: { type: Number, min: 0 },
+      price: { type: Number, required: true, min: 0 },
+      currency: { type: String, required: true },
+      quantity: { type: Number, required: true, min: 1 },
+      subtotal: { type: Number, required: true, min: 0 },
+      isAvailableForDelivery: { type: Boolean, default: false },
+      inventoryEnabled: { type: Boolean, default: false },
+      stockQuantityAtPurchase: { type: Number, min: 0, default: null }
+    }],
+    total: { type: Number, min: 0 },
     status: {
       type: String,
       enum: [
+        "new",
+        "processing",
+        "completed",
+        "cancelled",
         "PENDING_SELLER_APPROVAL", // المشتري طلب الشراء، في انتظار موافقة البائع
         "AWAITING_PAYMENT",       // البائع وافق، في انتظار المشتري يحول الفلوس
         "AWAITING_PAYMENT_CONFIRMATION", // المشتري أرسل بيانات التحويل، في انتظار تأكيد الإدارة
@@ -33,6 +57,15 @@ const orderSchema = new mongoose.Schema(
         transactionNumber: { type: String },
         receiptImage: { type: String }
       }],
+      submittedAt: { type: Date }
+    },
+    storePaymentDetails: {
+      bankAccountId: { type: mongoose.Schema.Types.ObjectId },
+      bankName: { type: String },
+      accountHolderName: { type: String },
+      accountNumber: { type: String },
+      currency: { type: String, enum: ["YER", "SAR", "USD"] },
+      receiptImage: { type: String },
       submittedAt: { type: Date }
     },
     
@@ -70,8 +103,6 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.index({ status: 1 });
-orderSchema.index({ seller: 1 });
-orderSchema.index({ buyer: 1 });
 orderSchema.index({ createdAt: 1 });
 orderSchema.index({ createdAt: -1 });
 

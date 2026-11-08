@@ -1,27 +1,15 @@
 
-import dotenv from "dotenv";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import fs from "fs";
+import path from "path";
 import mongoose from "mongoose";
 import Governorate from "./src/models/Governorate.js";
 import City from "./src/models/City.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const backendEnv = join(__dirname, ".env.local");
-const rootEnv = join(__dirname, "..", ".env.local");
-const defaultEnv = join(__dirname, ".env");
-
-if (fs.existsSync(backendEnv)) {
-  dotenv.config({ path: backendEnv, override: true });
-} else if (fs.existsSync(defaultEnv)) {
-  dotenv.config({ path: defaultEnv, override: true });
-}
-
-if (fs.existsSync(rootEnv)) {
-  dotenv.config({ path: rootEnv });
-}
-dotenv.config();
+import {
+  connectPrelaunchDatabase,
+  requireReferenceDataApproval,
+  resolvePrelaunchTarget,
+  safeErrorSummary
+} from "./src/lib/prelaunchDatabase.js";
 
 const locations = [
   {
@@ -110,42 +98,67 @@ const locations = [
   }
 ];
 
-async function run() {
-  const mongoUri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/yemen_market";
-  console.log(`Connecting to MongoDB... (URI: ${mongoUri.substring(0, 40)}...)`);
-  await mongoose.connect(mongoUri, { family: 4 });
-
-  console.log("Starting seeding of Yemen locations...");
-
-  for (const loc of locations) {
-    let gov = await Governorate.findOne({ name: loc.governorate });
+export async function seedYemenLocations({
+  GovernorateModel = Governorate,
+  CityModel = City,
+  locationData = locations,
+  env = process.env
+} = {}) {
+  resolvePrelaunchTarget(env);
+  requireReferenceDataApproval(env);
+  const results = { governorates: 0, cities: 0 };
+  for (const loc of locationData) {
+    let gov = await GovernorateModel.findOne({ name: loc.governorate });
     if (!gov) {
-      gov = await Governorate.create({ name: loc.governorate });
-      console.log(`Created Governorate: ${gov.name}`);
-    } else {
-      console.log(`Governorate already exists: ${gov.name}`);
+      try {
+        gov = await GovernorateModel.create({ name: loc.governorate });
+        results.governorates += 1;
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        gov = await GovernorateModel.findOne({ name: loc.governorate });
+        if (!gov) throw error;
+      }
     }
 
     for (const cityName of loc.cities) {
-      let city = await City.findOne({ name: cityName, governorateId: gov._id });
-      if (!city) {
-        city = await City.create({ name: cityName, governorateId: gov._id });
-        console.log(`  - Created City: ${city.name}`);
-      } else {
-        console.log(`  - City already exists: ${city.name}`);
+      try {
+        const result = await CityModel.updateOne(
+          { name: cityName, governorateId: gov._id },
+          { $setOnInsert: { name: cityName, governorateId: gov._id, isActive: true } },
+          { upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+        if (result.upsertedCount > 0 || result.upsertedId) {
+          results.cities += 1;
+        }
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        const city = await CityModel.findOne({ name: cityName, governorateId: gov._id });
+        if (!city) throw error;
       }
     }
   }
 
-  console.log("Seeding complete!");
-  await mongoose.disconnect();
-  process.exit(0);
+  return results;
 }
 
-run().catch(async (err) => {
-  console.error("Seeding failed:", err && err.message ? err.message : err);
+export async function run() {
+  const env = process.env;
+  resolvePrelaunchTarget(env);
+  requireReferenceDataApproval(env);
+  await connectPrelaunchDatabase(env);
   try {
+    await Governorate.createIndexes();
+    await City.createIndexes();
+    const result = await seedYemenLocations({ env });
+    console.log(`Reference location seed complete. New governorates: ${result.governorates}; new cities: ${result.cities}.`);
+  } finally {
     await mongoose.disconnect();
-  } catch {}
-  process.exit(1);
-});
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  run().catch((error) => {
+    console.error("Reference location seed failed.", safeErrorSummary(error));
+    process.exitCode = 1;
+  });
+}

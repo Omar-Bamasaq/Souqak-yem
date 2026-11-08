@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const SystemSettingsSchema = new mongoose.Schema(
   {
+    singletonKey: {
+      type: String,
+      enum: ["global"],
+      default: "global"
+    },
     adReviewMode: {
       type: String,
       enum: ["manual", "auto"],
@@ -27,8 +32,27 @@ const SystemSettingsSchema = new mongoose.Schema(
     exchangeRates: {
       USD: { type: Number, default: 1 },
       SAR: { type: Number, default: 3.75 },
-      YER: { type: Number, default: 530 }, // سعر تقريبي (صنعاء)
+      YER: { type: Number, default: 530 }, // Legacy Sanaa rate retained for existing settings documents
+      YER_SANAA: { type: Number, default: undefined },
       YER_ADEN: { type: Number, default: 1600 } // سعر تقريبي (عدن)
+    },
+    exchangeRatePairs: {
+      SAR: {
+        buy: { type: Number, default: undefined },
+        sell: { type: Number, default: undefined }
+      },
+      YER_SANAA: {
+        buy: { type: Number, default: undefined },
+        sell: { type: Number, default: undefined }
+      },
+      YER_ADEN: {
+        buy: { type: Number, default: undefined },
+        sell: { type: Number, default: undefined }
+      }
+    },
+    exchangeRatesUpdatedAt: {
+      type: Date,
+      default: null
     },
     welcomePromotion: {
       enabled: { type: Boolean, default: true },
@@ -73,13 +97,16 @@ const SystemSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Ensure only one settings document exists
+SystemSettingsSchema.index(
+  { singletonKey: 1 },
+  { unique: true, partialFilterExpression: { singletonKey: { $type: "string" } } }
+);
+
 SystemSettingsSchema.statics.getSettings = async function() {
-  return this.findOneAndUpdate(
-    {},
-    { $setOnInsert: {} },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
-  );
+  const existing = await this.findOne({});
+  if (existing) return existing;
+
+  throw new Error("System settings have not been initialized; run the approved prelaunch settings initializer.");
 };
 
 export default mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);

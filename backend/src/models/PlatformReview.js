@@ -27,6 +27,5 @@ const PlatformReviewSchema = new mongoose.Schema(
 PlatformReviewSchema.index({ userId: 1, createdAt: -1 });
 PlatformReviewSchema.index({ createdAt: -1 });
 PlatformReviewSchema.index({ rating: 1 });
-PlatformReviewSchema.index({ status: 1 });
 
 export default mongoose.models.PlatformReview || mongoose.model("PlatformReview", PlatformReviewSchema);

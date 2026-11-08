@@ -8,17 +8,19 @@ import Ad from "../models/Ad.js";
 import Joi from "joi";
 import { validateBody, validateParams } from "../middleware/validate.js";
 import { uploadReceipt, processImage } from "../middleware/upload.js";
-import { releaseBalance } from "../services/walletService.js";
-import { createNotification } from "../services/notificationService.js";
-import AdminNotification from "../models/AdminNotification.js";
+import { releaseBalance, withFinancialTransaction } from "../services/walletService.js";
+import { createAdminNotification, createNotification } from "../services/notificationService.js";
 import User from "../models/User.js";
-import { buildReplacementPaymentDetails } from "../utils/orderPaymentState.js";
+import { buildPaymentProofTransition, buildReplacementPaymentDetails } from "../utils/orderPaymentState.js";
 import { sendAdminEmail } from "../utils/sendEmail.js";
-import { sendSafePurchaseNotification } from "../utils/emailSender.js";
 import ReferralEngine from "../engines/ReferralEngine.js";
 import { calculateBuyerServiceFee, calculateSellerCommission } from "../config/commission.js";
 
 const router = Router();
+
+function marketplaceOrderFilter(id) {
+  return { _id: id, orderType: { $ne: "store" }, storeProfileId: null };
+}
 
 // 1. إنشاء طلب شراء آمن (Buyer)
 router.post(
@@ -44,6 +46,12 @@ router.post(
 
       if (!ad || ad.status !== "approved") {
         return res.status(400).json({ error: "الإعلان غير صالح أو غير متوفر حالياً." });
+      }
+
+      if (ad.storeProfileId) {
+        return res.status(400).json({
+          error: "هذا المنتج تابع لمتجر. يرجى طلبه من صفحة المتجر أو عبر سلة المتجر."
+        });
       }
       
       if (!ad.userId) {
@@ -112,24 +120,9 @@ router.post(
           body: `لديك طلب شراء آمن جديد للإعلان: ${ad.title}.\n${details}`,
           type: "order",
           data: { orderId: order._id },
-          email: false // نمنع إرسال الإيميل التلقائي هنا لأننا نرسل إيميل مخصص أدناه
+          email: false
         });
 
-        // إرسال بريد إلكتروني إذا كان البائع مسجلاً بالبريد الإلكتروني
-        const seller = await User.findById(ad.userId).lean();
-        if (seller && seller.email) {
-          await sendSafePurchaseNotification(
-            seller.email,
-            seller.name,
-            ad.title,
-            order._id,
-            price,
-            currency,
-            sFee,
-            shippingCurrency || currency,
-            deliveryText
-          );
-        }
       } catch (notifErr) {
         console.error("Failed to send order notification to seller:", notifErr);
         // لا نريد تعطيل الطلب إذا فشل الإشعار فقط
@@ -156,7 +149,7 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   async (req, res) => {
     try {
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findOne(marketplaceOrderFilter(req.params.id));
       if (!order) return res.status(404).json({ error: "الطلب غير موجود." });
       if (order.seller.toString() !== req.user.id) return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
       if (order.status !== "PENDING_SELLER_APPROVAL") return res.status(400).json({ error: "حالة الطلب لا تسمح بالموافقة." });
@@ -189,7 +182,7 @@ router.patch(
   validateBody(Joi.object({ reason: Joi.string().allow("").optional() })),
   async (req, res) => {
     try {
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findOne(marketplaceOrderFilter(req.params.id));
       if (!order) return res.status(404).json({ error: "الطلب غير موجود." });
       if (order.seller.toString() !== req.user.id) return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
       if (order.status !== "PENDING_SELLER_APPROVAL") return res.status(400).json({ error: "حالة الطلب لا تسمح بالرفض." });
@@ -239,11 +232,14 @@ router.patch(
         return res.status(400).json({ error: "يرجى إدخال اسم البنك ورقم الحوالة." });
       }
 
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findOne(marketplaceOrderFilter(req.params.id));
       if (!order) return res.status(404).json({ error: "الطلب غير موجود." });
       
       if (order.buyer.toString() !== req.user.id) {
         return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
+      }
+      if (order.status !== "AWAITING_PAYMENT") {
+        return res.status(400).json({ error: "حالة الطلب لا تسمح بإرسال بيانات الدفع." });
       }
 
       const tNumbers = Array.isArray(transactionNumber) ? transactionNumber : [transactionNumber];
@@ -269,33 +265,30 @@ router.patch(
 
       console.log("New Payments to add:", newPayments);
 
-      // تحديث الحالة
-      order.status = "AWAITING_PAYMENT_CONFIRMATION";
-
-      // استبدال كامل لسندات الدفع السابقة بدلاً من إلحاقها، حتى إذا تم رفض الطلب سابقاً
-      const updatedPaymentDetails = buildReplacementPaymentDetails(bankName, newPayments, order.paymentDetails?.payments || []);
-
-      console.log("Updating order with paymentDetails:", JSON.stringify(updatedPaymentDetails, null, 2));
-      order.set('paymentDetails', updatedPaymentDetails);
-      order.markModified('paymentDetails');
-
-      await order.save();
-      console.log("Order saved successfully");
+      const paymentDetails = buildReplacementPaymentDetails(bankName, newPayments, order.paymentDetails?.payments || []);
+      const transition = buildPaymentProofTransition(order._id, req.user.id, paymentDetails);
+      const updatedOrder = await Order.findOneAndUpdate(
+        transition.filter,
+        transition.update,
+        { new: true }
+      );
+      if (!updatedOrder) {
+        return res.status(400).json({ error: "حالة الطلب لا تسمح بإرسال بيانات الدفع." });
+      }
+      console.log("Order payment details saved successfully");
 
       // إنشاء إشعار لحظي للأدمن
       try {
         const buyer = await User.findById(req.user.id).select("name").lean();
         console.log("Creating admin notification for buyer:", buyer?.name);
-        const adminNotif = await AdminNotification.create({
+        await createAdminNotification(req.app, {
           type: "order_payment",
           title: "بيانات دفع جديدة",
-          message: `قام المشتري ${buyer?.name || "غير معروف"} برفع بيانات الدفع للطلب #${order._id.toString().slice(-6).toUpperCase()}`,
+          message: `قام المشتري ${buyer?.name || "غير معروف"} برفع بيانات الدفع للطلب #${updatedOrder._id.toString().slice(-6).toUpperCase()}`,
           link: "/admin/escrow",
-          data: { orderId: order._id, amount: order.totalAmount, currency: order.currency }
+          data: { orderId: updatedOrder._id, amount: updatedOrder.totalAmount, currency: updatedOrder.currency }
         });
 
-        const io = req.app.get("io");
-        if (io) io.emit("admin_notification:new", adminNotif);
         console.log("Admin notification emitted");
       } catch (notifErr) {
         console.error("Admin notification failed (non-critical):", notifErr);
@@ -304,7 +297,7 @@ router.patch(
       // إرسال إيميل للأدمن
       try {
         const buyer = await User.findById(req.user.id).select("name email phone").lean();
-        const formattedAmount = `${(order.totalAmount || 0).toLocaleString()} ${order.currency || ''}`;
+        const formattedAmount = `${(updatedOrder.totalAmount || 0).toLocaleString()} ${updatedOrder.currency || ''}`;
         
         console.log("Sending admin email...");
         await sendAdminEmail({
@@ -320,7 +313,7 @@ router.patch(
                 <div style="background-color: #f1f5f9; border-radius: 20px; padding: 20px; margin-bottom: 25px;">
                   <div style="margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
                     <span style="color: #64748b; font-size: 12px; font-weight: bold;">رقم الطلب:</span>
-                    <span style="float: left; color: #0f172a; font-weight: 900;">#${order._id.toString().toUpperCase()}</span>
+                    <span style="float: left; color: #0f172a; font-weight: 900;">#${updatedOrder._id.toString().toUpperCase()}</span>
                   </div>
                   <div style="margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
                     <span style="color: #64748b; font-size: 12px; font-weight: bold;">المشتري:</span>
@@ -338,10 +331,10 @@ router.patch(
 
                 <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 20px; padding: 20px; margin-bottom: 25px;">
                   <h4 style="margin: 0 0 15px 0; color: #92400e; font-size: 14px; font-weight: 900;">تفاصيل الحوالة المستلمة:</h4>
-                  <p style="margin: 5px 0; font-size: 13px;"><strong>البنك:</strong> ${order.paymentDetails.bankName}</p>
-                  <p style="margin: 10px 0; font-size: 13px; font-weight: bold; color: #b45309;">السندات المرفوعة: ${order.paymentDetails.payments.length} سند</p>
+                  <p style="margin: 5px 0; font-size: 13px;"><strong>البنك:</strong> ${updatedOrder.paymentDetails.bankName}</p>
+                  <p style="margin: 10px 0; font-size: 13px; font-weight: bold; color: #b45309;">السندات المرفوعة: ${updatedOrder.paymentDetails.payments.length} سند</p>
                   <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    ${order.paymentDetails.payments.map((p, i) => `
+                    ${updatedOrder.paymentDetails.payments.map((p, i) => `
                       <div style="font-size: 11px; color: #d97706;">رقم العملية ${i+1}: ${p.transactionNumber}</div>
                     `).join('')}
                   </div>
@@ -360,7 +353,7 @@ router.patch(
         console.error("Admin email notification failed (non-critical):", emailErr);
       }
 
-      res.json(order);
+      res.json(updatedOrder);
     } catch (err) {
       console.error("CRITICAL ERROR in Order Pay:", err);
       res.status(500).json({ 
@@ -385,7 +378,7 @@ router.patch(
   })),
   async (req, res) => {
     try {
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findOne(marketplaceOrderFilter(req.params.id));
       if (!order) return res.status(404).json({ error: "الطلب غير موجود." });
       if (order.seller.toString() !== req.user.id) return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
       if (order.status !== "PAID_CONFIRMED") return res.status(400).json({ error: "يجب انتظار تأكيد الدفع من الإدارة قبل الشحن." });
@@ -435,51 +428,63 @@ router.patch(
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
   async (req, res) => {
     try {
-      const order = await Order.findById(req.params.id);
-      if (!order) return res.status(404).json({ error: "الطلب غير موجود." });
-      if (order.buyer.toString() !== req.user.id) return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
-      
-      if (order.status !== "SHIPPED") {
-          return res.status(400).json({ 
-              error: `لا يمكنك تأكيد الاستلام الآن. حالة الطلب الحالية هي: ${order.status}. يجب أن يقوم البائع بشحن المنتج أولاً.` 
-          });
-      }
-
-      order.status = "DELIVERED";
-      await order.save();
-
-      // تحريك الرصيد من المعلق إلى المتاح للبائع
-      try {
-        if (!order.seller) {
-          throw new Error("بيانات البائع غير متوفرة في الطلب.");
-        }
-        
-        // التأكد من وجود مبلغ صالح للتحرير
-        const amountToRelease = Number(order.sellerAmount) || 0;
-        if (amountToRelease > 0) {
-            await releaseBalance(order.seller, amountToRelease, order._id, order.currency, "PRODUCT");
-        }
-
-        // تحرير رصيد الشحن
-        if (order.shippingFee > 0 && order.shippingPayer === "buyer") {
-          await releaseBalance(order.seller, order.shippingFee, order._id, order.shippingCurrency, "SHIPPING");
-        }
-          await ReferralEngine.createSafePurchaseCommission(order);
-      } catch (walletErr) {
-        console.error("Wallet balance release failed:", walletErr);
-        // نرجع حالة الطلب كما كانت إذا فشل تحرير الرصيد
-        try {
-          order.status = "SHIPPED";
-          await order.save();
-        } catch (revertErr) {
-          console.error("Critical: Failed to revert order status after wallet failure:", revertErr);
-        }
-        return res.status(500).json({ 
-          error: "فشل تحرير الرصيد للبائع، يرجى المحاولة لاحقاً.",
-          details: walletErr.message 
+      const currentOrder = await Order.findOne(marketplaceOrderFilter(req.params.id));
+      if (!currentOrder) return res.status(404).json({ error: "الطلب غير موجود." });
+      if (currentOrder.buyer.toString() !== req.user.id) return res.status(403).json({ error: "غير مسموح لك بهذا الإجراء." });
+      if (currentOrder.status !== "SHIPPED") {
+        return res.status(400).json({
+          error: `لا يمكنك تأكيد الاستلام الآن. حالة الطلب الحالية هي: ${currentOrder.status}. يجب أن يقوم البائع بشحن المنتج أولاً.`
         });
       }
-      
+
+      const order = await withFinancialTransaction(async (session) => {
+        const claimedOrder = await Order.findOneAndUpdate(
+          {
+            ...marketplaceOrderFilter(req.params.id),
+            buyer: req.user.id,
+            status: "SHIPPED"
+          },
+          { $set: { status: "DELIVERED" } },
+          { new: true, session }
+        );
+        if (!claimedOrder) return null;
+
+        if (!claimedOrder.seller) throw new Error("بيانات البائع غير متوفرة في الطلب.");
+
+        const amountToRelease = Number(claimedOrder.sellerAmount) || 0;
+        if (amountToRelease > 0) {
+          await releaseBalance(
+            claimedOrder.seller,
+            amountToRelease,
+            claimedOrder._id,
+            claimedOrder.currency,
+            "PRODUCT",
+            { session }
+          );
+        }
+
+        if (claimedOrder.shippingFee > 0 && claimedOrder.shippingPayer === "buyer") {
+          await releaseBalance(
+            claimedOrder.seller,
+            claimedOrder.shippingFee,
+            claimedOrder._id,
+            claimedOrder.shippingCurrency,
+            "SHIPPING",
+            { session }
+          );
+        }
+
+        return claimedOrder;
+      });
+
+      if (!order) return res.status(400).json({ error: "حالة الطلب لا تسمح بتأكيد الاستلام." });
+
+      try {
+        await ReferralEngine.createSafePurchaseCommission(order);
+      } catch (commissionErr) {
+        console.error("Safe-purchase referral commission creation failed:", commissionErr);
+      }
+
       // إشعار للبائع
       try {
         await createNotification(req.app, {
@@ -522,7 +527,7 @@ router.post(
   })),
   async (req, res) => {
     try {
-      const order = await Order.findById(req.params.id);
+      const order = await Order.findOne(marketplaceOrderFilter(req.params.id));
       if (!order) return res.status(404).json({ error: "الطلب غير موجود." });
       
       // التأكد من أن المستخدم طرف في الطلب
@@ -547,7 +552,7 @@ router.post(
       // إشعار لحظي للأدمن
       try {
         const initiator = await User.findById(req.user.id).select("name").lean();
-        const adminNotif = await AdminNotification.create({
+        await createAdminNotification(req.app, {
           type: "dispute",
           title: "نزاع جديد",
           message: `قام ${initiator?.name || "مستخدم"} بفتح نزاع على الطلب #${order._id.toString().slice(-6).toUpperCase()}`,
@@ -555,8 +560,6 @@ router.post(
           data: { disputeId: dispute._id, orderId: order._id }
         });
 
-        const io = req.app.get("io");
-        if (io) io.emit("admin_notification:new", adminNotif);
       } catch (notifErr) {
         console.error("Admin dispute notification failed:", notifErr);
       }
@@ -622,7 +625,12 @@ router.post(
 // جلب طلبات المشتري
 router.get("/buyer", auth, async (req, res) => {
   try {
-    const orders = await Order.find({ buyer: req.user.id, isDeleted: { $ne: true } })
+    const orders = await Order.find({
+      buyer: req.user.id,
+      orderType: { $ne: "store" },
+      storeProfileId: null,
+      isDeleted: { $ne: true }
+    })
       .populate("ad", "title images price")
       .populate("seller", "name")
       .sort({ createdAt: -1 })
@@ -636,7 +644,12 @@ router.get("/buyer", auth, async (req, res) => {
 // جلب طلبات البائع
 router.get("/seller", auth, async (req, res) => {
   try {
-    const orders = await Order.find({ seller: req.user.id, isDeleted: { $ne: true } })
+    const orders = await Order.find({
+      seller: req.user.id,
+      orderType: { $ne: "store" },
+      storeProfileId: null,
+      isDeleted: { $ne: true }
+    })
       .populate("ad", "title images price")
       .populate("buyer", "name")
       .sort({ createdAt: -1 })
@@ -650,7 +663,7 @@ router.get("/seller", auth, async (req, res) => {
 // جلب تفاصيل طلب واحد
 router.get("/:id", auth, validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })), async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
+    const order = await Order.findOne(marketplaceOrderFilter(req.params.id))
       .populate("ad", "title images price description")
       .populate("buyer", "name email phone")
       .populate("seller", "name email phone")

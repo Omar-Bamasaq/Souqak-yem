@@ -2,10 +2,10 @@ import { Router } from "express";
 import auth from "../middleware/auth.js";
 import Favorite from "../models/Favorite.js";
 import Ad from "../models/Ad.js";
-import Conversation from "../models/Conversation.js";
 import Block from "../models/Block.js";
 import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
+import { findOrCreateAdConversation } from "../services/adConversation.js";
 
 const router = Router();
 
@@ -96,19 +96,12 @@ router.post("/:adId", auth, async (req, res) => {
       }).lean();
 
       if (!blocked) {
-        let conversation = await Conversation.findOne({
+        const { conversation, created } = await findOrCreateAdConversation({
           adId,
-          adModel: "Ad",
-          participants: { $all: [req.user.id, ad.userId] }
+          participants: [req.user.id, ad.userId]
         });
 
-        if (!conversation) {
-          conversation = await Conversation.create({
-            adId,
-            adModel: "Ad",
-            participants: [req.user.id, ad.userId],
-            lastMessage: ""
-          });
+        if (created) {
           await Ad.findByIdAndUpdate(adId, { $inc: { contactsCount: 1 } });
         }
 
