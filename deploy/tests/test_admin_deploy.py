@@ -255,7 +255,7 @@ class AdminDeploymentTests(unittest.TestCase):
                 self.skipTest("Symlink creation is not available in this local Windows environment.")
             fd = os.open(release_dir, os.O_RDONLY | os.O_DIRECTORY)
             try:
-                with self.assertRaisesRegex(admin.DeploymentError, "link or special file"):
+                with self.assertRaisesRegex(admin.DeploymentError, "unexpected path"):
                     admin.snapshot_directory(fd, Path(temporary) / "snapshot", Path(), [0])
             finally:
                 os.close(fd)
