@@ -221,7 +221,7 @@ test("latest Marketplace page includes newest eligible Store Products before old
   }, async ({ res, capturedFilter, capturedSort }) => {
     assert.equal(res.statusCode, 200);
     assert.equal(capturedSort.publishedAt, -1);
-    assert.equal(capturedSort.featured, -1);
+    assert.equal(capturedSort.featured, undefined);
     assert.equal(res.body.items[0]._id, newestStoreProduct._id);
     assert.equal(res.body.items[0].storeProfileId.storeName, "متجر موثوق");
     assert.equal(res.body.items[0].storeProfileId.slug, "trusted-store");
@@ -232,6 +232,92 @@ test("latest Marketplace page includes newest eligible Store Products before old
     assert.equal(capturedFilter.isArchived.$ne, true);
     assert.equal(capturedFilter.sold.$ne, true);
     assert.equal(capturedFilter.isDeleted.$ne, true);
+  });
+});
+
+test("Marketplace defaults to newest-first regardless of featured status", async () => {
+  const now = Date.now();
+  const olderFeatured = storeAd({
+    _id: "older-featured-default",
+    storeProfileId: null,
+    featured: true,
+    publishedAt: new Date(now - 120_000),
+    createdAt: new Date(now - 120_000)
+  });
+  const newestOrdinary = storeAd({
+    _id: "newest-ordinary-default",
+    featured: false,
+    publishedAt: new Date(now - 60_000),
+    createdAt: new Date(now - 60_000)
+  });
+
+  await withMarketplaceListMocks({
+    stores: [publicStore()],
+    subscriptions: [subscription({ storeId: STORE_ID })],
+    ads: [olderFeatured, newestOrdinary]
+  }, async ({ res, capturedSort }) => {
+    assert.deepEqual(capturedSort, { publishedAt: -1, createdAt: -1 });
+    assert.equal(res.body.items[0]._id, newestOrdinary._id);
+  });
+});
+
+test("Marketplace pins featured ads only when featured sorting is explicitly requested", async () => {
+  const now = Date.now();
+  const olderFeatured = storeAd({
+    _id: "older-featured-explicit",
+    storeProfileId: null,
+    featured: true,
+    publishedAt: new Date(now - 120_000),
+    createdAt: new Date(now - 120_000)
+  });
+  const newestOrdinary = storeAd({
+    _id: "newest-ordinary-explicit",
+    featured: false,
+    publishedAt: new Date(now - 60_000),
+    createdAt: new Date(now - 60_000)
+  });
+
+  await withMarketplaceListMocks({
+    stores: [publicStore()],
+    subscriptions: [subscription({ storeId: STORE_ID })],
+    ads: [newestOrdinary, olderFeatured],
+    queryParams: { sort: "featured" }
+  }, async ({ res, capturedSort }) => {
+    assert.deepEqual(capturedSort, { featured: -1, publishedAt: -1, createdAt: -1 });
+    assert.equal(res.body.items[0]._id, olderFeatured._id);
+  });
+});
+
+test("Marketplace applies price sorting without implicit featured priority", async () => {
+  const now = Date.now();
+  const featuredExpensive = storeAd({
+    _id: "featured-expensive-price",
+    storeProfileId: null,
+    featured: true,
+    price: 200,
+    publishedAt: new Date(now - 120_000),
+    createdAt: new Date(now - 120_000)
+  });
+  const ordinaryCheap = storeAd({
+    _id: "ordinary-cheap-price",
+    storeProfileId: null,
+    featured: false,
+    price: 100,
+    publishedAt: new Date(now - 60_000),
+    createdAt: new Date(now - 60_000)
+  });
+
+  await withMarketplaceListMocks({
+    stores: [],
+    subscriptions: [],
+    ads: [featuredExpensive, ordinaryCheap],
+    queryParams: { sort: "price_asc" }
+  }, async ({ res, capturedSort }) => {
+    assert.deepEqual(capturedSort, { price: 1, publishedAt: -1, createdAt: -1 });
+    assert.deepEqual(res.body.items.map((item) => item._id), [
+      ordinaryCheap._id,
+      featuredExpensive._id
+    ]);
   });
 });
 

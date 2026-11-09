@@ -468,6 +468,7 @@ export default function Home() {
             <div className="hidden sm:flex items-center gap-2 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm self-stretch sm:self-auto overflow-x-auto no-scrollbar">
               {[
                 { label: "الأحدث", value: "new" },
+                { label: "المميزة أولاً", value: "featured" },
                 { label: "الأرخص", value: "price_asc" },
                 { label: "الأغلى", value: "price_desc" }
               ].map((s) => (

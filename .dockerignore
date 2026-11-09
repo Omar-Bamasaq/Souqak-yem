@@ -63,3 +63,6 @@ backend/exports/production-data/
 **/*.sqlite
 **/*.sqlite3
 **/*.db
+
+deploy/deploy.conf
+deploy/deploy-state/

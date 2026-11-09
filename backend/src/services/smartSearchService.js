@@ -822,43 +822,28 @@ class SmartSearchService {
 
     const featuredComparator = (a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured));
 
-    // Default sorting priority: Featured ads stay pinned to the top, then by criteria.
-    if (s === "price_asc" || s === "pricelow") {
-      copy.sort((a, b) => {
-        const featuredDiff = featuredComparator(a, b);
-        if (featuredDiff !== 0) return featuredDiff;
-        return (Number(a.price || 0) - Number(b.price || 0)) || compareByDate(a, b, "desc");
-      });
+    if (s === "featured") {
+      copy.sort((a, b) => featuredComparator(a, b) || compareByDate(a, b, "desc"));
+    } else if (s === "price_asc" || s === "pricelow") {
+      copy.sort((a, b) =>
+        (Number(a.price || 0) - Number(b.price || 0)) || compareByDate(a, b, "desc")
+      );
     } else if (s === "price_desc" || s === "pricehigh") {
-      copy.sort((a, b) => {
-        const featuredDiff = featuredComparator(a, b);
-        if (featuredDiff !== 0) return featuredDiff;
-        return (Number(b.price || 0) - Number(a.price || 0)) || compareByDate(a, b, "desc");
-      });
+      copy.sort((a, b) =>
+        (Number(b.price || 0) - Number(a.price || 0)) || compareByDate(a, b, "desc")
+      );
     } else if (s === "old") {
-      copy.sort((a, b) => {
-        const featuredDiff = featuredComparator(a, b);
-        if (featuredDiff !== 0) return featuredDiff;
-        return compareByDate(a, b, "asc");
-      });
+      copy.sort((a, b) => compareByDate(a, b, "asc"));
     } else if (s === "new") {
-      copy.sort((a, b) => {
-        const featuredDiff = featuredComparator(a, b);
-        if (featuredDiff !== 0) return featuredDiff;
-        return compareByDate(a, b, "desc");
-      });
+      copy.sort((a, b) => compareByDate(a, b, "desc"));
     } else if (s === "views") {
-      copy.sort((a, b) => {
-        const featuredDiff = featuredComparator(a, b);
-        if (featuredDiff !== 0) return featuredDiff;
-        return (Number(b.viewCount || 0) - Number(a.viewCount || 0)) || compareByDate(a, b, "desc");
-      });
+      copy.sort((a, b) =>
+        (Number(b.viewCount || 0) - Number(a.viewCount || 0)) || compareByDate(a, b, "desc")
+      );
     } else {
-      copy.sort((a, b) => {
-        const featuredDiff = featuredComparator(a, b);
-        if (featuredDiff !== 0) return featuredDiff;
-        return (Number(b.relevanceScore || 0) - Number(a.relevanceScore || 0)) || compareByDate(a, b, "desc");
-      });
+      copy.sort((a, b) =>
+        (Number(b.relevanceScore || 0) - Number(a.relevanceScore || 0)) || compareByDate(a, b, "desc")
+      );
     }
     return copy;
   }

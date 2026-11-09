@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -27,6 +28,43 @@ import os from "node:os";
 const projectRoot = process.cwd();
 const snapshotNow = Date.parse("2026-10-22T06:00:00.000Z");
 const snapshotCategoryId = "aaaaaaaaaaaaaaaaaaaaaaaa";
+
+async function writeCompletePrerenderOutput(directory, indexHtml) {
+  const siteBaseUrl = "https://souqak-yem.com";
+  const sitemapUrls = INDEXABLE_STATIC_ROUTES.map(({ canonical }) => `${siteBaseUrl}${canonical}`);
+  for (const route of INDEXABLE_STATIC_ROUTES) {
+    const targetDirectory = path.join(directory, route.path.replace(/^\//, ""));
+    await fs.promises.mkdir(targetDirectory, { recursive: true });
+    await fs.promises.writeFile(
+      path.join(targetDirectory, "index.html"),
+      indexHtml,
+      "utf8"
+    );
+  }
+  await fs.promises.writeFile(
+    path.join(directory, "sitemap.xml"),
+    `<?xml version="1.0"?><urlset>${sitemapUrls.map((url) => `<url><loc>${url}</loc></url>`).join("")}</urlset>`,
+    "utf8"
+  );
+  await fs.promises.writeFile(
+    path.join(directory, "robots.txt"),
+    `User-agent: *\nAllow: /\nSitemap: ${siteBaseUrl}/sitemap.xml\n`,
+    "utf8"
+  );
+  await fs.promises.writeFile(
+    path.join(directory, "prerender-manifest.json"),
+    JSON.stringify({
+      version: 1,
+      source: "local",
+      siteBaseUrl,
+      staticPaths: INDEXABLE_STATIC_ROUTES.map(({ path: routePath }) => routePath),
+      categoryPaths: [],
+      adPaths: [],
+      sitemapUrls
+    }),
+    "utf8"
+  );
+}
 
 function createSnapshot() {
   const category = {
@@ -159,6 +197,27 @@ test("only explicitly selected public routes are eligible for the sitemap", () =
     resolveSiteUrl("https://preview.example.test/site/category/cars", "https://preview.example.test/site/"),
     "https://preview.example.test/site/category/cars"
   );
+});
+
+test("prerender validation CLI checks complete output and rejects a missing sitemap page", async () => {
+  const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "souqak-prerender-cli-"));
+  const validatorPath = path.join(projectRoot, "scripts", "prerenderBuild.mjs");
+  try {
+    await writeCompletePrerenderOutput(directory, "<html><body>ready</body></html>");
+    const validResult = spawnSync(process.execPath, [validatorPath, "--validate", directory], {
+      encoding: "utf8"
+    });
+    assert.equal(validResult.status, 0, validResult.stderr);
+
+    await fs.promises.rm(path.join(directory, "platform-reviews", "index.html"));
+    const invalidResult = spawnSync(process.execPath, [validatorPath, "--validate", directory], {
+      encoding: "utf8"
+    });
+    assert.equal(invalidResult.status, 1);
+    assert.match(invalidResult.stderr, /A route listed in the prerender manifest is missing/);
+  } finally {
+    await fs.promises.rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("sitemap URLs match category and ad pages with prerender data", () => {
@@ -336,7 +395,7 @@ test("failed prerender generation leaves the existing dist output intact", async
           await fs.promises.writeFile(path.join(stagingDirectory, "index.html"), "new shell without sitemap");
         }
       }),
-      /missing a complete index\.html or sitemap\.xml/
+      /missing complete index, prerender manifest, sitemap, or robots files/
     );
     assert.equal(
       await fs.promises.readFile(path.join(distDirectory, "index.html"), "utf8"),
@@ -352,7 +411,7 @@ test("failed prerender generation leaves the existing dist output intact", async
   }
 });
 
-test("successful output generation replaces dist only after sitemap is complete", async () => {
+test("successful output generation replaces dist only after every SEO page is complete", async () => {
   const temporaryParent = await fs.promises.mkdtemp(path.join(os.tmpdir(), "souqak-prerender-success-"));
   const distDirectory = path.join(temporaryParent, "dist");
   await fs.promises.mkdir(distDirectory);
@@ -362,19 +421,53 @@ test("successful output generation replaces dist only after sitemap is complete"
     await runAtomicPrerender({
       distDirectory,
       generate: async (stagingDirectory) => {
-        await fs.promises.writeFile(path.join(stagingDirectory, "index.html"), "complete build");
-        await fs.promises.writeFile(path.join(stagingDirectory, "sitemap.xml"), "<complete />");
+        await writeCompletePrerenderOutput(
+          stagingDirectory,
+          "<html><body>complete build</body></html>"
+        );
       }
     });
     assert.equal(
       await fs.promises.readFile(path.join(distDirectory, "index.html"), "utf8"),
-      "complete build"
+      "<html><body>complete build</body></html>"
     );
-    assert.equal(
+    assert.match(
       await fs.promises.readFile(path.join(distDirectory, "sitemap.xml"), "utf8"),
-      "<complete />"
+      /<urlset>/
     );
+    assert.match(
+      await fs.promises.readFile(path.join(distDirectory, "robots.txt"), "utf8"),
+      /Sitemap: https:\/\/souqak-yem\.com\/sitemap\.xml/
+    );
+    assert.ok(fs.existsSync(path.join(distDirectory, "prerender-manifest.json")));
     assert.deepEqual(await fs.promises.readdir(temporaryParent), ["dist"]);
+  } finally {
+    await fs.promises.rm(temporaryParent, { recursive: true, force: true });
+  }
+});
+
+test("SEO validation rejects missing robots directives and missing sitemap page files", async () => {
+  const temporaryParent = await fs.promises.mkdtemp(path.join(os.tmpdir(), "souqak-prerender-incomplete-"));
+  const distDirectory = path.join(temporaryParent, "dist");
+
+  try {
+    await assert.rejects(runAtomicPrerender({
+      distDirectory,
+      generate: async (stagingDirectory) => {
+        await writeCompletePrerenderOutput(stagingDirectory, "<html><body>page</body></html>");
+        await fs.promises.rm(path.join(stagingDirectory, "robots.txt"));
+      }
+    }), /missing complete index, prerender manifest, sitemap, or robots files/);
+    assert.deepEqual(await fs.promises.readdir(temporaryParent), []);
+
+    await assert.rejects(runAtomicPrerender({
+      distDirectory,
+      generate: async (stagingDirectory) => {
+        await writeCompletePrerenderOutput(stagingDirectory, "<html><body>page</body></html>");
+        await fs.promises.rm(path.join(stagingDirectory, "categories", "index.html"));
+      }
+    }), /route listed in the prerender manifest is missing/);
+    assert.deepEqual(await fs.promises.readdir(temporaryParent), []);
   } finally {
     await fs.promises.rm(temporaryParent, { recursive: true, force: true });
   }

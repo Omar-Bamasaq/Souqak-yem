@@ -73,6 +73,8 @@ frontend/dist/
 frontend/build/
 **/dist/
 **/build/
+__pycache__/
+*.py[cod]
 backend/vapid-new-keys.txt
 **/vapid-private*.txt
 backend/exports/production-data/
@@ -99,3 +101,7 @@ backend/exports/production-data/
 # Temporary frontend prerender builds
 /frontend/.dist-prerender-*/
 /frontend/..dist-prerender-*/
+
+# Host-only deployment configuration and state
+/deploy/deploy.conf
+/deploy/deploy-state/

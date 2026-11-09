@@ -15,12 +15,7 @@ import {
   createPublicMessageAttachmentGuard,
   getMessageAttachmentLookupNames
 } from "../services/privateMessageAttachments.js";
-import {
-  verifyAccessToken,
-  inspectJwtClaimsOnly,
-  JWT_ALGORITHM,
-  getAccessSecretFingerprint,
-} from "../config/jwt.js";
+import { verifyAccessToken } from "../config/jwt.js";
 import WalletServiceOrder from "../models/WalletServiceOrder.js";
 import { hasAdminPermission } from "../config/adminPermissions.js";
 import { isSafePrivateFilename } from "../lib/safePrivateFilename.js";
@@ -36,7 +31,8 @@ const MAX_PRIVATE_ATTACHMENT_CACHE_ENTRIES = 20_000;
 
 async function isPrivateMessageAttachment(filename) {
   const cached = privateAttachmentCache.get(filename);
-  if (cached && cached.expiresAt > Date.now()) return cached.isPrivate;
+  if (cached && cached.expiresAt > Date.now()) return true;
+  if (cached) privateAttachmentCache.delete(filename);
 
   const lookupNames = getMessageAttachmentLookupNames(filename);
   const attachmentReferences = [...lookupNames, ...lookupNames.map((name) => `private/${name}`)];
@@ -49,10 +45,11 @@ async function isPrivateMessageAttachment(filename) {
   if (privateAttachmentCache.size >= MAX_PRIVATE_ATTACHMENT_CACHE_ENTRIES) {
     privateAttachmentCache.delete(privateAttachmentCache.keys().next().value);
   }
-  privateAttachmentCache.set(filename, {
-    isPrivate,
-    expiresAt: Date.now() + PRIVATE_ATTACHMENT_CACHE_TTL_MS
-  });
+  if (isPrivate) {
+    privateAttachmentCache.set(filename, {
+      expiresAt: Date.now() + PRIVATE_ATTACHMENT_CACHE_TTL_MS
+    });
+  }
   return isPrivate;
 }
 
