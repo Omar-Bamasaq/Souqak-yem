@@ -99,3 +99,7 @@ backend/exports/production-data/
 # Temporary frontend prerender builds
 /frontend/.dist-prerender-*/
 /frontend/..dist-prerender-*/
+
+# Host-only deployment configuration and state
+/deploy/deploy.conf
+/deploy/deploy-state/

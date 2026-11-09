@@ -619,6 +619,15 @@ ${sitemapUrls
 
   const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nDisallow: /register\nDisallow: /forgot-password\nDisallow: /phone-forgot-password\nDisallow: /set-new-password\nDisallow: /verify-email\nDisallow: /seller\nDisallow: /messages\nDisallow: /notifications\nDisallow: /favorites\nDisallow: /following\nDisallow: /wallet\nDisallow: /account-settings\nDisallow: /my-ads\nDisallow: /orders\nDisallow: /edit-ad\nDisallow: /chat\nDisallow: /add-product\nDisallow: /choose-add-type\nDisallow: /commission/pay\nDisallow: /brokerage\nDisallow: /referrals\nSitemap: ${siteBase}/sitemap.xml\n`;
   fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
+  fs.writeFileSync(path.join(distDir, 'prerender-manifest.json'), JSON.stringify({
+    version: 1,
+    source: prerenderData.source,
+    siteBaseUrl: siteBase,
+    staticPaths: staticPages.map(({ path: routePath }) => routePath),
+    categoryPaths: publicPlan.categoryPages.map(({ path: routePath }) => routePath),
+    adPaths: publicPlan.adPages.map(({ path: routePath }) => routePath),
+    sitemapUrls
+  }, null, 2), 'utf8');
 
   console.log(`Prerendered ${staticPages.length} static pages, ${publicPlan.categoryPages.length} category pages, and ${publicPlan.adPages.length} ad pages; sitemap contains ${sitemapUrls.length} URLs.`);
 };

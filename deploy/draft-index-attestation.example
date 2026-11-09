@@ -1,0 +1,11 @@
+FORMAT=souqak-draft-index-attestation-v1
+DATABASE=suqaq
+REPLICA_SET=rs0
+COLLECTION=draftactions
+REQUIRED_INDEXES=one_incomplete_non_wallet_draft_per_user_type,one_incomplete_wallet_service_draft_per_service
+REQUIRED_INDEX_SPECIFICATIONS=one_incomplete_non_wallet_draft_per_user_type|userId:1,type:1|unique|incomplete non-wallet action types;one_incomplete_wallet_service_draft_per_service|userId:1,type:1,serviceId:1|unique|incomplete wallet_service_catalog with serviceId:ObjectId
+LEGACY_USER_TYPE_INDEX=absent
+DUPLICATE_INCOMPLETE_DRAFT_GROUPS=0
+WALLET_SERVICE_ID_ANOMALIES=0
+SCHEMA_SHA256=REPLACE_WITH_SHA256_OF_VERIFIED_RELEASE_SCHEMA
+VERIFIED_AT_UTC=REPLACE_WITH_UTC_TIMESTAMP
