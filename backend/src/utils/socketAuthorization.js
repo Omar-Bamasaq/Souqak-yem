@@ -24,6 +24,29 @@ export function getAuthenticatedSocketUserId(accessToken, requestedUserId, verif
   return authenticatedUserId;
 }
 
+export function createSocketHandshakeAuth(verifyAccessToken) {
+  return (socket, next) => {
+    const accessToken = getSocketAccessToken(socket.handshake?.headers?.cookie);
+    if (!accessToken) return next(new Error("Unauthorized"));
+
+    try {
+      const authenticatedUserId = getAuthenticatedSocketUserId(
+        accessToken,
+        null,
+        verifyAccessToken
+      );
+      if (!authenticatedUserId) return next(new Error("Unauthorized"));
+      socket.data.authenticatedUserId = authenticatedUserId;
+      return next();
+    } catch (error) {
+      if (["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(error?.name)) {
+        return next(new Error("Unauthorized"));
+      }
+      return next(error);
+    }
+  };
+}
+
 export async function isConversationParticipant(Conversation, userId, conversationId) {
   if (!userId || !/^[a-f\d]{24}$/i.test(String(conversationId || ""))) return false;
   return Boolean(await Conversation.exists({
@@ -31,6 +54,7 @@ export async function isConversationParticipant(Conversation, userId, conversati
     participants: userId
   }));
 }
+
 export async function isChatParticipant(Chat, userId, chatId) {
   if (!userId || !/^[a-f\d]{24}$/i.test(String(chatId || ""))) return false;
   return Boolean(await Chat.exists({

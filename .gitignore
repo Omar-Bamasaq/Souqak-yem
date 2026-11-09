@@ -73,6 +73,8 @@ frontend/dist/
 frontend/build/
 **/dist/
 **/build/
+__pycache__/
+*.py[cod]
 backend/vapid-new-keys.txt
 **/vapid-private*.txt
 backend/exports/production-data/

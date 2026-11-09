@@ -51,23 +51,23 @@ const by = (arr, key) => arr.map(a => a[key]);
   assert.strictEqual(sorted[0].createdAt.getTime(), new Date("2026-03-05").getTime());
 }
 
-// featured ads must remain pinned above regular ads, even when the regular ad is newer
+// Newest sorting is chronological, regardless of featured status.
 {
   const sorted = SmartSearchService.sortAds([
     { featured: true, createdAt: new Date("2026-03-10"), publishedAt: new Date("2026-03-01") },
     { featured: false, createdAt: new Date("2026-02-01"), publishedAt: new Date("2026-03-05") }
   ], "new");
-  assert.strictEqual(sorted[0].featured, true);
-  assert.strictEqual(sorted[1].publishedAt.getTime(), new Date("2026-03-05").getTime());
+  assert.strictEqual(sorted[0].publishedAt.getTime(), new Date("2026-03-05").getTime());
+  assert.strictEqual(sorted[1].featured, true);
 }
 
-// featured ads must remain above regular ads even when a regular ad is newer
+// Featured priority is available through an explicit sort choice.
 {
   const sorted = SmartSearchService.sortAds([
     { featured: false, createdAt: new Date("2026-03-20"), publishedAt: new Date("2026-03-20") },
     { featured: true, createdAt: new Date("2026-03-10"), publishedAt: new Date("2026-03-10") },
     { featured: false, createdAt: new Date("2026-03-15"), publishedAt: new Date("2026-03-15") }
-  ], "new");
+  ], "featured");
   assert.strictEqual(sorted[0].featured, true);
   assert.strictEqual(sorted[1].publishedAt.getTime(), new Date("2026-03-20").getTime());
 }
@@ -91,4 +91,3 @@ const by = (arr, key) => arr.map(a => a[key]);
 }
 
 console.log("smartSearchService.sort tests passed");
-

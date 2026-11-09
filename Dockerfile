@@ -6,6 +6,6 @@ RUN npm ci --omit=dev
 
 COPY backend/src ./src
 
+USER node
 EXPOSE 5000
 CMD ["node", "src/index.js"]
-

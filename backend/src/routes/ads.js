@@ -168,7 +168,7 @@ const adsSearchQuerySchema = Joi.object({
   lat: Joi.number().optional(),
   lng: Joi.number().optional(),
   radiusKm: Joi.number().optional(),
-  sort: Joi.string().valid("new", "old", "cheap", "expensive", "views", "price_asc", "price_desc").optional(),
+  sort: Joi.string().valid("new", "old", "cheap", "expensive", "views", "price_asc", "price_desc", "featured").optional(),
   adType: Joi.string().valid("sell", "order").optional(),
   currency: Joi.string().valid("YER", "YER_ADEN", "YER_SANAA", "SAR", "USD").optional(),
   isResellEnabled: Joi.string().valid("true", "false").optional(),
@@ -329,13 +329,12 @@ router.get("/",
         }
       }
     }
-    let sortSpec = sort === "new"
-      ? { publishedAt: -1, featured: -1, createdAt: -1 }
-      : { featured: -1, publishedAt: -1, createdAt: -1 };
-    if (sort === "price_asc" || sort === "cheap") sortSpec = { featured: -1, price: 1, publishedAt: -1, createdAt: -1 };
-    else if (sort === "price_desc" || sort === "expensive") sortSpec = { featured: -1, price: -1, publishedAt: -1, createdAt: -1 };
-    else if (sort === "old") sortSpec = { featured: -1, publishedAt: 1, createdAt: 1 };
-    else if (sort === "views") sortSpec = { featured: -1, viewCount: -1, publishedAt: -1, createdAt: -1 };
+    let sortSpec = { publishedAt: -1, createdAt: -1 };
+    if (sort === "featured") sortSpec = { featured: -1, publishedAt: -1, createdAt: -1 };
+    else if (sort === "price_asc" || sort === "cheap") sortSpec = { price: 1, publishedAt: -1, createdAt: -1 };
+    else if (sort === "price_desc" || sort === "expensive") sortSpec = { price: -1, publishedAt: -1, createdAt: -1 };
+    else if (sort === "old") sortSpec = { publishedAt: 1, createdAt: 1 };
+    else if (sort === "views") sortSpec = { viewCount: -1, publishedAt: -1, createdAt: -1 };
     const p = Math.max(parseInt(page, 10) || 1, 1);
     const l = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
 

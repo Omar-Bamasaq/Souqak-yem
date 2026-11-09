@@ -119,6 +119,7 @@ import { verifyEmailAccounts } from "./utils/emailSender.js";
 import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
 import { getBackendBaseUrl } from "./utils/siteUrl.js";
 import {
+  createSocketHandshakeAuth,
   getAuthenticatedSocketUserId,
   getSocketAccessToken,
   isChatParticipant,
@@ -528,6 +529,8 @@ const io = new Server(server, {
   cors: corsOptions,
   allowRequest: socketAllowRequest
 });
+
+io.use(createSocketHandshakeAuth(jwtConfigBootstrap.verifyAccessToken));
 
 io.on("connection", (socket) => {
   socket.on("join", async ({ chatId } = {}) => {

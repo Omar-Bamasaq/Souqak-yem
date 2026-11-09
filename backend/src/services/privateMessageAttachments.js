@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { hasAdminPermission } from "../config/adminPermissions.js";
 import { privateMessageUploadsDirectory, uploadsDirectory } from "../config/uploadPaths.js";
 
 const attachmentFilenamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -45,6 +46,27 @@ export function getMessageAttachmentLookupNames(filename) {
   ];
 }
 
+export function getMessageAttachmentReference(images, filename) {
+  if (!Array.isArray(images) || !isSafeMessageAttachmentFilename(filename)) return null;
+  const privateReference = `private/${filename}`;
+  if (images.includes(privateReference)) return { isPrivate: true };
+
+  const publicReference = [filename, `uploads/${filename}`, `/uploads/${filename}`]
+    .find((reference) => images.includes(reference));
+  return publicReference ? { isPrivate: false } : null;
+}
+
+export function getSupportAttachmentAccess(user, conversation) {
+  const isAdmin = hasAdminPermission(user, "support_inbox");
+  const isOwner = String(conversation?.userId || "") === String(user?.id || "");
+  const isPermanentlyDeleted = conversation?.isPermanentlyDeleted === true;
+  return {
+    isAdmin,
+    isPermanentlyDeleted,
+    isAuthorized: (isAdmin || isOwner) && (!isPermanentlyDeleted || isAdmin)
+  };
+}
+
 export function createPublicMessageAttachmentGuard(isPrivateMessageAttachment) {
   return async (req, res, next) => {
     const { filename } = req.params;
@@ -62,13 +84,10 @@ export function createPublicMessageAttachmentGuard(isPrivateMessageAttachment) {
   };
 }
 
-export function resolveMessageAttachmentPath(filename) {
+export function resolveMessageAttachmentPath(filename, { isPrivate = false } = {}) {
   if (!isSafeMessageAttachmentFilename(filename)) return null;
-  const candidates = [
-    path.join(privateMessageUploadsDirectory, filename),
-    path.join(uploadsDirectory, filename),
-  ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+  const candidate = path.join(isPrivate ? privateMessageUploadsDirectory : uploadsDirectory, filename);
+  return fs.existsSync(candidate) ? candidate : null;
 }
 
 export function sendMessageAttachment(res, filePath) {

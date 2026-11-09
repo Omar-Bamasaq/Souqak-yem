@@ -13,6 +13,8 @@ import {
 import { privateMessageAttachmentPath } from "../../frontend/src/lib/privateMessageAttachments.js";
 import {
   createPublicMessageAttachmentGuard,
+  getMessageAttachmentReference,
+  getSupportAttachmentAccess,
   getUploadedMessageAttachmentNames,
   getMessageAttachmentLookupNames,
   isSafeMessageAttachmentFilename,
@@ -24,6 +26,35 @@ test("message attachment filenames reject path traversal", () => {
   assert.equal(isSafeMessageAttachmentFilename("../private.jpg"), false);
   assert.equal(isSafeMessageAttachmentFilename("folder/file.jpg"), false);
   assert.equal(isSafeMessageAttachmentFilename(""), false);
+});
+
+test("attachment storage follows the stored reference, preserving private and legacy files", () => {
+  assert.deepEqual(
+    getMessageAttachmentReference(["private/image.jpg", "image.jpg"], "image.jpg"),
+    { isPrivate: true }
+  );
+  assert.deepEqual(
+    getMessageAttachmentReference(["uploads/image.jpg"], "image.jpg"),
+    { isPrivate: false }
+  );
+  assert.deepEqual(
+    getMessageAttachmentReference(["/uploads/image.jpg"], "image.jpg"),
+    { isPrivate: false }
+  );
+  assert.equal(getMessageAttachmentReference(["other.jpg"], "image.jpg"), null);
+});
+
+test("support attachment access follows owner, permission, and permanent-deletion rules", () => {
+  const activeConversation = { userId: supportOwnerId, isPermanentlyDeleted: false };
+  const deletedConversation = { ...activeConversation, isPermanentlyDeleted: true };
+
+  assert.equal(getSupportAttachmentAccess({ id: supportOwnerId, role: "user" }, activeConversation).isAuthorized, true);
+  assert.equal(getSupportAttachmentAccess({ id: otherUserId, role: "user" }, activeConversation).isAuthorized, false);
+  assert.equal(getSupportAttachmentAccess({ id: supportOwnerId, role: "user" }, deletedConversation).isAuthorized, false);
+  assert.equal(getSupportAttachmentAccess(
+    { id: supervisorId, role: "supervisor", permissions: ["support_inbox"] },
+    deletedConversation
+  ).isAuthorized, true);
 });
 
 test("public attachment lookup protects generated image variants", () => {
@@ -136,6 +167,10 @@ const supportConversations = [];
 function matches(record, filter) {
   if (filter._id && String(record._id) !== String(filter._id)) return false;
   if (filter.conversationId && String(record.conversationId) !== String(filter.conversationId)) return false;
+  if (filter.isDeleted?.$ne !== undefined && record.isDeleted === filter.isDeleted.$ne) return false;
+  if (filter.deletedBy?.$ne !== undefined && record.deletedBy?.some(
+    (userId) => String(userId) === String(filter.deletedBy.$ne)
+  )) return false;
   if (filter.images?.$in && !record.images?.some((image) => filter.images.$in.some((reference) => (
     reference instanceof RegExp ? reference.test(image) : reference === image
   )))) return false;
@@ -180,7 +215,8 @@ function addFixtures() {
   });
   supportConversations.splice(0, supportConversations.length, {
     _id: supportConversationId,
-    userId: supportOwnerId
+    userId: supportOwnerId,
+    isPermanentlyDeleted: false
   });
 }
 
@@ -292,6 +328,39 @@ test("a supervisor with the existing support inbox permission can retrieve suppo
     route: ["support", supportConversationId, supportMessageId, privateSupportFilename]
   });
   assert.equal(response.status, 200);
+});
+
+test("permanently deleted support attachments are hidden from owners but remain available to support admins", async () => {
+  supportConversations[0].isPermanentlyDeleted = true;
+  try {
+    const ownerResponse = await asUser(supportOwnerId, {
+      route: ["support", supportConversationId, supportMessageId, privateSupportFilename]
+    });
+    const supervisorResponse = await asUser(supervisorId, {
+      route: ["support", supportConversationId, supportMessageId, privateSupportFilename]
+    });
+    const adminResponse = await asUser("admin", {
+      route: ["support", supportConversationId, supportMessageId, privateSupportFilename]
+    });
+
+    assert.equal(ownerResponse.status, 404);
+    assert.equal(supervisorResponse.status, 200);
+    assert.equal(adminResponse.status, 200);
+  } finally {
+    supportConversations[0].isPermanentlyDeleted = false;
+  }
+});
+
+test("deleted conversation attachments are not served", async () => {
+  conversationMessages[0].isDeleted = true;
+  try {
+    const response = await asUser(memberId, {
+      route: ["conversations", conversationId, conversationMessageId, privateConversationFilename]
+    });
+    assert.equal(response.status, 404);
+  } finally {
+    delete conversationMessages[0].isDeleted;
+  }
 });
 
 test("an administrator can retrieve attachments under the existing admin access", async () => {

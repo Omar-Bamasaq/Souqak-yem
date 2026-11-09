@@ -16,6 +16,7 @@ import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
 import {
   getUploadedMessageAttachmentNames,
+  getMessageAttachmentReference,
   isSafeMessageAttachmentFilename,
   resolveMessageAttachmentPath,
   sendMessageAttachment
@@ -412,15 +413,18 @@ router.get("/:id/attachments/:filename", auth, async (req, res) => {
     }).select("_id").lean();
     if (!conversation) return res.sendStatus(404);
 
+    const references = [filename, `uploads/${filename}`, `/uploads/${filename}`, `private/${filename}`];
     const message = await ConversationMessage.findOne({
       conversationId: conversation._id,
-      images: filename,
+      images: { $in: references },
       deletedBy: { $ne: req.user.id },
       isDeleted: { $ne: true }
-    }).select("_id").lean();
+    }).select("images").lean();
     if (!message) return res.sendStatus(404);
 
-    const filePath = resolveMessageAttachmentPath(filename);
+    const attachmentReference = getMessageAttachmentReference(message.images, filename);
+    if (!attachmentReference) return res.sendStatus(404);
+    const filePath = resolveMessageAttachmentPath(filename, attachmentReference);
     if (!filePath) return res.sendStatus(404);
     return sendMessageAttachment(res, filePath);
   } catch (error) {

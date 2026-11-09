@@ -2,12 +2,15 @@ import { Router } from "express";
 import fs from "node:fs/promises";
 import path from "node:path";
 import auth from "../middleware/auth.js";
-import { hasAdminPermission } from "../config/adminPermissions.js";
 import Conversation from "../models/Conversation.js";
 import ConversationMessage from "../models/ConversationMessage.js";
 import SupportConversation from "../models/SupportConversation.js";
 import SupportMessage from "../models/SupportMessage.js";
 import { privateMessageUploadsDirectory, uploadsDirectory } from "../config/uploadPaths.js";
+import {
+  getMessageAttachmentReference,
+  getSupportAttachmentAccess
+} from "../services/privateMessageAttachments.js";
 
 const IMAGE_FILENAME = /^[a-zA-Z0-9_-]{1,100}\.(?:jpe?g|png|webp)$/i;
 
@@ -36,16 +39,6 @@ async function resolveStoredFile(directory, filename) {
   if (path.dirname(realFile) !== realDirectory) return null;
   const stats = await fs.stat(realFile);
   return stats.isFile() ? realFile : null;
-}
-
-function imageReferenceFor(message, filename) {
-  const refs = Array.isArray(message.images) ? message.images : [];
-  const privateReference = `private/${filename}`;
-  if (refs.includes(privateReference)) {
-    return { isPrivate: true };
-  }
-  const legacyReference = legacyReferences(filename).find((reference) => refs.includes(reference));
-  return legacyReference ? { isPrivate: false } : null;
 }
 
 export function createPrivateMessageAttachmentsRouter({
@@ -87,27 +80,29 @@ export function createPrivateMessageAttachmentsRouter({
       const message = await findLean(messageModel, {
         _id: messageId,
         conversationId,
-        images: { $in: references }
+        images: { $in: references },
+        ...(isSupport
+          ? {}
+          : { isDeleted: { $ne: true }, deletedBy: { $ne: req.user.id } })
       });
-      if (!message || (!isSupport && (message.isDeleted || message.deletedBy?.some(
-        (userId) => String(userId) === String(req.user.id)
-      )))) {
-        return res.sendStatus(404);
-      }
+      if (!message) return res.sendStatus(404);
 
       const conversation = await findLean(conversationModel, { _id: conversationId });
       if (!conversation) return res.sendStatus(404);
 
-      const isAdmin = isSupport
-        ? hasAdminPermission(req.user, "support_inbox")
-        : req.user.role === "admin";
-      const isOwner = isSupport
-        ? String(conversation.userId) === String(req.user.id)
-        : conversation.participants?.some((participant) => String(participant) === String(req.user.id));
-      if (!isAdmin && !isOwner) return res.sendStatus(403);
-      if (isSupport && conversation.isPermanentlyDeleted && !isAdmin) return res.sendStatus(404);
+      if (isSupport) {
+        const access = getSupportAttachmentAccess(req.user, conversation);
+        if (!access.isAuthorized) {
+          return res.sendStatus(access.isPermanentlyDeleted ? 404 : 403);
+        }
+      } else {
+        const isParticipant = conversation.participants?.some(
+          (participant) => String(participant) === String(req.user.id)
+        );
+        if (req.user.role !== "admin" && !isParticipant) return res.sendStatus(403);
+      }
 
-      const storedFile = imageReferenceFor(message, filename);
+      const storedFile = getMessageAttachmentReference(message.images, filename);
       if (!storedFile) return res.sendStatus(404);
       const filePath = await resolveStoredFile(
         storedFile.isPrivate ? directories.private : directories.public,

@@ -413,6 +413,7 @@ export default function AdvancedSearchModal({ isOpen, onClose, preSelectedCatego
               className="ds-select h-12"
             >
               <option value="best">الأفضل (Quality Score)</option>
+              <option value="featured">الإعلانات المميزة أولاً</option>
               <option value="new">الأحدث أولاً</option>
               <option value="old">الأقدم أولاً</option>
               <option value="price_asc">السعر (الأقل → الأعلى)</option>

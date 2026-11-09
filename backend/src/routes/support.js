@@ -6,9 +6,12 @@ import SupportConversation from "../models/SupportConversation.js";
 import SupportFaq from "../models/SupportFaq.js";
 import SupportMessage from "../models/SupportMessage.js";
 import User from "../models/User.js";
+import { hasAdminPermission } from "../config/adminPermissions.js";
 import { uploadMessageImages } from "../middleware/upload.js";
 import {
   getUploadedMessageAttachmentNames,
+  getMessageAttachmentReference,
+  getSupportAttachmentAccess,
   isSafeMessageAttachmentFilename,
   rejectClientSuppliedAttachmentRefs,
   resolveMessageAttachmentPath,
@@ -22,20 +25,24 @@ router.get("/attachments/:filename", auth, async (req, res) => {
     const { filename } = req.params;
     if (!isSafeMessageAttachmentFilename(filename)) return res.sendStatus(404);
 
-    const message = await SupportMessage.findOne({ images: filename })
-      .select("conversationId")
+    const references = [filename, `uploads/${filename}`, `/uploads/${filename}`, `private/${filename}`];
+    const message = await SupportMessage.findOne({ images: { $in: references } })
+      .select("conversationId images")
       .lean();
     if (!message) return res.sendStatus(404);
 
-    if (req.user.role !== "admin") {
-      const conversation = await SupportConversation.findOne({
-        _id: message.conversationId,
-        userId: req.user.id
-      }).select("_id").lean();
-      if (!conversation) return res.sendStatus(404);
+    const conversation = await SupportConversation.findById(message.conversationId)
+      .select("userId isPermanentlyDeleted")
+      .lean();
+    if (!conversation) return res.sendStatus(404);
+
+    if (!getSupportAttachmentAccess(req.user, conversation).isAuthorized) {
+      return res.sendStatus(404);
     }
 
-    const filePath = resolveMessageAttachmentPath(filename);
+    const attachmentReference = getMessageAttachmentReference(message.images, filename);
+    if (!attachmentReference) return res.sendStatus(404);
+    const filePath = resolveMessageAttachmentPath(filename, attachmentReference);
     if (!filePath) return res.sendStatus(404);
     return sendMessageAttachment(res, filePath);
   } catch (error) {

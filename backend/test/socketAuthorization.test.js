@@ -1,11 +1,68 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  createSocketHandshakeAuth,
   getAuthenticatedSocketUserId,
   getSocketAccessToken,
   isChatParticipant,
   isConversationParticipant
 } from "../src/utils/socketAuthorization.js";
+
+test("socket handshake rejects missing, invalid, and expired access tokens", () => {
+  const middleware = createSocketHandshakeAuth((token) => {
+    if (token === "expired") {
+      const error = new Error("expired");
+      error.name = "TokenExpiredError";
+      throw error;
+    }
+    if (token !== "valid") {
+      const error = new Error("invalid");
+      error.name = "JsonWebTokenError";
+      throw error;
+    }
+    return { id: "verified-user" };
+  });
+
+  for (const cookie of ["", "accessToken=invalid", "accessToken=expired"]) {
+    let handshakeError;
+    middleware({ handshake: { headers: { cookie } }, data: {} }, (error) => {
+      handshakeError = error;
+    });
+    assert.equal(handshakeError?.message, "Unauthorized");
+  }
+});
+
+test("socket handshake authenticates the connection and stores the verified identity", () => {
+  const socket = {
+    handshake: { headers: { cookie: "accessToken=valid" } },
+    data: {}
+  };
+  const middleware = createSocketHandshakeAuth(() => ({ userId: "verified-user" }));
+  let nextCalled = false;
+
+  middleware(socket, (error) => {
+    assert.equal(error, undefined);
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, true);
+  assert.equal(socket.data.authenticatedUserId, "verified-user");
+});
+
+test("socket handshake propagates unexpected verifier failures", () => {
+  const verifierError = new Error("verifier configuration failure");
+  const middleware = createSocketHandshakeAuth(() => {
+    throw verifierError;
+  });
+  let receivedError;
+
+  middleware(
+    { handshake: { headers: { cookie: "accessToken=valid" } }, data: {} },
+    (error) => { receivedError = error; }
+  );
+
+  assert.equal(receivedError, verifierError);
+});
 
 test("socket access token prefers the access cookie and safely decodes values", () => {
   assert.equal(
