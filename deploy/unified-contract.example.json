@@ -5,7 +5,8 @@
     "prepare": "REQUIRES_REVIEW_OF_INSTALLED_PREPARE_UPDATE",
     "activate": "REQUIRES_REVIEW_OF_INSTALLED_ACTIVATE_RELEASE",
     "snapshot_contract": "REQUIRES_REVIEW_OF_INSTALLED_SNAPSHOT_CONTRACT",
-    "update_entrypoint": "REQUIRES_REVIEW_OF_EXISTING_SOUQAK_UPDATE"
+    "update_entrypoint": "REQUIRES_REVIEW_OF_EXISTING_SOUQAK_UPDATE",
+    "check": "REQUIRES_SEMANTIC_REVIEW_OF_INSTALLED_CHECK_UPDATE"
   },
   "review": {
     "immutable_sha": false,
@@ -20,5 +21,14 @@
     "existing_update_reviewed": false
   },
   "entrypoint_strategy": "pending-souqak-update-repair-and-review",
-  "observed_entrypoint_status": "reported-undefined-PREPARER-production-blocked"
+  "observed_entrypoint_status": "reported-undefined-PREPARER-production-blocked",
+  "observed_vps": {
+    "tool_sha256": {
+      "prepare-update.py": "206fb08920292a62a664d1847e01616a476d596bd29d1d834e0cc48daf46de31",
+      "activate-release.py": "6238de977d6cb12685988c21582a67fb192253ab26b7e2ac43be684e2f32aa74",
+      "check-update.py": "546a0f4517ea57962d8a80bbe10565b5759e4c6fbb7bb9478d392347b298b641"
+    },
+    "backend_image": "souqak-backend:52908a2fc4089b3461e4dea439853c0044d3ad5c",
+    "identity_only": true
+  }
 }

@@ -390,8 +390,9 @@ The reference compatibility check now statically rejects the confirmed undefined
 global even if an approval file contains the matching hash. This is a targeted
 symbol-table check, not a complete Python linter or proof of runtime correctness.
 The regression fixture reproduces the reported control flow; it is not represented
-as the actual VPS source. No exact VPS helper hashes have been supplied to this
-repository; the contract placeholders intentionally remain invalid.
+as the actual VPS source. The three reported helper hashes are recorded separately as observed identities;
+approval placeholders intentionally remain invalid. The legacy entrypoint hash is
+still required.
 
 `all` never scans prepared directories for a convenient bundle. It passes exactly
 `prepared/<pinned SHA>` to the preparer, activation preflight and activation, and
@@ -449,3 +450,78 @@ Safe subsequent operator procedure:
 
 No VPS installation, service operation, database access, deployment, or merge is
 performed by these instructions or the isolated tests.
+
+## Observed VPS identities and enforced pre-install gate
+
+`unified-contract.example.json` now records the operator-supplied SHA-256 values of
+`prepare-update.py`, `activate-release.py`, and `check-update.py` under
+`observed_vps.tool_sha256`, and the reported running backend image tag. These are
+inventory evidence only. They are deliberately separate from approved `sha256`
+entries; `approved=false`, all semantic reviews false, and the pending repair
+strategy remain unchanged. A tag identifies the reported release but is not an
+immutable image digest or evidence of database compatibility.
+
+The coordinator also requires a reviewed hash of `check-update.py`, even though it
+does not execute that unknown interface. Unknown additional imported helper files
+must be inventoried and reviewed before any semantic approval.
+
+### Exact additional VPS material needed
+
+Obtain these through an authorized read-only collection, without executing them:
+
+1. Full sanitized source of `/usr/local/sbin/souqak-update`, plus its actual on-host
+   SHA-256 and ownership/mode. The PREPARER defect is confirmed, but the complete
+   surrounding flow is not in this repository. Include its three backup sources
+   or a full diff against each, and their hashes; do not restore them automatically.
+2. Full sanitized source of `/usr/local/libexec/souqak/prepare-update.py`,
+   `activate-release.py`, and `check-update.py`. Their supplied hashes are known;
+   source, actual prepare arguments and bundle construction/selection remain needed.
+3. Every local Python module or sourced shell file imported/invoked by those four
+   entrypoints, recursively: source, absolute path, hash, ownership/mode. Derive this
+   inventory from their source; exact additional filenames cannot honestly be
+   enumerated until it is received. Include any referenced installer/adapter.
+4. Applicable sudoers fragments and systemd unit/drop-in definitions used for build
+   isolation, with secrets removed; include referenced non-secret build configuration
+   and configured paths. Supply variable names/presence only, never `.env` values,
+   npm tokens, Docker credentials, private keys or production database data.
+5. Sanitized schema/fields of `/var/lib/souqak-deploy/last-activation.json`, and a
+   representative existing prepared `manifest.json` and `readiness.txt` (no application
+   payload or real SEO snapshot required). Include symlink targets and ownership of
+   protected state/releases/build directories, and the internal lock paths.
+6. Non-secret Node/npm versions for both accounts, architecture/libc, intended cache
+   paths and permissions, and the image IDs/digests for the two local Node images
+   and the backend image. These are acceptance evidence, not permission to build.
+
+### Staged installation after compatibility acceptance
+
+`deploy/admin/install-souqak-deploy.py` is an optional installer for the reference
+coordinator, **not** an upgrade mechanism for the existing `souqak-update`.
+It refuses unknown arguments, requires protected root-owned script/candidate paths,
+loads only that protected candidate, and invokes its compatibility gate before any
+output file is created. `--check` writes no destination. Final publication is atomic
+and exclusive; an existing destination, including a dangling symlink, is refused.
+It does not install helpers, create approval, run deployment, or modify sudoers.
+
+After receiving/reviewing the files above and choosing the entrypoint strategy:
+
+1. Preserve verified root-only dated backups of all affected installed scripts and
+   sudoers files; record original and backup hashes/modes. Retain older backups.
+2. Stage this reviewed installer and coordinator candidate under protected
+   `/usr/local/libexec/souqak/`, root-owned; the candidate filename must be
+   `souqak-deploy-candidate`. Never run their checkout copies as root.
+3. Resolve CLI/snapshot/offline-cache incompatibilities in reviewed staged tools.
+   Keep approval false while the legacy undefined PREPARER remains. Only after
+   semantic acceptance, record exact approved installed hashes, including required
+   helper modules and entrypoint, in the protected mode-0600 contract.
+4. From an administrative session run the protected installer's `--check`. If it
+   fails, stop. If the reference coordinator is the approved strategy, invoke the
+   same protected installer without arguments to install the previously absent
+   `/usr/local/sbin/souqak-deploy`. It never replaces `souqak-update` or existing
+   activation/preparation helpers. If a repaired existing entrypoint is preferred,
+   do not run this installer; its adapter still needs implementation and tests.
+5. Recheck installed hashes and run only `souqak-deploy check` and `status` first.
+   Review narrow password-based sudoers separately with visudo. Deployment and the
+   staging activation/rollback acceptance require a separate authorized operation.
+
+The installation gate is mandatory for this provided installer. Manual root file
+copying can bypass software gates; it is not an approved installation procedure.

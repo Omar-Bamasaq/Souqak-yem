@@ -18,7 +18,7 @@ ROOT = Path('/usr/local/libexec/souqak')
 STATE = Path('/var/lib/souqak-deploy')
 CONTRACT = STATE / 'unified-contract.json'
 PREPARED = Path('/home/souqak/deploy/prepared')
-TOOLS = {'prepare': ROOT / 'prepare-update.py', 'activate': ROOT / 'activate-release.py', 'snapshot_contract': ROOT / 'snapshot_contract.py', 'update_entrypoint': Path('/usr/local/sbin/souqak-update')}
+TOOLS = {'check': ROOT / 'check-update.py', 'prepare': ROOT / 'prepare-update.py', 'activate': ROOT / 'activate-release.py', 'snapshot_contract': ROOT / 'snapshot_contract.py', 'update_entrypoint': Path('/usr/local/sbin/souqak-update')}
 REPO = 'https://github.com/Omar-Bamasaq/Souqak-yem.git'
 SHA = re.compile(r'[a-f0-9]{40}')
 
