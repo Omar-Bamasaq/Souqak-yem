@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+from admin.snapshot_contract import snapshot_info, MAX_AGE_MS
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,6 +64,7 @@ def isolated_environment(home, **values):
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(home),
         "CI": "1",
+        "npm_config_cache": str(Path.home() / ".npm"),
         "JWT_ACCESS_SECRET": "isolated-deployment-test-access",
         "JWT_REFRESH_SECRET": "isolated-deployment-test-refresh",
     }
@@ -114,17 +116,24 @@ def prepare(release_id, output_root=None, runner=run):
             backend = source / "backend"
             frontend = source / "frontend"
             clean_env = isolated_environment(work)
-            runner(["npm", "ci", "--no-audit", "--no-fund"], cwd=backend, env=clean_env)
+            runner(["npm", "ci", "--offline", "--no-audit", "--no-fund"], cwd=backend, env=clean_env)
             runner(["node", "--test", *BACKEND_TESTS], cwd=backend, env=clean_env)
-            runner(["npm", "ci", "--no-audit", "--no-fund"], cwd=frontend, env=clean_env)
+            runner(["npm", "ci", "--offline", "--no-audit", "--no-fund"], cwd=frontend, env=clean_env)
             runner(["npm", "test"], cwd=frontend, env=clean_env)
 
+            snapshot = work / "seo-snapshot.json"
+            export_env = isolated_environment(work, SEO_EXPORT_SOURCE_COMMIT=release_id)
+            runner(["node", "scripts/exportPrerenderSnapshot.mjs", "--output", str(snapshot)], cwd=frontend, env=export_env)
+            seo = snapshot_info(snapshot, release_id)
+            runner(["node", "scripts/exportPrerenderSnapshot.mjs", "--validate", str(snapshot)], cwd=frontend, env=clean_env)
             frontend_env = isolated_environment(
                 work,
                 PUBLIC_SITE_URL=PUBLIC_SITE_URL,
                 VITE_API_URL=VITE_API_URL,
                 VITE_SOCKET_URL=VITE_SOCKET_URL,
-                SEO_PRERENDER_DATA_SOURCE="api",
+                SEO_PRERENDER_DATA_SOURCE="local",
+                SEO_PRERENDER_SNAPSHOT_PATH=str(snapshot),
+                SEO_PRERENDER_MAX_AGE_MS=str(MAX_AGE_MS),
                 PRERENDER_DISABLED="false",
                 VITE_MAINTENANCE_MODE="false",
             )
@@ -136,7 +145,7 @@ def prepare(release_id, output_root=None, runner=run):
                 raise PrepareError("Frontend build is missing required static or SEO output.")
             (dist / "souqak-release.txt").write_text(release_id + "\n", encoding="utf-8")
             output_frontend = work / "frontend" / "dist"
-            output_frontend.parent.mkdir(parents=True)
+            output_frontend.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(dist, output_frontend)
             manifest = {
                 "schema": 1,
@@ -150,6 +159,7 @@ def prepare(release_id, output_root=None, runner=run):
                     "frontend_build": True,
                 },
                 "frontend_sha256": tree_digest(output_frontend),
+                "seo_snapshot": seo,
                 "backend_image": "built only by the protected activation helper",
             }
             (work / "manifest.json").write_text(
@@ -163,6 +173,8 @@ def prepare(release_id, output_root=None, runner=run):
             )
             bundle = work / "bundle"
             bundle.mkdir()
+            snapshot_info(snapshot, release_id, seo)
+            shutil.copy2(snapshot, bundle / "seo-snapshot.json")
             shutil.copy2(work / "manifest.json", bundle / "manifest.json")
             shutil.copy2(work / "readiness.txt", bundle / "readiness.txt")
             shutil.copytree(output_frontend, bundle / "frontend" / "dist")

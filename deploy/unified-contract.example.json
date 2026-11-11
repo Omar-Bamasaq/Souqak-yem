@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "approved": false,
+  "sha256": {
+    "prepare": "REQUIRES_REVIEW_OF_INSTALLED_PREPARE_UPDATE",
+    "activate": "REQUIRES_REVIEW_OF_INSTALLED_ACTIVATE_RELEASE",
+    "snapshot_contract": "REQUIRES_REVIEW_OF_INSTALLED_SNAPSHOT_CONTRACT",
+    "update_entrypoint": "REQUIRES_REVIEW_OF_EXISTING_SOUQAK_UPDATE"
+  },
+  "review": {
+    "immutable_sha": false,
+    "unprivileged_build": false,
+    "interactive_sha_confirmation": false,
+    "validated_local_snapshot": false,
+    "offline_dependencies": false,
+    "no_database_operations": false,
+    "preserve_volumes": false,
+    "automatic_application_rollback": false,
+    "distinct_internal_locks": false,
+    "existing_update_reviewed": false
+  },
+  "entrypoint_strategy": "pending-souqak-update-review"
+}

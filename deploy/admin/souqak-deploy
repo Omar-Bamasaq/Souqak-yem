@@ -1,0 +1,160 @@
+#!/usr/bin/python3
+"""Fixed-policy coordinator. Installation is blocked without reviewed VPS adapters."""
+import ast
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import stat
+import subprocess
+import sys
+from contextlib import contextmanager
+
+ROOT = Path('/usr/local/libexec/souqak')
+STATE = Path('/var/lib/souqak-deploy')
+CONTRACT = STATE / 'unified-contract.json'
+PREPARED = Path('/home/souqak/deploy/prepared')
+TOOLS = {'prepare': ROOT / 'prepare-update.py', 'activate': ROOT / 'activate-release.py', 'snapshot_contract': ROOT / 'snapshot_contract.py', 'update_entrypoint': Path('/usr/local/sbin/souqak-update')}
+REPO = 'https://github.com/Omar-Bamasaq/Souqak-yem.git'
+SHA = re.compile(r'[a-f0-9]{40}')
+
+class Blocked(RuntimeError):
+    pass
+
+def protected(path, directory=False):
+    path = Path(path)
+    for entry in (path, *path.parents):
+        info = entry.lstat()
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise Blocked('Unprotected administrative path: ' + str(entry))
+    if not (path.is_dir() if directory else path.is_file()):
+        raise Blocked('Incorrect administrative file type')
+
+def flags(source):
+    tree = ast.parse(source)
+    return {arg.value for node in ast.walk(tree) if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute) and node.func.attr == 'add_argument'
+            for arg in node.args if isinstance(arg, ast.Constant) and isinstance(arg.value, str)}
+
+def compatibility():
+    protected(STATE, directory=True)
+    protected(CONTRACT)
+    if stat.S_IMODE(CONTRACT.stat().st_mode) != 0o600:
+        raise Blocked('Contract must be mode 0600')
+    data = json.loads(CONTRACT.read_text())
+    if data.get('schema') != 1 or data.get('approved') is not True:
+        raise Blocked('VPS comparison and administrator approval required')
+    if data.get('entrypoint_strategy') != 'reviewed-direct-helpers':
+        raise Blocked('Existing souqak-update requires source review and a tested adapter; do not install a replacement')
+    requirements = ('existing_update_reviewed', 'immutable_sha', 'unprivileged_build', 'interactive_sha_confirmation',
+                    'validated_local_snapshot', 'offline_dependencies', 'no_database_operations',
+                    'preserve_volumes', 'automatic_application_rollback', 'distinct_internal_locks')
+    if any(data.get('review', {}).get(key) is not True for key in requirements):
+        raise Blocked('Incomplete VPS semantic compatibility review')
+    for name, tool in TOOLS.items():
+        protected(tool)
+        content = tool.read_bytes()
+        if hashlib.sha256(content).hexdigest() != data.get('sha256', {}).get(name):
+            raise Blocked('Installed tool changed or not reviewed: ' + name)
+        expected = ({'--release', '--bundle'} if name == 'prepare' else
+                    {'--release', '--bundle', '--rollback', '--dry-run'} if name == 'activate' else set())
+        if expected and not expected.issubset(flags(content.decode())):
+            raise Blocked('Installed CLI is incompatible: ' + name)
+    return data
+
+@contextmanager
+def lock():
+    protected(STATE, directory=True)
+    fd = os.open(STATE / 'unified.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if info.st_uid != 0 or not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+            raise Blocked('Unsafe unified lock')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise Blocked('Another unified operation is running') from error
+        yield
+    finally:
+        os.close(fd)
+
+def run(args, user=None, capture=False):
+    env = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8'}
+    if user:
+        account = pwd.getpwnam(user)
+        env['HOME'] = account.pw_dir
+        args = ['/usr/sbin/runuser', '-u', user, '--', *args]
+    result = subprocess.run(args, check=True, env=env, cwd='/', text=True,
+                            stdout=subprocess.PIPE if capture else None)
+    return result.stdout if capture else None
+
+def target_sha(runner=run):
+    lines = runner(['/usr/bin/git', 'ls-remote', '--exit-code', REPO, 'refs/heads/main'], user='souqak', capture=True).splitlines()
+    if len(lines) != 1:
+        raise Blocked('Ambiguous main reference')
+    parts = lines[0].split()
+    if len(parts) != 2 or not SHA.fullmatch(parts[0]) or parts[1] != 'refs/heads/main':
+        raise Blocked('Invalid main SHA')
+    return parts[0]
+
+def status():
+    state = STATE / 'last-activation.json'
+    if not state.exists():
+        print('No protected activation record; reconcile the live baseline before activation.')
+        return
+    protected(state)
+    data = json.loads(state.read_text())
+    # Never print arbitrary file contents, environment values or command output.
+    print(json.dumps({key: data.get(key) for key in ('status', 'release', 'previous_release')}))
+
+def settled_state():
+    record = STATE / 'last-activation.json'
+    if not record.exists():
+        raise Blocked('Missing activation baseline; compare and reconcile the VPS first')
+    protected(record)
+    data = json.loads(record.read_text())
+    if data.get('schema') != 1 or data.get('status') not in ('active', 'failed-restored'):
+        raise Blocked('Unfinished activation or recovery required; do not retry blindly')
+
+
+def all_release(runner=run, verify=compatibility, resolve=target_sha):
+    verify()
+    release = resolve(runner)
+    bundle = PREPARED / release
+    print('Pinned release: ' + release, flush=True)
+    # The fixed, reviewed preparer must accept this exact contract. No shell,
+    # user-provided commands, writable checkout scripts, or root npm invocation.
+    runner(['/usr/bin/python3', str(TOOLS['prepare']), '--release', release, '--bundle', str(bundle)], user='souqak')
+    verify()  # reject tools replaced while preparation was running
+    if resolve(runner) != release:
+        raise Blocked('main changed during preparation; no activation attempted')
+    runner(['/usr/bin/python3', str(TOOLS['activate']), '--dry-run', '--release', release, '--bundle', str(bundle)])
+    # Inherit terminal: the installed activator must retain full-SHA confirmation
+    # and its own automatic application rollback. Never pipe an approval to it.
+    runner(['/usr/bin/python3', str(TOOLS['activate']), '--release', release, '--bundle', str(bundle)])
+
+def main(argv):
+    if len(argv) != 1 or argv[0] not in ('all', 'status', 'check'):
+        raise Blocked('Usage: sudo souqak-deploy {all|status|check}')
+    if os.geteuid() != 0:
+        raise Blocked('Administrative execution required')
+    protected(Path(__file__))
+    with lock():
+        if argv[0] == 'status':
+            status()
+        elif argv[0] == 'check':
+            compatibility()
+            print('Reviewed installed tool contract matches; no activation attempted.')
+        else:
+            settled_state()
+            all_release()
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except (Blocked, OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
+        print('Deployment blocked: ' + str(error), file=sys.stderr)
+        sys.exit(1)

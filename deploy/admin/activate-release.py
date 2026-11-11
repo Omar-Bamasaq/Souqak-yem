@@ -10,6 +10,7 @@ import shutil
 import stat
 import subprocess
 import sys
+from snapshot_contract import snapshot_info, MAX_AGE_MS
 import tarfile
 import tempfile
 import time
@@ -407,6 +408,12 @@ def snapshot_bundle(bundle, destination, expected_release, submitter_uid):
         raise DeploymentError("Prepared frontend release marker does not match the approved SHA.")
     if digest_tree(dist) != manifest.get("frontend_sha256"):
         raise DeploymentError("Prepared frontend hash does not match its manifest.")
+    try:
+        if not isinstance(manifest.get('seo_snapshot'), dict):
+            raise ValueError('Missing snapshot manifest')
+        snapshot_info(destination / 'seo-snapshot.json', expected_release, manifest['seo_snapshot'])
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        raise DeploymentError('Invalid bound SEO snapshot: ' + str(error)) from error
     return manifest
 
 
@@ -891,7 +898,7 @@ def build_backend_image(ops, source, release):
     shutil.copytree(source / "backend" / "src", backend_context / "src")
     image = f"{IMAGE_REPOSITORY}:{release}"
     ops.docker(
-        "build", "--pull",
+        "build", "--pull=false", "--network=none",
         "--tag", image,
         "--label", f"com.souqak.release={release}",
         "--label", f"com.souqak.source-commit={release}",
@@ -988,7 +995,7 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
             confirm(release, digest_tree(bundle_snapshot))
             builder = preflight_builder()
             frontend_workspace = Path(tempfile.mkdtemp(prefix=f"{release}-", dir=BUILD_ROOT))
-            frontend_dist = build_frontend_as_builder(source, frontend_workspace, builder)
+            frontend_dist = build_frontend_as_builder(source, frontend_workspace, builder, bundle_snapshot / "seo-snapshot.json", release, manifest["seo_snapshot"])
             image = build_backend_image(ops, source, release)
             check_volume_access(ops, image)
             release_directory = MANAGED_RELEASES / release
@@ -1242,11 +1249,15 @@ def preflight_builder():
     return account
 
 
-def build_frontend_as_builder(source, workspace, account):
+def build_frontend_as_builder(source, workspace, account, snapshot, release, seo):
+    snapshot_info(snapshot, release, seo)
     if workspace.is_symlink() or not workspace.is_dir() or workspace.stat().st_uid != 0:
         raise DeploymentError("Build workspace must be a new root-created directory.")
     frontend = workspace / "frontend"
     shutil.copytree(source / "frontend", frontend, symlinks=False)
+    local_snapshot = workspace / "seo-snapshot.json"
+    shutil.copyfile(snapshot, local_snapshot)
+    snapshot_info(local_snapshot, release, seo)
     for path in [workspace, *workspace.rglob("*")]:
         os.chown(path, account.pw_uid, account.pw_gid)
         if path.is_dir():
@@ -1260,7 +1271,9 @@ def build_frontend_as_builder(source, workspace, account):
         "PUBLIC_SITE_URL": "https://souqak-yem.com",
         "VITE_API_URL": "https://api.souqak-yem.com/api",
         "VITE_SOCKET_URL": "https://api.souqak-yem.com",
-        "SEO_PRERENDER_DATA_SOURCE": "api",
+        "SEO_PRERENDER_DATA_SOURCE": "local",
+        "SEO_PRERENDER_SNAPSHOT_PATH": str(local_snapshot),
+        "SEO_PRERENDER_MAX_AGE_MS": str(MAX_AGE_MS),
         "PRERENDER_DISABLED": "false",
         "VITE_MAINTENANCE_MODE": "false",
     }
@@ -1275,13 +1288,15 @@ def build_frontend_as_builder(source, workspace, account):
         "--property=ProtectSystem=strict",
         "--property=ProtectHome=yes",
         "--property=PrivateTmp=yes",
+        "--property=PrivateNetwork=yes",
         "--property=PrivateDevices=yes",
         "--property=RestrictSUIDSGID=yes",
         f"--property=ReadWritePaths={workspace} {account.pw_dir}",
         f"--property=WorkingDirectory={frontend}",
     ]
     for step, command in enumerate((
-        ["npm", "ci", "--no-audit", "--no-fund"],
+        ["node", "scripts/exportPrerenderSnapshot.mjs", "--validate", str(local_snapshot)],
+        ["npm", "ci", "--offline", "--no-audit", "--no-fund"],
         ["npm", "run", "build"],
     )):
         environment = ["env", "-i", *[f"{key}={value}" for key, value in env.items()]]
@@ -1292,6 +1307,7 @@ def build_frontend_as_builder(source, workspace, account):
     dist = frontend / "dist"
     if any(not (dist / name).is_file() for name in REQUIRED_FRONTEND_FILES[:-1]):
         raise DeploymentError("Isolated frontend build is missing required static or SEO output.")
+    snapshot_info(local_snapshot, release, seo)
     return dist
 
 

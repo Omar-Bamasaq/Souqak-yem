@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 import io
 import json
 import os
@@ -12,6 +13,7 @@ from unittest import mock
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "admin" / "activate-release.py"
+sys.path.insert(0, str(MODULE_PATH.parent))
 SPEC = importlib.util.spec_from_file_location("souqak_admin_deploy", MODULE_PATH)
 admin = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(admin)
@@ -229,7 +231,11 @@ class AdminDeploymentTests(unittest.TestCase):
             state_path.chmod(0o600)
             fake = mock.Mock()
             fake.container_id.side_effect = ["wrong-active", "expected-previous"]
-            with mock.patch.object(admin, "STATE_FILE", state_path):
+            # Simulate a protected root-owned fixture without requiring root tests.
+            metadata = state_path.lstat()
+            protected_metadata = mock.Mock(st_uid=0, st_mode=metadata.st_mode)
+            with (mock.patch.object(admin, "STATE_FILE", state_path),
+                  mock.patch.object(Path, "lstat", return_value=protected_metadata)):
                 with self.assertRaisesRegex(admin.DeploymentError, "Active backend identity"):
                     admin.validate_rollback_record(RELEASE, fake)
                 with self.assertRaisesRegex(admin.DeploymentError, "does not match"):
