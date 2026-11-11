@@ -134,3 +134,49 @@ class UnifiedTests(unittest.TestCase):
                         app.settled_state()
                 record.write_text(json.dumps({'schema':1, 'status':'active'}))
                 app.settled_state()
+
+    def test_legacy_undefined_preparer_detected_without_executing_source(self):
+        # Minimal behavioral reproduction of the reported 108-line VPS script,
+        # not a claimed copy or hash of the actual installed file.
+        legacy = """import subprocess, sys
+from pathlib import Path
+PREPARED = Path('/home/souqak/deploy/prepared')
+STATE = Path('/var/lib/souqak-deploy/last-activation.json')
+ENGINE = Path('/usr/local/libexec/souqak/activate-release.py')
+def main():
+    subprocess.run([sys.executable, str(PREPARER)], check=True)
+"""
+        with self.assertRaisesRegex(app.Blocked,'undefined PREPARER'):
+            app.reject_undefined_preparer(legacy)
+        app.reject_undefined_preparer("PREPARER = '/fixed/reviewed/path'\n" + legacy)
+        # A local variable is not the confirmed missing-global defect.
+        app.reject_undefined_preparer("def main():\n    PREPARER='local'\n    return PREPARER\n")
+
+    def test_matching_reviewed_hash_does_not_override_undefined_preparer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); tool=root/'souqak-update'
+            tool.write_text('def main():\n    return PREPARER\n')
+            contract=root/'contract';contract.write_text(json.dumps({
+                'schema':1,'approved':True,'entrypoint_strategy':'reviewed-direct-helpers',
+                'review':{k:True for k in ('existing_update_reviewed','immutable_sha','unprivileged_build','interactive_sha_confirmation','validated_local_snapshot','offline_dependencies','no_database_operations','preserve_volumes','automatic_application_rollback','distinct_internal_locks')},
+                'sha256':{'update_entrypoint':hashlib.sha256(tool.read_bytes()).hexdigest()}}));contract.chmod(0o600)
+            with mock.patch.object(app,'STATE',root),mock.patch.object(app,'CONTRACT',contract),mock.patch.object(app,'TOOLS',{'update_entrypoint':tool}),mock.patch.object(app,'protected'):
+                with self.assertRaisesRegex(app.Blocked,'undefined PREPARER'):
+                    app.compatibility()
+
+    def test_preexisting_matching_bundle_is_not_reused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/RELEASE).mkdir();runner=mock.Mock()
+            with mock.patch.object(app,'PREPARED',root):
+                with self.assertRaisesRegex(app.Blocked,'already exists'):
+                    app.all_release(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE)
+            runner.assert_not_called()
+
+    def test_unrelated_old_bundle_is_never_selected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/('b'*40)).mkdir();runner=mock.Mock()
+            with mock.patch.object(app,'PREPARED',root):
+                app.all_release(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE)
+            for call in runner.call_args_list:
+                self.assertIn(str(root/RELEASE),call.args[0])
+                self.assertNotIn(str(root/('b'*40)),call.args[0])

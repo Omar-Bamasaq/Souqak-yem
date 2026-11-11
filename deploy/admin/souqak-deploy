@@ -11,6 +11,7 @@ import re
 import stat
 import subprocess
 import sys
+import symtable
 from contextlib import contextmanager
 
 ROOT = Path('/usr/local/libexec/souqak')
@@ -39,6 +40,19 @@ def flags(source):
             and isinstance(node.func, ast.Attribute) and node.func.attr == 'add_argument'
             for arg in node.args if isinstance(arg, ast.Constant) and isinstance(arg.value, str)}
 
+def reject_undefined_preparer(source):
+    """Targeted static check for the confirmed legacy defect; never runs the file."""
+    table = symtable.symtable(source, 'installed-entrypoint', 'exec')
+    bound = {symbol.get_name() for symbol in table.get_symbols()
+             if symbol.is_assigned() or symbol.is_imported() or symbol.is_namespace()}
+    def referenced(scope):
+        return any(symbol.get_name() == 'PREPARER' and symbol.is_global()
+                   and symbol.is_referenced() for symbol in scope.get_symbols()) or any(
+                       referenced(child) for child in scope.get_children())
+    if referenced(table) and 'PREPARER' not in bound:
+        raise Blocked('Installed souqak-update references undefined PREPARER; unsafe for production')
+
+
 def compatibility():
     protected(STATE, directory=True)
     protected(CONTRACT)
@@ -59,6 +73,7 @@ def compatibility():
         content = tool.read_bytes()
         if hashlib.sha256(content).hexdigest() != data.get('sha256', {}).get(name):
             raise Blocked('Installed tool changed or not reviewed: ' + name)
+        reject_undefined_preparer(content.decode())
         expected = ({'--release', '--bundle'} if name == 'prepare' else
                     {'--release', '--bundle', '--rollback', '--dry-run'} if name == 'activate' else set())
         if expected and not expected.issubset(flags(content.decode())):
@@ -124,6 +139,8 @@ def all_release(runner=run, verify=compatibility, resolve=target_sha):
     verify()
     release = resolve(runner)
     bundle = PREPARED / release
+    if bundle.exists() or bundle.is_symlink():
+        raise Blocked('A bundle already exists for this SHA; review it explicitly, never select stale output')
     print('Pinned release: ' + release, flush=True)
     # The fixed, reviewed preparer must accept this exact contract. No shell,
     # user-provided commands, writable checkout scripts, or root npm invocation.

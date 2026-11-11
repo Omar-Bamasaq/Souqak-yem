@@ -19,5 +19,6 @@
     "distinct_internal_locks": false,
     "existing_update_reviewed": false
   },
-  "entrypoint_strategy": "pending-souqak-update-review"
+  "entrypoint_strategy": "pending-souqak-update-repair-and-review",
+  "observed_entrypoint_status": "reported-undefined-PREPARER-production-blocked"
 }

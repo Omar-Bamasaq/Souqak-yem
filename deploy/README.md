@@ -376,3 +376,76 @@ or reusable layers for the candidate lockfile. Do not extract unknown dependenci
 from it or treat it as the candidate image. Cold offline Docker builds still require
 an approved matching artifact/cache staging method; keep the compatibility gate
 closed until that target-specific test succeeds.
+
+## Confirmed legacy entrypoint defect: undefined PREPARER
+
+The operator reports the installed `souqak-update` is a 108-line Python script
+calling `subprocess.run([sys.executable, str(PREPARER)], check=True)` without defining
+`PREPARER`. Treat that entrypoint as unfit for production, including automated use.
+Its single-bundle search and lack of a visible global lock also do not satisfy the
+new coordinator contract. Do not repair it by guessing a PREPARER path or invoking
+its dry-run to discover behavior. No installed file was edited by this change.
+
+The reference compatibility check now statically rejects the confirmed undefined
+global even if an approval file contains the matching hash. This is a targeted
+symbol-table check, not a complete Python linter or proof of runtime correctness.
+The regression fixture reproduces the reported control flow; it is not represented
+as the actual VPS source. No exact VPS helper hashes have been supplied to this
+repository; the contract placeholders intentionally remain invalid.
+
+`all` never scans prepared directories for a convenient bundle. It passes exactly
+`prepared/<pinned SHA>` to the preparer, activation preflight and activation, and
+rejects a pre-existing bundle at that exact path (including a dangling symlink).
+Other old bundles are ignored. To retry a failed preparation with existing output,
+review and preserve it through a separate administrator procedure; the command does
+not delete it. Changing main or installed-tool hashes before activation aborts.
+The terminal remains attached to the reviewed activator for SHA confirmation and
+its existing rollback implementation is retained.
+
+### Installation inventory (candidates, not permission to overwrite production)
+
+| Repository artifact | Intended location / action |
+| --- | --- |
+| `deploy/admin/souqak-deploy` | Stage as root-owned `/usr/local/libexec/souqak/souqak-deploy-candidate`; final `/usr/local/sbin/souqak-deploy` only if the reviewed integration chooses this entrypoint |
+| `deploy/admin/snapshot_contract.py` | Root-owned `/usr/local/libexec/souqak/snapshot_contract.py`, after comparison and approval of the consuming helper |
+| `deploy/unified-contract.example.json` | Template for root-owned mode-0600 `/var/lib/souqak-deploy/unified-contract.json`; never enable placeholder hashes |
+| `deploy/admin/activate-release.py` | Reviewable candidate/diff only; do not copy over the 1504-line installed helper or lose VPS-specific fixes |
+| `deploy/prepare-release.py` | Reviewable preparation implementation; **not** a drop-in `prepare-update.py` replacement because its CLI is different |
+| `deploy/warm-npm-cache.py` | Unprivileged cache staging tool on a connected preparation host/account; not a privileged production entrypoint |
+| Frontend exporter/validator/loader files | Part of the exact reviewed release source; no direct copying into the live served frontend |
+
+Safe subsequent operator procedure:
+
+1. Capture the full sanitized source of current `souqak-update`, `prepare-update.py`,
+   `activate-release.py`, their imported local modules, and their exact on-host
+   SHA-256 values. Compare the three November 10 backups as evidence, without
+   restoring any of them merely because they are older.
+2. Before any approved replacement, create a **new** dated root-only backup
+   directory under a protected `/var/backups/souqak-tools/`. Copy each affected
+   existing administrative tool and applicable sudoers fragment with ownership,
+   mode and timestamps preserved. Record SHA-256 for originals and copies and
+   verify matching bytes. Preserve previous backup directories. Do not copy or
+   display production `.env` as part of this tool backup.
+3. Stage approved candidates in a distinct root-owned, non-writable directory,
+   not in the souqak-owned checkout. Compare actual prepare arguments, bundle
+   schema, snapshot transport, cache users/paths, internal locks and recovery
+   records. Decide whether to fix the existing `souqak-update` or use the new
+   coordinator. An adapter for the former cannot be approved without its source.
+4. Keep `approved=false` until the undefined variable is repaired in a reviewed
+   candidate, interfaces match, offline build acceptance passes, and rollback has
+   been exercised in staging. Keep the known-broken legacy entrypoint out of
+   automated operation. A candidate check that fails is a stop, not a bypass flag.
+5. After separate approval, install only the reviewed changed artifacts through
+   same-directory temporary files and atomic replacement, preserving root ownership
+   and executable modes. Validate sudoers with visudo and retain password-based
+   administrative recovery. Do not update helpers from a writable checkout by
+   executing repository scripts as root. Do not overwrite the existing entrypoint
+   merely to make the compatibility check pass.
+6. Recheck final installed hashes and protection, then run only the reviewed
+   non-activating checks first. If helper installation fails, restore the verified
+   prior tool bytes and permissions; that restoration does not repair the known
+   PREPARER bug and does not authorize use of the old updater. Application rollback
+   is a separate operation, retaining data and prior application artifacts.
+
+No VPS installation, service operation, database access, deployment, or merge is
+performed by these instructions or the isolated tests.
