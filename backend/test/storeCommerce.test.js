@@ -338,261 +338,261 @@ test("checkout creates an order from current product pricing and clears the cart
     assert.equal(result.body.status, "new");
     assert.equal(cart.items.length, 0);
   });
+});
 
-  test("cart includes the store bank accounts for payment", async () => {
-    const bankAccount = {
-      _id: new mongoose.Types.ObjectId(),
-      bankName: "بنك تجريبي",
-      accountHolderName: "مالك المتجر",
-      accountNumber: "123456",
-      currency: "YER"
-    };
-    await withCommerceMocks({ store: { _id: STORE_ID, userId: OWNER_ID, status: "active", bankAccounts: [bankAccount] } }, async () => {
-      StoreCart.findOne = () => query(createCart());
-      const result = await invoke(getHandler("get", "/cart"), { user: { id: BUYER_ID, role: "buyer" } });
-      assert.equal(result.statusCode, 200);
-      assert.deepEqual(result.body.bankAccounts, [bankAccount]);
-    });
+test("cart includes the store bank accounts for payment", async () => {
+  const bankAccount = {
+    _id: new mongoose.Types.ObjectId(),
+    bankName: "بنك تجريبي",
+    accountHolderName: "مالك المتجر",
+    accountNumber: "123456",
+    currency: "YER"
+  };
+  await withCommerceMocks({ store: { _id: STORE_ID, userId: OWNER_ID, status: "active", bankAccounts: [bankAccount] } }, async () => {
+    StoreCart.findOne = () => query(createCart());
+    const result = await invoke(getHandler("get", "/cart"), { user: { id: BUYER_ID, role: "buyer" } });
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(result.body.bankAccounts, [bankAccount]);
   });
+});
 
-  test("checkout requires a matching bank account and receipt when the store has accounts", async () => {
-    const bankAccount = {
-      _id: new mongoose.Types.ObjectId(),
-      bankName: "بنك تجريبي",
-      accountHolderName: "مالك المتجر",
-      accountNumber: "123456",
-      currency: "YER"
-    };
-    await withCommerceMocks({ store: { _id: STORE_ID, userId: OWNER_ID, status: "active", bankAccounts: [bankAccount] } }, async ({ createdOrders }) => {
-      const cart = createCart();
-      StoreCart.findOne = () => query(cart);
-      const result = await invoke(getHandler("post", "/checkout"), {
-        user: { id: BUYER_ID, role: "buyer" },
-        body: { bankAccountId: String(bankAccount._id) }
-      });
-      assert.equal(result.statusCode, 400);
-      assert.match(result.body.error, /ارفع صورة سند التحويل/);
-      assert.equal(createdOrders.length, 0);
-      assert.equal(cart.items.length, 1);
-    });
-  });
-
-  test("checkout stores the selected bank account and converts its receipt to WebP", async () => {
-    const bankAccount = {
-      _id: new mongoose.Types.ObjectId(),
-      bankName: "بنك تجريبي",
-      accountHolderName: "مالك المتجر",
-      accountNumber: "123456",
-      currency: "YER"
-    };
-    const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "store-order-receipt-"));
-    const sourcePath = path.join(tempDirectory, "receipt.png");
-    await sharp({ create: { width: 2, height: 2, channels: 3, background: "#fff" } }).png().toFile(sourcePath);
-    let savedReceiptPath;
-
-    try {
-      await withCommerceMocks({
-        store: { _id: STORE_ID, userId: OWNER_ID, status: "active", bankAccounts: [bankAccount] }
-      }, async ({ createdOrders }) => {
-        const cart = createCart();
-        StoreCart.findOne = () => query(cart);
-        const result = await invoke(getHandler("post", "/checkout"), {
-          user: { id: BUYER_ID, role: "buyer" },
-          body: { bankAccountId: String(bankAccount._id) },
-          file: { path: sourcePath }
-        });
-        assert.equal(result.statusCode, 201);
-        const paymentDetails = createdOrders[0].storePaymentDetails;
-        assert.equal(String(paymentDetails.bankAccountId), String(bankAccount._id));
-        assert.equal(paymentDetails.bankName, bankAccount.bankName);
-        assert.match(paymentDetails.receiptImage, /^receipts\/.+\.webp$/);
-        savedReceiptPath = path.join(process.cwd(), "uploads", paymentDetails.receiptImage);
-        assert.ok((await fs.stat(savedReceiptPath)).isFile());
-      });
-    } finally {
-      if (savedReceiptPath) await fs.rm(savedReceiptPath, { force: true });
-      await fs.rm(tempDirectory, { recursive: true, force: true });
-    }
-  });
-
-    test("checkout ignores client pricing and quantity fields and reads current product values", async () => {
-    const product = { ...withProductDefaults(), price: 125 };
+test("checkout requires a matching bank account and receipt when the store has accounts", async () => {
+  const bankAccount = {
+    _id: new mongoose.Types.ObjectId(),
+    bankName: "بنك تجريبي",
+    accountHolderName: "مالك المتجر",
+    accountNumber: "123456",
+    currency: "YER"
+  };
+  await withCommerceMocks({ store: { _id: STORE_ID, userId: OWNER_ID, status: "active", bankAccounts: [bankAccount] } }, async ({ createdOrders }) => {
     const cart = createCart();
-    product.price = 250;
-    product.discountEnabled = true;
-    product.discountType = "percentage";
-    product.discountValue = 20;
+    StoreCart.findOne = () => query(cart);
+    const result = await invoke(getHandler("post", "/checkout"), {
+      user: { id: BUYER_ID, role: "buyer" },
+      body: { bankAccountId: String(bankAccount._id) }
+    });
+    assert.equal(result.statusCode, 400);
+    assert.match(result.body.error, /ارفع صورة سند التحويل/);
+    assert.equal(createdOrders.length, 0);
+    assert.equal(cart.items.length, 1);
+  });
+});
+
+test("checkout stores the selected bank account and converts its receipt to WebP", async () => {
+  const bankAccount = {
+    _id: new mongoose.Types.ObjectId(),
+    bankName: "بنك تجريبي",
+    accountHolderName: "مالك المتجر",
+    accountNumber: "123456",
+    currency: "YER"
+  };
+  const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "store-order-receipt-"));
+  const sourcePath = path.join(tempDirectory, "receipt.png");
+  await sharp({ create: { width: 2, height: 2, channels: 3, background: "#fff" } }).png().toFile(sourcePath);
+  let savedReceiptPath;
+
+  try {
     await withCommerceMocks({
-      features: { cart: true, orders: true, discounts: true },
-      product
+      store: { _id: STORE_ID, userId: OWNER_ID, status: "active", bankAccounts: [bankAccount] }
     }, async ({ createdOrders }) => {
+      const cart = createCart();
       StoreCart.findOne = () => query(cart);
       const result = await invoke(getHandler("post", "/checkout"), {
         user: { id: BUYER_ID, role: "buyer" },
-        body: {
-          finalPrice: 1,
-          unitPrice: 1,
-          originalPrice: 1,
-          discountValue: 99,
-          quantity: 999,
-          subtotal: 1
-        }
+        body: { bankAccountId: String(bankAccount._id) },
+        file: { path: sourcePath }
       });
       assert.equal(result.statusCode, 201);
-      assert.equal(createdOrders[0].items[0].originalPrice, 250);
-      assert.equal(createdOrders[0].items[0].unitPrice, 200);
-      assert.equal(createdOrders[0].items[0].discountValue, 20);
-      assert.equal(createdOrders[0].items[0].quantity, 2);
-      assert.equal(createdOrders[0].items[0].subtotal, 400);
-      assert.equal(createdOrders[0].total, 400);
+      const paymentDetails = createdOrders[0].storePaymentDetails;
+      assert.equal(String(paymentDetails.bankAccountId), String(bankAccount._id));
+      assert.equal(paymentDetails.bankName, bankAccount.bankName);
+      assert.match(paymentDetails.receiptImage, /^receipts\/.+\.webp$/);
+      savedReceiptPath = path.join(process.cwd(), "uploads", paymentDetails.receiptImage);
+      assert.ok((await fs.stat(savedReceiptPath)).isFile());
     });
-  });
+  } finally {
+    if (savedReceiptPath) await fs.rm(savedReceiptPath, { force: true });
+    await fs.rm(tempDirectory, { recursive: true, force: true });
+  }
+});
 
-  test("checkout rejects inventory changed by a concurrent purchase at the atomic decrement", async () => {
-    const product = { ...withProductDefaults(), inventoryEnabled: true, stockQuantity: 5 };
-    await withCommerceMocks({
-      features: { cart: true, orders: true, inventory: true },
-      product
-    }, async () => {
-      const cart = createCart();
-      StoreCart.findOne = () => query(cart);
-      Ad.findOneAndUpdate = async () => {
-        product.stockQuantity = 1;
-        return null;
-      };
-      const result = await invoke(getHandler("post", "/checkout"), {
-        user: { id: BUYER_ID, role: "buyer" }
-      });
-      assert.equal(result.statusCode, 409);
-      assert.match(result.body.error, /تغيّرت كمية المخزون/);
-      assert.equal(product.stockQuantity, 1);
-      assert.equal(cart.items.length, 1);
-    });
-  });
-
-  test("checkout rejects stale quantities and leaves the cart and stock unchanged", async () => {
-    const product = { ...withProductDefaults(), inventoryEnabled: true, stockQuantity: 1 };
-    await withCommerceMocks({
-      features: { cart: true, orders: true, inventory: true },
-      product
-    }, async ({ createdOrders }) => {
-      const cart = createCart();
-      StoreCart.findOne = () => query(cart);
-      const result = await invoke(getHandler("post", "/checkout"), { user: { id: BUYER_ID, role: "buyer" } });
-      assert.equal(result.statusCode, 409);
-      assert.match(result.body.error, /المتوفر: 1/);
-      assert.equal(createdOrders.length, 0);
-      assert.equal(product.stockQuantity, 1);
-      assert.equal(cart.items.length, 1);
-    });
-  });
-
-  test("successful checkout decrements stock atomically and snapshots its pre-purchase quantity", async () => {
-    const product = { ...withProductDefaults(), inventoryEnabled: true, stockQuantity: 5 };
-    await withCommerceMocks({
-      features: { cart: true, orders: true, inventory: true },
-      product
-    }, async ({ createdOrders }) => {
-      const cart = createCart();
-      StoreCart.findOne = () => query(cart);
-      const result = await invoke(getHandler("post", "/checkout"), { user: { id: BUYER_ID, role: "buyer" } });
-      assert.equal(result.statusCode, 201);
-      assert.equal(product.stockQuantity, 3);
-      assert.equal(createdOrders[0].items[0].inventoryEnabled, true);
-      assert.equal(createdOrders[0].items[0].stockQuantityAtPurchase, 5);
-      assert.equal(cart.items.length, 0);
-    });
-  });
-
-  test("notifications feature creates an in-app notification for the owning store after checkout", async () => {
-    await withCommerceMocks({
-      features: {
-        cart: true,
-        orders: true,
-        notifications: true,
-        whatsappOrdering: true,
-        discounts: true,
-        inventory: true
-      },
-      product: {
-        ...withProductDefaults(),
-        price: 125,
-        discountEnabled: true,
-        discountType: "percentage",
-        discountValue: 10,
-        inventoryEnabled: true,
-        stockQuantity: 5
+test("checkout ignores client pricing and quantity fields and reads current product values", async () => {
+  const product = { ...withProductDefaults(), price: 125 };
+  const cart = createCart();
+  product.price = 250;
+  product.discountEnabled = true;
+  product.discountType = "percentage";
+  product.discountValue = 20;
+  await withCommerceMocks({
+    features: { cart: true, orders: true, discounts: true },
+    product
+  }, async ({ createdOrders }) => {
+    StoreCart.findOne = () => query(cart);
+    const result = await invoke(getHandler("post", "/checkout"), {
+      user: { id: BUYER_ID, role: "buyer" },
+      body: {
+        finalPrice: 1,
+        unitPrice: 1,
+        originalPrice: 1,
+        discountValue: 99,
+        quantity: 999,
+        subtotal: 1
       }
-    }, async ({ config, createdOrders, createdNotifications }) => {
-      const cart = createCart();
-      StoreCart.findOne = () => query(cart);
-      const emitted = [];
-      const app = {
-        get() {
-          return {
-            to(room) {
-              assert.equal(room, `user:${OWNER_ID}`);
-              return { emit(event, payload) { emitted.push({ event, payload }); } };
-            }
-          };
-        }
-      };
-      const result = await invoke(getHandler("post", "/checkout"), {
-        user: { id: BUYER_ID, role: "buyer" },
-        app
-      });
-      assert.equal(result.statusCode, 201);
-      assert.equal(createdOrders[0].total, 226);
-      assert.equal(createdOrders[0].items[0].unitPrice, 113);
-      assert.equal(config.product.stockQuantity, 3);
-      assert.equal(cart.items.length, 0);
-      assert.equal(createdNotifications.length, 1);
-      assert.equal(String(createdNotifications[0].userId), OWNER_ID);
-      assert.equal(String(createdNotifications[0].storeProfileId), STORE_ID);
-      assert.equal(String(createdNotifications[0].relatedOrderId), ORDER_ID);
-      assert.equal(createdNotifications[0].type, "store_order_new");
-      assert.match(createdNotifications[0].body, /اسم العميل/);
-      assert.ok(createdNotifications[0].body.includes(Number(226).toLocaleString("ar")));
-      assert.equal(emitted.length, 1);
-      assert.equal(emitted[0].event, "notification:new");
-
-      await createStoreOrderNotification(app, {
-        store: { _id: STORE_ID, userId: OWNER_ID },
-        order: { _id: ORDER_ID, total: 250, currency: "YER_ADEN" },
-        buyerName: "اسم العميل"
-      });
-      assert.equal(createdNotifications.length, 1);
-      assert.equal(emitted.length, 1);
     });
+    assert.equal(result.statusCode, 201);
+    assert.equal(createdOrders[0].items[0].originalPrice, 250);
+    assert.equal(createdOrders[0].items[0].unitPrice, 200);
+    assert.equal(createdOrders[0].items[0].discountValue, 20);
+    assert.equal(createdOrders[0].items[0].quantity, 2);
+    assert.equal(createdOrders[0].items[0].subtotal, 400);
+    assert.equal(createdOrders[0].total, 400);
   });
+});
 
-  test("notifications disabled on the active store plan does not create a store notification", async () => {
-    await withCommerceMocks({
-      features: { cart: true, orders: true, notifications: false }
-    }, async ({ createdNotifications }) => {
-      StoreCart.findOne = () => query(createCart());
-      const result = await invoke(getHandler("post", "/checkout"), {
-        user: { id: BUYER_ID, role: "buyer" }
-      });
-      assert.equal(result.statusCode, 201);
-      assert.equal(createdNotifications.length, 0);
+test("checkout rejects inventory changed by a concurrent purchase at the atomic decrement", async () => {
+  const product = { ...withProductDefaults(), inventoryEnabled: true, stockQuantity: 5 };
+  await withCommerceMocks({
+    features: { cart: true, orders: true, inventory: true },
+    product
+  }, async () => {
+    const cart = createCart();
+    StoreCart.findOne = () => query(cart);
+    Ad.findOneAndUpdate = async () => {
+      product.stockQuantity = 1;
+      return null;
+    };
+    const result = await invoke(getHandler("post", "/checkout"), {
+      user: { id: BUYER_ID, role: "buyer" }
     });
+    assert.equal(result.statusCode, 409);
+    assert.match(result.body.error, /تغيّرت كمية المخزون/);
+    assert.equal(product.stockQuantity, 1);
+    assert.equal(cart.items.length, 1);
   });
+});
 
-  test("products without enabled inventory retain unlimited cart and checkout behavior", async () => {
-    const product = { ...withProductDefaults(), inventoryEnabled: false, stockQuantity: 0 };
-    await withCommerceMocks({
-      features: { cart: true, orders: true, inventory: true },
-      product
-    }, async ({ createdOrders }) => {
-      const cart = createCart();
-      StoreCart.findOne = () => query(cart);
-      const result = await invoke(getHandler("post", "/checkout"), { user: { id: BUYER_ID, role: "buyer" } });
-      assert.equal(result.statusCode, 201);
-      assert.equal(createdOrders[0].items[0].inventoryEnabled, false);
-      assert.equal(createdOrders[0].items[0].stockQuantityAtPurchase, null);
-      assert.equal(product.stockQuantity, 0);
+test("checkout rejects stale quantities and leaves the cart and stock unchanged", async () => {
+  const product = { ...withProductDefaults(), inventoryEnabled: true, stockQuantity: 1 };
+  await withCommerceMocks({
+    features: { cart: true, orders: true, inventory: true },
+    product
+  }, async ({ createdOrders }) => {
+    const cart = createCart();
+    StoreCart.findOne = () => query(cart);
+    const result = await invoke(getHandler("post", "/checkout"), { user: { id: BUYER_ID, role: "buyer" } });
+    assert.equal(result.statusCode, 409);
+    assert.match(result.body.error, /المتوفر: 1/);
+    assert.equal(createdOrders.length, 0);
+    assert.equal(product.stockQuantity, 1);
+    assert.equal(cart.items.length, 1);
+  });
+});
+
+test("successful checkout decrements stock atomically and snapshots its pre-purchase quantity", async () => {
+  const product = { ...withProductDefaults(), inventoryEnabled: true, stockQuantity: 5 };
+  await withCommerceMocks({
+    features: { cart: true, orders: true, inventory: true },
+    product
+  }, async ({ createdOrders }) => {
+    const cart = createCart();
+    StoreCart.findOne = () => query(cart);
+    const result = await invoke(getHandler("post", "/checkout"), { user: { id: BUYER_ID, role: "buyer" } });
+    assert.equal(result.statusCode, 201);
+    assert.equal(product.stockQuantity, 3);
+    assert.equal(createdOrders[0].items[0].inventoryEnabled, true);
+    assert.equal(createdOrders[0].items[0].stockQuantityAtPurchase, 5);
+    assert.equal(cart.items.length, 0);
+  });
+});
+
+test("notifications feature creates an in-app notification for the owning store after checkout", async () => {
+  await withCommerceMocks({
+    features: {
+      cart: true,
+      orders: true,
+      notifications: true,
+      whatsappOrdering: true,
+      discounts: true,
+      inventory: true
+    },
+    product: {
+      ...withProductDefaults(),
+      price: 125,
+      discountEnabled: true,
+      discountType: "percentage",
+      discountValue: 10,
+      inventoryEnabled: true,
+      stockQuantity: 5
+    }
+  }, async ({ config, createdOrders, createdNotifications }) => {
+    const cart = createCart();
+    StoreCart.findOne = () => query(cart);
+    const emitted = [];
+    const app = {
+      get() {
+        return {
+          to(room) {
+            assert.equal(room, `user:${OWNER_ID}`);
+            return { emit(event, payload) { emitted.push({ event, payload }); } };
+          }
+        };
+      }
+    };
+    const result = await invoke(getHandler("post", "/checkout"), {
+      user: { id: BUYER_ID, role: "buyer" },
+      app
     });
+    assert.equal(result.statusCode, 201);
+    assert.equal(createdOrders[0].total, 226);
+    assert.equal(createdOrders[0].items[0].unitPrice, 113);
+    assert.equal(config.product.stockQuantity, 3);
+    assert.equal(cart.items.length, 0);
+    assert.equal(createdNotifications.length, 1);
+    assert.equal(String(createdNotifications[0].userId), OWNER_ID);
+    assert.equal(String(createdNotifications[0].storeProfileId), STORE_ID);
+    assert.equal(String(createdNotifications[0].relatedOrderId), ORDER_ID);
+    assert.equal(createdNotifications[0].type, "store_order_new");
+    assert.match(createdNotifications[0].body, /اسم العميل/);
+    assert.ok(createdNotifications[0].body.includes(Number(226).toLocaleString("ar")));
+    assert.equal(emitted.length, 1);
+    assert.equal(emitted[0].event, "notification:new");
+
+    await createStoreOrderNotification(app, {
+      store: { _id: STORE_ID, userId: OWNER_ID },
+      order: { _id: ORDER_ID, total: 250, currency: "YER_ADEN" },
+      buyerName: "اسم العميل"
+    });
+    assert.equal(createdNotifications.length, 1);
+    assert.equal(emitted.length, 1);
+  });
+});
+
+test("notifications disabled on the active store plan does not create a store notification", async () => {
+  await withCommerceMocks({
+    features: { cart: true, orders: true, notifications: false }
+  }, async ({ createdNotifications }) => {
+    StoreCart.findOne = () => query(createCart());
+    const result = await invoke(getHandler("post", "/checkout"), {
+      user: { id: BUYER_ID, role: "buyer" }
+    });
+    assert.equal(result.statusCode, 201);
+    assert.equal(createdNotifications.length, 0);
+  });
+});
+
+test("products without enabled inventory retain unlimited cart and checkout behavior", async () => {
+  const product = { ...withProductDefaults(), inventoryEnabled: false, stockQuantity: 0 };
+  await withCommerceMocks({
+    features: { cart: true, orders: true, inventory: true },
+    product
+  }, async ({ createdOrders }) => {
+    const cart = createCart();
+    StoreCart.findOne = () => query(cart);
+    const result = await invoke(getHandler("post", "/checkout"), { user: { id: BUYER_ID, role: "buyer" } });
+    assert.equal(result.statusCode, 201);
+    assert.equal(createdOrders[0].items[0].inventoryEnabled, false);
+    assert.equal(createdOrders[0].items[0].stockQuantityAtPurchase, null);
+    assert.equal(product.stockQuantity, 0);
   });
 });
 
