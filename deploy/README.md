@@ -525,3 +525,8 @@ After receiving/reviewing the files above and choosing the entrypoint strategy:
 
 The installation gate is mandatory for this provided installer. Manual root file
 copying can bypass software gates; it is not an approved installation procedure.
+
+A standalone candidate for the existing updater, preserving its CLI without
+replacing its three helpers, is documented in
+[souqak-update-candidate.md](souqak-update-candidate.md). It is separately gated;
+this does not approve installation of either coordinator.

@@ -1,0 +1,177 @@
+#!/usr/bin/python3
+"""Standalone repair candidate; not installable until the actual VPS source is reviewed."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import stat
+import subprocess
+import sys
+from contextlib import contextmanager
+
+PREPARER = Path('/usr/local/libexec/souqak/prepare-update.py')
+ENGINE = Path('/usr/local/libexec/souqak/activate-release.py')
+PREPARED = Path('/home/souqak/deploy/prepared')
+STATE_ROOT = Path('/var/lib/souqak-deploy')
+STATE = STATE_ROOT / 'last-activation.json'
+CONTRACT = STATE_ROOT / 'update-candidate-contract.json'
+REPO = 'https://github.com/Omar-Bamasaq/Souqak-yem.git'
+SHA = re.compile(r'[a-f0-9]{40}')
+
+class Blocked(RuntimeError):
+    pass
+
+def protected(path, directory=False):
+    path = Path(path)
+    for entry in (path, *path.parents):
+        info = entry.lstat()
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise Blocked('Unprotected administrative path: ' + str(entry))
+    if not (path.is_dir() if directory else path.is_file()):
+        raise Blocked('Incorrect administrative file type')
+
+
+@contextmanager
+def lock():
+    protected(STATE_ROOT, directory=True)
+    fd = os.open(STATE_ROOT / 'unified.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if info.st_uid != 0 or not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+            raise Blocked('Unsafe unified lock')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise Blocked('Another unified operation is running') from error
+        yield
+    finally:
+        os.close(fd)
+
+def run(args, user=None, capture=False):
+    env = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8'}
+    if user:
+        account = pwd.getpwnam(user)
+        env['HOME'] = account.pw_dir
+        args = ['/usr/sbin/runuser', '-u', user, '--', *args]
+    result = subprocess.run(args, check=True, env=env, cwd='/', text=True,
+                            stdout=subprocess.PIPE if capture else None)
+    return result.stdout if capture else None
+
+def target_sha(runner=run):
+    lines = runner(['/usr/bin/git', 'ls-remote', '--exit-code', REPO, 'refs/heads/main'], user='souqak', capture=True).splitlines()
+    if len(lines) != 1:
+        raise Blocked('Ambiguous main reference')
+    parts = lines[0].split()
+    if len(parts) != 2 or not SHA.fullmatch(parts[0]) or parts[1] != 'refs/heads/main':
+        raise Blocked('Invalid main SHA')
+    return parts[0]
+
+def read_json(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 1024 * 1024:
+            raise Blocked('Invalid metadata file type/size')
+        with os.fdopen(fd, 'rb', closefd=False) as stream:
+            raw = stream.read(1024 * 1024 + 1)
+        if len(raw) != info.st_size:
+            raise Blocked('Changing metadata')
+        return json.loads(raw), hashlib.sha256(raw).hexdigest()
+    finally:
+        os.close(fd)
+
+def compatibility():
+    protected(CONTRACT)
+    if stat.S_IMODE(CONTRACT.stat().st_mode) != 0o600:
+        raise Blocked('Compatibility contract must be mode 0600')
+    contract, _ = read_json(CONTRACT)
+    required = ('no_argument_prepare_as_souqak', 'manifest_schema1_verified',
+                'interactive_sha_confirmation', 'engine_validates_bundle_and_state',
+                'engine_rollback_preserved', 'offline_snapshot_build_verified',
+                'no_database_or_volume_changes', 'lock_coexistence_verified')
+    if contract.get('schema') != 1 or contract.get('approved') is not True or any(
+            contract.get('review', {}).get(key) is not True for key in required):
+        raise Blocked('Actual VPS source/manifest compatibility review is incomplete')
+    for tool in (PREPARER, ENGINE):
+        protected(tool)
+        digest = hashlib.sha256(tool.read_bytes()).hexdigest()
+        if contract.get('sha256', {}).get(tool.name) != digest:
+            raise Blocked('Installed tool differs from reviewed source')
+
+def state_identity():
+    protected(STATE)
+    if stat.S_IMODE(STATE.stat().st_mode) != 0o600:
+        raise Blocked('Activation state must be mode 0600')
+    data, digest = read_json(STATE)
+    if (data.get('schema') != 1 or data.get('status') != 'active'
+            or not SHA.fullmatch(str(data.get('release', '')))
+            or not isinstance(data.get('active_backend_id'), str)
+            or not data['active_backend_id']):
+        raise Blocked('Unsettled or incompatible activation baseline')
+    return digest
+
+def entries():
+    if PREPARED.is_symlink() or not PREPARED.is_dir():
+        raise Blocked('Prepared root must be an existing real directory')
+    return {item.name for item in PREPARED.iterdir() if not item.name.startswith('.')}
+
+def validate_bundle(release):
+    if entries() != {release}:
+        raise Blocked('Expected exactly one fresh bundle matching pinned SHA')
+    bundle = PREPARED / release
+    if bundle.is_symlink() or not bundle.is_dir():
+        raise Blocked('Bundle must be a real directory')
+    manifest, _ = read_json(bundle / 'manifest.json')
+    if (manifest.get('schema') != 1 or manifest.get('release') != release
+            or manifest.get('repository') != REPO or manifest.get('branch') != 'main'
+            or manifest.get('checks', {}).get('frontend_build') is not True
+            or manifest.get('checks', {}).get('frontend_tests') is not True
+            or not re.fullmatch(r'[a-f0-9]{64}', str(manifest.get('frontend_sha256', '')))):
+        raise Blocked('Bundle manifest is incompatible with the pinned release')
+    # ENGINE must still snapshot untrusted input securely, validate all payload
+    # hashes, health/state and rollback. These checks do not substitute for it.
+    return bundle
+
+def update(dry_run=False, runner=run, verify=compatibility, resolve=target_sha,
+           baseline=state_identity):
+    verify()
+    before = baseline()
+    release = resolve(runner)
+    if entries():
+        raise Blocked('Old or multiple prepared bundles exist; preserve and review them separately')
+    print('Pinned source SHA: ' + release, flush=True)
+    if dry_run:
+        print('Plan only: prepare as souqak, validate the exact new bundle, then interactive activation.')
+        return
+    # Preserve the reported no-argument interface, but drop privileges. This mode
+    # remains gated until actual main() source proves that interface is supported.
+    runner(['/usr/bin/python3', str(PREPARER)], user='souqak')
+    verify()
+    bundle = validate_bundle(release)
+    if resolve(runner) != release or baseline() != before:
+        raise Blocked('main or activation state changed; no activation attempted')
+    args = ['/usr/bin/python3', str(ENGINE), '--release', release, '--bundle', str(bundle)]
+    runner([*args, '--dry-run'])
+    if baseline() != before:
+        raise Blocked('Activation state changed during preflight')
+    verify()
+    runner(args)  # inherited terminal, existing SHA confirmation and rollback
+
+def main(argv):
+    if argv not in ([], ['--dry-run']):
+        raise Blocked('Usage: souqak-update [--dry-run]')
+    if os.geteuid() != 0:
+        raise Blocked('Administrative execution required')
+    protected(Path(__file__))
+    with lock():
+        update(argv == ['--dry-run'])
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except (Blocked, OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+        print('Update blocked: ' + str(error), file=sys.stderr)
+        sys.exit(1)
