@@ -13,10 +13,15 @@ Behavior:
 - Reads main once as `souqak`, pins the complete SHA, and calls the fixed PREPARER
   **without arguments, as souqak**. This uses the reported old call shape without
   speculatively adding arguments. Review actual main() before authorizing it.
-- Refuses non-hidden existing entries in prepared. Does not delete/archive them.
-  After preparation requires exactly one new real directory named by the pinned
-  SHA and a matching schema-1 manifest with repository/branch/build/test/hash fields.
-  Missing, stale, multiple, mismatched and symlink bundles fail closed.
+- Preserves existing prepared entries (including release `52908a2...`) and records
+  their filesystem metadata without following symlinks or reading their contents.
+  Refuses an existing target SHA, then compares directory names before/after the
+  preparer: the only new visible entry must be the exact pinned SHA. It never scans
+  old bundles to pick a candidate, deletes them, renames them or changes their files.
+  A historical entry disappearing or changing metadata blocks activation.
+  After preparation requires the new real directory and a matching schema-1
+  manifest with repository/branch/build/test/hash fields. Missing output, reuse of
+  an old bundle, multiple new outputs, mismatch and symlink bundles fail closed.
 - Verifies tools again; rejects changed main or protected activation state. Calls
   ENGINE `--dry-run --release SHA --bundle PATH`, rechecks state/tools and invokes
   ENGINE with the same SHA/path, inheriting its terminal confirmation and rollback.
@@ -25,7 +30,7 @@ Behavior:
   state, secure-copy the bundle, and implement rollback. Wrapper metadata checks
   never replace those engine checks. No new independent rollback is attempted.
 - `--dry-run` is a wrapper plan only: it does not run preparation or the engine.
-  It still verifies compatibility, state, main and an empty prepared directory;
+  It still verifies compatibility, state, main and absence of an existing target;
   it creates/acquires only the shared lock. No deployment occurs.
 
 ## Mandatory compatibility document
@@ -49,7 +54,13 @@ After complete source review, a root-owned mode-0600 file is required at
     "engine_rollback_preserved": false,
     "offline_snapshot_build_verified": false,
     "no_database_or_volume_changes": false,
-    "lock_coexistence_verified": false
+    "lock_coexistence_verified": false,
+    "prepare_target_selection_verified": false,
+    "preserves_existing_bundles_verified": false
+  },
+  "internal_lock_paths": {
+    "prepare": [],
+    "activate": []
   }
 }
 ```
@@ -73,7 +84,8 @@ contract is an administrator attestation, not an automatic proof of the semantic
 3. Stage the reviewed candidate under `/usr/local/libexec/souqak/`, root-owned 0755
    with protected parents. Do not execute a copy in the writable checkout as root.
    Provision the reviewed contract only after all checks pass. Preserve and review
-   existing prepared bundles separately; never clean them automatically.
+   existing prepared bundles; never clean them automatically. Old unrelated bundles
+   are allowed and are never selected.
 4. From an authorized root session run that staged candidate with `--dry-run`.
    Any failure stops installation. Test activation/failure/rollback on staging
    before a production replacement. Do not auto-answer the engine's SHA prompt.
@@ -93,3 +105,31 @@ Tests (mock tools and temporary files only):
 python3 -m unittest discover -s deploy/tests -p 'test_*.py'
 node --test deploy/tests/*.test.mjs
 ```
+
+## No-argument preparer and lock acceptance (current gate remains closed)
+
+The operator reports that the installed preparer reads last-activation.json. This
+is not proof that it selects the same SHA as git ls-remote main. The candidate does
+not pass invented flags or alter that state: it accepts only a newly created bundle
+whose name and manifest match the pinned main SHA, then rechecks main/state. If the
+preparer chooses the old state release or no-ops on an existing old bundle, activation
+is blocked. The actual main(), build_and_test_release and create_release_bundle
+bodies, including source selection and writes, are still needed before approving
+prepare_target_selection_verified or preserves_existing_bundles_verified. The
+candidate cannot stop an unreviewed preparer modifying old files; it detects
+historical metadata changes and refuses activation, which is why source review
+remains mandatory before invoking it in production.
+
+Record the actual absolute internal lock paths for preparation and activation in
+the contract. Empty inventories are rejected. A path resolving to unified.lock,
+including an existing hard-link alias, is rejected to prevent self-deadlock while
+the outer lock is held. Review whether locking is flock-compatible and whether any
+nested script re-acquires the outer lock; a boolean alone cannot supply that proof.
+Internal prepare and activate locks may share a path with each other if they are
+only acquired sequentially, but neither may alias the outer lock. Direct helper
+execution must still use its own locks. Tests use real local flock contention, not
+VPS locks. No internal paths are guessed from repository defaults.
+
+The offline_snapshot_build_verified requirement stays false until both installed
+VPS build paths demonstrate real local snapshot validation and offline dependencies.
+Neither known hashes nor successful mock tests authorize setting it true.

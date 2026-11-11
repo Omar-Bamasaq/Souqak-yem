@@ -44,15 +44,35 @@ class CandidateTests(unittest.TestCase):
             for args,_ in calls[1:]:
                 self.assertIn(RELEASE,args);self.assertIn(str(root/RELEASE),args)
 
-    def test_old_bundles_prevent_preparation(self):
-        for names in ((RELEASE,),('b'*40,),('b'*40,'c'*40)):
-            with tempfile.TemporaryDirectory() as directory:
-                root=Path(directory)
-                for name in names:bundle(root,name)
-                runner=mock.Mock()
-                with mock.patch.object(app,'PREPARED',root),self.assertRaisesRegex(app.Blocked,'Old or multiple'):
-                    app.update(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE,baseline=lambda:'state')
-                runner.assert_not_called()
+    def test_old_bundles_are_preserved_and_only_new_target_is_activated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            old=bundle(root,'52908a2fc4089b3461e4dea439853c0044d3ad5c')
+            original=(old/'manifest.json').read_bytes()
+            calls=[]
+            def runner(args,**kwargs):
+                calls.append(args)
+                if str(app.PREPARER) in args:bundle(root)
+            with mock.patch.object(app,'PREPARED',root):
+                app.update(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE,baseline=lambda:'state')
+            self.assertEqual((old/'manifest.json').read_bytes(),original)
+            self.assertTrue(old.is_dir())
+            self.assertEqual(len(calls),3)
+            for args in calls[1:]:self.assertIn(str(root/RELEASE),args)
+
+    def test_preexisting_target_is_never_reused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);bundle(root);runner=mock.Mock()
+            with mock.patch.object(app,'PREPARED',root),self.assertRaisesRegex(app.Blocked,'already has'):
+                app.update(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE,baseline=lambda:'state')
+            runner.assert_not_called()
+
+    def test_preparer_reusing_state_release_cannot_activate_old_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);bundle(root,'b'*40);runner=mock.Mock()
+            with mock.patch.object(app,'PREPARED',root),self.assertRaisesRegex(app.Blocked,'fresh bundle'):
+                app.update(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE,baseline=lambda:'state')
+            self.assertEqual(runner.call_count,1)
 
     def test_missing_multiple_mismatched_and_symlink_output_rejected(self):
         for mode in ('missing','multiple','wrong','bad-manifest','symlink'):
@@ -121,3 +141,30 @@ class CandidateTests(unittest.TestCase):
                     with self.assertRaisesRegex(app.Blocked,'running'):
                         with app.lock():self.fail('concurrent entry')
                 with app.lock():pass
+
+    def test_old_bundles_survive_failed_preparation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);old=bundle(root,'b'*40);original=(old/'manifest.json').read_bytes()
+            runner=mock.Mock(side_effect=subprocess.CalledProcessError(1,['mock-preparer']))
+            with mock.patch.object(app,'PREPARED',root),self.assertRaises(subprocess.CalledProcessError):
+                app.update(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE,baseline=lambda:'state')
+            self.assertEqual((old/'manifest.json').read_bytes(),original)
+            self.assertEqual(runner.call_count,1)
+
+    def test_internal_outer_lock_conflict_blocks_before_tool_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);contract=root/'contract'
+            review={key:True for key in ('no_argument_prepare_as_souqak','manifest_schema1_verified','interactive_sha_confirmation','engine_validates_bundle_and_state','engine_rollback_preserved','offline_snapshot_build_verified','no_database_or_volume_changes','lock_coexistence_verified','prepare_target_selection_verified','preserves_existing_bundles_verified')}
+            contract.write_text(json.dumps({'schema':1,'approved':True,'review':review,'internal_lock_paths':{'prepare':[str(root/'unified.lock')],'activate':[str(root/'activation.lock')]}}));contract.chmod(0o600)
+            with mock.patch.object(app,'STATE_ROOT',root),mock.patch.object(app,'CONTRACT',contract),mock.patch.object(app,'protected'):
+                with self.assertRaisesRegex(app.Blocked,'conflicts'):app.compatibility()
+
+    def test_preparer_modifying_historical_bundle_prevents_activation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);old=bundle(root,'b'*40);calls=[]
+            def runner(args,**kwargs):
+                calls.append(args);bundle(root)
+                (old/'manifest.json').write_text('{}')
+            with mock.patch.object(app,'PREPARED',root),self.assertRaisesRegex(app.Blocked,'Historical'):
+                app.update(runner=runner,verify=lambda:None,resolve=lambda _:RELEASE,baseline=lambda:'state')
+            self.assertEqual(len(calls),1)
