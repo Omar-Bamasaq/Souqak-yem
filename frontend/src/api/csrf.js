@@ -1,4 +1,5 @@
 import axios from "axios";
+import { recordRateLimit, waitForRateLimit } from "./retryAfter.js";
 
 let csrfToken = null;
 let csrfRequest = null;
@@ -18,18 +19,22 @@ export function isApiRequest(config) {
 export async function ensureCsrfToken() {
   if (csrfToken) return csrfToken;
   if (!csrfRequest) {
-    csrfRequest = axios
-      .get(`${getApiBaseUrl()}/csrf-token`, { withCredentials: true })
-      .then(({ data }) => {
+    csrfRequest = (async () => {
+      await waitForRateLimit();
+      try {
+        const { data } = await axios.get(`${getApiBaseUrl()}/csrf-token`, { withCredentials: true });
         if (typeof data?.csrfToken !== "string" || !data.csrfToken) {
           throw new Error("The API did not return a CSRF token.");
         }
         csrfToken = data.csrfToken;
         return csrfToken;
-      })
-      .finally(() => {
-        csrfRequest = null;
-      });
+      } catch (error) {
+        recordRateLimit(error);
+        throw error;
+      }
+    })().finally(() => {
+      csrfRequest = null;
+    });
   }
   return csrfRequest;
 }

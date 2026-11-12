@@ -4,9 +4,12 @@ import { useChat } from '../store/ChatContext.jsx';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { getNotificationRequest } from '../api/notificationRequests.js';
+import { useAuth } from '../store/AuthContext.jsx';
 
 export default function AdminNotificationBell() {
   const api = useApi();
+  const { user } = useAuth();
   const { socket } = useChat() || {};
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -16,7 +19,7 @@ export default function AdminNotificationBell() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await api.get('/admin/notifications');
+      const res = await getNotificationRequest(api, '/admin/notifications', user?._id || user?.id);
       const items = res.data.items || [];
       notificationIds.current = new Set(items.map((item) => item._id).filter(Boolean));
       setNotifications(items);
@@ -27,7 +30,7 @@ export default function AdminNotificationBell() {
 
   const fetchUnreadCount = async () => {
     try {
-      const res = await api.get('/admin/notifications/unread-count');
+      const res = await getNotificationRequest(api, '/admin/notifications/unread-count', user?._id || user?.id);
       setUnreadCount(res.data.count);
     } catch (err) {
       console.error('Error fetching unread count:', err);

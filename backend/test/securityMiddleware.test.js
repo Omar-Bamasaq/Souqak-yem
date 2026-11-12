@@ -64,12 +64,43 @@ test("rate limit middleware enforces configured request limits", async () => {
   const limited = await fetch(`${baseUrl}/limited`);
   assert.equal(limited.status, 429);
   assert.ok(Number(limited.headers.get("ratelimit-limit")) > 0);
+  assert.equal(limited.headers.get("retry-after"), "60");
 });
 
 test("bot detection blocks repeated request bursts", () => {
+  const parallelIp = `security-parallel-${randomUUID()}`;
+  let parallelBlockedStatus = null;
+  const parallelRes = {
+    setHeader() {
+      return this;
+    },
+    status(status) {
+      parallelBlockedStatus = status;
+      return this;
+    },
+    json() {
+      return this;
+    }
+  };
+  for (let index = 0; index < 31; index += 1) {
+    botDetection({
+      ip: parallelIp,
+      method: "GET",
+      path: `/api/home-request-${index}`,
+      originalUrl: `/api/home-request-${index}`,
+      headers: {}
+    }, parallelRes, () => {});
+  }
+  assert.equal(parallelBlockedStatus, null);
+
   const ip = `security-test-${randomUUID()}`;
   let blockedStatus = null;
+  let retryAfter = null;
   const res = {
+    setHeader(name, value) {
+      if (name === "Retry-After") retryAfter = value;
+      return this;
+    },
     status(status) {
       blockedStatus = status;
       return this;
@@ -81,6 +112,7 @@ test("bot detection blocks repeated request bursts", () => {
   const req = {
     ip,
     method: "GET",
+    path: "/api/test",
     originalUrl: "/api/test",
     headers: {},
     user: undefined
@@ -94,5 +126,6 @@ test("bot detection blocks repeated request bursts", () => {
   }
 
   assert.equal(blockedStatus, 429);
+  assert.equal(retryAfter, "60");
   assert.equal(nextCalled, true);
 });

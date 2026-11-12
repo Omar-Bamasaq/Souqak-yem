@@ -15,6 +15,7 @@ export default function rateLimit({
     legacyHeaders: false,
     handler(req, res) {
       logSecurityEvent("Rate limit exceeded", req, { max });
+      res.setHeader("Retry-After", String(Math.ceil(windowMs / 1000)));
       return res.status(429).json({
         error: message,
         retryAfter: Math.ceil(windowMs / 1000),

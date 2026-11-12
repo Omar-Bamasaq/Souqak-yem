@@ -4,6 +4,7 @@ import NodeCache from "node-cache";
 import { getBackendBaseUrl } from "../utils/siteUrl.js";
 
 const MAX_TRACKED_IPS = 10_000;
+const BOT_BLOCK_DURATION_SECONDS = 60;
 const blockCache = new NodeCache({ stdTTL: 3600, maxKeys: MAX_TRACKED_IPS });
 const requestHistory = new Map();
 let requestHistorySweepCounter = 0;
@@ -98,7 +99,7 @@ export const botDetection = (req, res, next) => {
   requestHistorySweepCounter += 1;
   if (requestHistorySweepCounter % 100 === 0) {
     for (const [trackedIp, history] of requestHistory) {
-      if (history.length === 0 || now - history[history.length - 1] >= 10_000) {
+      if (history.length === 0 || now - history[history.length - 1].time >= 10_000) {
         requestHistory.delete(trackedIp);
       }
     }
@@ -106,6 +107,7 @@ export const botDetection = (req, res, next) => {
 
   // 1. Check if IP is blocked
   if (blockCache.has(ip)) {
+    res.setHeader("Retry-After", String(BOT_BLOCK_DURATION_SECONDS));
     return res.status(429).json({ 
       error: "Too Many Requests", 
       message: "Your IP has been temporarily blocked due to suspicious activity. Please try again later." 
@@ -120,35 +122,38 @@ export const botDetection = (req, res, next) => {
   }
 
   const history = requestHistory.get(ip);
-  history.push(now);
+  const requestPath = String(req.path || req.originalUrl || "/");
+  history.push({ time: now, path: requestPath });
 
   // Keep only last 10 seconds of history
-  const recentRequests = history.filter(time => now - time < 10000);
+  const recentRequests = history.filter((request) => now - request.time < 10_000);
   requestHistory.set(ip, recentRequests);
+  const routeRequestCount = recentRequests.filter((request) => request.path === requestPath).length;
 
   // 2. Risk Scoring & Blocking
-  // If more than 30 requests in 10 seconds, block for 30 minutes
-  if (recentRequests.length > 30) {
+  // Count bursts per route so parallel page loads don't look like repeated endpoint abuse.
+  if (routeRequestCount > 30) {
     if (blockCache.keys().length >= MAX_TRACKED_IPS) {
       blockCache.del(blockCache.keys()[0]);
     }
-    blockCache.set(ip, true, 1800); // 30 minutes block
+    blockCache.set(ip, true, BOT_BLOCK_DURATION_SECONDS);
     
     logSecurityEvent("Bot blocked: extreme frequency", req, { 
-      requestCount: recentRequests.length,
-      blockDuration: "30m"
+      requestCount: routeRequestCount,
+      blockDuration: `${BOT_BLOCK_DURATION_SECONDS}s`
     });
 
-    return res.status(429).json({ 
-      error: "Too Many Requests", 
-      message: "Suspicious activity detected. You are blocked for 30 minutes." 
+    res.setHeader("Retry-After", String(BOT_BLOCK_DURATION_SECONDS));
+    return res.status(429).json({
+      error: "Too Many Requests",
+      message: "Suspicious activity detected. You are blocked for 60 seconds."
     });
   }
 
   // If more than 15 requests in 10 seconds, log warning
-  if (recentRequests.length > 15) {
+  if (routeRequestCount > 15) {
     logSecurityEvent("Potential bot detected: high frequency", req, { 
-      requestCount: recentRequests.length 
+      requestCount: routeRequestCount
     });
   }
 

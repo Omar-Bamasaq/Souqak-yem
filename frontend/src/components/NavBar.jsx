@@ -14,6 +14,7 @@ import { useTheme } from "../store/ThemeContext";
 import { useBrokerageStatus } from "../store/BrokerageStatusContext";
 import { uploadsUrl } from "../lib/uploads.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
+import { getNotificationRequest } from "../api/notificationRequests.js";
 
 export default function NavBar() {
   const { user, logout } = useAuth();
@@ -145,7 +146,7 @@ export default function NavBar() {
     (async () => {
       if (!user) return setUnreadNotif(0);
       try {
-        const r = await api.get("/notifications/unread-count");
+        const r = await getNotificationRequest(api, "/notifications/unread-count", user?._id || user?.id);
         setUnreadNotif(Number(r.data?.count || 0));
       } catch {
         setUnreadNotif(0);
@@ -174,7 +175,7 @@ export default function NavBar() {
     if (user) {
       timer = setInterval(async () => {
         try {
-          const rn = await api.get("/notifications/unread-count");
+          const rn = await getNotificationRequest(api, "/notifications/unread-count", user?._id || user?.id);
           setUnreadNotif(Number(rn.data?.count || 0));
         } catch {}
       }, 30000);

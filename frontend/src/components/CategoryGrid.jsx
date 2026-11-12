@@ -6,7 +6,12 @@ import CategoryIcon from "./CategoryIcon.jsx";
 
 export default function CategoryGrid({ isHome = false, layout = "carousel" }) {
   const { prefetchCategoryAds } = useAdsQuery();
-  const { data: categories = [], isLoading: loading } = useMainCategories();
+  const {
+    data: categories = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useMainCategories();
   const scrollRef = useRef(null);
   const isSidebar = layout === "sidebar";
 
@@ -54,6 +59,21 @@ export default function CategoryGrid({ isHome = false, layout = "carousel" }) {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (isError && categories.length === 0) {
+    return (
+      <div role="alert" className="py-8 text-center text-gray-500">
+        <p>تعذّر تحميل الفئات. تحقق من اتصالك ثم أعد المحاولة.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-2 font-bold text-blue-600 hover:underline"
+        >
+          إعادة المحاولة
+        </button>
       </div>
     );
   }

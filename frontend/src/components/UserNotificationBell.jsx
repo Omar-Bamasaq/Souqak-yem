@@ -5,6 +5,7 @@ import { ar } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext.jsx';
 import { useChat } from '../store/ChatContext.jsx';
+import { getNotificationRequest } from '../api/notificationRequests.js';
 
 export default function UserNotificationBell({ mobile = false }) {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export default function UserNotificationBell({ mobile = false }) {
   const fetchNotifications = async () => {
     if (!user) return;
     try {
-      const res = await api.get('/notifications');
+      const res = await getNotificationRequest(api, '/notifications', user?._id || user?.id);
       setNotifications(res.data.items || []); // Use items from the paginated response
     } catch (err) {
       console.error('Error fetching user notifications:', err);
@@ -28,7 +29,7 @@ export default function UserNotificationBell({ mobile = false }) {
   const fetchUnreadCount = async () => {
     if (!user) return;
     try {
-      const res = await api.get('/notifications/unread-count');
+      const res = await getNotificationRequest(api, '/notifications/unread-count', user?._id || user?.id);
       setUnreadCount(res.data.count);
     } catch (err) {
       console.error('Error fetching user unread count:', err);

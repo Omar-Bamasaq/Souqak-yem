@@ -3,6 +3,8 @@ import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
 import { IS_MAINTENANCE } from "../config/maintenance.js";
 import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./csrf.js";
+import { refreshSession } from "./session.js";
+import { getRetryAfterMs, recordRateLimit, waitForRateLimit } from "./retryAfter.js";
 
 let apiInstance = null;
 let isRefreshing = false;
@@ -59,6 +61,7 @@ export function useApi() {
     }
     
     requestInterceptorRef.current = instance.interceptors.request.use(async (config) => {
+      await waitForRateLimit();
       if (IS_MAINTENANCE) {
         console.warn("[Maintenance] Request blocked:", config.url || config.baseURL || "unknown request");
         return Promise.reject(new Error("MAINTENANCE_MODE_ACTIVE"));
@@ -80,10 +83,21 @@ export function useApi() {
     responseInterceptorRef.current = instance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        recordRateLimit(error);
         if (error.response?.data?.code === "CSRF_TOKEN_INVALID") clearCsrfToken();
         const originalRequest = error.config;
         const requestUrl = originalRequest?.url || "";
         const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");
+
+        if (
+          error.response?.status === 429
+          && originalRequest?.method?.toLowerCase() === "get"
+          && !originalRequest._rateLimitRetry
+          && getRetryAfterMs(error) > 0
+        ) {
+          originalRequest._rateLimitRetry = true;
+          return instance(originalRequest);
+        }
         
         const isPrivateMessageRequest = requestUrl.startsWith("message-attachments/")
           || /^conversations\/[^/]+\/messages(?:\/|$)/.test(requestUrl)
@@ -109,17 +123,7 @@ export function useApi() {
 
           try {
             console.log("[API] Access token expired, attempting silent refresh...");
-            const refreshBase = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-            let b = refreshBase.replace(/\/$/, "");
-            if (!b.endsWith("/api")) b = `${b}/api`;
-            const csrfToken = await ensureCsrfToken();
-            
-            const refreshRes = await axios.post(`${b}/auth/refresh-token`, {}, {
-              withCredentials: true,
-              headers: { "X-CSRF-Token": csrfToken }
-            });
-            
-            const newToken = refreshRes.data.token;
+            const newToken = await refreshSession();
             if (newToken) {
               localStorage.setItem("token", newToken);
               setToken(newToken);
@@ -133,8 +137,10 @@ export function useApi() {
           } catch (refreshErr) {
             console.error("[API] Silent token refresh failed, logging out:", refreshErr.message);
             processQueue(refreshErr, null);
-            logout();
-            window.location.href = "/login";
+            if (refreshErr.response?.status !== 429) {
+              logout();
+              window.location.href = "/login";
+            }
             return Promise.reject(refreshErr);
           } finally {
             isRefreshing = false;
