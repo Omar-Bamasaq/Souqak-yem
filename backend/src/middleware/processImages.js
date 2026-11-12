@@ -23,18 +23,24 @@ const SAFE_IMAGE_FAILURE_REASONS = new Set([
   "image_processing_failed"
 ]);
 
-async function createWatermark(width) {
+async function createWatermark(width, height) {
   if (!fs.existsSync(watermarkPath)) {
     throw new Error("Watermark logo is unavailable.");
   }
-  const logoWidth = Math.max(60, Math.min(160, Math.round(width * 0.16)));
+  const desiredWidth = Math.max(60, Math.min(160, Math.round(width * 0.16)));
+  const logoWidth = Math.max(1, Math.min(
+    desiredWidth,
+    width,
+    Math.floor(height / 0.36) || 1
+  ));
+  const logoHeight = Math.max(1, Math.round(logoWidth * 0.36));
   const logo = await sharp(watermarkPath)
     .resize(logoWidth, null, { fit: "inside" })
     .png()
     .toBuffer();
   const logoData = logo.toString("base64");
   return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${logoWidth}" height="${Math.round(logoWidth * 0.36)}"><image href="data:image/png;base64,${logoData}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMax yMin meet" opacity="0.72"/></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${logoWidth}" height="${logoHeight}"><image href="data:image/png;base64,${logoData}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMax yMin meet" opacity="0.72"/></svg>`
   );
 }
 
@@ -52,9 +58,13 @@ function getImageFailureReason(error) {
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("only jpeg") || message.includes("unsupported image format")) return "unsupported_format";
   if (message.includes("corrupt") || message.includes("invalid image")) return "corrupt_or_unsupported";
-  if (message.includes("dimension") || message.includes("pixel limit")) return "dimensions_exceeded";
+  if (message.includes("image dimensions exceed the allowed limit") || message.includes("pixel limit")) {
+    return "dimensions_exceeded";
+  }
+  if (message.includes("image to composite") || message.includes("watermark")) {
+    return "watermark_processing_failed";
+  }
   if (message.includes("output size")) return "output_size_exceeded";
-  if (message.includes("watermark")) return "watermark_processing_failed";
   if (message.includes("replace an existing")) return "output_collision";
   return "image_processing_failed";
 }
@@ -135,7 +145,7 @@ export default function processImages(_type = "ads") {
           baseName: `public-${uuidv4()}`,
           maxInputPixels: IMAGE_PROCESSING_LIMITS.maxInputPixels,
           maxInputDimension: IMAGE_PROCESSING_LIMITS.maxInputDimension,
-          watermarkForVariant: ({ width }) => createWatermark(width)
+          watermarkForVariant: ({ width, height }) => createWatermark(width, height)
         });
 
         const newPaths = new Set(Object.values(variants.paths));

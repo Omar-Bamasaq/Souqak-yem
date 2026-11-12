@@ -128,3 +128,50 @@ test("reprocesses upload-stage WebP variants with EXIF rotation within shared di
     await fs.promises.rm(directory, { recursive: true, force: true });
   }
 });
+
+test("watermarks narrow portrait WebP inputs at 64x1200 and 50x1200", async () => {
+  const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "souqak-narrow-watermark-"));
+  const dimensions = [[64, 1_200], [50, 1_200]];
+
+  try {
+    const files = await Promise.all(dimensions.map(async ([width, height]) => {
+      const filename = `source-${width}.webp`;
+      const sourcePath = path.join(directory, filename);
+      await sharp({
+        create: {
+          width,
+          height,
+          channels: 3,
+          background: { r: 35, g: 110, b: 190 }
+        }
+      }).webp().toFile(sourcePath);
+      return {
+        filename,
+        path: sourcePath,
+        destination: directory,
+        mimetype: "image/webp",
+        imageVariants: {
+          full: filename,
+          med: `${width}.med.webp`,
+          thumb: `${width}.thumb.webp`
+        }
+      };
+    }));
+    sharp.cache(false);
+    const req = { files };
+
+    await new Promise((resolve, reject) => {
+      processImages()(req, {}, (error) => error ? reject(error) : resolve());
+    });
+
+    assert.deepEqual(req.imageProcessingErrors, []);
+    for (const file of req.files) {
+      for (const variant of Object.values(file.imageVariants)) {
+        assert.equal(fs.existsSync(path.join(directory, variant)), true);
+      }
+    }
+  } finally {
+    sharp.cache(false);
+    await fs.promises.rm(directory, { recursive: true, force: true });
+  }
+});
