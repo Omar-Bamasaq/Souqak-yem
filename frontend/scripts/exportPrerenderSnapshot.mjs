@@ -9,8 +9,13 @@ import { validatePrerenderSnapshot, loadPrerenderSnapshot, PRERENDER_SNAPSHOT_SC
 
 export const DEFAULT_MAX_AGE_MS = 86_400_000;
 const idPattern = /^[a-f\d]{24}$/i;
+const sourceCommitPattern = /^[0-9a-f]{40}$/;
 const pick = (value, fields) => Object.fromEntries(fields.filter(k => Object.hasOwn(value, k)).map(k => [k, value[k]]));
 function requireValue(ok, message) { if (!ok) throw new Error(message); }
+function validateSourceCommit(value) {
+  requireValue(typeof value === 'string' && sourceCommitPattern.test(value), 'SEO_EXPORT_SOURCE_COMMIT must be a full lowercase 40-character Git commit hash');
+  return value;
+}
 function rejectSensitiveText(value, fieldPath) {
   if (/(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?967[\s-]*)?7[01378](?:[\s-]*\d){7}\b|(?:bearer\s|(?:password|token|secret|api[_-]?key)\s*[:=])|(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f))/i.test(value)) {
     throw new Error(`Sensitive public text or link at ${fieldPath} (type: ${typeof value})`);
@@ -78,8 +83,9 @@ export async function createPrerenderSnapshot({
   apiBase = 'https://api.souqak-yem.com/api', siteBaseUrl = 'https://souqak-yem.com',
   fetchImpl = fetch, now = Date.now, maxAgeMs = DEFAULT_MAX_AGE_MS,
   expectedCategoryCount = 22, pageSize = 50, delayMs = 2500,
-  allowLoopback = false
+  allowLoopback = false, sourceCommit
 } = {}) {
+  const validatedSourceCommit = sourceCommit === undefined ? undefined : validateSourceCommit(sourceCommit);
   const base = new URL(apiBase);
   requireValue(!base.username && !base.password && !base.search && !base.hash &&
     (base.protocol === 'https:' || (allowLoopback && base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname))), 'API must use credential-free HTTPS');
@@ -177,7 +183,9 @@ export async function createPrerenderSnapshot({
   }
   const finished = now();
   requireValue(finished - started < maxAgeMs, 'Export exceeded snapshot lifetime');
-  const snapshot = { metadata: { source: 'public-api', sourceDatabase: 'not-accessed-public-api', exportedAt: new Date(started).toISOString(), schemaVersion: PRERENDER_SNAPSHOT_SCHEMA_VERSION, siteBaseUrl: site, maxAgeMs, expiresAt: new Date(started + maxAgeMs).toISOString() }, categories, ads, categorySsgDataBySlug };
+  const metadata = { source: 'public-api', sourceDatabase: 'not-accessed-public-api', exportedAt: new Date(started).toISOString(), schemaVersion: PRERENDER_SNAPSHOT_SCHEMA_VERSION, siteBaseUrl: site, maxAgeMs, expiresAt: new Date(started + maxAgeMs).toISOString() };
+  if (validatedSourceCommit !== undefined) metadata.sourceCommit = validatedSourceCommit;
+  const snapshot = { metadata, categories, ads, categorySsgDataBySlug };
   // Metadata contains intentional site URL; inspect all content independently.
   inspectPublicData({ categories, ads, categorySsgDataBySlug }, mediaOrigins);
   validatePrerenderSnapshot(snapshot, { now: finished, maxAgeMs, expectedSiteBaseUrl: site });
@@ -205,7 +213,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       await loadPrerenderSnapshot(outputPath, { maxAgeMs, expectedSiteBaseUrl: process.env.PUBLIC_SITE_URL || 'https://souqak-yem.com' });
     } else {
       requireValue(command === '--output' && process.argv.length === 4, 'Usage: node scripts/exportPrerenderSnapshot.mjs --output /absolute/new-snapshot.json | --validate /absolute/snapshot.json');
-      await exportPrerenderSnapshot(outputPath, { apiBase: process.env.SEO_EXPORT_API_BASE || 'https://api.souqak-yem.com/api', siteBaseUrl: process.env.PUBLIC_SITE_URL || 'https://souqak-yem.com', maxAgeMs: Number(process.env.SEO_PRERENDER_MAX_AGE_MS || DEFAULT_MAX_AGE_MS) });
+      await exportPrerenderSnapshot(outputPath, { apiBase: process.env.SEO_EXPORT_API_BASE || 'https://api.souqak-yem.com/api', siteBaseUrl: process.env.PUBLIC_SITE_URL || 'https://souqak-yem.com', maxAgeMs: Number(process.env.SEO_PRERENDER_MAX_AGE_MS || DEFAULT_MAX_AGE_MS), sourceCommit: process.env.SEO_EXPORT_SOURCE_COMMIT });
     }
     console.log('SEO snapshot validated.');
   } catch (error) { console.error(error.message); process.exitCode = 1; }

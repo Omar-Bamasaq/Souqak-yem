@@ -1,12 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { createPrerenderSnapshot, exportPrerenderSnapshot, DEFAULT_MAX_AGE_MS } from '../scripts/exportPrerenderSnapshot.mjs';
 import { loadPrerenderSnapshot } from '../scripts/validatePrerenderSnapshot.mjs';
 import { getPrerenderData } from '../scripts/prerenderData.mjs';
+const execFileAsync=promisify(execFile), exporterPath=fileURLToPath(new URL('../scripts/exportPrerenderSnapshot.mjs',import.meta.url));
 const time = Date.parse('2026-11-11T10:00:00Z'), catId = 'a'.repeat(24);
 const category = { _id: catId, slug: 'cars', name: 'Cars', description: '', image: null, children: [] };
 function ad(n=1) { return { _id:n.toString(16).padStart(24,'0'), slug:`car-${n}`, title:'Car', description:'Public description', status:'approved', isDeleted:false, isVisible:true, isArchived:false, sold:false, expiresAt:'2026-12-11T10:00:00Z', adType:'sell', price:100, currency:'YER', priceOnContact:false, images:['car.webp'], categoryId:category }; }
@@ -41,6 +45,33 @@ test('exports complete paginated allowlisted JSON; reloads offline and rejects s
   await assert.rejects(exportPrerenderSnapshot(file,options),/EEXIST/);assert.equal((await fs.readdir(dir)).length,1);
 });
 test('zero ads succeeds',async t=>{const {options}=await mock(t,{ads:[]});const d=await createPrerenderSnapshot(options);assert.deepEqual(d.ads,[]);assert.deepEqual(d.categorySsgDataBySlug.cars.ads,[]);});
+test('records a valid source commit and omits it when unset',async t=>{
+ const sourceCommit='abcdef0123456789abcdef0123456789abcdef01';
+ const {options}=await mock(t,{ads:[]});
+ const withCommit=await createPrerenderSnapshot({...options,sourceCommit});
+ assert.equal(withCommit.metadata.sourceCommit,sourceCommit);
+ const withoutCommit=await createPrerenderSnapshot(options);
+ assert.equal(Object.hasOwn(withoutCommit.metadata,'sourceCommit'),false);
+ const {sourceCommit:_,...metadataWithoutCommit}=withCommit.metadata;
+ assert.deepEqual(metadataWithoutCommit,withoutCommit.metadata);
+});
+test('rejects invalid source commit values',async t=>{
+ const {options}=await mock(t,{ads:[]});
+ for(const sourceCommit of ['release','abcdef0123456789abcdef0123456789abcdef0A','abcdef0123456789abcdef0123456789abcdef0','g'.repeat(40),'']) {
+  await assert.rejects(createPrerenderSnapshot({...options,sourceCommit}),/SEO_EXPORT_SOURCE_COMMIT.*40-character/);
+ }
+});
+test('CLI reads and rejects an invalid SEO_EXPORT_SOURCE_COMMIT before API access',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'seo-source-commit-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const outputPath=path.join(dir,'snapshot.json');
+ await assert.rejects(execFileAsync(process.execPath,[exporterPath,'--output',outputPath],{
+  env:{...process.env,SEO_EXPORT_SOURCE_COMMIT:'release',SEO_EXPORT_API_BASE:'invalid'}
+ }),error=>{
+  assert.match(error.stderr,/SEO_EXPORT_SOURCE_COMMIT.*40-character/);
+  return true;
+ });
+ assert.deepEqual(await fs.readdir(dir),[]);
+});
 test('omits safe SVG images from main and child category snapshots',async t=>{
  const child={...category,_id:'b'.repeat(24),slug:'child',name:'Child',image:'/uploads/categories/child.svg'};
  const {options}=await mock(t,{ads:[],mutate(u,d){
