@@ -217,7 +217,7 @@ function ServiceFeatureBanner({ banner, className }) {
             </a>
             <div className="flex shrink-0 items-center gap-1.5" role="group" aria-label={`شرائح ${banner.detailHeading}`}>
               <button type="button" onClick={() => changeSlide(-1)} aria-label="الشريحة السابقة" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xs transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white sm:h-9 sm:w-9">›</button>
-              <div className="flex items-center gap-1" aria-label={`الشريحة ${activeIndex + 1} من ${slides.length}`}>
+              <div className="flex items-center gap-0.5" role="group" aria-label={`الشريحة ${activeIndex + 1} من ${slides.length}`}>
                 {slides.map((slide, index) => (
                   <button
                     key={`${banner.id}-${index}`}
@@ -225,8 +225,10 @@ function ServiceFeatureBanner({ banner, className }) {
                     onClick={() => setActiveIndex(index)}
                     aria-label={`عرض الشريحة ${index + 1}`}
                     aria-current={index === activeIndex ? "true" : undefined}
-                    className={`h-1.5 rounded-full transition-all ${index === activeIndex ? "w-4 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"}`}
-                  />
+                    className="flex h-6 w-6 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-white"
+                  >
+                    <span aria-hidden="true" className={`block rounded-full transition-colors ${index === activeIndex ? "h-2 w-2 bg-white ring-2 ring-white/30" : "h-1.5 w-1.5 bg-white/50"}`} />
+                  </button>
                 ))}
               </div>
               <button type="button" onClick={() => changeSlide(1)} aria-label="الشريحة التالية" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xs transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white sm:h-9 sm:w-9">‹</button>
@@ -287,38 +289,40 @@ export default function ServiceFeatureCarousel({ className = "", variant = "caro
       <div aria-hidden="true" className={`absolute -left-10 -top-16 h-48 w-48 rounded-full blur-3xl ${activeBanner.glow}`} />
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_15%_100%,rgba(255,255,255,0.2),transparent_48%)]" />
 
-      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5">
-        <ServiceIllustration id={activeBanner.id} className="hidden h-28 w-36 shrink-0 drop-shadow-xl sm:block" />
+      <div className="relative flex items-center gap-2 sm:gap-5">
+        <ServiceIllustration id={activeBanner.id} className="order-2 h-14 w-16 shrink-0 drop-shadow-xl sm:order-none sm:h-28 sm:w-36" />
 
-        <div className="min-w-0 flex-1" aria-live="polite" aria-atomic="true">
+        <div className="order-1 min-w-0 flex-1 sm:order-none" aria-live="polite" aria-atomic="true">
           <p className="mb-0.5 hidden text-xs font-black tracking-wide text-white/75 sm:block sm:mb-1">اكتشف من خدمات سوقك</p>
           <h2 className="break-words text-sm font-black leading-5 sm:text-2xl sm:leading-8">{activeBanner.title}</h2>
           <p className="mt-0.5 break-words text-[11px] font-medium leading-4 text-white/90 sm:mt-1 sm:text-sm sm:leading-6">{activeBanner.description}</p>
-          <div className="mt-1.5 flex items-center justify-between gap-2 sm:mt-3">
+          <div className="mt-1.5 flex items-center justify-start gap-2 sm:mt-3">
             <Link to={activeBanner.to} className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-slate-900 shadow-md transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-white sm:min-h-10 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm">
               {activeBanner.action}<span aria-hidden="true">←</span>
             </Link>
 
-            <div className="flex shrink-0 items-center justify-center gap-1 sm:gap-2" aria-label={`البانر ${activeIndex + 1} من ${banners.length}`}>
+            <div className="flex shrink-0 items-center justify-center gap-1 sm:gap-2">
               <button type="button" onClick={() => changeBanner(-1)} aria-label="البانر السابق" className="flex h-6 w-6 items-center justify-center rounded-full border border-white/25 bg-white/10 text-[10px] font-black transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white sm:h-8 sm:w-8 sm:text-sm">
                 ›
               </button>
-              <div className="flex items-center gap-1">
-                {banners.map((banner, index) => (
-                  <button
-                    key={banner.id}
-                    type="button"
-                    onClick={() => setActiveIndex(index)}
-                    aria-label={`عرض بانر: ${banner.title}`}
-                    aria-current={index === activeIndex ? "true" : undefined}
-                    className={`h-1.5 rounded-full transition-all sm:h-2 ${index === activeIndex ? "w-4 bg-white sm:w-6" : "w-1.5 bg-white/50 hover:bg-white/80 sm:w-2"}`}
-                  />
-                ))}
-              </div>
               <button type="button" onClick={() => changeBanner(1)} aria-label="البانر التالي" className="flex h-6 w-6 items-center justify-center rounded-full border border-white/25 bg-white/10 text-[10px] font-black transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white sm:h-8 sm:w-8 sm:text-sm">
                 ‹
               </button>
             </div>
+          </div>
+          <div className="mt-0 flex items-center justify-center gap-0" role="group" aria-label={`البانر ${activeIndex + 1} من ${banners.length}`}>
+            {banners.map((banner, index) => (
+              <button
+                key={banner.id}
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                aria-label={`عرض بانر: ${banner.title}`}
+                aria-current={index === activeIndex ? "true" : undefined}
+                className="flex h-4 w-4 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-white"
+              >
+                <span aria-hidden="true" className={`block rounded-full transition-colors ${index === activeIndex ? "h-2 w-2 bg-white ring-2 ring-white/30" : "h-1.5 w-1.5 bg-white/50"}`} />
+              </button>
+            ))}
           </div>
         </div>
       </div>

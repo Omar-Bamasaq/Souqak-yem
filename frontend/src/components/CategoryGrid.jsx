@@ -148,12 +148,12 @@ export default function CategoryGrid({ isHome = false, layout = "carousel" }) {
               key={category.id}
               to={`/category/${category.slug}`}
               onMouseEnter={() => prefetchCategoryAds(category.name)}
-              className={`group relative flex flex-col items-center p-0 sm:p-4 rounded-none sm:rounded-[28px] bg-transparent sm:bg-white/90 dark:bg-transparent sm:dark:bg-slate-900/90 border-0 sm:border border-slate-200/80 dark:border-slate-700/80 shadow-none sm:shadow-[0_16px_35px_-20px_rgba(37,99,235,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-18px_rgba(59,130,246,0.45)] hover:border-blue-200 dark:hover:border-blue-900 hover:bg-blue-50/70 dark:hover:bg-slate-800/80 snap-start w-[72px] sm:w-[165px] ${isHome ? "h-[88px] sm:h-[180px]" : "h-[112px] sm:h-[180px]"} flex-shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both`}
+              className={`group relative flex flex-col items-center rounded-none sm:rounded-[28px] bg-transparent sm:bg-white/90 dark:bg-transparent sm:dark:bg-slate-900/90 border-0 sm:border border-slate-200/80 dark:border-slate-700/80 shadow-none sm:shadow-[0_16px_35px_-20px_rgba(37,99,235,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-18px_rgba(59,130,246,0.45)] hover:border-blue-200 dark:hover:border-blue-900 hover:bg-blue-50/70 dark:hover:bg-slate-800/80 snap-start flex-shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ${isHome ? "min-h-[124px] w-[84px] p-1.5 sm:min-h-[180px] sm:w-[165px] sm:p-4" : "h-[112px] w-[72px] p-0 sm:h-[180px] sm:w-[165px] sm:p-4"}`}
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="pointer-events-none absolute inset-x-2 top-2 hidden h-10 rounded-full bg-gradient-to-r from-blue-100/80 via-cyan-100/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:block dark:from-blue-950/30 dark:via-cyan-900/25 dark:to-transparent" />
 
-              <div className={`${isHome ? "h-12 w-12 sm:h-20 sm:w-20" : "h-16 w-16 sm:h-20 sm:w-20"} relative z-10 mb-1 flex-shrink-0 rounded-full border border-slate-200/70 bg-gradient-to-br from-slate-100 via-white to-blue-50 shadow-inner shadow-slate-200/70 transition-all duration-300 group-hover:border-blue-200 group-hover:bg-gradient-to-br group-hover:from-blue-100 group-hover:via-white group-hover:to-blue-50 dark:border-slate-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 dark:shadow-slate-950/40 dark:group-hover:border-blue-900 dark:group-hover:from-blue-950/40 dark:group-hover:via-slate-900 dark:group-hover:to-blue-950/30 sm:rounded-[22px] sm:border-0 sm:shadow-md`}>
+              <div className={`${isHome ? "h-12 w-12 sm:h-20 sm:w-20 mb-2 sm:mb-3" : "h-16 w-16 sm:h-20 sm:w-20 mb-1"} relative z-10 flex-shrink-0 rounded-full border border-slate-200/70 bg-gradient-to-br from-slate-100 via-white to-blue-50 shadow-inner shadow-slate-200/70 transition-all duration-300 group-hover:border-blue-200 group-hover:bg-gradient-to-br group-hover:from-blue-100 group-hover:via-white group-hover:to-blue-50 dark:border-slate-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 dark:shadow-slate-950/40 dark:group-hover:border-blue-900 dark:group-hover:from-blue-950/40 dark:group-hover:via-slate-900 dark:group-hover:to-blue-950/30 sm:rounded-[22px] sm:border-0 sm:shadow-md`}>
                 <div className="absolute inset-0 rounded-full bg-white/30 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:rounded-[22px]" />
                 <div className="relative z-10 flex h-full w-full items-center justify-center">
                   <CategoryIcon
@@ -164,11 +164,11 @@ export default function CategoryGrid({ isHome = false, layout = "carousel" }) {
                 </div>
               </div>
 
-              <div className="relative z-10 flex w-full flex-col items-center justify-center overflow-hidden text-center">
-                <h3 className={`${isHome ? "text-[10px] sm:text-[14px]" : "text-[11px] sm:text-[14px]"} line-clamp-2 min-h-[2.2em] px-1 font-black leading-tight text-slate-800 transition-colors duration-300 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-300`}>
+              <div className={`relative z-10 flex w-full min-w-0 flex-col items-center justify-center text-center ${isHome ? "" : "overflow-hidden"}`}>
+                <h3 className={`${isHome ? "min-h-[2.5rem] break-words [overflow-wrap:anywhere] text-[10px] sm:text-[14px]" : "line-clamp-2 min-h-[2.2em] text-[11px] sm:text-[14px]"} w-full px-1 font-black leading-tight text-slate-800 transition-colors duration-300 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-300`}>
                   {category.name}
                 </h3>
-                <span className="mt-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold text-slate-500 transition-all duration-300 group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 dark:group-hover:border-blue-900 dark:group-hover:bg-blue-950/20 dark:group-hover:text-blue-300 sm:text-[11px]">
+                <span className="mt-1 inline-flex shrink-0 whitespace-nowrap items-center rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[8px] font-bold text-slate-500 transition-all duration-300 group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400 dark:group-hover:border-blue-900 dark:group-hover:bg-blue-950/20 dark:group-hover:text-blue-300 sm:text-[11px]">
                   {(category.adCount || 0).toLocaleString("ar-EG")} إعلان
                 </span>
               </div>

@@ -162,12 +162,19 @@ export default function SponsoredAdSlot({ position }) {
                 key={campaign._id}
                 type="button"
                 onClick={() => showCampaignAt(index)}
-                className={`h-1.5 rounded-full transition-[width,background-color] ${
-                  index === currentIndex ? "w-3 bg-blue-600" : "w-1.5 bg-slate-300 dark:bg-slate-600"
-                }`}
+                className="flex h-5 w-5 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label={`الإعلان ${index + 1} من ${activeCampaigns.length}`}
                 aria-current={index === currentIndex ? "true" : undefined}
-              />
+              >
+                <span
+                  aria-hidden="true"
+                  className={`block rounded-full transition-colors ${
+                    index === currentIndex
+                      ? "h-2 w-2 bg-blue-600"
+                      : "h-1.5 w-1.5 bg-slate-300 dark:bg-slate-600"
+                  }`}
+                />
+              </button>
             ))}
           </div>
           <button
