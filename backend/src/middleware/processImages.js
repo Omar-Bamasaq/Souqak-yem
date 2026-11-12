@@ -65,6 +65,59 @@ function getSafeErrorCode(error) {
     : null;
 }
 
+function isAdCreationRequest(req) {
+  return req.method === "POST" && req.baseUrl === "/api/ads" && req.path === "/";
+}
+
+function safeMetadataInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+async function getDimensionFailureDiagnostics(file) {
+  const imageVariantsPresent = Boolean(
+    file?.imageVariants && typeof file.imageVariants === "object" && !Array.isArray(file.imageVariants)
+  );
+  let pathMatchesUploadFullVariant = false;
+  try {
+    pathMatchesUploadFullVariant = Boolean(
+      typeof file?.path === "string"
+      && typeof file.destination === "string"
+      && typeof file.imageVariants?.full === "string"
+      && path.resolve(file.path) === path.resolve(file.destination, file.imageVariants.full)
+    );
+  } catch {
+    pathMatchesUploadFullVariant = false;
+  }
+
+  let metadataRead = false;
+  let inputDimensions = { width: null, height: null, pages: null, orientation: null };
+  try {
+    if (!file?.path) throw new Error("Image path is unavailable.");
+    const metadata = await sharp(file.path, {
+      failOn: "warning",
+      limitInputPixels: IMAGE_PROCESSING_LIMITS.maxInputPixels
+    }).metadata();
+    inputDimensions = {
+      width: safeMetadataInteger(metadata.width),
+      height: safeMetadataInteger(metadata.height),
+      pages: safeMetadataInteger(metadata.pages),
+      orientation: safeMetadataInteger(metadata.orientation)
+    };
+    metadataRead = true;
+  } catch {
+    metadataRead = false;
+  }
+
+  return {
+    inputDimensions,
+    metadataRead,
+    imageVariantsPresent,
+    pathMatchesUploadFullVariant,
+    maxInputPixels: IMAGE_PROCESSING_LIMITS.maxInputPixels,
+    maxInputDimension: IMAGE_PROCESSING_LIMITS.maxInputDimension
+  };
+}
+
 export default function processImages(_type = "ads") {
   return async (req, _res, next) => {
     req.imageProcessingErrors = [];
@@ -115,11 +168,15 @@ export default function processImages(_type = "ads") {
           thumb: variants.names.thumb
         };
       } catch (error) {
+        const reason = getImageFailureReason(error);
         req.imageProcessingErrors.push({
           imageIndex: index + 1,
           stage: "variant_generation",
           code: getSafeErrorCode(error),
-          reason: getImageFailureReason(error)
+          reason,
+          ...(reason === "dimensions_exceeded" && isAdCreationRequest(req)
+            ? { diagnostics: await getDimensionFailureDiagnostics(file) }
+            : {})
         });
       }
     }
@@ -152,20 +209,32 @@ export function validateProcessedImages(req, res, next) {
   }
 
   if (errors.length > 0) {
-    if (req.method === "POST" && req.baseUrl === "/api/ads" && req.path === "/") {
+    if (isAdCreationRequest(req)) {
       logger.warn({
         event: "ad_image_processing_failed",
         requestId: req.id || null,
-        imageFailures: errors.slice(0, 10).map((failure, index) => ({
-          imageIndex: Number.isInteger(failure.imageIndex) ? failure.imageIndex : index + 1,
-          stage: SAFE_IMAGE_FAILURE_STAGES.has(failure.stage) ? failure.stage : "unknown",
-          reason: SAFE_IMAGE_FAILURE_REASONS.has(failure.reason)
+        imageFailures: errors.slice(0, 10).map((failure, index) => {
+          const reason = SAFE_IMAGE_FAILURE_REASONS.has(failure.reason)
             ? failure.reason
-            : "image_processing_failed",
-          code: typeof failure.code === "string" && /^[A-Z0-9_]{1,40}$/i.test(failure.code)
-            ? failure.code
-            : null
-        }))
+            : "image_processing_failed";
+          const diagnostics = reason === "dimensions_exceeded" ? failure.diagnostics : null;
+          return {
+            imageIndex: Number.isInteger(failure.imageIndex) ? failure.imageIndex : index + 1,
+            stage: SAFE_IMAGE_FAILURE_STAGES.has(failure.stage) ? failure.stage : "unknown",
+            reason,
+            code: typeof failure.code === "string" && /^[A-Z0-9_]{1,40}$/i.test(failure.code)
+              ? failure.code
+              : null,
+            ...(diagnostics ? {
+              inputDimensions: diagnostics.inputDimensions,
+              metadataRead: Boolean(diagnostics.metadataRead),
+              imageVariantsPresent: Boolean(diagnostics.imageVariantsPresent),
+              pathMatchesUploadFullVariant: Boolean(diagnostics.pathMatchesUploadFullVariant),
+              maxInputPixels: IMAGE_PROCESSING_LIMITS.maxInputPixels,
+              maxInputDimension: IMAGE_PROCESSING_LIMITS.maxInputDimension
+            } : {})
+          };
+        })
       });
     }
 

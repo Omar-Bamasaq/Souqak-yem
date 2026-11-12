@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import imageCompression from "browser-image-compression";
-import { normalizeImageUploadFile } from "../lib/imageCompression.js";
+import { normalizeImageUploadFile, shouldCompressAdImage } from "../lib/imageCompression.js";
 import { useApi } from "../api/axios.js";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -299,7 +299,7 @@ export default function AddProduct() {
     for (let index = 0; index < selectedFiles.length; index += 1) {
       const file = selectedFiles[index];
       const isHeic = /heic|heif/i.test(file.type || "");
-      const shouldCompress = file.size > 500 * 1024 || isHeic;
+      const shouldCompress = await shouldCompressAdImage(file, isHeic);
 
       setPrepareStatus(`جاري تجهيز الصور ${index + 1} من ${selectedFiles.length}...`);
 

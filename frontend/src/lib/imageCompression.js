@@ -20,6 +20,21 @@ export function isPdfFile(file) {
   return type === "application/pdf" || name.endsWith(".pdf");
 }
 
+export async function shouldCompressAdImage(file, isHeic = false) {
+  if (!file || file.size > 500 * 1024 || isHeic) return true;
+  if (typeof createImageBitmap !== "function") return false;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    return bitmap.width > 1600 || bitmap.height > 1600;
+  } catch {
+    return true;
+  } finally {
+    bitmap?.close();
+  }
+}
+
 export async function convertImageToWebp(file) {
   if (!file || !isImageFile(file)) {
     throw new Error("يرجى اختيار صورة سند بصيغة JPG أو PNG أو WebP.");
