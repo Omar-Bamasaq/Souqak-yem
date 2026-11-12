@@ -18,6 +18,7 @@ import { getStoreCategoriesForActivity } from "../utils/storeCategories.js";
 import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
 import SmartProgress from "../components/SmartProgress.jsx";
 import { calculateAdProgress, getAdProgressMessage } from "../utils/adProgress.js";
+import { getAdCreationError } from "../utils/adCreationError.js";
 
 export default function AddProduct() {
   const { data: governoratesData = [] } = useGovernorates();
@@ -584,7 +585,7 @@ export default function AddProduct() {
         form.append("attributes", JSON.stringify(attributes));
       }
       
-      const res = await api.post("/ads", form);
+      const res = await api.post("/ads", form, { timeout: 5 * 60 * 1000 });
     const created = res.data;
     if (created?._id) {
       // Create brokerage campaign if enabled
@@ -611,9 +612,12 @@ export default function AddProduct() {
       console.error("Ad creation failed:", e);
       const status = e?.response?.status;
       const data = e?.response?.data;
+      const adCreationError = getAdCreationError(e);
 
       if (e?.message === "تعذر تجهيز إحدى الصور. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.") {
         setErr(e.message);
+      } else if (adCreationError) {
+        setErr(adCreationError);
       } else if (status === 401) {
         setErr("يرجى تسجيل الدخول أولاً");
       } else if (status === 403 && data?.code === "PHONE_VERIFICATION_REQUIRED") {
@@ -647,8 +651,6 @@ export default function AddProduct() {
         } else {
           setErr(errorMsg || t("addProduct.error"));
         }
-      } else if (e?.code === "ERR_NETWORK") {
-        setErr("فشل الاتصال بالشبكة أثناء رفع الإعلان. يرجى التحقق من الإنترنت ثم المحاولة مرة أخرى.");
       } else {
         setErr(t("addProduct.error"));
       }

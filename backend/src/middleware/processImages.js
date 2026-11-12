@@ -7,9 +7,21 @@ import {
   IMAGE_PROCESSING_LIMITS,
   processPublicImageVariants
 } from "../services/publicImagePipeline.js";
+import logger from "../lib/logger.js";
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const watermarkPath = path.join(backendRoot, "src", "assets", "souqak-watermark.svg");
+const SAFE_IMAGE_FAILURE_STAGES = new Set(["variant_generation", "variant_validation"]);
+const SAFE_IMAGE_FAILURE_REASONS = new Set([
+  "unsupported_format",
+  "corrupt_or_unsupported",
+  "dimensions_exceeded",
+  "output_size_exceeded",
+  "watermark_processing_failed",
+  "output_collision",
+  "required_variants_missing",
+  "image_processing_failed"
+]);
 
 async function createWatermark(width) {
   if (!fs.existsSync(watermarkPath)) {
@@ -36,11 +48,28 @@ function filesFromRequest(req) {
   return files;
 }
 
+function getImageFailureReason(error) {
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("only jpeg") || message.includes("unsupported image format")) return "unsupported_format";
+  if (message.includes("corrupt") || message.includes("invalid image")) return "corrupt_or_unsupported";
+  if (message.includes("dimension") || message.includes("pixel limit")) return "dimensions_exceeded";
+  if (message.includes("output size")) return "output_size_exceeded";
+  if (message.includes("watermark")) return "watermark_processing_failed";
+  if (message.includes("replace an existing")) return "output_collision";
+  return "image_processing_failed";
+}
+
+function getSafeErrorCode(error) {
+  return typeof error?.code === "string" && /^[A-Z0-9_]{1,40}$/i.test(error.code)
+    ? error.code
+    : null;
+}
+
 export default function processImages(_type = "ads") {
   return async (req, _res, next) => {
     req.imageProcessingErrors = [];
 
-    for (const file of filesFromRequest(req)) {
+    for (const [index, file] of filesFromRequest(req).entries()) {
       if (path.extname(file.filename).toLowerCase() === ".pdf") continue;
 
       const oldVariantPaths = file.imageVariants
@@ -87,8 +116,10 @@ export default function processImages(_type = "ads") {
         };
       } catch (error) {
         req.imageProcessingErrors.push({
-          filename: file.filename || null,
-          message: error.message || "Image processing failed"
+          imageIndex: index + 1,
+          stage: "variant_generation",
+          code: getSafeErrorCode(error),
+          reason: getImageFailureReason(error)
         });
       }
     }
@@ -100,7 +131,7 @@ export function validateProcessedImages(req, res, next) {
   const files = Array.isArray(req.files) ? req.files : [];
   const errors = Array.isArray(req.imageProcessingErrors) ? req.imageProcessingErrors : [];
 
-  for (const file of files) {
+  for (const [index, file] of files.entries()) {
     const variants = file.imageVariants;
     const variantsExist = variants
       && ["full", "med", "thumb"].every((variant) => {
@@ -112,13 +143,32 @@ export function validateProcessedImages(req, res, next) {
 
     if (!variantsExist) {
       errors.push({
-        filename: file.filename || null,
-        message: "Image processing did not create all required variants."
+        imageIndex: index + 1,
+        stage: "variant_validation",
+        code: "MISSING_VARIANTS",
+        reason: "required_variants_missing"
       });
     }
   }
 
   if (errors.length > 0) {
+    if (req.method === "POST" && req.baseUrl === "/api/ads" && req.path === "/") {
+      logger.warn({
+        event: "ad_image_processing_failed",
+        requestId: req.id || null,
+        imageFailures: errors.slice(0, 10).map((failure, index) => ({
+          imageIndex: Number.isInteger(failure.imageIndex) ? failure.imageIndex : index + 1,
+          stage: SAFE_IMAGE_FAILURE_STAGES.has(failure.stage) ? failure.stage : "unknown",
+          reason: SAFE_IMAGE_FAILURE_REASONS.has(failure.reason)
+            ? failure.reason
+            : "image_processing_failed",
+          code: typeof failure.code === "string" && /^[A-Z0-9_]{1,40}$/i.test(failure.code)
+            ? failure.code
+            : null
+        }))
+      });
+    }
+
     return res.status(422).json({
       error: "تعذر تجهيز الصور. لم يتم حفظ الإعلان، يرجى إعادة رفع الصور.",
       code: "IMAGE_PROCESSING_FAILED"
