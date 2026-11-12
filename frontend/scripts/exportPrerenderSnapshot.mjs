@@ -11,6 +11,11 @@ export const DEFAULT_MAX_AGE_MS = 86_400_000;
 const idPattern = /^[a-f\d]{24}$/i;
 const pick = (value, fields) => Object.fromEntries(fields.filter(k => Object.hasOwn(value, k)).map(k => [k, value[k]]));
 function requireValue(ok, message) { if (!ok) throw new Error(message); }
+function rejectSensitiveText(value, fieldPath) {
+  if (/(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?967[\s-]*)?7[01378](?:[\s-]*\d){7}\b|(?:bearer\s|(?:password|token|secret|api[_-]?key)\s*[:=])|(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f))/i.test(value)) {
+    throw new Error(`Sensitive public text or link at ${fieldPath} (type: ${typeof value})`);
+  }
+}
 function id(value) {
   requireValue(typeof value === 'string' && idPattern.test(value), 'Missing or invalid source _id');
   return value.toLowerCase();
@@ -29,15 +34,15 @@ function inspectImageLink(decoded, mediaOrigins, allowSvg = false) {
     !decoded.split('/').some(part => part === '..' || part === '.'), 'Unsafe image link');
   return url.pathname;
 }
-function categoryImage(value, mediaOrigins) {
+function categoryImage(value, mediaOrigins, fieldPath) {
   if (typeof value !== 'string') return value ?? null;
   let decoded;
   try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
-  requireValue(!/(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?967[\s-]*)?7[01378](?:[\s-]*\d){7}\b|(?:bearer\s|(?:password|token|secret|api[_-]?key)\s*[:=])|(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f))/i.test(decoded), 'Sensitive public text or link');
+  rejectSensitiveText(decoded, fieldPath);
   const pathname = inspectImageLink(decoded, mediaOrigins, true);
   return /\.svg$/i.test(pathname) ? null : value;
 }
-function category(value, mediaOrigins, requireChildren = false, isChild = false) {
+function category(value, mediaOrigins, fieldPath, requireChildren = false, isChild = false) {
   requireValue(value && typeof value === 'object' && (!requireChildren || Array.isArray(value.children)), 'Incomplete category page children');
   requireValue(
     typeof value.description === 'string' || (isChild && value.description == null),
@@ -45,7 +50,7 @@ function category(value, mediaOrigins, requireChildren = false, isChild = false)
   );
   requireValue(value.children == null || Array.isArray(value.children), 'Invalid category children');
   return { ...pick(value, ['name']), description: value.description ?? '', _id: id(value._id), slug: segment(value.slug),
-    image: categoryImage(value.image, mediaOrigins), children: (value.children ?? []).map(child => category(child, mediaOrigins, false, true)) };
+    image: categoryImage(value.image, mediaOrigins, `${fieldPath}.image`), children: (value.children ?? []).map((child, index) => category(child, mediaOrigins, `${fieldPath}.children[${index}]`, false, true)) };
 }
 function array(payload) {
   requireValue(Array.isArray(payload), 'Expected complete API array');
@@ -54,19 +59,19 @@ function array(payload) {
 
 // Only approved media origins and /uploads image files are accepted. Decode before
 // examining paths so encoded separators and private paths cannot bypass inspection.
-function inspectPublicData(value, mediaOrigins, key = '') {
+function inspectPublicData(value, mediaOrigins, fieldPath = 'snapshot', key = '') {
   if (typeof value === 'string') {
     if (key === '_id') { id(value); return; }
     let decoded;
     try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
-    requireValue(!/(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?967[\s-]*)?7[01378](?:[\s-]*\d){7}\b|(?:bearer\s|(?:password|token|secret|api[_-]?key)\s*[:=])|(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f))/i.test(decoded), 'Sensitive public text or link');
+    rejectSensitiveText(decoded, fieldPath);
     if (key === 'image' || key === 'images') {
       inspectImageLink(decoded, mediaOrigins);
     } else {
       requireValue(!/(?:https?:|\/\/|javascript:|data:|mailto:|tel:|www\.)/i.test(decoded), 'Links are not permitted in exported public text');
     }
-  } else if (Array.isArray(value)) value.forEach(child => inspectPublicData(child, mediaOrigins, key));
-  else if (value && typeof value === 'object') Object.entries(value).forEach(([k, child]) => inspectPublicData(child, mediaOrigins, k));
+  } else if (Array.isArray(value)) value.forEach((child, index) => inspectPublicData(child, mediaOrigins, `${fieldPath}[${index}]`, key));
+  else if (value && typeof value === 'object') Object.entries(value).forEach(([k, child]) => inspectPublicData(child, mediaOrigins, `${fieldPath}.${k}`, k));
 }
 
 export async function createPrerenderSnapshot({
@@ -118,23 +123,23 @@ export async function createPrerenderSnapshot({
   const summaries = array(await get('/categories/main'));
   requireValue(summaries.length === expectedCategoryCount, `Expected ${expectedCategoryCount} public categories`);
   const seenTreeIds = new Set(), seenTreeSlugs = new Set();
-  const loadCategory = async (summary, isChild = false) => {
+  const loadCategory = async (summary, fieldPath, isChild = false) => {
     const key = id(summary._id), slug = segment(summary.slug);
     requireValue(!seenTreeIds.has(key) && !seenTreeSlugs.has(slug), 'Duplicate or cyclic category tree');
     seenTreeSlugs.add(slug);
     seenTreeIds.add(key);
-    const detail = category(await get('/categories/' + encodeURIComponent(slug)), mediaOrigins, true, isChild);
+    const detail = category(await get('/categories/' + encodeURIComponent(slug)), mediaOrigins, fieldPath, true, isChild);
     requireValue(detail._id === key && detail.slug === slug, 'Category detail mismatch');
     const children = [];
-    for (const child of detail.children) children.push(await loadCategory(child, true));
+    for (const [index, child] of detail.children.entries()) children.push(await loadCategory(child, `${fieldPath}.children[${index}]`, true));
     detail.children = children;
     return detail;
   };
   const categories = [], categorySsgDataBySlug = Object.create(null), categoryLists = new Map();
-  for (const summary of summaries) {
+  for (const [index, summary] of summaries.entries()) {
     const slug = segment(summary.slug), key = id(summary._id);
     requireValue(!Object.hasOwn(categorySsgDataBySlug, slug) && !categories.some(c => c._id === key), 'Duplicate category');
-    const detail = await loadCategory(summary);
+    const detail = await loadCategory(summary, `categories[${index}]`);
     const breadcrumbs = array(await get('/categories/breadcrumbs/' + key)).map(c => pick(c, ['name', 'slug']));
     requireValue(breadcrumbs.length > 0 && breadcrumbs.at(-1).slug === slug, 'Incomplete category breadcrumbs');
     const list = await paginate(key);

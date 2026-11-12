@@ -79,6 +79,21 @@ test('continues to reject SVG images in ads',async t=>{
  const {options}=await mock(t,{ads:[{...ad(),images:['/uploads/ads/car.svg']}]});
  await assert.rejects(createPrerenderSnapshot(options),/Unsafe image link/);
 });
+test('sensitive-data errors identify the field and type without echoing its value',async t=>{
+ const cases=[
+  {field:'categories[0].image',value:'/uploads/private/diagnostic-image-secret.svg',mutate(u,d){if(u.pathname==='/api/categories/cars')d.image=this.value;return d;}},
+  {field:'categories[0].description',value:'diagnostic-email-secret@example.org',mutate(u,d){if(u.pathname==='/api/categories/cars')d.description=this.value;return d;}}
+ ];
+ for(const item of cases) {
+  const {options}=await mock(t,{ads:[],mutate:item.mutate.bind(item)});
+  await assert.rejects(createPrerenderSnapshot(options),error=>{
+   assert.match(error.message,new RegExp(item.field.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+   assert.match(error.message,/type: string/);
+   assert.doesNotMatch(error.message,/diagnostic-image-secret|diagnostic-email-secret|example\.org/);
+   return true;
+  });
+ }
+});
 for(const [name,mutate,pattern] of [
  ['missing categories',(u,d)=>u.pathname.endsWith('/main')?[]:d,/Expected/],
  ['missing children',(u,d)=>{if(u.pathname.endsWith('/cars'))delete d.children;return d;},/children/],
