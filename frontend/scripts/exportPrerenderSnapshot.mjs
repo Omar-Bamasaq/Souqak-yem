@@ -19,12 +19,15 @@ function segment(value) {
   requireValue(typeof value === 'string' && value.length > 0 && !/[\\/%?#\s]/u.test(value) && !['.', '..', '__proto__', 'constructor', 'prototype'].includes(value), 'Unsafe or missing slug');
   return value;
 }
-function category(value, requireChildren = false) {
+function category(value, requireChildren = false, isChild = false) {
   requireValue(value && typeof value === 'object' && (!requireChildren || Array.isArray(value.children)), 'Incomplete category page children');
-  requireValue(typeof value.description === 'string', 'Missing category description');
+  requireValue(
+    typeof value.description === 'string' || (isChild && value.description == null),
+    'Missing or invalid category description'
+  );
   requireValue(value.children == null || Array.isArray(value.children), 'Invalid category children');
-  return { ...pick(value, ['name', 'description']), _id: id(value._id), slug: segment(value.slug),
-    image: value.image ?? null, children: (value.children ?? []).map(child => category(child)) };
+  return { ...pick(value, ['name']), description: value.description ?? '', _id: id(value._id), slug: segment(value.slug),
+    image: value.image ?? null, children: (value.children ?? []).map(child => category(child, false, true)) };
 }
 function array(payload) {
   requireValue(Array.isArray(payload), 'Expected complete API array');
@@ -101,15 +104,15 @@ export async function createPrerenderSnapshot({
   const summaries = array(await get('/categories/main'));
   requireValue(summaries.length === expectedCategoryCount, `Expected ${expectedCategoryCount} public categories`);
   const seenTreeIds = new Set(), seenTreeSlugs = new Set();
-  const loadCategory = async (summary) => {
+  const loadCategory = async (summary, isChild = false) => {
     const key = id(summary._id), slug = segment(summary.slug);
     requireValue(!seenTreeIds.has(key) && !seenTreeSlugs.has(slug), 'Duplicate or cyclic category tree');
     seenTreeSlugs.add(slug);
     seenTreeIds.add(key);
-    const detail = category(await get('/categories/' + encodeURIComponent(slug)), true);
+    const detail = category(await get('/categories/' + encodeURIComponent(slug)), true, isChild);
     requireValue(detail._id === key && detail.slug === slug, 'Category detail mismatch');
     const children = [];
-    for (const child of detail.children) children.push(await loadCategory(child));
+    for (const child of detail.children) children.push(await loadCategory(child, true));
     detail.children = children;
     return detail;
   };

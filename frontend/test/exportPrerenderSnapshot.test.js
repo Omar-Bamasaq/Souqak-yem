@@ -88,6 +88,31 @@ test('recursively loads category pages and maps leaf ads to a real root ID',asyn
  assert.equal(result.categories[0].children[0]._id,child._id);
  assert.equal(result.ads[0].categoryId._id,catId);
 });
+test('allows missing descriptions only on child categories',async t=>{
+ const child={...category,_id:'b'.repeat(24),slug:'child',name:'Child'};
+ delete child.description;
+
+ const {options}=await mock(t,{ads:[],mutate(u,d){
+  if(u.pathname==='/api/categories/cars')d.children=[child];
+  return d;
+ }});
+
+ options.fetchImpl=async(url,init)=>{
+  if(new URL(url).pathname==='/api/categories/child')
+   return new Response(JSON.stringify(child),{status:200});
+  return fetch(url,init);
+ };
+
+ const snapshot=await createPrerenderSnapshot(options);
+ assert.equal(snapshot.categories[0].children[0].description,'');
+
+ const {options:invalid}=await mock(t,{ads:[],mutate(u,d){
+  if(u.pathname==='/api/categories/cars')delete d.description;
+  return d;
+ }});
+ await assert.rejects(createPrerenderSnapshot(invalid),/category description/);
+});
+
 test('rejects a snapshot that ages out while exporting',async t=>{
  const {options}=await mock(t,{ads:[]});let count=0;options.maxAgeMs=1;options.now=()=>time+(count++?2:0);
  await assert.rejects(createPrerenderSnapshot(options),/lifetime/);
