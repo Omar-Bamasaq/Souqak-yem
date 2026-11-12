@@ -79,16 +79,34 @@ test('continues to reject SVG images in ads',async t=>{
  const {options}=await mock(t,{ads:[{...ad(),images:['/uploads/ads/car.svg']}]});
  await assert.rejects(createPrerenderSnapshot(options),/Unsafe image link/);
 });
+test('allows phone-like digit sequences in valid category and ad image filenames',async t=>{
+ const image='/uploads/categories/category-1787771219488-916700115.jpg';
+ const {options}=await mock(t,{ads:[{...ad(),images:[image]}],mutate(u,d){
+  if(u.pathname==='/api/categories/cars')d.image=image;
+  return d;
+ }});
+ const snapshot=await createPrerenderSnapshot(options);
+ assert.equal(snapshot.categories[0].image,image);
+ assert.equal(snapshot.ads[0].images[0],image);
+});
+test('rejects private and traversal paths in ad image links',async t=>{
+ for(const image of ['/uploads/private/ad.jpg','/uploads/ads/../private/ad.jpg']) {
+  const {options}=await mock(t,{ads:[{...ad(),images:[image]}]});
+  await assert.rejects(createPrerenderSnapshot(options),/Unsafe image link/);
+ }
+});
 test('sensitive-data errors identify the field and type without echoing its value',async t=>{
  const cases=[
-  {field:'categories[0].image',value:'/uploads/private/diagnostic-image-secret.svg',mutate(u,d){if(u.pathname==='/api/categories/cars')d.image=this.value;return d;}},
-  {field:'categories[0].description',value:'diagnostic-email-secret@example.org',mutate(u,d){if(u.pathname==='/api/categories/cars')d.description=this.value;return d;}}
+  {field:'categories[0].description',value:'diagnostic-email-secret@example.org',mutate(u,d){if(u.pathname==='/api/categories/cars')d.description=this.value;return d;}},
+  {field:'ads[0].description',value:'+967 771234567',mutate(u,d){if(/\/ads\//.test(u.pathname))d.description=this.value;return d;}},
+  {field:'ads[0].description',value:'secret=diagnostic-token',mutate(u,d){if(/\/ads\//.test(u.pathname))d.description=this.value;return d;}}
  ];
  for(const item of cases) {
-  const {options}=await mock(t,{ads:[],mutate:item.mutate.bind(item)});
+  const {options}=await mock(t,{ads:[ad()],mutate:item.mutate.bind(item)});
   await assert.rejects(createPrerenderSnapshot(options),error=>{
    assert.match(error.message,new RegExp(item.field.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
    assert.match(error.message,/type: string/);
+   assert.equal(error.message.includes(item.value),false);
    assert.doesNotMatch(error.message,/diagnostic-image-secret|diagnostic-email-secret|example\.org/);
    return true;
   });
@@ -104,10 +122,10 @@ for(const [name,mutate,pattern] of [
  ['missing pagination',(u,d)=>{if(u.pathname==='/api/ads')delete d.total;return d;},/pagination/],
  ['category global mismatch',(u,d)=>u.searchParams.has('categoryId')?{...d,items:[],total:0,pages:0}:d,/disagree/],
  ['sensitive text',(u,d)=>{if(/\/ads\//.test(u.pathname))d.description='private@example.org';return d;},/Sensitive/],
- ['encoded private link',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['/uploads/%64ocuments/a.png'];return d;},/Sensitive|private/],
+ ['encoded private link',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['/uploads/%64ocuments/a.png'];return d;},/Unsafe/],
  ['signed image',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['https://api.souqak-yem.com/uploads/a.png?token=secret'];return d;},/Sensitive|Unsafe/],
  ['external image',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['https://untrusted.example/a.png'];return d;},/Unsafe/],
- ['private category image',(u,d)=>{if(u.pathname.endsWith('/cars'))d.image='/uploads/private/a.png';return d;},/Sensitive|private/],
+ ['private category image',(u,d)=>{if(u.pathname.endsWith('/cars'))d.image='/uploads/private/a.png';return d;},/Unsafe/],
  ['text URL',(u,d)=>{if(/\/ads\//.test(u.pathname))d.description='https://example.org/secret';return d;},/Links/]
 ])test(`rejects ${name}`,async t=>{const {options}=await mock(t,{mutate});await assert.rejects(createPrerenderSnapshot(options),pattern);});
 for(const patch of [{status:'pending'},{isDeleted:true},{isVisible:false},{isArchived:true},{sold:true},{isSold:true},{isAvailable:false},{expiresAt:'2020-01-01'},{inventoryEnabled:true,stockQuantity:0}])test(`rejects nonindexable ${JSON.stringify(patch)}`,async t=>{const {options}=await mock(t,{ads:[{...ad(),...patch}]});await assert.rejects(createPrerenderSnapshot(options),/eligible/);});

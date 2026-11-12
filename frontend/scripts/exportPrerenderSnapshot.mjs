@@ -31,14 +31,14 @@ function inspectImageLink(decoded, mediaOrigins, allowSvg = false) {
   requireValue(!url.username && !url.password && !url.search && !url.hash &&
     (url.origin === 'https://relative.invalid' || mediaOrigins.has(url.origin)) &&
     new RegExp(`^/uploads/(?:[a-z\\d_-]+/)*[a-z\\d_.-]+\\.${extensions}$`, 'i').test(url.pathname) &&
-    !decoded.split('/').some(part => part === '..' || part === '.'), 'Unsafe image link');
+    !decoded.split('/').some(part => part === '..' || part === '.') &&
+    !/(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f)/i.test(decoded), 'Unsafe image link');
   return url.pathname;
 }
-function categoryImage(value, mediaOrigins, fieldPath) {
+function categoryImage(value, mediaOrigins) {
   if (typeof value !== 'string') return value ?? null;
   let decoded;
   try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
-  rejectSensitiveText(decoded, fieldPath);
   const pathname = inspectImageLink(decoded, mediaOrigins, true);
   return /\.svg$/i.test(pathname) ? null : value;
 }
@@ -50,7 +50,7 @@ function category(value, mediaOrigins, fieldPath, requireChildren = false, isChi
   );
   requireValue(value.children == null || Array.isArray(value.children), 'Invalid category children');
   return { ...pick(value, ['name']), description: value.description ?? '', _id: id(value._id), slug: segment(value.slug),
-    image: categoryImage(value.image, mediaOrigins, `${fieldPath}.image`), children: (value.children ?? []).map((child, index) => category(child, mediaOrigins, `${fieldPath}.children[${index}]`, false, true)) };
+    image: categoryImage(value.image, mediaOrigins), children: (value.children ?? []).map((child, index) => category(child, mediaOrigins, `${fieldPath}.children[${index}]`, false, true)) };
 }
 function array(payload) {
   requireValue(Array.isArray(payload), 'Expected complete API array');
@@ -64,10 +64,10 @@ function inspectPublicData(value, mediaOrigins, fieldPath = 'snapshot', key = ''
     if (key === '_id') { id(value); return; }
     let decoded;
     try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
-    rejectSensitiveText(decoded, fieldPath);
     if (key === 'image' || key === 'images') {
       inspectImageLink(decoded, mediaOrigins);
     } else {
+      rejectSensitiveText(decoded, fieldPath);
       requireValue(!/(?:https?:|\/\/|javascript:|data:|mailto:|tel:|www\.)/i.test(decoded), 'Links are not permitted in exported public text');
     }
   } else if (Array.isArray(value)) value.forEach((child, index) => inspectPublicData(child, mediaOrigins, `${fieldPath}[${index}]`, key));
