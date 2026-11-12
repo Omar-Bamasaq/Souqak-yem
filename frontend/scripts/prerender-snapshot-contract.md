@@ -44,3 +44,80 @@ The validator rejects non-indexable ads, duplicate IDs/slugs, incomplete categor
 - Without `SEO_PRERENDER_DATA_SOURCE=local`, the existing API source remains selected.
 
 An absent, invalid, stale (when a maximum age is configured), or incomplete snapshot must fail before page generation. Generate and validate an authorized local export separately before selecting local mode.
+
+## Standalone public API exporter
+
+Run on a connected preparation machine **before** entering the offline build.
+It does not access MongoDB, authenticated endpoints, production settings, or the
+VPS update system. The normal build scripts and default API source are unchanged.
+
+From `frontend/`, with Node.js 18+:
+
+```sh
+node scripts/exportPrerenderSnapshot.mjs --output /secure/export/seo-snapshot-new.json
+node scripts/exportPrerenderSnapshot.mjs --validate /secure/export/seo-snapshot-new.json
+```
+
+The parent directory must exist. Output publication is exclusive: an existing
+file is never overwritten. Use a new filename for each export and promote it
+separately after validation. No real snapshot belongs in Git. Write outside the
+checkout; do not commit production exports or credentials.
+
+Defaults: public API `https://api.souqak-yem.com/api`, canonical site
+`https://souqak-yem.com`, 22 root categories, 50 ads per page, 2.5 seconds between
+requests, 30 second request timeout, no authentication and no redirects.
+`SEO_EXPORT_API_BASE` can select another HTTPS public API with the same contract;
+`PUBLIC_SITE_URL` selects canonical metadata. No credentials may appear in either
+URL. Only GET requests to category main/detail/breadcrumb and public ad list/detail
+endpoints are made. HTTP loopback is available only through the library's explicit
+mock-test option, not the CLI. API failures (including rate limits), malformed JSON,
+missing pages, duplicates, count changes, or category/global ID disagreement abort
+the export without publishing a partial file. Retry a failed export later rather
+than weakening validation. Counts and first-page IDs are rechecked; this is not a
+transactional API snapshot, and cannot prove immutability of all records while a
+live API is changing.
+
+The list API omits description, slug and eligibility flags. The exporter reads
+public detail for each listed ad, uses the existing indexing predicate and requires
+the validator's explicit flags. It also rejects enabled inventory with no stock.
+Missing eligibility evidence fails closed. A missing slug is derived with the
+existing prerender `slugify` logic; IDs and eligibility flags are never fabricated.
+Each category page and its descendants are fetched and checked. Child ad categories
+are resolved to their actual root via the exported tree, preserving that root's
+`_id` (the snapshot contract associates category pages with root categories).
+
+All nested records use explicit public field allowlists. Account, seller, contact,
+private document, payment and other unrelated API fields are discarded, never
+serialized. Retained public strings are checked for recognized contact/credential
+patterns and links. Text links are deliberately rejected; media accepts only
+unsigned public image filenames or `/uploads/` image paths on the API/site origins.
+Private paths, credentials, encoded traversal, other origins, query strings and
+fragments are rejected. This conservative policy may reject otherwise public API
+content; review such mismatches rather than expanding the allowlist automatically.
+Pattern checks are not a general personal-data classification system: the export
+still requires review of public editorial text before publication.
+
+Metadata `source=public-api` and `sourceDatabase=not-accessed-public-api` explicitly
+record that no database identity was obtained. Additional `maxAgeMs` and `expiresAt`
+record a default 24-hour lifetime, starting at the beginning of collection. Override
+with a positive integer `SEO_PRERENDER_MAX_AGE_MS` for both export and validation.
+The file is reloaded through `loadPrerenderSnapshot` before exclusive publication.
+The existing validator and offline loader enforce freshness via their `maxAgeMs`
+option/environment setting; they do not automatically enforce the new metadata
+fields. Therefore the future offline invocation **must** supply the same age limit:
+
+```sh
+SEO_PRERENDER_DATA_SOURCE=local \
+SEO_PRERENDER_SNAPSHOT_PATH=/secure/export/seo-snapshot-new.json \
+SEO_PRERENDER_MAX_AGE_MS=86400000 \
+PUBLIC_SITE_URL=https://souqak-yem.com npm run build
+```
+
+This is an integration example, not a change to VPS preparation or deployment.
+The exporter does not disable SEO, change the build network, or seed content.
+
+Isolated regression checks (no public API or MongoDB needed):
+
+```sh
+node --test test/exportPrerenderSnapshot.test.js test/seoPrerenderPlan.test.js test/prerender.test.js
+```
