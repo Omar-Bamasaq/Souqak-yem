@@ -19,7 +19,25 @@ function segment(value) {
   requireValue(typeof value === 'string' && value.length > 0 && !/[\\/%?#\s]/u.test(value) && !['.', '..', '__proto__', 'constructor', 'prototype'].includes(value), 'Unsafe or missing slug');
   return value;
 }
-function category(value, requireChildren = false, isChild = false) {
+function inspectImageLink(decoded, mediaOrigins, allowSvg = false) {
+  requireValue(!decoded.includes('%') && !decoded.includes('\\') && !decoded.startsWith('//'), 'Unsafe image link');
+  const url = new URL(decoded, 'https://relative.invalid/uploads/');
+  const extensions = allowSvg ? '(?:png|jpe?g|webp|gif|avif|svg)' : '(?:png|jpe?g|webp|gif|avif)';
+  requireValue(!url.username && !url.password && !url.search && !url.hash &&
+    (url.origin === 'https://relative.invalid' || mediaOrigins.has(url.origin)) &&
+    new RegExp(`^/uploads/(?:[a-z\\d_-]+/)*[a-z\\d_.-]+\\.${extensions}$`, 'i').test(url.pathname) &&
+    !decoded.split('/').some(part => part === '..' || part === '.'), 'Unsafe image link');
+  return url.pathname;
+}
+function categoryImage(value, mediaOrigins) {
+  if (typeof value !== 'string') return value ?? null;
+  let decoded;
+  try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
+  requireValue(!/(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?967[\s-]*)?7[01378](?:[\s-]*\d){7}\b|(?:bearer\s|(?:password|token|secret|api[_-]?key)\s*[:=])|(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f))/i.test(decoded), 'Sensitive public text or link');
+  const pathname = inspectImageLink(decoded, mediaOrigins, true);
+  return /\.svg$/i.test(pathname) ? null : value;
+}
+function category(value, mediaOrigins, requireChildren = false, isChild = false) {
   requireValue(value && typeof value === 'object' && (!requireChildren || Array.isArray(value.children)), 'Incomplete category page children');
   requireValue(
     typeof value.description === 'string' || (isChild && value.description == null),
@@ -27,7 +45,7 @@ function category(value, requireChildren = false, isChild = false) {
   );
   requireValue(value.children == null || Array.isArray(value.children), 'Invalid category children');
   return { ...pick(value, ['name']), description: value.description ?? '', _id: id(value._id), slug: segment(value.slug),
-    image: value.image ?? null, children: (value.children ?? []).map(child => category(child, false, true)) };
+    image: categoryImage(value.image, mediaOrigins), children: (value.children ?? []).map(child => category(child, mediaOrigins, false, true)) };
 }
 function array(payload) {
   requireValue(Array.isArray(payload), 'Expected complete API array');
@@ -43,12 +61,7 @@ function inspectPublicData(value, mediaOrigins, key = '') {
     try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
     requireValue(!/(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?967[\s-]*)?7[01378](?:[\s-]*\d){7}\b|(?:bearer\s|(?:password|token|secret|api[_-]?key)\s*[:=])|(?:private(?:[_-]?uploads)?|identity|passport|verification|documents|attachments|wallet|admin|account|auth)(?:[\\/]|%2f))/i.test(decoded), 'Sensitive public text or link');
     if (key === 'image' || key === 'images') {
-      requireValue(!decoded.includes('%') && !decoded.includes('\\') && !decoded.startsWith('//'), 'Unsafe image link');
-      const url = new URL(decoded, 'https://relative.invalid/uploads/');
-      requireValue(!url.username && !url.password && !url.search && !url.hash &&
-        (url.origin === 'https://relative.invalid' || mediaOrigins.has(url.origin)) &&
-        /^\/uploads\/(?:[a-z\d_-]+\/)*[a-z\d_.-]+\.(?:png|jpe?g|webp|gif|avif)$/i.test(url.pathname) &&
-        !decoded.split('/').some(part => part === '..' || part === '.'), 'Unsafe image link');
+      inspectImageLink(decoded, mediaOrigins);
     } else {
       requireValue(!/(?:https?:|\/\/|javascript:|data:|mailto:|tel:|www\.)/i.test(decoded), 'Links are not permitted in exported public text');
     }
@@ -68,6 +81,7 @@ export async function createPrerenderSnapshot({
   requireValue(base.pathname.replace(/\/$/, '') === '/api', 'API base must end in /api');
   requireValue(Number.isSafeInteger(maxAgeMs) && maxAgeMs > 0 && Number.isSafeInteger(expectedCategoryCount) && expectedCategoryCount > 0 && Number.isSafeInteger(pageSize) && pageSize > 0 && pageSize <= 100, 'Invalid export limits');
   const site = resolveSiteBaseUrl(siteBaseUrl);
+  const mediaOrigins = new Set([base.origin, new URL(site).origin]);
   const started = now();
   const root = base.href.replace(/\/$/, '');
   let lastRequest = 0;
@@ -109,7 +123,7 @@ export async function createPrerenderSnapshot({
     requireValue(!seenTreeIds.has(key) && !seenTreeSlugs.has(slug), 'Duplicate or cyclic category tree');
     seenTreeSlugs.add(slug);
     seenTreeIds.add(key);
-    const detail = category(await get('/categories/' + encodeURIComponent(slug)), true, isChild);
+    const detail = category(await get('/categories/' + encodeURIComponent(slug)), mediaOrigins, true, isChild);
     requireValue(detail._id === key && detail.slug === slug, 'Category detail mismatch');
     const children = [];
     for (const child of detail.children) children.push(await loadCategory(child, true));
@@ -160,7 +174,7 @@ export async function createPrerenderSnapshot({
   requireValue(finished - started < maxAgeMs, 'Export exceeded snapshot lifetime');
   const snapshot = { metadata: { source: 'public-api', sourceDatabase: 'not-accessed-public-api', exportedAt: new Date(started).toISOString(), schemaVersion: PRERENDER_SNAPSHOT_SCHEMA_VERSION, siteBaseUrl: site, maxAgeMs, expiresAt: new Date(started + maxAgeMs).toISOString() }, categories, ads, categorySsgDataBySlug };
   // Metadata contains intentional site URL; inspect all content independently.
-  inspectPublicData({ categories, ads, categorySsgDataBySlug }, new Set([base.origin, new URL(site).origin]));
+  inspectPublicData({ categories, ads, categorySsgDataBySlug }, mediaOrigins);
   validatePrerenderSnapshot(snapshot, { now: finished, maxAgeMs, expectedSiteBaseUrl: site });
   return snapshot;
 }

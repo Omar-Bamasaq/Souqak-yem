@@ -41,6 +41,44 @@ test('exports complete paginated allowlisted JSON; reloads offline and rejects s
   await assert.rejects(exportPrerenderSnapshot(file,options),/EEXIST/);assert.equal((await fs.readdir(dir)).length,1);
 });
 test('zero ads succeeds',async t=>{const {options}=await mock(t,{ads:[]});const d=await createPrerenderSnapshot(options);assert.deepEqual(d.ads,[]);assert.deepEqual(d.categorySsgDataBySlug.cars.ads,[]);});
+test('omits safe SVG images from main and child category snapshots',async t=>{
+ const child={...category,_id:'b'.repeat(24),slug:'child',name:'Child',image:'/uploads/categories/child.svg'};
+ const {options}=await mock(t,{ads:[],mutate(u,d){
+  if(u.pathname==='/api/categories/cars'){d.image='https://souqak-yem.com/uploads/categories/cars.svg';d.children=[child];}
+  return d;
+ }});
+ options.fetchImpl=async(url,init)=>{
+  if(new URL(url).pathname==='/api/categories/child')
+   return new Response(JSON.stringify(child),{status:200});
+  return fetch(url,init);
+ };
+ const snapshot=await createPrerenderSnapshot(options);
+ assert.equal(snapshot.categories[0].image,null);
+ assert.equal(snapshot.categories[0].children[0].image,null);
+ assert.equal(snapshot.categorySsgDataBySlug.cars.category.image,null);
+ assert.equal(snapshot.categorySsgDataBySlug.cars.subcategories[0].image,null);
+});
+test('rejects unsafe category SVG image links instead of omitting them',async t=>{
+ for(const image of [
+  'javascript:alert(1).svg',
+  '//untrusted.example/uploads/categories/car.svg',
+  'https://untrusted.example/uploads/categories/car.svg',
+  '/uploads/categories/../car.svg',
+  '/uploads/private/car.svg',
+  '/uploads/categories/car.svg?token=secret',
+  '/uploads/categories/%252e%252e/car.svg'
+ ]) {
+  const {options}=await mock(t,{ads:[],mutate(u,d){
+   if(u.pathname==='/api/categories/cars')d.image=image;
+   return d;
+  }});
+  await assert.rejects(createPrerenderSnapshot(options),/Unsafe|Sensitive|Invalid encoded/);
+ }
+});
+test('continues to reject SVG images in ads',async t=>{
+ const {options}=await mock(t,{ads:[{...ad(),images:['/uploads/ads/car.svg']}]});
+ await assert.rejects(createPrerenderSnapshot(options),/Unsafe image link/);
+});
 for(const [name,mutate,pattern] of [
  ['missing categories',(u,d)=>u.pathname.endsWith('/main')?[]:d,/Expected/],
  ['missing children',(u,d)=>{if(u.pathname.endsWith('/cars'))delete d.children;return d;},/children/],
