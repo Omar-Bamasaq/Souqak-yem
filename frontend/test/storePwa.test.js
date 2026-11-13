@@ -129,9 +129,11 @@ test("Storefront install CTA and manifest behavior are gated without changing th
   assert.match(storefront, /applyStoreManifest\(data\.store, api\.defaults\.baseURL\)/);
   assert.match(storefront, /canInstallPWA\(installTarget\)/);
   assert.match(storefront, /installPWA\(installTarget\)/);
-  assert.match(storefront, /\{canInstall && store\.pwaEnabled && <div[\s\S]*?تثبيت المتجر<\/button>/);
+  assert.match(storefront, /\(canInstall \|\| isPWAStandalone\(\)\) && store\.pwaEnabled && <div[\s\S]*?تثبيت المتجر<\/button>/);
+  assert.match(storefront, /if \(isPWAStandalone\(\)\) setShowBrowserInstallGuidance\(true\)/);
   assert.match(storefront, /setPWAInstallTarget\(installTarget\)/);
   assert.match(storefront, /<PWAInstallPrompt store=\{store\} apiBase=\{api\.defaults\.baseURL\} \/>/);
+  assert.match(globalPrompt, /لتثبيت \$\{installAppName\}، افتح الصفحة في Google Chrome/);
   assert.match(globalPrompt, /if \(\(!isStorePrompt && isStoreRoute\) \|\| \(isStorePrompt && \(!isStoreRoute \|\| !installTarget\)\)\) return null/);
   assert.match(main, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
   assert.equal(globalManifest.start_url, "/");

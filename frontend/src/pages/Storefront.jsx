@@ -6,7 +6,7 @@ import { uploadsUrl } from "../lib/uploads.js";
 import StoreTemplateRenderer from "../components/StoreTemplateRenderer.jsx";
 import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import SEO from "../components/SEO.jsx";
-import { canInstallPWA, installPWA, setPWAInstallTarget } from "../utils/pwaInstall.js";
+import { canInstallPWA, installPWA, isPWAStandalone, setPWAInstallTarget } from "../utils/pwaInstall.js";
 import { applyStoreManifest, restoreGlobalManifest } from "../utils/storePwa.js";
 import { GENERAL_STORE_TEMPLATE } from "../utils/storeTemplates.js";
 import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
@@ -73,6 +73,7 @@ export default function Storefront() {
   const [storeSearch, setStoreSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [canInstall, setCanInstall] = useState(false);
+  const [showBrowserInstallGuidance, setShowBrowserInstallGuidance] = useState(false);
   const [phonesOpen, setPhonesOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [cartMessage, setCartMessage] = useState("");
@@ -230,6 +231,7 @@ export default function Storefront() {
   }, [api, data?.store?._id, data?.store?.slug, installTarget]);
 
   useEffect(() => {
+    setShowBrowserInstallGuidance(false);
     if (!data?.store || data.store.slug !== slug) return undefined;
     if (!installTarget) {
       setPWAInstallTarget("souqak");
@@ -401,8 +403,13 @@ export default function Storefront() {
   );
 
   const handleInstallClick = async () => {
-    if (!installTarget || !canInstallPWA(installTarget)) return;
-    await installPWA(installTarget);
+    if (!installTarget) return;
+    if (canInstallPWA(installTarget)) {
+      setShowBrowserInstallGuidance(false);
+      await installPWA(installTarget);
+      return;
+    }
+    if (isPWAStandalone()) setShowBrowserInstallGuidance(true);
   };
 
   return (
@@ -536,8 +543,14 @@ export default function Storefront() {
                   ))}
                 </div>
               )}
-              {canInstall && store.pwaEnabled && <div className="mt-2 flex justify-center sm:basis-full">
+              {(canInstall || isPWAStandalone()) && store.pwaEnabled && <div className="mt-2 flex flex-col items-center gap-2 sm:basis-full">
                 <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت المتجر</button>
+                {showBrowserInstallGuidance && <div role="status" className="w-full max-w-md rounded-xl border border-blue-100 bg-blue-50 p-3 text-right text-xs leading-6 text-slate-700">
+                  <p className="font-bold">لتثبيت تطبيق {store.storeName || "المتجر"} بشكل مستقل، افتح رابط المتجر في Chrome أو Safari ثم اختر «إضافة إلى الشاشة الرئيسية».</p>
+                  <label className="mt-2 block font-semibold" htmlFor="store-install-url">انسخ رابط صفحة المتجر وافتحه في المتصفح:</label>
+                  <input id="store-install-url" readOnly value={window.location.href} onFocus={(event) => event.currentTarget.select()} dir="ltr" className="mt-1 min-h-10 w-full rounded-lg border border-blue-200 bg-white px-2 text-left text-xs" />
+                  <button type="button" onClick={() => setShowBrowserInstallGuidance(false)} className="mt-2 font-bold text-blue-700">إغلاق</button>
+                </div>}
               </div>}
 
               {phonesOpen && contactPhones.length > 1 && <div className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-3 sm:grid-cols-2">

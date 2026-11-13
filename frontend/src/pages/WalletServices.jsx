@@ -394,7 +394,7 @@ export default function WalletServices() {
     setShowCustomForm(false);
     setDraftStarted(false);
     setError("");
-    navigate(getWalletServicesPath(`/wallet-services/order/${service._id}`, searchParams));
+    navigate(getWalletServicesPath(`/wallet-services/order/${service._id}`, searchParams), { replace: true });
   };
 
   const submitCatalogOrder = async (event) => {
