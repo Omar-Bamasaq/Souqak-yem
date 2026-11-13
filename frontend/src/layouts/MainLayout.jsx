@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Footer from "../components/Footer.jsx";
 import NavBar from "../components/NavBar.jsx";
 import BottomNavBar from "../components/BottomNavBar.jsx";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import NotificationPrompt from "../components/NotificationPrompt.jsx";
 import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import CookieConsent from "../components/CookieConsent.jsx";
@@ -12,6 +12,7 @@ import SmartFollowUpModal from "../components/SmartFollowUpModal.jsx";
 import FloatingAdhkar from "../components/FloatingAdhkar.jsx";
 import InterstitialCampaign from "../components/InterstitialCampaign.jsx";
 import { useAuth } from "../store/AuthContext.jsx";
+import { getWalletServicesBackTarget } from "../lib/walletServicesNavigation.js";
 import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import ServiceFeatureCarousel from "../components/ServiceFeatureCarousel.jsx";
 import { getServicePageBanner } from "../lib/serviceFeatureBanners.js";
@@ -52,10 +53,12 @@ const getOrCreateVisitorId = () => {
 export default function MainLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMessagesRoute = location.pathname.startsWith("/messages");
   const serviceBanner = getServicePageBanner(location.pathname);
   const hasDedicatedBackLink = location.pathname.startsWith("/wallet-services/order/")
     || location.pathname === "/wallet-services/custom-order";
+  const backTarget = getWalletServicesBackTarget(location.pathname, location.search);
   const [isChatRoom, setIsChatRoom] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return Boolean(params.get("c") || params.get("am") || params.get("direct"));
@@ -142,7 +145,7 @@ export default function MainLayout() {
         {showBack && !isChatRoom && (
           <div className="mb-3 sm:mb-6">
             <button 
-              onClick={() => window.history.back()}
+              onClick={() => backTarget ? navigate(backTarget, { replace: true }) : window.history.back()}
               className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all active:scale-95"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">

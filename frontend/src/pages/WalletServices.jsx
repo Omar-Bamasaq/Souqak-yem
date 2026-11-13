@@ -4,6 +4,7 @@ import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useDraftAction } from "../hooks/useDraftActions.js";
 import { normalizeProtectedFilePath, useProtectedFiles } from "../lib/protectedFiles.js";
+import { getWalletServiceCategoryPath, getWalletServicesPath } from "../lib/walletServicesNavigation.js";
 import DocumentPreviewModal from "../components/DocumentPreviewModal.jsx";
 import { confirmUntrustedExternalLink, getExternalLinkHost } from "../utils/untrustedExternalLink.js";
 import { clearWalletServiceIdempotencyKey, getWalletServiceIdempotencyKey } from "../lib/walletServiceIdempotency.js";
@@ -76,7 +77,7 @@ export default function WalletServices() {
   const [selectedId, setSelectedId] = useState("");
   const [serviceSnapshot, setServiceSnapshot] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [serviceSearch, setServiceSearch] = useState("");
+  const [serviceSearch, setServiceSearch] = useState(() => searchParams.get("serviceSearch") || "");
   const [sectionId, setSectionId] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -101,6 +102,20 @@ export default function WalletServices() {
   const isOrderPage = Boolean(routeServiceId) || isCustomOrderPage;
   const { urls: protectedFileUrls, contentTypes: protectedFileContentTypes, errors: protectedFileErrors, loading: protectedFilesLoading } = useProtectedFiles(api, [previewDoc]);
   const previewUrl = protectedFileUrls[normalizeProtectedFilePath(previewDoc)] || null;
+
+  useEffect(() => {
+    setServiceSearch(searchParams.get("serviceSearch") || "");
+  }, [searchParams]);
+
+  const updateServiceSearch = (value) => {
+    setServiceSearch(value);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value) next.set("serviceSearch", value);
+      else next.delete("serviceSearch");
+      return next;
+    }, { replace: true });
+  };
 
   const loadData = async () => {
     setError("");
@@ -379,7 +394,7 @@ export default function WalletServices() {
     setShowCustomForm(false);
     setDraftStarted(false);
     setError("");
-    navigate(`/wallet-services/order/${service._id}`);
+    navigate(getWalletServicesPath(`/wallet-services/order/${service._id}`, searchParams));
   };
 
   const submitCatalogOrder = async (event) => {
@@ -475,7 +490,7 @@ export default function WalletServices() {
         </section>
       )}
 
-      {routeServiceId && <Link to={selectedCatalogCategory ? `/wallet-services/category/${selectedCatalogCategory.slug}` : "/wallet-services"} className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى {selectedCatalogCategory?.name || "التصنيفات"}</Link>}
+      {routeServiceId && <Link replace to={getWalletServiceCategoryPath(selectedCatalogCategory?.slug, searchParams)} className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى {selectedCatalogCategory?.name || "التصنيفات"}</Link>}
       {isMyOrdersPage && <Link to="/wallet-services" className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى الخدمات</Link>}
       {!isOrderPage && !isMyOrdersPage && <div className="flex justify-end"><Link to="/wallet-services/my-orders" className="inline-flex min-h-10 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-blue-800">طلباتي</Link></div>}
 
@@ -492,7 +507,7 @@ export default function WalletServices() {
             </header>
             <label className="mt-5 block text-xs font-black text-slate-600 dark:text-slate-300">
               {showCategoryGrid ? "ابحث عن تصنيف" : "ابحث عن خدمة"}
-              <input className={`${inputClass} mt-1.5`} value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} placeholder={showCategoryGrid ? "مثل: شحن الألعاب أو الاشتراكات" : "اسم الخدمة أو وصفها أو نوعها"} />
+              <input className={`${inputClass} mt-1.5`} value={serviceSearch} onChange={(event) => updateServiceSearch(event.target.value)} placeholder={showCategoryGrid ? "مثل: شحن الألعاب أو الاشتراكات" : "اسم الخدمة أو وصفها أو نوعها"} />
             </label>
             {showCategoryGrid ? (
               <>
@@ -500,7 +515,12 @@ export default function WalletServices() {
                   {filteredCategories.map((category) => {
                     const serviceCount = services.filter((service) => String(service.categoryId || "") === String(category._id)).length;
                     return (
-                      <button key={category._id} type="button" onClick={() => { setServiceSearch(""); navigate(`/wallet-services/category/${category.slug}`); }} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-right shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900">
+                      <button key={category._id} type="button" onClick={() => {
+                        setServiceSearch("");
+                        const nextSearchParams = new URLSearchParams(searchParams);
+                        nextSearchParams.delete("serviceSearch");
+                        navigate(getWalletServiceCategoryPath(category.slug, nextSearchParams));
+                      }} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-right shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900">
                         <div className="flex aspect-square flex-col overflow-hidden bg-gradient-to-br from-blue-700 via-cyan-600 to-teal-500">
                           <div className="relative min-h-0 flex-1">
                             {category.image ? (
