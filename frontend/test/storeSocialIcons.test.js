@@ -19,7 +19,7 @@ test("store social links show accessible brand icons and preserve secure externa
   assert.match(storefrontSource, /href=\{url\} target="_blank" rel="noopener noreferrer"/);
   assert.match(storefrontSource, /<StoreSocialIcon platform=\{platform\} \/>/);
   assert.match(storefrontSource, /className="mt-2 flex flex-nowrap items-center justify-center gap-2 sm:mr-auto sm:mt-0"/);
-  assert.match(storefrontSource, /canInstall && store\.pwaEnabled && <div className="mt-2 flex justify-center sm:basis-full">/);
+  assert.match(storefrontSource, /\(canInstall \|\| isPWAStandalone\(\)\) && store\.pwaEnabled && <div/);
   assert.match(storefrontSource, /قناة أو مجموعة واتساب/);
   assert.match(storefrontSource, /instagram: "إنستغرام"/);
   assert.match(storefrontSource, /youtube: "يوتيوب"/);
