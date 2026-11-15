@@ -16,6 +16,7 @@ import { getWalletServicesBackTarget } from "../lib/walletServicesNavigation.js"
 import { AD_COMMISSION_ENABLED } from "../config/commission.js";
 import ServiceFeatureCarousel from "../components/ServiceFeatureCarousel.jsx";
 import { getServicePageBanner } from "../lib/serviceFeatureBanners.js";
+import { CHROME_NOTICE_DISMISSED_KEY, shouldShowChromeBrowserNotice } from "../utils/chromeBrowserNotice.js";
 
 const getOrCreateVisitorId = () => {
   const key = "souqak_visitor_id";
@@ -67,6 +68,7 @@ export default function MainLayout() {
   const trackedVisitorRef = useRef(false);
 
   const [toast, setToast] = useState({ open: false, message: "", type: "info" });
+  const [showChromeBrowserNotice, setShowChromeBrowserNotice] = useState(() => shouldShowChromeBrowserNotice());
 
   useEffect(() => {
     const handler = (e) => {
@@ -77,6 +79,36 @@ export default function MainLayout() {
     window.addEventListener("app:toast", handler);
     return () => window.removeEventListener("app:toast", handler);
   }, []);
+
+  useEffect(() => {
+    setShowChromeBrowserNotice(shouldShowChromeBrowserNotice());
+  }, [location.pathname]);
+
+  const handleDismissChromeBrowserNotice = () => {
+    try {
+      sessionStorage.setItem(CHROME_NOTICE_DISMISSED_KEY, "true");
+    } catch {}
+    setShowChromeBrowserNotice(false);
+  };
+
+  const handleCopyPageUrl = async () => {
+    const pageUrl = window.location.href;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(pageUrl);
+      } else {
+        const tempInput = document.createElement("input");
+        tempInput.value = pageUrl;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+      }
+      window.dispatchEvent(new CustomEvent("app:toast", { detail: { message: "تم نسخ الرابط", type: "success" } }));
+    } catch {
+      window.dispatchEvent(new CustomEvent("app:toast", { detail: { message: "تعذر نسخ الرابط", type: "error" } }));
+    }
+  };
 
   useEffect(() => {
     if (!isMessagesRoute) {
@@ -132,6 +164,17 @@ export default function MainLayout() {
       {AD_COMMISSION_ENABLED && <CommissionReminderBar />}
       <NotificationPrompt />
       <PWAInstallPrompt />
+      {showChromeBrowserNotice && (
+        <div className="fixed bottom-20 left-4 right-4 z-[100] md:bottom-8 md:left-auto md:right-8 md:w-80">
+          <div className="pointer-events-auto rounded-2xl border border-amber-200 bg-white/95 p-3 text-right shadow-2xl backdrop-blur-sm dark:border-amber-500/30 dark:bg-slate-900/95">
+            <p className="text-sm font-black leading-6 text-slate-800 dark:text-slate-100">لتجربة أفضل وتثبيت التطبيق، افتح سوقك عبر Google Chrome</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={handleCopyPageUrl} className="flex-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-black text-white transition hover:bg-blue-700 active:scale-[.98]">نسخ الرابط</button>
+              <button type="button" onClick={handleDismissChromeBrowserNotice} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">إغلاق</button>
+            </div>
+          </div>
+        </div>
+      )}
       <CookieConsent />
       <InterstitialCampaign />
       {user && (
