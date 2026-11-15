@@ -129,6 +129,7 @@ test("Storefront install CTA and manifest behavior are gated without changing th
   assert.match(storefront, /applyStoreManifest\(data\.store, api\.defaults\.baseURL\)/);
   assert.match(storefront, /canInstallPWA\(installTarget\)/);
   assert.match(storefront, /installPWA\(installTarget\)/);
+  assert.doesNotMatch(storefront, /\bsetCanInstall\b/);
   assert.match(storefront, /\{store\.pwaEnabled && <div[\s\S]*?تثبيت التطبيق<\/button>/);
   assert.match(storefront, /setPWAInstallTarget\(installTarget\)/);
   assert.match(storefront, /<PWAInstallPrompt store=\{store\} apiBase=\{api\.defaults\.baseURL\} \/>/);

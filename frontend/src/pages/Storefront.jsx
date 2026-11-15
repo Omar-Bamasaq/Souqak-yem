@@ -243,7 +243,6 @@ export default function Storefront() {
     } else {
       setPWAInstallTarget(installTarget);
       applyStoreManifest(data.store, api.defaults.baseURL);
-      setCanInstall(canInstallPWA(installTarget));
     }
 
     return () => {
