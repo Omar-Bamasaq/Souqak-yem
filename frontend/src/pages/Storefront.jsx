@@ -8,6 +8,7 @@ import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import SEO from "../components/SEO.jsx";
 import { canInstallPWA, installPWA, setPWAInstallTarget } from "../utils/pwaInstall.js";
 import { applyStoreManifest, restoreGlobalManifest } from "../utils/storePwa.js";
+import { getStorePwaInstallFallback, STORE_PWA_FALLBACK_QUERY } from "../utils/storePwaInstallFallback.js";
 import { GENERAL_STORE_TEMPLATE } from "../utils/storeTemplates.js";
 import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
 import { getStorePwaInstallationId } from "../utils/storePwaInstallTracking.js";
@@ -72,7 +73,9 @@ export default function Storefront() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [storeSearch, setStoreSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [canInstall, setCanInstall] = useState(false);
+  const [installFallbackMessage, setInstallFallbackMessage] = useState("");
+  const [installFallbackUrl, setInstallFallbackUrl] = useState("");
+  const [installCopyMessage, setInstallCopyMessage] = useState("");
   const [phonesOpen, setPhonesOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [cartMessage, setCartMessage] = useState("");
@@ -192,7 +195,17 @@ export default function Storefront() {
 
   useEffect(() => {
     setSelectedCategory("all");
+    setInstallFallbackMessage("");
+    setInstallFallbackUrl("");
+    setInstallCopyMessage("");
   }, [slug]);
+
+  useEffect(() => {
+    if (searchParams.get(STORE_PWA_FALLBACK_QUERY) !== "chrome-unavailable") return;
+    const fallbackUrl = new URL(window.location.href);
+    fallbackUrl.searchParams.delete(STORE_PWA_FALLBACK_QUERY);
+    setInstallFallbackUrl(fallbackUrl.href);
+  }, [searchParams, slug]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(storeSearch.trim()), 250);
@@ -202,12 +215,8 @@ export default function Storefront() {
   const installTarget = data?.store?.pwaEnabled && data.store.slug ? `store:${data.store.slug}` : null;
 
   useEffect(() => {
-    const updateInstallAvailability = (event) => {
-      if (event.detail?.target === installTarget) setCanInstall(canInstallPWA(installTarget));
-    };
     const handleInstalled = (event) => {
       if (event.detail?.target !== installTarget) return;
-      setCanInstall(false);
       if (data.store.analyticsEnabled !== true) return;
       try {
         const installationId = getStorePwaInstallationId({ storeSlug: data.store.slug });
@@ -219,12 +228,9 @@ export default function Storefront() {
       }
     };
 
-    setCanInstall(installTarget ? canInstallPWA(installTarget) : false);
-    window.addEventListener("pwa:can-install", updateInstallAvailability);
     window.addEventListener("pwa:installed", handleInstalled);
 
     return () => {
-      window.removeEventListener("pwa:can-install", updateInstallAvailability);
       window.removeEventListener("pwa:installed", handleInstalled);
     };
   }, [api, data?.store?._id, data?.store?.slug, installTarget]);
@@ -401,8 +407,39 @@ export default function Storefront() {
   );
 
   const handleInstallClick = async () => {
-    if (!installTarget || !canInstallPWA(installTarget)) return;
-    await installPWA(installTarget);
+    if (!installTarget) return;
+    if (canInstallPWA(installTarget)) {
+      setInstallFallbackMessage("");
+      await installPWA(installTarget);
+      return;
+    }
+
+    const fallback = getStorePwaInstallFallback({
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      maxTouchPoints: navigator.maxTouchPoints,
+      pageUrl: window.location.href
+    });
+
+    setInstallFallbackUrl(fallback.pageUrl);
+    setInstallCopyMessage("");
+    if (fallback.platform === "android") {
+      setInstallFallbackMessage("android");
+      window.location.assign(fallback.url);
+      return;
+    }
+
+    window.open(fallback.url, "_blank", "noopener,noreferrer");
+    setInstallFallbackMessage(fallback.platform);
+  };
+
+  const handleCopyInstallFallbackUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(installFallbackUrl);
+      setInstallCopyMessage("تم نسخ الرابط.");
+    } catch {
+      setInstallCopyMessage("تعذر النسخ تلقائيًا؛ اضغط مطولًا على الرابط لنسخه.");
+    }
   };
 
   return (
@@ -515,7 +552,7 @@ export default function Storefront() {
             !store.ordersEnabled && <p className="text-xs font-bold text-amber-700">إرسال الطلبات غير متاح في خطة المتجر.</p>
           )}
 
-          {(contactPhones.length > 0 || whatsappContacts.length > 0 || contact.email || contact.mapsUrl || Object.values(store.social || {}).some(Boolean) || (canInstall && store.pwaEnabled)) && (
+          {(contactPhones.length > 0 || whatsappContacts.length > 0 || contact.email || contact.mapsUrl || Object.values(store.social || {}).some(Boolean) || store.pwaEnabled) && (
             <div id="store-contact" className="scroll-mt-6 border-t border-slate-100 pt-4 sm:flex sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2" style={advancedCustomization ? { borderColor: `${storefrontColor}33` } : undefined}>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
                 {contactPhones.length === 1 && <a href={`tel:${contactPhones[0].value}`} className="flex min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-90" style={{ backgroundColor: storefrontColor, color: storefrontTextColor }}>اتصل</a>}
@@ -536,8 +573,28 @@ export default function Storefront() {
                   ))}
                 </div>
               )}
-              {canInstall && store.pwaEnabled && <div className="mt-2 flex justify-center sm:basis-full">
-                <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت المتجر</button>
+              {store.pwaEnabled && <div className="mt-2 flex flex-wrap justify-center gap-2 sm:basis-full">
+                <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت التطبيق</button>
+                {(searchParams.get(STORE_PWA_FALLBACK_QUERY) === "chrome-unavailable" || installFallbackMessage === "android") && (
+                  <div className="w-full text-center text-xs leading-5 text-slate-600">
+                    <p>تعذر فتح Google Chrome تلقائيًا. افتح Chrome يدويًا، ثم الصق رابط هذا المتجر واختر من القائمة «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</p>
+                    <div className="mx-auto mt-2 flex max-w-lg gap-2">
+                      <input aria-label="رابط المتجر" readOnly value={installFallbackUrl} dir="ltr" onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1 text-left" />
+                      <button type="button" onClick={handleCopyInstallFallbackUrl} disabled={!installFallbackUrl} className="shrink-0 rounded-lg border border-slate-200 px-3 py-1 font-bold disabled:opacity-50">نسخ الرابط</button>
+                    </div>
+                    {installCopyMessage && <p role="status">{installCopyMessage}</p>}
+                  </div>
+                )}
+                {installFallbackMessage === "ios" && (
+                  <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">
+                    جربنا فتح صفحة المتجر في تبويب جديد. على iPhone أو iPad، استخدم زر المشاركة في المتصفح ثم اختر «إضافة إلى الشاشة الرئيسية». لا يدعم iOS بدء التثبيت برمجيًا.
+                  </p>
+                )}
+                {installFallbackMessage === "other" && (
+                  <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">
+                    افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»، إذا كان الخيار متاحًا.
+                  </p>
+                )}
               </div>}
 
               {phonesOpen && contactPhones.length > 1 && <div className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-3 sm:grid-cols-2">
