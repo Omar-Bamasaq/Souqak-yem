@@ -14,6 +14,7 @@ test("CORS policy accepts only configured production and localhost origins", () 
   for (const origin of [
     "https://souqak-yem.com",
     "https://www.souqak-yem.com",
+    "https://apps.souqak-yem.com",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:9000"
@@ -40,7 +41,8 @@ test("CORS policy rejects untrusted or deceptive origins", () => {
     "https://vercel.app.attacker.example",
     "https://localhost.attacker.example",
     "http://localhost.evil.example",
-    "https://souqak-yem.com.attacker.example"
+    "https://souqak-yem.com.attacker.example",
+    "https://apps.souqak-yem.com.attacker.example"
   ]) {
     assert.equal(isAllowedCorsOrigin(origin), false, origin);
   }

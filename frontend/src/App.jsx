@@ -135,6 +135,7 @@ const AuctionDetail = lazy(() => import("./pages/AuctionDetail.jsx"));
 const CreateAuction = lazy(() => import("./pages/CreateAuction.jsx"));
 const MyAuctions = lazy(() => import("./pages/MyAuctions.jsx"));
 const AdminAuctions = lazy(() => import("./pages/AdminAuctions.jsx"));
+const storePwaAppContext = typeof window !== "undefined" ? window.__SOUQAK_STORE_PWA_APP__ : null;
 
 function RequireRole({ role, children }) {
   const { user, loading } = useAuth();
@@ -263,7 +264,7 @@ export default function App() {
       '/s'
     ];
 
-    const isNoIndex = noIndexPaths.some((path) =>
+    const isNoIndex = Boolean(storePwaAppContext) || noIndexPaths.some((path) =>
       path === location.pathname || location.pathname.startsWith(`${path}/`) || location.pathname.startsWith('/admin')
     );
 
@@ -300,7 +301,7 @@ export default function App() {
       </Route>
 
       <Route element={<MainLayout />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={storePwaAppContext ? <Storefront /> : <Home />} />
         <Route path="/partners" element={<Partners />} />
         <Route path="/bookings" element={<BookingDirectory />} />
         <Route path="/account" element={<RequireAuthenticated><AccountHub /></RequireAuthenticated>} />

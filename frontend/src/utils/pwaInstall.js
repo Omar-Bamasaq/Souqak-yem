@@ -1,5 +1,9 @@
 const deferredPrompts = new Map();
-let activeInstallTarget = "souqak";
+const storePwaAppContext = typeof window !== "undefined" ? window.__SOUQAK_STORE_PWA_APP__ : null;
+const initialInstallTarget = storePwaAppContext?.storeId
+  ? `store:${storePwaAppContext.storeId}`
+  : "souqak";
+let activeInstallTarget = initialInstallTarget;
 let promptingTarget = null;
 
 const isStandalone = () =>
@@ -30,9 +34,17 @@ export const setPWAInstallTarget = (target) => {
   activeInstallTarget = target || null;
 };
 
-export const canInstallPWA = (target = "souqak") =>
-  deferredPrompts.has(target)
-  && (target !== "souqak" || !isStandalone());
+export const getPWAInstallTarget = () => activeInstallTarget;
+
+export const isStandalonePWA = isStandalone;
+
+export const canInstallPWA = (target = "souqak") => {
+  const isCurrentStoreApp = storePwaAppContext?.storeId
+    && target === `store:${storePwaAppContext.storeId}`;
+  return deferredPrompts.has(target)
+    && (target !== "souqak" || !isStandalone())
+    && (!isCurrentStoreApp || !isStandalone());
+};
 
 export const installPWA = async (target = "souqak") => {
   if (!canInstallPWA(target)) return null;

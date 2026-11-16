@@ -26,6 +26,7 @@ test("Socket.IO allows only the configured production origins and development lo
   for (const origin of [
     "https://souqak-yem.com",
     "https://www.souqak-yem.com",
+    "https://apps.souqak-yem.com",
     "http://localhost:5173"
   ]) {
     assert.equal(isAccepted(origin), true, origin);
@@ -48,6 +49,7 @@ test("Socket.IO rejects localhost origins in production", () => {
   try {
     assert.equal(isAccepted("http://localhost:5173"), false);
     assert.equal(isAccepted("https://souqak-yem.com"), true);
+    assert.equal(isAccepted("https://apps.souqak-yem.com"), true);
   } finally {
     process.env.NODE_ENV = "test";
   }

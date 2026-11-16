@@ -2,139 +2,107 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { applyStoreManifest, buildStoreManifest, buildStorePwaIconUrl, restoreGlobalManifest } from "../src/utils/storePwa.js";
+import vm from "node:vm";
+import {
+  buildStorePwaAppUrl,
+  buildStorePwaIconUrl,
+  getStorePwaInstallInstructions
+} from "../src/utils/storePwa.js";
 
-test("store manifest uses store identity, isolated scope, and size-specific PNG endpoints", () => {
-  const slug = "بامسق-للأثاث";
-  const iconUrls = {
-    192: buildStorePwaIconUrl(slug, 192, "https://api.example.test/api/"),
-    512: buildStorePwaIconUrl(slug, 512, "https://api.example.test/api/")
-  };
-  const manifest = buildStoreManifest({
-    storeName: "بامسق للأثاث",
-    slug,
-    shortName: "بامسق للأثاث",
-    iconUrls,
-    origin: "https://shop.example.test"
-  });
+const STORE_ID = "64d3d93a1a2b3c4d5e6f7701";
 
-  assert.equal(manifest.name, "بامسق للأثاث");
-  assert.equal(manifest.short_name, "بامسق للأثاث");
-  assert.equal(manifest.id, manifest.start_url);
-  assert.equal(manifest.start_url, "https://shop.example.test/store/%D8%A8%D8%A7%D9%85%D8%B3%D9%82-%D9%84%D9%84%D8%A3%D8%AB%D8%A7%D8%AB/");
-  assert.equal(manifest.scope, manifest.start_url);
-  assert.deepEqual(manifest.icons.map((icon) => icon.sizes), ["192x192", "512x512"]);
-  assert.ok(manifest.icons.every((icon) => icon.type === "image/png"));
-  assert.ok(manifest.icons.every((icon) => icon.src.includes("/pwa-icon/")));
-  assert.ok(manifest.icons.every((icon) => new URL(icon.src).origin === "https://api.example.test"));
+test("store app URLs are fixed by database ID and reject mutable slugs", () => {
+  assert.equal(
+    buildStorePwaAppUrl(STORE_ID),
+    `https://apps.souqak-yem.com/store/${STORE_ID}/`
+  );
+  assert.equal(
+    buildStorePwaAppUrl(STORE_ID, "http://localhost:5000"),
+    `http://localhost:5000/store/${STORE_ID}/`
+  );
+  assert.throws(() => buildStorePwaAppUrl("a-changeable-store-slug"), /database ID/);
+  assert.throws(() => buildStorePwaAppUrl(STORE_ID, "https://apps.example.test/path"), /origin/);
 });
 
-test("applying a store manifest does not use global market icon paths", () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  const elements = {
-    manifest: { href: "/manifest.json" },
-    theme: { content: "#0b89ed", setAttribute(_name, value) { this.content = value; } },
-    apple: { content: "سوقك", setAttribute(_name, value) { this.content = value; } }
-  };
-  globalThis.document = {
-    querySelector(selector) {
-      if (selector === 'link[rel="manifest"]') return elements.manifest;
-      if (selector === 'meta[name="theme-color"]') return elements.theme;
-      if (selector === 'meta[name="apple-mobile-web-app-title"]') return elements.apple;
-      return null;
-    },
-    createElement() { return { setAttribute(name, value) { this[name] = value; } }; },
-    head: { appendChild() {} }
-  };
-  globalThis.window = { location: { origin: "https://shop.example.test" } };
-
-  try {
-    applyStoreManifest({ storeName: "بامسق للأثاث", slug: "بامسق", logo: "uploads/logos/store.webp", pwaEnabled: true }, "https://api.example.test/api/");
-    const json = decodeURIComponent(elements.manifest.href.split(",")[1]);
-    const manifest = JSON.parse(json);
-    assert.equal(manifest.name, "بامسق للأثاث");
-    assert.ok(manifest.icons.every((icon) => !icon.src.includes("/pwa/icon-")));
-    assert.equal(elements.apple.content, "بامسق للأثاث");
-  } finally {
-    globalThis.document = originalDocument;
-    globalThis.window = originalWindow;
-  }
+test("store app icons use the immutable database ID and manual instructions are platform-aware", () => {
+  assert.equal(
+    buildStorePwaIconUrl(STORE_ID, 192, "https://api.example.test/api/"),
+    `https://api.example.test/api/stores/by-id/${STORE_ID}/pwa-icon/192.png`
+  );
+  assert.match(
+    getStorePwaInstallInstructions({ userAgent: "Mozilla/5.0 (iPhone)" }),
+    /إضافة إلى الشاشة الرئيسية/
+  );
+  assert.match(
+    getStorePwaInstallInstructions({ userAgent: "Mozilla/5.0 (Windows NT 10.0)" }),
+    /قائمة المتصفح/
+  );
 });
 
-test("store manifest is not applied when the active plan does not enable Store PWA", () => {
-  const originalDocument = globalThis.document;
-  const originalWindow = globalThis.window;
-  const elements = {
-    manifest: { href: "data:application/manifest+json,previous-store" },
-    theme: { setAttribute(_name, value) { this.content = value; } },
-    apple: { setAttribute(_name, value) { this.content = value; } }
-  };
-  globalThis.document = {
-    querySelector(selector) {
-      if (selector === 'link[rel="manifest"]') return elements.manifest;
-      if (selector === 'meta[name="theme-color"]') return elements.theme;
-      if (selector === 'meta[name="apple-mobile-web-app-title"]') return elements.apple;
-      return null;
-    }
-  };
-  globalThis.window = { location: { origin: "https://shop.example.test" } };
-
-  try {
-    applyStoreManifest({ storeName: "متجر عادي", slug: "regular-store", pwaEnabled: false }, "https://api.example.test/api/");
-    assert.equal(elements.manifest.href, "/manifest.json");
-    assert.equal(elements.theme.content, "#0b89ed");
-    assert.equal(elements.apple.content, "سوقك");
-  } finally {
-    globalThis.document = originalDocument;
-    globalThis.window = originalWindow;
-  }
-});
-
-test("restoring the global PWA leaves its manifest and branding unchanged", () => {
-  const originalDocument = globalThis.document;
-  const elements = {
-    manifest: { href: "data:application/manifest+json,store" },
-    theme: { setAttribute(_name, value) { this.content = value; } },
-    apple: { setAttribute(_name, value) { this.content = value; } }
-  };
-  globalThis.document = {
-    querySelector(selector) {
-      if (selector === 'link[rel="manifest"]') return elements.manifest;
-      if (selector === 'meta[name="theme-color"]') return elements.theme;
-      if (selector === 'meta[name="apple-mobile-web-app-title"]') return elements.apple;
-      return null;
-    }
-  };
-
-  try {
-    restoreGlobalManifest();
-    assert.equal(elements.manifest.href, "/manifest.json");
-    assert.equal(elements.theme.content, "#0b89ed");
-    assert.equal(elements.apple.content, "سوقك");
-  } finally {
-    globalThis.document = originalDocument;
-  }
-});
-
-test("Storefront install CTA and manifest behavior are gated without changing the global PWA", () => {
+test("storefront delegates installation to the dedicated app without mutating the market manifest", () => {
   const root = process.cwd();
   const storefront = fs.readFileSync(path.join(root, "src", "pages", "Storefront.jsx"), "utf8");
-  const globalPrompt = fs.readFileSync(path.join(root, "src", "components", "PWAInstallPrompt.jsx"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.jsx"), "utf8");
   const globalManifest = JSON.parse(fs.readFileSync(path.join(root, "public", "manifest.json"), "utf8"));
-  const serviceWorker = fs.readFileSync(path.join(root, "public", "sw.js"), "utf8");
+  const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
-  assert.match(storefront, /if \(!installTarget\) \{\s*setPWAInstallTarget\("souqak"\);\s*restoreGlobalManifest\(\);/);
-  assert.match(storefront, /applyStoreManifest\(data\.store, api\.defaults\.baseURL\)/);
-  assert.match(storefront, /canInstallPWA\(installTarget\)/);
-  assert.match(storefront, /installPWA\(installTarget\)/);
-  assert.doesNotMatch(storefront, /\bsetCanInstall\b/);
-  assert.match(storefront, /\{store\.pwaEnabled && <div[\s\S]*?تثبيت التطبيق<\/button>/);
-  assert.match(storefront, /setPWAInstallTarget\(installTarget\)/);
-  assert.match(storefront, /<PWAInstallPrompt store=\{store\} apiBase=\{api\.defaults\.baseURL\} \/>/);
-  assert.match(globalPrompt, /if \(\(!isStorePrompt && isStoreRoute\) \|\| \(isStorePrompt && \(!isStoreRoute \|\| !installTarget\)\)\) return null/);
-  assert.match(main, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(storefront, /buildStorePwaAppUrl\(store\._id/);
+  assert.match(storefront, /store:\$\{data\.store\._id\}/);
+  assert.match(storefront, /storePwaAppContext\?\.slug/);
+  assert.doesNotMatch(storefront, /applyStoreManifest|restoreGlobalManifest|getStorePwaInstallFallback/);
+  assert.match(main, /basename=\{window\.__SOUQAK_STORE_PWA_APP__\?\.basePath\}/);
+  assert.match(main, /utils\/pwaInstall\.js/);
   assert.equal(globalManifest.start_url, "/");
-  assert.match(serviceWorker, /"\/manifest\.json"/);
+  assert.match(indexHtml, /href="\/manifest\.json"/);
+});
+
+test("service-worker activation removes only its own prior cache versions", async () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "public", "sw.js"), "utf8");
+  const listeners = new Map();
+  const deletedCaches = [];
+  let activationPromise;
+  const context = {
+    self: {
+      addEventListener(name, callback) { listeners.set(name, callback); },
+      clients: { claim() {} },
+      skipWaiting() {}
+    },
+    caches: {
+      keys: async () => ["suqaq-pwa-v5", "suqaq-pwa-v6", "another-app-cache"],
+      delete: async (name) => { deletedCaches.push(name); }
+    },
+    console
+  };
+  vm.runInNewContext(source, context);
+
+  listeners.get("activate")({ waitUntil(promise) { activationPromise = promise; } });
+  await activationPromise;
+
+  assert.deepEqual(deletedCaches, ["suqaq-pwa-v5"]);
+});
+
+test("stable dedicated-store app assets bypass the shared service-worker cache", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "public", "sw.js"), "utf8");
+  const listeners = new Map();
+  const context = {
+    self: {
+      addEventListener(name, callback) { listeners.set(name, callback); },
+      location: { origin: "https://apps.example.test" }
+    },
+    URL
+  };
+  vm.runInNewContext(source, context);
+
+  for (const pathname of ["/assets/store-pwa-entry.js", "/assets/store-pwa.css"]) {
+    let intercepted = false;
+    listeners.get("fetch")({
+      request: {
+        method: "GET",
+        url: `https://apps.example.test${pathname}`,
+        mode: "no-cors"
+      },
+      respondWith() { intercepted = true; }
+    });
+    assert.equal(intercepted, false, `${pathname} should be fetched fresh by the browser`);
+  }
 });

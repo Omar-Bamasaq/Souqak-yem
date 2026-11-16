@@ -125,7 +125,7 @@ test("platform reviews has a route-specific canonical URL", () => {
     ["Home.jsx", /canonicalUrl=["']\/["']/],
     ["CategoryPage.jsx", /canonicalUrl=\{canonicalPath\}/],
     ["ProductDetail.jsx", /canonicalUrl=\{canonicalAdUrl\}/],
-    ["Storefront.jsx", /canonicalUrl=\{`\/store\/\$\{store\.slug\}`\}/]
+    ["Storefront.jsx", /canonicalUrl=\{isDedicatedStorePwa[\s\S]*?new URL\(`\/store\/\$\{store\.slug\}`[\s\S]*?: `\/store\/\$\{store\.slug\}`\}/]
   ]);
   for (const [filename, expectedCanonical] of pageSources) {
     const source = fs.readFileSync(

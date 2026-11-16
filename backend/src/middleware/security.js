@@ -19,7 +19,7 @@ export const securityHeaders = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://souqak-yem.com", "https://www.souqak-yem.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://souqak-yem.com", "https://www.souqak-yem.com", getBackendBaseUrl()],
       connectSrc: ["'self'", "https://souqak-yem.com", "https://www.souqak-yem.com", getBackendBaseUrl(), getBackendBaseUrl().replace(/^http/, "ws")],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],

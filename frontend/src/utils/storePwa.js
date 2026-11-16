@@ -1,88 +1,27 @@
-export function buildStorePwaIconUrl(slug, size, apiBase) {
+export function buildStorePwaAppUrl(storeId, origin = "https://apps.souqak-yem.com") {
+  if (!/^[a-f\d]{24}$/i.test(String(storeId || ""))) {
+    throw new Error("A valid store database ID is required.");
+  }
+  const appOrigin = new URL(origin);
+  if (appOrigin.origin !== String(origin).replace(/\/+$/, "")) {
+    throw new Error("Store PWA origin must not include a path.");
+  }
+  return new URL(`/store/${storeId}/`, appOrigin.origin).href;
+}
+
+export function buildStorePwaIconUrl(storeId, size, apiBase = "/api") {
+  if (!/^[a-f\d]{24}$/i.test(String(storeId || "")) || ![192, 512].includes(size)) {
+    throw new Error("A valid store ID and icon size are required.");
+  }
   const base = String(apiBase || "/api").replace(/\/+$/, "");
   const normalizedBase = base.endsWith("/api") ? base : `${base}/api`;
-  return `${normalizedBase}/stores/${encodeURIComponent(slug)}/pwa-icon/${size}.png`;
+  return `${normalizedBase}/stores/by-id/${encodeURIComponent(storeId)}/pwa-icon/${size}.png`;
 }
 
-export function buildStoreManifest({ storeName, slug, iconUrls, shortName, origin }) {
-  const displayName = String(storeName || "متجر").trim() || "متجر";
-  const appShortName = String(shortName || Array.from(displayName).slice(0, 12).join("")).trim() || displayName;
-  const encodedSlug = encodeURIComponent(String(slug || ""));
-  const storePath = `/store/${encodedSlug}/`;
-  const scopedStartUrl = origin ? new URL(storePath, origin).href : storePath;
-  return {
-    name: displayName,
-    short_name: appShortName,
-    description: `${displayName} - المتجر الإلكتروني`,
-    id: scopedStartUrl,
-    start_url: scopedStartUrl,
-    scope: scopedStartUrl,
-    display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0b89ed",
-    dir: "rtl",
-    lang: "ar",
-    orientation: "portrait",
-    categories: ["shopping", "business"],
-    icons: [192, 512].map((size) => ({
-      src: iconUrls[size],
-      sizes: `${size}x${size}`,
-      type: "image/png",
-      purpose: "any"
-    }))
-  };
-}
-
-export function applyStoreManifest(store, apiBase) {
-  if (!store || typeof document === "undefined") return;
-  if (store.pwaEnabled !== true || !store.slug) return restoreGlobalManifest();
-
-  const manifest = buildStoreManifest({
-    storeName: store.storeName,
-    slug: store.slug,
-    shortName: Array.from(String(store.storeName || "").trim()).slice(0, 12).join(""),
-    origin: window.location.origin,
-    iconUrls: {
-      192: buildStorePwaIconUrl(store.slug, 192, apiBase),
-      512: buildStorePwaIconUrl(store.slug, 512, apiBase)
-    }
-  });
-
-  const manifestUrl = `data:application/manifest+json;charset=utf-8,${encodeURIComponent(JSON.stringify(manifest))}`;
-
-  let link = document.querySelector('link[rel="manifest"]');
-  if (!link) {
-    link = document.createElement("link");
-    link.rel = "manifest";
-    document.head.appendChild(link);
-  }
-  link.href = manifestUrl;
-
-  let themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (!themeMeta) {
-    themeMeta = document.createElement("meta");
-    themeMeta.name = "theme-color";
-    document.head.appendChild(themeMeta);
-  }
-  themeMeta.setAttribute("content", manifest.theme_color);
-
-  let appleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-  if (!appleMeta) {
-    appleMeta = document.createElement("meta");
-    appleMeta.setAttribute("name", "apple-mobile-web-app-title");
-    document.head.appendChild(appleMeta);
-  }
-  appleMeta.setAttribute("content", manifest.short_name);
-}
-
-export function restoreGlobalManifest() {
-  if (typeof document === "undefined") return;
-  const manifestLink = document.querySelector('link[rel="manifest"]');
-  if (manifestLink) manifestLink.href = "/manifest.json";
-
-  const themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (themeMeta) themeMeta.setAttribute("content", "#0b89ed");
-
-  const appleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-  if (appleMeta) appleMeta.setAttribute("content", "سوقك");
+export function getStorePwaInstallInstructions({ userAgent = "", platform = "", maxTouchPoints = 0 } = {}) {
+  const isAppleMobile = /iPhone|iPad|iPod/i.test(userAgent)
+    || (platform === "MacIntel" && maxTouchPoints > 1);
+  return isAppleMobile
+    ? "على iPhone أو iPad، افتح قائمة المشاركة ثم اختر «إضافة إلى الشاشة الرئيسية». لا يدعم iOS بدء التثبيت برمجيًا."
+    : "إذا لم يظهر خيار التثبيت، افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»، إذا كان الخيار متاحًا.";
 }

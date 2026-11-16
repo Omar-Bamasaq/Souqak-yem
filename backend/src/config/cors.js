@@ -1,10 +1,11 @@
 const allowedOrigins = [
   "https://souqak-yem.com",
-  "https://www.souqak-yem.com"
+  "https://www.souqak-yem.com",
+  "https://apps.souqak-yem.com"
 ];
 
 export function isAllowedCorsOrigin(origin) {
-  if (allowedOrigins.includes(origin)) return true;
+  if (allowedOrigins.includes(origin) || origin === process.env.STORE_PWA_ORIGIN) return true;
 
   let parsedOrigin;
   try {

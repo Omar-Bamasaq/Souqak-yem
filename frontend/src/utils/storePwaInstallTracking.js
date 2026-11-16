@@ -1,13 +1,15 @@
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function getStorePwaInstallationId({
-  storeSlug,
+  storeId,
   storage = window.localStorage,
   cryptoApi = window.crypto
 }) {
-  if (!storeSlug) throw new Error("Store slug is required to track a PWA installation.");
+  if (!/^[a-f\d]{24}$/i.test(String(storeId || ""))) {
+    throw new Error("A valid store ID is required to track a PWA installation.");
+  }
 
-  const key = `souqak:store-pwa-install:${storeSlug}`;
+  const key = `souqak:store-pwa-install:${storeId}`;
   const existingId = storage.getItem(key);
   if (UUID_PATTERN.test(existingId || "")) return existingId;
   if (!cryptoApi?.getRandomValues) throw new Error("Secure random IDs are unavailable.");

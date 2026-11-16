@@ -7,8 +7,9 @@ test("install prompts are isolated by app identity and become available again wh
   let standalone = false;
   fakeWindow.matchMedia = () => ({ matches: standalone });
   fakeWindow.navigator = { standalone: false };
+  fakeWindow.__SOUQAK_STORE_PWA_APP__ = { storeId: "64d3d93a1a2b3c4d5e6f7701" };
   globalThis.window = fakeWindow;
-  const { canInstallPWA, installPWA, setPWAInstallTarget } = await import("../src/utils/pwaInstall.js");
+  const { canInstallPWA, getPWAInstallTarget, installPWA, setPWAInstallTarget } = await import("../src/utils/pwaInstall.js");
   const installedTargets = [];
   const availabilityTargets = [];
   fakeWindow.addEventListener("pwa:installed", (event) => installedTargets.push(event.detail.target));
@@ -23,6 +24,13 @@ test("install prompts are isolated by app identity and become available again wh
   };
 
   try {
+    assert.equal(getPWAInstallTarget(), "store:64d3d93a1a2b3c4d5e6f7701");
+    emitPrompt("dismissed");
+    assert.equal(canInstallPWA("store:64d3d93a1a2b3c4d5e6f7701"), true);
+    standalone = true;
+    assert.equal(canInstallPWA("store:64d3d93a1a2b3c4d5e6f7701"), false);
+    standalone = false;
+
     setPWAInstallTarget("souqak");
     emitPrompt("dismissed");
     assert.equal(canInstallPWA("souqak"), true);

@@ -6,9 +6,8 @@ import { uploadsUrl } from "../lib/uploads.js";
 import StoreTemplateRenderer from "../components/StoreTemplateRenderer.jsx";
 import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import SEO from "../components/SEO.jsx";
-import { canInstallPWA, installPWA, setPWAInstallTarget } from "../utils/pwaInstall.js";
-import { applyStoreManifest, restoreGlobalManifest } from "../utils/storePwa.js";
-import { getStorePwaInstallFallback, STORE_PWA_FALLBACK_QUERY } from "../utils/storePwaInstallFallback.js";
+import { canInstallPWA, installPWA, isStandalonePWA } from "../utils/pwaInstall.js";
+import { buildStorePwaAppUrl, getStorePwaInstallInstructions } from "../utils/storePwa.js";
 import { GENERAL_STORE_TEMPLATE } from "../utils/storeTemplates.js";
 import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
 import { getStorePwaInstallationId } from "../utils/storePwaInstallTracking.js";
@@ -60,7 +59,9 @@ function getSocialLabel(platform) {
 }
 
 export default function Storefront() {
-  const { slug } = useParams();
+  const { slug: routeSlug } = useParams();
+  const storePwaAppContext = typeof window !== "undefined" ? window.__SOUQAK_STORE_PWA_APP__ : null;
+  const slug = routeSlug || storePwaAppContext?.slug;
   const { hash } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const api = useApi();
@@ -74,8 +75,6 @@ export default function Storefront() {
   const [storeSearch, setStoreSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [installFallbackMessage, setInstallFallbackMessage] = useState("");
-  const [installFallbackUrl, setInstallFallbackUrl] = useState("");
-  const [installCopyMessage, setInstallCopyMessage] = useState("");
   const [phonesOpen, setPhonesOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [cartMessage, setCartMessage] = useState("");
@@ -196,30 +195,21 @@ export default function Storefront() {
   useEffect(() => {
     setSelectedCategory("all");
     setInstallFallbackMessage("");
-    setInstallFallbackUrl("");
-    setInstallCopyMessage("");
   }, [slug]);
-
-  useEffect(() => {
-    if (searchParams.get(STORE_PWA_FALLBACK_QUERY) !== "chrome-unavailable") return;
-    const fallbackUrl = new URL(window.location.href);
-    fallbackUrl.searchParams.delete(STORE_PWA_FALLBACK_QUERY);
-    setInstallFallbackUrl(fallbackUrl.href);
-  }, [searchParams, slug]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(storeSearch.trim()), 250);
     return () => window.clearTimeout(timer);
   }, [storeSearch]);
 
-  const installTarget = data?.store?.pwaEnabled && data.store.slug ? `store:${data.store.slug}` : null;
+  const installTarget = data?.store?.pwaEnabled && data.store._id ? `store:${data.store._id}` : null;
 
   useEffect(() => {
     const handleInstalled = (event) => {
-      if (event.detail?.target !== installTarget) return;
+      if (!data?.store || event.detail?.target !== installTarget) return;
       if (data.store.analyticsEnabled !== true) return;
       try {
-        const installationId = getStorePwaInstallationId({ storeSlug: data.store.slug });
+        const installationId = getStorePwaInstallationId({ storeId: data.store._id });
         api.post(`/stores/${data.store._id}/pwa-installs`, { installationId }).catch((error) => {
           console.error("Store PWA install tracking error:", error);
         });
@@ -235,23 +225,9 @@ export default function Storefront() {
     };
   }, [api, data?.store?._id, data?.store?.slug, installTarget]);
 
-  useEffect(() => {
-    if (!data?.store || data.store.slug !== slug) return undefined;
-    if (!installTarget) {
-      setPWAInstallTarget("souqak");
-      restoreGlobalManifest();
-    } else {
-      setPWAInstallTarget(installTarget);
-      applyStoreManifest(data.store, api.defaults.baseURL);
-    }
-
-    return () => {
-      setPWAInstallTarget("souqak");
-      restoreGlobalManifest();
-    };
-  }, [data?.store, api, installTarget, slug]);
-
   const { store, ads = [], pages = 1 } = data || {};
+  const isDedicatedStorePwa = Boolean(storePwaAppContext?.storeId)
+    && storePwaAppContext.storeId === String(store?._id);
   const image = store?.cover || store?.logo;
   const contact = store?.contact || {};
   const advancedCustomization = store?.advancedCustomizationEnabled ? store.advancedCustomization : null;
@@ -407,38 +383,18 @@ export default function Storefront() {
 
   const handleInstallClick = async () => {
     if (!installTarget) return;
+    if (storePwaAppContext?.storeId !== String(store?._id)) return;
     if (canInstallPWA(installTarget)) {
       setInstallFallbackMessage("");
       await installPWA(installTarget);
       return;
     }
 
-    const fallback = getStorePwaInstallFallback({
+    setInstallFallbackMessage(getStorePwaInstallInstructions({
       userAgent: navigator.userAgent,
       platform: navigator.platform,
-      maxTouchPoints: navigator.maxTouchPoints,
-      pageUrl: window.location.href
-    });
-
-    setInstallFallbackUrl(fallback.pageUrl);
-    setInstallCopyMessage("");
-    if (fallback.platform === "android") {
-      setInstallFallbackMessage("android");
-      window.location.assign(fallback.url);
-      return;
-    }
-
-    window.open(fallback.url, "_blank", "noopener,noreferrer");
-    setInstallFallbackMessage(fallback.platform);
-  };
-
-  const handleCopyInstallFallbackUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(installFallbackUrl);
-      setInstallCopyMessage("تم نسخ الرابط.");
-    } catch {
-      setInstallCopyMessage("تعذر النسخ تلقائيًا؛ اضغط مطولًا على الرابط لنسخه.");
-    }
+      maxTouchPoints: navigator.maxTouchPoints
+    }));
   };
 
   return (
@@ -459,7 +415,10 @@ export default function Storefront() {
         description={store.description || `${store.storeName}، ${store.businessActivity}`}
         image={image ? uploadsUrl(image) : undefined}
         url={`/store/${store.slug}`}
-        canonicalUrl={`/store/${store.slug}`}
+        canonicalUrl={isDedicatedStorePwa
+          ? new URL(`/store/${store.slug}`, import.meta.env.PUBLIC_SITE_URL || "https://souqak-yem.com").href
+          : `/store/${store.slug}`}
+        indexable={!isDedicatedStorePwa}
         type="collection"
       />
 
@@ -572,29 +531,19 @@ export default function Storefront() {
                   ))}
                 </div>
               )}
-              {store.pwaEnabled && <div className="mt-2 flex flex-wrap justify-center gap-2 sm:basis-full">
-                <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت التطبيق</button>
-                {(searchParams.get(STORE_PWA_FALLBACK_QUERY) === "chrome-unavailable" || installFallbackMessage === "android") && (
-                  <div className="w-full text-center text-xs leading-5 text-slate-600">
-                    <p>تعذر فتح Google Chrome تلقائيًا. افتح Chrome يدويًا، ثم الصق رابط هذا المتجر واختر من القائمة «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</p>
-                    <div className="mx-auto mt-2 flex max-w-lg gap-2">
-                      <input aria-label="رابط المتجر" readOnly value={installFallbackUrl} dir="ltr" onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1 text-left" />
-                      <button type="button" onClick={handleCopyInstallFallbackUrl} disabled={!installFallbackUrl} className="shrink-0 rounded-lg border border-slate-200 px-3 py-1 font-bold disabled:opacity-50">نسخ الرابط</button>
-                    </div>
-                    {installCopyMessage && <p role="status">{installCopyMessage}</p>}
-                  </div>
-                )}
-                {installFallbackMessage === "ios" && (
-                  <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">
-                    جربنا فتح صفحة المتجر في تبويب جديد. على iPhone أو iPad، استخدم زر المشاركة في المتصفح ثم اختر «إضافة إلى الشاشة الرئيسية». لا يدعم iOS بدء التثبيت برمجيًا.
-                  </p>
-                )}
-                {installFallbackMessage === "other" && (
-                  <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">
-                    افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»، إذا كان الخيار متاحًا.
-                  </p>
-                )}
-              </div>}
+              {store.pwaEnabled && (
+                <div className="mt-2 flex flex-wrap justify-center gap-2 sm:basis-full">
+                  {isDedicatedStorePwa
+                    ? !isStandalonePWA() && <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت التطبيق</button>
+                    : <a
+                      href={buildStorePwaAppUrl(store._id, import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                    >تثبيت التطبيق</a>}
+                  {installFallbackMessage && <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">{installFallbackMessage}</p>}
+                </div>
+              )}
 
               {phonesOpen && contactPhones.length > 1 && <div className="mt-3 grid gap-2 rounded-2xl bg-slate-50 p-3 sm:grid-cols-2">
                 {contactPhones.map((item, index) => <a key={`phone-${index}`} href={`tel:${item.value}`} className="flex min-h-11 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700" dir="rtl"><span>رقم اتصال {index + 1}</span><span dir="ltr" className="font-bold">{item.value}</span></a>)}

@@ -53,12 +53,13 @@ test("PWA installation identifiers are stable per store without including viewer
       return bytes;
     }
   };
-  const first = getStorePwaInstallationId({ storeSlug: "shop-one", storage, cryptoApi });
-  const repeated = getStorePwaInstallationId({ storeSlug: "shop-one", storage, cryptoApi });
-  const secondStore = getStorePwaInstallationId({ storeSlug: "shop-two", storage, cryptoApi });
+  const first = getStorePwaInstallationId({ storeId: "64d3d93a1a2b3c4d5e6f7701", storage, cryptoApi });
+  const repeated = getStorePwaInstallationId({ storeId: "64d3d93a1a2b3c4d5e6f7701", storage, cryptoApi });
+  const secondStore = getStorePwaInstallationId({ storeId: "64d3d93a1a2b3c4d5e6f7702", storage, cryptoApi });
 
   assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(repeated, first);
   assert.notEqual(secondStore, first);
+  assert.ok(storage.keys().every((key) => /^[a-f\d]{24}$/i.test(key.split(":").at(-1))));
   assert.ok(storage.keys().every((key) => !key.includes("user") && !key.includes("ip")));
 });

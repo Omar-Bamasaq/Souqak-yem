@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
-import { canInstallPWA, installPWA } from "../utils/pwaInstall.js";
+import { canInstallPWA, installPWA, isStandalonePWA } from "../utils/pwaInstall.js";
 import { getStorePwaInstallContent } from "../utils/storePwaInstallPrompt.js";
-import { uploadsUrl } from "../lib/uploads.js";
 import { buildStorePwaIconUrl } from "../utils/storePwa.js";
 
 const GLOBAL_INSTALL_TARGET = "souqak";
@@ -11,22 +10,25 @@ const GLOBAL_INSTALL_TARGET = "souqak";
 export default function PWAInstallPrompt({ store, apiBase }) {
   const [showPrompt, setShowPrompt] = useState(false);
   const location = useLocation();
-  const isStoreRoute = location.pathname.startsWith("/store/");
+  const storePwaAppContext = window.__SOUQAK_STORE_PWA_APP__;
+  const isStoreRoute = location.pathname.startsWith("/store/") || Boolean(storePwaAppContext?.storeId);
   const isStorePrompt = Boolean(store);
-  const installTarget = isStorePrompt && store.pwaEnabled && store.slug
-    ? `store:${store.slug}`
+  const installTarget = isStorePrompt && store.pwaEnabled && store._id
+    ? `store:${store._id}`
     : isStorePrompt ? null : GLOBAL_INSTALL_TARGET;
   const dismissedKey = isStorePrompt
-    ? `pwa_prompt_dismissed:store:${store.slug}`
+    ? `pwa_prompt_dismissed:store:${store._id}`
     : "pwa_prompt_dismissed";
   const storeContent = isStorePrompt ? getStorePwaInstallContent(store) : null;
   const iconSrc = isStorePrompt
-    ? store.logo ? uploadsUrl(store.logo) : buildStorePwaIconUrl(store.slug, 192, apiBase)
+    ? buildStorePwaIconUrl(store._id, 192, apiBase)
     : "/assets/logo/app-icon.svg";
+  const isCurrentStorePwa = isStorePrompt
+    && storePwaAppContext?.storeId === String(store._id);
 
   useEffect(() => {
     setShowPrompt(false);
-    if (!installTarget || (isStorePrompt && !isStoreRoute) || (!isStorePrompt && isStoreRoute)) return undefined;
+    if (!installTarget || (isStorePrompt && !isStoreRoute) || (!isStorePrompt && isStoreRoute) || (isCurrentStorePwa && isStandalonePWA())) return undefined;
 
     let promptTimer = null;
     const handleCanInstall = (event) => {
@@ -50,7 +52,7 @@ export default function PWAInstallPrompt({ store, apiBase }) {
       window.removeEventListener("pwa:can-install", handleCanInstall);
       window.removeEventListener("pwa:installed", handleInstalled);
     };
-  }, [dismissedKey, installTarget, isStorePrompt, isStoreRoute]);
+  }, [dismissedKey, installTarget, isCurrentStorePwa, isStorePrompt, isStoreRoute]);
 
   const handleInstallClick = async () => {
     const outcome = await installPWA(installTarget);
@@ -64,7 +66,7 @@ export default function PWAInstallPrompt({ store, apiBase }) {
     sessionStorage.setItem(dismissedKey, "true");
   };
 
-  if ((!isStorePrompt && isStoreRoute) || (isStorePrompt && (!isStoreRoute || !installTarget))) return null;
+  if ((!isStorePrompt && isStoreRoute) || (isStorePrompt && (!isStoreRoute || !installTarget || (isCurrentStorePwa && isStandalonePWA())))) return null;
 
   return (
     <AnimatePresence>

@@ -14,6 +14,7 @@ import { BrokerageStatusProvider } from "./store/BrokerageStatusContext.jsx";
 import { PublicSsgContent } from "./ssg/PublicSsgContent.mjs";
 import { SsgDataProvider } from "./ssg/SsgDataContext.jsx";
 import { resolveSiteBaseUrl } from "./lib/siteUrl.js";
+import "./utils/pwaInstall.js";
 import "./index.css";
 
 const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
@@ -66,7 +67,10 @@ const queryClient = new QueryClient({
 });
 
 const appTree = (
-  <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+  <BrowserRouter
+    basename={window.__SOUQAK_STORE_PWA_APP__?.basePath}
+    future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+  >
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>

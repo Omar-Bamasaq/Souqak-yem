@@ -255,8 +255,10 @@ test("Store Product pickers filter supported activities but preserve legacy sele
 test("template rendering leaves the shared Store PWA and SEO lifecycle in Storefront", () => {
   const storefrontSource = fs.readFileSync(path.join(root, "src", "pages", "Storefront.jsx"), "utf8");
   const rendererSource = fs.readFileSync(path.join(root, "src", "components", "StoreTemplateRenderer.jsx"), "utf8");
-  assert.match(storefrontSource, /applyStoreManifest\(data\.store, api\.defaults\.baseURL\)/);
-  assert.match(storefrontSource, /restoreGlobalManifest\(\)/);
-  assert.match(storefrontSource, /<SEO[\s\S]*?canonicalUrl=\{`\/store\/\$\{store\.slug\}`\}/);
+  assert.doesNotMatch(storefrontSource, /applyStoreManifest|restoreGlobalManifest/);
+  assert.match(storefrontSource, /buildStorePwaAppUrl\(store\._id/);
+  assert.match(storefrontSource, /<SEO[\s\S]*?canonicalUrl=\{isDedicatedStorePwa/);
+  assert.match(storefrontSource, /new URL\(`\/store\/\$\{store\.slug\}`/);
+  assert.match(storefrontSource, /: `\/store\/\$\{store\.slug\}`\}/);
   assert.doesNotMatch(rendererSource, /applyStoreManifest|restoreGlobalManifest|buildStoreManifest/);
 });

@@ -21,7 +21,8 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.filter((key) => key.startsWith("suqaq-pwa-") && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       );
     })
   );
@@ -43,7 +44,10 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Cache only versioned JavaScript and CSS files, never the app shell.
-  const isVersionedAsset = url.pathname.startsWith("/assets/") && /\.(js|css)$/.test(url.pathname);
+  const isVersionedAsset = url.pathname.startsWith("/assets/")
+    && /\.(js|css)$/.test(url.pathname)
+    && url.pathname !== "/assets/store-pwa-entry.js"
+    && url.pathname !== "/assets/store-pwa.css";
   if (isVersionedAsset) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {

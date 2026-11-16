@@ -76,6 +76,13 @@ export function AuthProvider({ children }) {
         }
         
         if (!t && !savedUser) {
+          if (window.__SOUQAK_STORE_PWA_APP__?.storeId) {
+            const refreshed = await doSilentRefresh();
+            const refreshedToken = localStorage.getItem("token");
+            if (refreshed && refreshedToken) {
+              await fetchUserWithCurrentToken(refreshedToken);
+            }
+          }
           setLoading(false);
           return;
         }
