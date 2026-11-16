@@ -75,6 +75,7 @@ export default function Storefront() {
   const [storeSearch, setStoreSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [installFallbackMessage, setInstallFallbackMessage] = useState("");
+  const [nativeInstallAvailable, setNativeInstallAvailable] = useState(false);
   const [preparedHandoff, setPreparedHandoff] = useState(null);
   const [handoffPreparingStoreId, setHandoffPreparingStoreId] = useState(null);
   const [handoffFailedStoreId, setHandoffFailedStoreId] = useState(null);
@@ -233,11 +234,31 @@ export default function Storefront() {
   const isDedicatedStorePwa = Boolean(storePwaAppContext?.storeId)
     && storePwaAppContext.storeId === String(store?._id);
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    setNativeInstallAvailable(Boolean(installTarget && canInstallPWA(installTarget)));
+    const handleInstallAvailability = (event) => {
+      if (event.detail?.target === installTarget) {
+        setNativeInstallAvailable(Boolean(installTarget && canInstallPWA(installTarget)));
+      }
+    };
+    const handleInstalled = (event) => {
+      if (event.detail?.target === installTarget) setNativeInstallAvailable(false);
+    };
+    window.addEventListener("pwa:can-install", handleInstallAvailability);
+    window.addEventListener("pwa:installed", handleInstalled);
+    return () => {
+      window.removeEventListener("pwa:can-install", handleInstallAvailability);
+      window.removeEventListener("pwa:installed", handleInstalled);
+    };
+  }, [installTarget]);
+
   const storePwaOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
   const storeAppUrl = store?._id ? buildStorePwaAppUrl(store._id, storePwaOrigin) : "";
   const storeAppLaunchUrl = store?._id ? buildStorePwaLaunchUrl(store._id, {
     userAgent: navigator.userAgent,
-    origin: storePwaOrigin
+    origin: storePwaOrigin,
+    installAttempt: true
   }) : "";
   const preparedHandoffIsCurrent = Boolean(
     store?._id
@@ -480,7 +501,18 @@ export default function Storefront() {
     if (storePwaAppContext?.storeId !== String(store?._id)) return;
     if (canInstallPWA(installTarget)) {
       setInstallFallbackMessage("");
+      window.dispatchEvent(new CustomEvent("pwa:store-install-started", {
+        detail: { target: installTarget }
+      }));
       await installPWA(installTarget);
+      return;
+    }
+
+    if (isDedicatedStorePwa && isAndroid) {
+      setInstallFallbackMessage("");
+      window.dispatchEvent(new CustomEvent("pwa:store-install-request", {
+        detail: { target: installTarget, source: "method-button" }
+      }));
       return;
     }
 
@@ -498,7 +530,7 @@ export default function Storefront() {
 
   return (
     <div
-      className="mx-auto max-w-7xl space-y-6 px-3 py-4 sm:space-y-8 sm:px-6 sm:py-8"
+      className="storefront-page mx-auto max-w-7xl space-y-6 px-3 py-4 sm:space-y-8 sm:px-6 sm:py-8"
       dir="rtl"
       style={advancedCustomization ? {
         backgroundColor: pageBackgroundColor,
@@ -551,6 +583,72 @@ export default function Storefront() {
         </div>
 
         <div className="space-y-4 border-t border-slate-100 p-4 sm:p-6" style={advancedCustomization ? { backgroundColor: storeInfoBackgroundColor, borderColor: `${storefrontColor}33` } : undefined}>
+          {(store.notificationsEnabled || store.pwaEnabled) && (
+            <div className="flex flex-wrap items-center gap-2 sm:hidden" aria-label="إجراءات المتجر">
+              {store.notificationsEnabled && (
+                <button
+                  type="button"
+                  onClick={toggleStoreNotifications}
+                  disabled={storeNotificationLoading || storeNotificationSaving}
+                  aria-label={storeNotificationSubscription?.enabled ? "إيقاف إشعارات المتجر" : "تفعيل إشعارات المتجر"}
+                  title={storeNotificationSubscription?.enabled ? "إشعارات المتجر مفعّلة" : "إشعارات المتجر مغلقة"}
+                  aria-pressed={storeNotificationSubscription?.enabled === true}
+                  className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                    storeNotificationSubscription?.enabled
+                      ? "border-emerald-700 bg-emerald-700 text-white"
+                      : "border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17H9.143m10.286-2.25c-1.026-1.03-1.929-2.25-1.929-5.25a5.5 5.5 0 0 0-11 0c0 3-.903 4.22-1.929 5.25A1.5 1.5 0 0 0 5.634 17h12.732a1.5 1.5 0 0 0 1.063-2.25ZM9 17v.75a3 3 0 0 0 6 0V17" />
+                  </svg>
+                  {storeNotificationSubscription?.enabled && <span aria-hidden="true" className="absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-emerald-600 text-[10px] font-black text-white">✓</span>}
+                </button>
+              )}
+              {store.pwaEnabled && (
+                isDedicatedStorePwa
+                  ? !isStandalonePWA() && (
+                    <button
+                      type="button"
+                      onClick={handleInstallClick}
+                      aria-label={isAndroid && !nativeInstallAvailable ? "طريقة تثبيت التطبيق" : "تثبيت التطبيق"}
+                      title={isAndroid && !nativeInstallAvailable ? "طريقة تثبيت التطبيق" : "تثبيت التطبيق"}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+                    >
+                      <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+                      </svg>
+                    </button>
+                  )
+                  : isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
+                    ? (
+                      <a href={storeAppLaunchUrl} aria-label="تثبيت التطبيق" title="تثبيت التطبيق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100">
+                        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                      </a>
+                    )
+                    : !isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
+                      ? (
+                        <a href={storeAppUrl} target="_blank" rel="noopener noreferrer" aria-label="تثبيت التطبيق" title="تثبيت التطبيق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100">
+                          <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                        </a>
+                      )
+                      : (
+                        <button
+                          type="button"
+                          disabled={authLoading || handoffIsPreparing}
+                          onClick={handlePrepareStorePwa}
+                          aria-label={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز التطبيق" : "تجهيز فتح التطبيق"}
+                          title={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز التطبيق" : "تجهيز فتح التطبيق"}
+                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                        </button>
+                      )
+              )}
+              {storeNotificationError && <p role="alert" className="w-full text-xs font-bold text-rose-700">{storeNotificationError}</p>}
+              {installFallbackMessage && <p role="status" className="w-full text-xs leading-5 text-slate-600">{installFallbackMessage}</p>}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
             {store.location && <div className="flex items-center gap-2 font-semibold">
               <svg className="h-4 w-4 shrink-0" style={{ color: storefrontColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657 13.414 20.9a2 2 0 0 1-2.828 0l-4.243-4.243a8 8 0 1 1 11.314 0Z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
@@ -578,7 +676,7 @@ export default function Storefront() {
               {followError && <p role="alert" className="w-full text-xs font-bold text-rose-700">{followError}</p>}
             </div>
             {store.notificationsEnabled && (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+              <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:block sm:p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="flex items-center gap-2 text-sm font-black text-slate-800">
@@ -631,9 +729,9 @@ export default function Storefront() {
                 </div>
               )}
               {store.pwaEnabled && (
-                <div className="mt-2 flex flex-wrap justify-center gap-2 sm:basis-full">
+                <div className="mt-2 hidden flex-wrap justify-center gap-2 sm:flex sm:basis-full">
                   {isDedicatedStorePwa
-                    ? !isStandalonePWA() && <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت التطبيق</button>
+                    ? !isStandalonePWA() && <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">{isAndroid && !nativeInstallAvailable ? "طريقة التثبيت" : "تثبيت التطبيق"}</button>
                     : isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
                       ? <a
                         href={storeAppLaunchUrl}
@@ -659,7 +757,8 @@ export default function Storefront() {
                         <a
                           href={buildStorePwaLaunchUrl(store._id, {
                             userAgent: navigator.userAgent,
-                            origin: window.location.origin
+                            origin: window.location.origin,
+                            installAttempt: true
                           })}
                           className="text-center text-xs font-bold text-blue-700 underline"
                         >محاولة فتح التطبيق في Chrome</a>

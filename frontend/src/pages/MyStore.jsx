@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import { uploadsUrl } from "../lib/uploads.js";
@@ -72,6 +72,8 @@ export default function MyStore({ storeType = "store" }) {
   const [ownerPushStatus, setOwnerPushStatus] = useState("checking");
   const [ownerPushSaving, setOwnerPushSaving] = useState(false);
   const [ownerPushError, setOwnerPushError] = useState("");
+  const [activeMobileTab, setActiveMobileTab] = useState("summary");
+  const customizationDetailsRef = useRef(null);
   const [bankDraft, setBankDraft] = useState(null);
   const [editingBankIndex, setEditingBankIndex] = useState(null);
   const [form, setForm] = useState({
@@ -331,6 +333,23 @@ export default function MyStore({ storeType = "store" }) {
   const selectedFeaturedProducts = featuredCandidates.filter((product) => (
     advancedDraft.featuredProductIds?.includes(String(product._id))
   ));
+  const managementTabs = [
+    { id: "summary", label: "الملخص" },
+    ...(supportsAnalytics ? [{ id: "analytics", label: "الإحصائيات" }] : []),
+    { id: "customization", label: "تخصيص المتجر" },
+    { id: "advanced", label: "متقدم" },
+    { id: "products", label: "المنتجات" },
+    ...(subscription ? [{ id: "subscription", label: "الاشتراك" }] : [])
+  ];
+  const selectedMobileTab = managementTabs.some(({ id }) => id === activeMobileTab)
+    ? activeMobileTab
+    : "summary";
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches && customizationDetailsRef.current) {
+      customizationDetailsRef.current.open = selectedMobileTab === "customization";
+    }
+  }, [selectedMobileTab]);
 
   const updateAdvancedDraft = (field, value) => {
     setAdvancedDraft((current) => ({ ...current, [field]: value }));
@@ -796,7 +815,7 @@ export default function MyStore({ storeType = "store" }) {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 pb-24 sm:space-y-6 sm:px-6 sm:py-8" dir="rtl">
+    <div className="store-management-page mx-auto max-w-7xl space-y-5 px-4 py-5 pb-24 sm:space-y-6 sm:px-6 sm:py-8" dir="rtl">
       {error && (
         <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</div>
       )}
@@ -823,7 +842,7 @@ export default function MyStore({ storeType = "store" }) {
               {subscription && <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-white/90">{planName}</span>}
             </div>
           </div>
-          <nav className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-5" aria-label="إجراءات سريعة">
+          <nav className="mt-6 hidden flex-wrap gap-2 border-t border-white/10 pt-5 sm:flex" aria-label="إجراءات سريعة">
             {canManageStoreProducts && <Link to={`/add-product?storeProduct=1&storeType=${storeType}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-4 text-sm font-extrabold text-slate-950 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">إضافة منتج</Link>}
             {supportsOrders && <Link to={storeType === "family-production" ? "/my-family-production/orders" : "/my-store/orders"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-extrabold text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">إدارة الطلبات{supportsNotifications && newOrderCount > 0 && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs">{newOrderCount.toLocaleString("ar-EG")}</span>}</Link>}
             <a href="#products" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-extrabold text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">المنتجات</a>
@@ -917,6 +936,25 @@ export default function MyStore({ storeType = "store" }) {
         </section>
       )}
 
+      <nav className="sticky top-2 z-20 -mx-1 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/95 p-1 shadow-sm backdrop-blur sm:hidden" aria-label="أقسام إدارة المشروع والمتجر">
+        {managementTabs.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveMobileTab(id)}
+            aria-pressed={selectedMobileTab === id}
+            className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-black transition-colors ${
+              selectedMobileTab === id
+                ? "bg-blue-700 text-white"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      <div className={selectedMobileTab === "summary" ? "space-y-5" : "hidden space-y-5 sm:block"}>
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-6 sm:px-6">
         <div className="min-w-0">
           <p className="text-xs font-extrabold text-slate-500">نبذة النشاط</p>
@@ -1004,8 +1042,10 @@ export default function MyStore({ storeType = "store" }) {
         )}
         {ownerPushError && <p role="alert" className="mt-2 text-xs font-bold text-rose-700">{ownerPushError}</p>}
       </section>
+      </div>
 
       {supportsAnalytics && (
+        <div className={selectedMobileTab === "analytics" ? "" : "hidden sm:block"}>
         <section id="store-analytics" className="scroll-mt-24 rounded-[2rem] border border-violet-100 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1093,9 +1133,11 @@ export default function MyStore({ storeType = "store" }) {
             </>
           )}
         </section>
+        </div>
       )}
 
-      <details className="group rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6" dir="rtl">
+      <div className={selectedMobileTab === "customization" ? "" : "hidden sm:block"}>
+      <details ref={customizationDetailsRef} className="group rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6" dir="rtl">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <div>
               <p className="text-xs font-black text-blue-600">{store.storeType === "family-production" ? "تخصيص المشروع" : "تخصيص المتجر"}</p>
@@ -1347,7 +1389,9 @@ export default function MyStore({ storeType = "store" }) {
         )}
         </div>
       </details>
+      </div>
 
+      <div className={selectedMobileTab === "advanced" ? "" : "hidden sm:block"}>
       <section id="advanced-customization" className="scroll-mt-24 rounded-[2rem] border border-indigo-100 bg-white p-4 shadow-sm sm:p-6" dir="rtl">
         <div className="mb-5">
           <p className="text-xs font-black text-indigo-600">هوية وتجربة المتجر</p>
@@ -1570,8 +1614,10 @@ export default function MyStore({ storeType = "store" }) {
           </p>
         )}
       </section>
+      </div>
 
       {subscription && (
+        <div className={selectedMobileTab === "subscription" ? "" : "hidden sm:block"}>
         <section id="subscription" className="scroll-mt-24 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-xl font-black text-slate-900">حالة الاشتراك</h3>
@@ -1661,8 +1707,10 @@ export default function MyStore({ storeType = "store" }) {
             </form>
           )}
         </section>
+        </div>
       )}
 
+      <div className={selectedMobileTab === "products" ? "" : "hidden sm:block"}>
       <section id="products" className="scroll-mt-24 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
@@ -1775,6 +1823,7 @@ export default function MyStore({ storeType = "store" }) {
           </div>
         )}
       </section>
+      </div>
       {mapOpen && <Suspense fallback={<div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/70 p-4 text-sm font-bold text-white">جارٍ تحميل الخريطة...</div>}>
         <MapLocationPicker
           initialLocation={{ lat: form.lat, lng: form.lng }}

@@ -32,7 +32,8 @@ test("bank account array is loaded from and saved through the owner customizatio
 });
 
 test("store customization section is collapsible and closed by default", () => {
-  assert.match(source, /<details className="group rounded-\[2rem\] border border-slate-200 bg-white p-4 shadow-sm sm:p-6" dir="rtl">/);
+  assert.match(source, /<details ref=\{customizationDetailsRef\} className="group rounded-\[2rem\] border border-slate-200 bg-white p-4 shadow-sm sm:p-6" dir="rtl">/);
   assert.match(source, /<summary className="flex cursor-pointer list-none/);
   assert.doesNotMatch(source, /<details[^>]*\sopen(?:\s|>)/);
+  assert.match(source, /customizationDetailsRef\.current\.open = selectedMobileTab === "customization"/);
 });

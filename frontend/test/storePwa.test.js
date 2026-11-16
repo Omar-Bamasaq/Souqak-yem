@@ -60,6 +60,14 @@ test("Android store launch tries Chrome while preserving a normal URL for other 
   assert.match(intentUrl, /^intent:\/\/apps\.souqak-yem\.com\/store\//);
   assert.match(intentUrl, /package=com\.android\.chrome/);
   assert.ok(intentUrl.includes(encodeURIComponent(appUrl)));
+
+  const installAttemptUrl = buildStorePwaLaunchUrl(STORE_ID, {
+    userAgent: "Mozilla/5.0 (Linux; Android 14)",
+    installAttempt: true
+  });
+  assert.match(installAttemptUrl, /pwaInstallAttempt=1/);
+  assert.ok(installAttemptUrl.includes(encodeURIComponent(`${appUrl}?pwaInstallAttempt=1`)));
+  assert.doesNotMatch(installAttemptUrl, /accessToken|refreshToken|handoffToken/i);
 });
 
 test("store notification links stay on the main app and resolve to the right independent app", () => {
@@ -90,6 +98,7 @@ test("store notification links stay on the main app and resolve to the right ind
 test("storefront delegates installation to the dedicated app without mutating the market manifest", () => {
   const root = process.cwd();
   const storefront = fs.readFileSync(path.join(root, "src", "pages", "Storefront.jsx"), "utf8");
+  const installPrompt = fs.readFileSync(path.join(root, "src", "components", "PWAInstallPrompt.jsx"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.jsx"), "utf8");
   const globalManifest = JSON.parse(fs.readFileSync(path.join(root, "public", "manifest.json"), "utf8"));
   const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -97,6 +106,15 @@ test("storefront delegates installation to the dedicated app without mutating th
   assert.match(storefront, /buildStorePwaLaunchUrl\(store\._id/);
   assert.match(storefront, /preparedHandoffIsCurrent/);
   assert.match(storefront, /href=\{storeAppLaunchUrl\}/);
+  assert.match(storefront, /pwa:store-install-request/);
+  assert.match(storefront, /installAttempt:\s*true/);
+  assert.match(storefront, /"طريقة التثبيت"/);
+  assert.match(installPrompt, /canShowStorePwaInstallGuide/);
+  assert.match(installPrompt, /params\.get\("pwaInstallAttempt"\)/);
+  assert.match(installPrompt, /source:\s*"market-install"/);
+  assert.match(installPrompt, /source === "method-button"/);
+  assert.match(installPrompt, /ثبّت تطبيق المتجر/);
+  assert.match(installPrompt, /اختر «فتح في Chrome»/);
   assert.doesNotMatch(storefront, /window\.open\("about:blank"/);
   assert.match(storefront, /store:\$\{data\.store\._id\}/);
   assert.match(storefront, /storePwaAppContext\?\.slug/);

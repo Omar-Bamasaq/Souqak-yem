@@ -518,3 +518,46 @@ a,
     min-height: 44px;
   }
 }
+
+@media (max-width: 639px) {
+  .store-management-page .text-sm,
+  .storefront-page .text-sm {
+    font-size: 0.8125rem;
+  }
+
+  .store-management-page .text-base,
+  .storefront-page .text-base {
+    font-size: 0.875rem;
+  }
+
+  .store-management-page .text-lg,
+  .storefront-page .text-lg {
+    font-size: 1rem;
+  }
+
+  .store-management-page .text-xl,
+  .storefront-page .text-xl {
+    font-size: 1.125rem;
+  }
+
+  .store-management-page .text-2xl,
+  .storefront-page .text-2xl {
+    font-size: 1.375rem;
+  }
+
+  .store-management-page label {
+    margin-bottom: 0;
+    padding-inline: 0;
+    font-size: 0.8125rem;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .store-management-page :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+  .storefront-page :is(input, select, textarea) {
+    min-height: 2.625rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.8125rem;
+  }
+}

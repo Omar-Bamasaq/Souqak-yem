@@ -11,13 +11,15 @@ export function buildStorePwaAppUrl(storeId, origin = "https://apps.souqak-yem.c
 
 export function buildStorePwaLaunchUrl(
   storeId,
-  { userAgent = "", origin = "https://apps.souqak-yem.com" } = {}
+  { userAgent = "", origin = "https://apps.souqak-yem.com", installAttempt = false } = {}
 ) {
   const appUrl = buildStorePwaAppUrl(storeId, origin);
   if (!/Android/i.test(userAgent)) return appUrl;
 
   const target = new URL(appUrl);
-  return `intent://${target.host}${target.pathname}${target.search}#Intent;scheme=${target.protocol.slice(0, -1)};package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(appUrl)};end`;
+  if (installAttempt) target.searchParams.set("pwaInstallAttempt", "1");
+  const launchUrl = target.href;
+  return `intent://${target.host}${target.pathname}${target.search}#Intent;scheme=${target.protocol.slice(0, -1)};package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(launchUrl)};end`;
 }
 
 export function buildStorePwaIconUrl(storeId, size, apiBase = "/api") {
