@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.jsx";
 import { IS_MAINTENANCE } from "./config/maintenance.js";
-import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./api/csrf.js";
+import { clearCsrfToken, ensureCsrfToken, isApiRequest, retryAfterCsrfFailure } from "./api/csrf.js";
 import { AuthProvider } from "./store/AuthContext.jsx";
 import { ChatProvider } from "./store/ChatContext.jsx";
 import { ThemeProvider } from "./store/ThemeContext.jsx";
@@ -38,8 +38,12 @@ axios.interceptors.request.use(async (config) => {
 }, (error) => Promise.reject(error));
 axios.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.data?.code === "CSRF_TOKEN_INVALID") clearCsrfToken();
+  async (error) => {
+    if (error.response?.data?.code === "CSRF_TOKEN_INVALID") {
+      const retry = await retryAfterCsrfFailure(error, (config) => axios(config));
+      if (retry) return retry;
+      clearCsrfToken();
+    }
     return Promise.reject(error);
   }
 );

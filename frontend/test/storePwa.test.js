@@ -95,6 +95,9 @@ test("storefront delegates installation to the dedicated app without mutating th
   const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
   assert.match(storefront, /buildStorePwaLaunchUrl\(store\._id/);
+  assert.match(storefront, /preparedHandoffIsCurrent/);
+  assert.match(storefront, /href=\{storeAppLaunchUrl\}/);
+  assert.doesNotMatch(storefront, /window\.open\("about:blank"/);
   assert.match(storefront, /store:\$\{data\.store\._id\}/);
   assert.match(storefront, /storePwaAppContext\?\.slug/);
   assert.doesNotMatch(storefront, /applyStoreManifest|restoreGlobalManifest|getStorePwaInstallFallback/);

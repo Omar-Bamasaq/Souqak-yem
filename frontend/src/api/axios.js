@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../store/AuthContext.jsx";
 import { IS_MAINTENANCE } from "../config/maintenance.js";
-import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./csrf.js";
+import { clearCsrfToken, ensureCsrfToken, isApiRequest, retryAfterCsrfFailure } from "./csrf.js";
 import { refreshSession } from "./session.js";
 import { getAuthStorageKeys, setStoredAuthToken } from "./authStorage.js";
 import { getRetryAfterMs, recordRateLimit, waitForRateLimit } from "./retryAfter.js";
@@ -89,7 +89,11 @@ export function useApi() {
       (response) => response,
       async (error) => {
         recordRateLimit(error);
-        if (error.response?.data?.code === "CSRF_TOKEN_INVALID") clearCsrfToken();
+        if (error.response?.data?.code === "CSRF_TOKEN_INVALID") {
+          const csrfRetry = await retryAfterCsrfFailure(error, (config) => instance(config));
+          if (csrfRetry) return csrfRetry;
+          clearCsrfToken();
+        }
         const originalRequest = error.config;
         const requestUrl = originalRequest?.url || "";
         const isLoginRequest = requestUrl.includes("auth/login") || requestUrl.includes("auth/phone-login");

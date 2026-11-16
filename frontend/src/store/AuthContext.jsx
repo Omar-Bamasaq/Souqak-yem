@@ -29,6 +29,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       if (err.response?.status !== 401) {
         console.warn("[Auth] Proactive silent refresh failed:", err.message);
+        return null;
       }
       return false;
     }
@@ -58,22 +59,23 @@ export function AuthProvider({ children }) {
       
       if (res.data) {
         setUser(res.data);
+        if (existingToken) setToken(existingToken);
         setStoredAuthUser(res.data);
         return true;
       }
-      return false;
+      return null;
     } catch (err) {
-      if (err.response?.status !== 401) {
-        console.warn("[Auth] Session check failed:", err.message);
-      }
       if (err.response?.status === 401) {
         const refreshed = await doSilentRefresh();
         if (refreshed) {
           const currentToken = localStorage.getItem(getAuthStorageKeys().token);
           if (currentToken) return await fetchUserWithCurrentToken(currentToken);
         }
+        return refreshed === false ? false : null;
+      } else {
+        console.warn("[Auth] Session check failed:", err.message);
       }
-      return false;
+      return null;
     }
   };
 
@@ -92,31 +94,62 @@ export function AuthProvider({ children }) {
         }
 
         if (storageKeys.isStorePwa) {
+          const verifyStorePwaSession = async (initialToken) => {
+            let candidateToken = initialToken;
+            for (let attempt = 0; candidateToken && attempt < 2; attempt += 1) {
+              const result = await fetchUserWithCurrentToken(candidateToken);
+              if (result === true) return true;
+
+              const latestToken = localStorage.getItem(storageKeys.token);
+              if (latestToken && latestToken !== candidateToken) {
+                candidateToken = latestToken;
+                continue;
+              }
+              if (result === null) return false;
+              if (clearStoredAuth(candidateToken)) {
+                setUser(null);
+                setToken(null);
+              }
+              return false;
+            }
+            return false;
+          };
+
+          if (t && await verifyStorePwaSession(t)) {
+            setLoading(false);
+            return;
+          }
+
           try {
             const transferredToken = await consumeStorePwaHandoff();
-            if (transferredToken) {
-              setStoredAuthToken(transferredToken);
-              setToken(transferredToken);
-              if (await fetchUserWithCurrentToken(transferredToken)) {
+            const currentToken = transferredToken || localStorage.getItem(storageKeys.token);
+            if (currentToken) {
+              setStoredAuthToken(currentToken);
+              setToken(currentToken);
+              if (await verifyStorePwaSession(currentToken)) {
                 setLoading(false);
                 return;
               }
             }
           } catch (error) {
-            if (error.response?.status !== 401) {
-              console.warn("[Auth] Store PWA session handoff was unavailable:", error.message);
-            }
+            const details = {
+              status: error.response?.status || null,
+              code: error.response?.data?.code || "NETWORK_OR_SERVER_ERROR"
+            };
+            const log = details.code === "HANDOFF_COOKIE_MISSING" ? console.info : console.warn;
+            log("[Auth] Store PWA handoff exchange failed:", details);
           }
+
+          const refreshed = await doSilentRefresh();
+          const refreshedToken = localStorage.getItem(storageKeys.token);
+          if (refreshed && refreshedToken) {
+            await fetchUserWithCurrentToken(refreshedToken);
+          }
+          setLoading(false);
+          return;
         }
-        
+
         if (!t && !savedUser) {
-          if (storageKeys.isStorePwa) {
-            const refreshed = await doSilentRefresh();
-            const refreshedToken = localStorage.getItem(storageKeys.token);
-            if (refreshed && refreshedToken) {
-              await fetchUserWithCurrentToken(refreshedToken);
-            }
-          }
           setLoading(false);
           return;
         }

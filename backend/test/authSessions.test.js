@@ -216,7 +216,12 @@ test("legacy refresh token migrates once without replacing the retained User fie
 });
 
 test("concurrent use of the just-rotated token is recoverable without revocation", async () => {
-  const originalFindOne = AuthSession.findOne;
+  const originals = {
+    findOne: AuthSession.findOne,
+    find: AuthSession.find,
+    updateMany: AuthSession.updateMany,
+    handoffUpdateMany: StorePwaHandoff.updateMany
+  };
   const refreshToken = "concurrent-old-token";
   const tokenHash = sessionService.hashAuthToken(refreshToken);
   const session = {
@@ -228,9 +233,19 @@ test("concurrent use of the just-rotated token is recoverable without revocation
     previousTokenValidUntil: new Date(Date.now() + 5_000),
     revokedAt: null
   };
+  let revokeAttempts = 0;
   AuthSession.findOne = async (filter) => (
     filter.usedRefreshTokenHashes ? session : null
   );
+  AuthSession.find = () => ({ distinct: async () => [] });
+  AuthSession.updateMany = async () => {
+    revokeAttempts += 1;
+    return { modifiedCount: 0 };
+  };
+  StorePwaHandoff.updateMany = async () => {
+    revokeAttempts += 1;
+    return { modifiedCount: 0 };
+  };
   try {
     const result = await sessionService.rotateRefreshSession(
       refreshToken,
@@ -238,12 +253,16 @@ test("concurrent use of the just-rotated token is recoverable without revocation
     );
     assert.equal(result.status, "rotated");
     assert.equal(result.retryAfterMs, 150);
+    assert.equal(revokeAttempts, 0);
   } finally {
-    AuthSession.findOne = originalFindOne;
+    AuthSession.findOne = originals.findOne;
+    AuthSession.find = originals.find;
+    AuthSession.updateMany = originals.updateMany;
+    StorePwaHandoff.updateMany = originals.handoffUpdateMany;
   }
 });
 
-test("reuse outside the concurrency window revokes only the matching app session", async () => {
+test("reuse outside the concurrency window revokes only the matching session lineage", async () => {
   const originals = {
     findOne: AuthSession.findOne,
     find: AuthSession.find,
@@ -261,27 +280,83 @@ test("reuse outside the concurrency window revokes only the matching app session
     previousTokenValidUntil: new Date(Date.now() - 1),
     revokedAt: null
   };
-  let revokedFilter;
+  let sessionUpdate;
+  let handoffUpdate;
   AuthSession.findOne = async (filter) => (
     filter.usedRefreshTokenHashes ? session : null
   );
-  AuthSession.find = () => ({ distinct: async () => [] });
+  AuthSession.find = (filter) => {
+    assert.deepEqual(filter, { sourceSessionId: session.sessionId, revokedAt: null });
+    return { distinct: async () => ["linked-child-session"] };
+  };
   AuthSession.updateMany = async (filter, update) => {
-    revokedFilter = { filter, update };
+    sessionUpdate = { filter, update };
     return { modifiedCount: 1 };
   };
-  StorePwaHandoff.updateMany = async () => ({ modifiedCount: 0 });
+  StorePwaHandoff.updateMany = async (filter, update) => {
+    handoffUpdate = { filter, update };
+    return { modifiedCount: 0 };
+  };
   try {
     const result = await sessionService.rotateRefreshSession(
       refreshToken,
       { appType: "store-pwa", storeProfileId: session.storeProfileId }
     );
     assert.equal(result.status, "reused");
-    assert.deepEqual(revokedFilter.filter, {
-      $or: [{ sessionId: "store-session-id" }, { sourceSessionId: "store-session-id" }],
+    assert.deepEqual(result.sessionIds, [session.sessionId, "linked-child-session"]);
+    assert.deepEqual(sessionUpdate.filter, {
+      $or: [
+        { sessionId: session.sessionId },
+        { sourceSessionId: session.sessionId }
+      ],
       revokedAt: null
     });
-    assert.equal(revokedFilter.update.$set.revokeReason, "refresh_token_reuse");
+    assert.equal(sessionUpdate.update.$set.revokeReason, "refresh_token_reuse");
+    assert.equal(sessionUpdate.update.$set.revokedAt instanceof Date, true);
+    assert.deepEqual(handoffUpdate.filter, {
+      sourceSessionId: session.sessionId,
+      consumedAt: null,
+      revokedAt: null
+    });
+    assert.deepEqual(Object.keys(handoffUpdate.update.$set), ["revokedAt"]);
+    assert.equal(handoffUpdate.update.$set.revokedAt instanceof Date, true);
+  } finally {
+    AuthSession.findOne = originals.findOne;
+    AuthSession.find = originals.find;
+    AuthSession.updateMany = originals.updateMany;
+    StorePwaHandoff.updateMany = originals.handoffUpdateMany;
+  }
+});
+
+test("an unknown refresh token does not revoke any session", async () => {
+  const originals = {
+    findOne: AuthSession.findOne,
+    find: AuthSession.find,
+    updateMany: AuthSession.updateMany,
+    handoffUpdateMany: StorePwaHandoff.updateMany
+  };
+  let revokeAttempts = 0;
+  AuthSession.findOne = async () => null;
+  AuthSession.find = () => {
+    revokeAttempts += 1;
+    return { distinct: async () => [] };
+  };
+  AuthSession.updateMany = async () => {
+    revokeAttempts += 1;
+    return { modifiedCount: 0 };
+  };
+  StorePwaHandoff.updateMany = async () => {
+    revokeAttempts += 1;
+    return { modifiedCount: 0 };
+  };
+
+  try {
+    const result = await sessionService.rotateRefreshSession(
+      "random-unknown-refresh-token",
+      { appType: "store-pwa", storeProfileId: "64d3d93a1a2b3c4d5e6f7788" }
+    );
+    assert.equal(result.status, "invalid");
+    assert.equal(revokeAttempts, 0);
   } finally {
     AuthSession.findOne = originals.findOne;
     AuthSession.find = originals.find;

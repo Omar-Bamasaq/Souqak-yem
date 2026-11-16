@@ -115,6 +115,14 @@ function isMainSiteOrigin(req) {
     || isLocalDevelopmentOrigin(origin);
 }
 
+function logStorePwaHandoffFailure(reason, storeId, hasHandoffCookie) {
+  console.warn("[Store PWA handoff exchange rejected]", {
+    reason,
+    storeId,
+    hasHandoffCookie
+  });
+}
+
 function clearSessionCookies(res, context) {
   const baseOptions = getRefreshCookieOptions(context, 0);
   res.clearCookie(getRefreshCookieName(context), baseOptions);
@@ -1558,7 +1566,7 @@ router.post("/store-pwa/:storeId/handoff", auth, rateLimit({
       sourceSessionId = sourceSession.sessionId;
     }
 
-    const { grant } = await createStorePwaHandoff({
+    const { grant, expiresAt } = await createStorePwaHandoff({
       userId: req.user.id,
       targetStoreId: store._id,
       sourceSessionId,
@@ -1573,7 +1581,7 @@ router.post("/store-pwa/:storeId/handoff", auth, rateLimit({
       maxAge: 60_000
     });
     res.set("Cache-Control", "no-store");
-    return res.status(204).end();
+    return res.json({ expiresAt: expiresAt.toISOString() });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error("Store PWA handoff creation failed:", error);
@@ -1606,41 +1614,52 @@ router.post("/store-pwa/:storeId/handoff/exchange", rateLimit({
     const store = await findEligibleStorePwa(storeId);
     if (!store) return res.status(404).json({ error: "Store PWA not found" });
 
+    const grant = req.cookies?.[handoffCookieName];
+    if (!grant) {
+      return res.status(401).json({
+        error: "Session handoff cookie is missing",
+        code: "HANDOFF_COOKIE_MISSING"
+      });
+    }
+
     const handoff = await consumeStorePwaHandoff({
-      grant: req.cookies?.[handoffCookieName],
+      grant,
       targetStoreId: store._id
     });
-    res.clearCookie(handoffCookieName, handoffCookieOptions);
-    if (!handoff) return res.status(401).json({ error: "Session handoff is missing or expired" });
+    if (!handoff) {
+      logStorePwaHandoffFailure("expired_consumed_or_invalid", storeId, true);
+      return res.status(401).json({
+        error: "Session handoff is missing or expired",
+        code: "HANDOFF_UNAVAILABLE"
+      });
+    }
 
     const user = await User.findById(handoff.userId);
     if (!user || user.isDisabled || user.isDeleted) {
-      return res.status(401).json({ error: "The source account is no longer available" });
+      logStorePwaHandoffFailure("source_account_unavailable", storeId, true);
+      return res.status(401).json({
+        error: "The source account is no longer available",
+        code: "HANDOFF_ACCOUNT_UNAVAILABLE"
+      });
     }
     if (handoff.sourceSessionId
       && !(await isAuthSessionActive(handoff.sourceSessionId, user._id))) {
-      return res.status(401).json({ error: "The source session is no longer active" });
+      logStorePwaHandoffFailure("source_session_inactive", storeId, true);
+      return res.status(401).json({
+        error: "The source session is no longer active",
+        code: "HANDOFF_SOURCE_SESSION_INACTIVE"
+      });
     }
     const stillValidHandoff = await StorePwaHandoff.findById(handoff._id).select("revokedAt").lean();
     if (!stillValidHandoff || stillValidHandoff.revokedAt) {
-      return res.status(401).json({ error: "The source session has been revoked" });
+      logStorePwaHandoffFailure("handoff_revoked", storeId, true);
+      return res.status(401).json({
+        error: "The source session has been revoked",
+        code: "HANDOFF_REVOKED"
+      });
     }
 
     const refreshCookieName = getRefreshCookieName(context);
-    const existingRefreshToken = req.cookies?.[refreshCookieName];
-    if (existingRefreshToken) {
-      const existing = await AuthSession.findOne({
-        currentRefreshTokenHash: hashAuthToken(existingRefreshToken),
-        appType: "store-pwa",
-        storeProfileId: store._id,
-        revokedAt: null
-      }).select("sessionId").lean();
-      if (existing) {
-        const revokedSessionIds = await revokeAuthSession(existing.sessionId, "store_pwa_handoff_replaced");
-        disconnectAuthSessionSockets(req, revokedSessionIds);
-      }
-    }
-
     const { accessToken, refreshToken } = await createAuthSession({
       user,
       context,
@@ -1651,9 +1670,14 @@ router.post("/store-pwa/:storeId/handoff/exchange", rateLimit({
       await revokeAuthSession((await AuthSession.findOne({
         currentRefreshTokenHash: hashAuthToken(refreshToken)
       }).select("sessionId").lean())?.sessionId, "source_session_revoked");
-      return res.status(401).json({ error: "The source session has been revoked" });
+      logStorePwaHandoffFailure("source_session_revoked_during_exchange", storeId, true);
+      return res.status(401).json({
+        error: "The source session has been revoked",
+        code: "HANDOFF_SOURCE_SESSION_REVOKED"
+      });
     }
 
+    res.clearCookie(handoffCookieName, handoffCookieOptions);
     res.cookie(refreshCookieName, refreshToken, getRefreshCookieOptions(context));
     res.set("Cache-Control", "no-store");
     return res.json({ token: accessToken });
@@ -1715,6 +1739,12 @@ async function respondWithRefresh(req, res, context) {
     });
   }
   if (result.status !== "ok") {
+    if (context.appType === "store-pwa") {
+      console.warn("[Store PWA refresh rejected]", {
+        reason: result.status,
+        storeId: String(context.storeProfileId)
+      });
+    }
     return res.status(401).json({ error: "Unauthorized: Session expired", code: "SESSION_REFRESH_INVALID" });
   }
 

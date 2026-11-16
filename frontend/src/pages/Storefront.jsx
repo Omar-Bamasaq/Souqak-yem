@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
@@ -66,7 +66,7 @@ export default function Storefront() {
   const [searchParams, setSearchParams] = useSearchParams();
   const api = useApi();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -75,6 +75,10 @@ export default function Storefront() {
   const [storeSearch, setStoreSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [installFallbackMessage, setInstallFallbackMessage] = useState("");
+  const [preparedHandoff, setPreparedHandoff] = useState(null);
+  const [handoffPreparingStoreId, setHandoffPreparingStoreId] = useState(null);
+  const [handoffFailedStoreId, setHandoffFailedStoreId] = useState(null);
+  const [handoffAttemptedKey, setHandoffAttemptedKey] = useState(null);
   const [phonesOpen, setPhonesOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [cartMessage, setCartMessage] = useState("");
@@ -228,6 +232,24 @@ export default function Storefront() {
   const { store, ads = [], pages = 1 } = data || {};
   const isDedicatedStorePwa = Boolean(storePwaAppContext?.storeId)
     && storePwaAppContext.storeId === String(store?._id);
+  const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  const storePwaOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
+  const storeAppUrl = store?._id ? buildStorePwaAppUrl(store._id, storePwaOrigin) : "";
+  const storeAppLaunchUrl = store?._id ? buildStorePwaLaunchUrl(store._id, {
+    userAgent: navigator.userAgent,
+    origin: storePwaOrigin
+  }) : "";
+  const preparedHandoffIsCurrent = Boolean(
+    store?._id
+    && preparedHandoff?.storeId === String(store._id)
+    && preparedHandoff.expiresAt > Date.now()
+  );
+  const handoffIsPreparing = Boolean(
+    store?._id && handoffPreparingStoreId === String(store._id)
+  );
+  const handoffFailed = Boolean(
+    store?._id && handoffFailedStoreId === String(store._id)
+  );
   const image = store?.cover || store?.logo;
   const contact = store?.contact || {};
   const advancedCustomization = store?.advancedCustomizationEnabled ? store.advancedCustomization : null;
@@ -242,6 +264,78 @@ export default function Storefront() {
     name: category?.name || "تصنيف",
     slug: category?.slug
   })).filter((category) => category.id), [storeCategories]);
+
+  const prepareStorePwaHandoff = useCallback(async (storeId) => {
+    const targetStoreId = String(storeId);
+    setHandoffPreparingStoreId(targetStoreId);
+    setHandoffFailedStoreId(null);
+    try {
+      const response = await api.post(`/auth/store-pwa/${targetStoreId}/handoff`, {});
+      const serverExpiry = Date.parse(response.data?.expiresAt || "");
+      setPreparedHandoff({
+        storeId: targetStoreId,
+        expiresAt: Number.isFinite(serverExpiry) ? serverExpiry - 5_000 : Date.now() + 40_000
+      });
+      setInstallFallbackMessage("");
+      return true;
+    } catch (error) {
+      setPreparedHandoff((current) => (
+        current?.storeId === targetStoreId ? null : current
+      ));
+      setHandoffFailedStoreId(targetStoreId);
+      setInstallFallbackMessage("تعذر تجهيز نقل جلسة الدخول. يمكنك المحاولة مجددًا أو متابعة التطبيق كزائر.");
+      console.warn("[Store PWA] Handoff preparation failed:", {
+        status: error.response?.status || null,
+        code: error.response?.data?.code || "NETWORK_OR_SERVER_ERROR"
+      });
+      return false;
+    } finally {
+      setHandoffPreparingStoreId((current) => (
+        current === targetStoreId ? null : current
+      ));
+    }
+  }, [api]);
+
+  useEffect(() => {
+    if (!preparedHandoff) return undefined;
+    const timer = window.setTimeout(
+      () => setPreparedHandoff((current) => (
+        current === preparedHandoff ? null : current
+      )),
+      Math.max(0, preparedHandoff.expiresAt - Date.now())
+    );
+    return () => window.clearTimeout(timer);
+  }, [preparedHandoff]);
+
+  useEffect(() => {
+    const storeId = String(store?._id || "");
+    const userId = String(user?._id || user?.id || "");
+    const attemptKey = storeId && userId ? `${storeId}:${userId}` : null;
+    if (
+      authLoading
+      || !user
+      || !storeId
+      || store?.pwaEnabled !== true
+      || isDedicatedStorePwa
+      || !attemptKey
+      || handoffAttemptedKey === attemptKey
+      || (preparedHandoff?.storeId === storeId && preparedHandoff.expiresAt > Date.now())
+      || handoffPreparingStoreId === storeId
+    ) return;
+
+    setHandoffAttemptedKey(attemptKey);
+    void prepareStorePwaHandoff(storeId);
+  }, [
+    authLoading,
+    handoffAttemptedKey,
+    handoffPreparingStoreId,
+    isDedicatedStorePwa,
+    prepareStorePwaHandoff,
+    preparedHandoff,
+    store?._id,
+    store?.pwaEnabled,
+    user
+  ]);
 
   const resetStorePage = () => {
     setSearchParams((current) => {
@@ -397,36 +491,9 @@ export default function Storefront() {
     }));
   };
 
-  const handleOpenStorePwa = async () => {
-    if (!store?._id) return;
-    const appOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
-    const appUrl = buildStorePwaAppUrl(store._id, appOrigin);
-    const launchUrl = buildStorePwaLaunchUrl(store._id, {
-      userAgent: navigator.userAgent,
-      origin: appOrigin
-    });
-    const targetWindow = window.open("about:blank", "_blank");
-    if (targetWindow) targetWindow.opener = null;
-
-    try {
-      if (user) await api.post(`/auth/store-pwa/${store._id}/handoff`, {});
-    } catch (error) {
-      console.error("Store PWA session handoff could not be started:", error);
-      setInstallFallbackMessage("تعذر نقل جلسة الدخول تلقائيًا. يمكنك فتح التطبيق ومتابعة التصفح كزائر.");
-    }
-
-    if (targetWindow) {
-      try {
-        targetWindow.location.replace(launchUrl);
-      } catch (error) {
-        console.error("Store PWA launch target was blocked:", error);
-        targetWindow.location.replace(appUrl);
-        setInstallFallbackMessage("تعذر فتح Chrome مباشرة. تم فتح صفحة التطبيق في المتصفح الحالي.");
-      }
-    } else {
-      setInstallFallbackMessage("تعذر فتح نافذة جديدة. جارٍ فتح صفحة التطبيق في النافذة الحالية.");
-      window.location.assign(appUrl);
-    }
+  const handlePrepareStorePwa = () => {
+    if (!store?._id || authLoading || handoffIsPreparing) return;
+    void prepareStorePwaHandoff(store._id);
   };
 
   return (
@@ -567,15 +634,28 @@ export default function Storefront() {
                 <div className="mt-2 flex flex-wrap justify-center gap-2 sm:basis-full">
                   {isDedicatedStorePwa
                     ? !isStandalonePWA() && <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت التطبيق</button>
-                    : <button
-                      type="button"
-                      onClick={handleOpenStorePwa}
-                      className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
-                    >تثبيت التطبيق</button>}
+                    : isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
+                      ? <a
+                        href={storeAppLaunchUrl}
+                        className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                      >تثبيت التطبيق</a>
+                      : !isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
+                        ? <a
+                          href={storeAppUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                        >تثبيت التطبيق</a>
+                        : <button
+                          type="button"
+                          disabled={authLoading || handoffIsPreparing}
+                          onClick={handlePrepareStorePwa}
+                          className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                        >{authLoading ? "جارٍ التحقق من الدخول..." : handoffIsPreparing ? "جارٍ تجهيز جلسة الدخول..." : "تجهيز فتح التطبيق"}</button>}
                   {installFallbackMessage && (
                     <>
                       <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">{installFallbackMessage}</p>
-                      {/Android/i.test(navigator.userAgent) && isDedicatedStorePwa && (
+                      {isAndroid && isDedicatedStorePwa && (
                         <a
                           href={buildStorePwaLaunchUrl(store._id, {
                             userAgent: navigator.userAgent,
@@ -583,6 +663,12 @@ export default function Storefront() {
                           })}
                           className="text-center text-xs font-bold text-blue-700 underline"
                         >محاولة فتح التطبيق في Chrome</a>
+                      )}
+                      {isAndroid && !isDedicatedStorePwa && handoffFailed && (
+                        <a
+                          href={storeAppLaunchUrl}
+                          className="text-center text-xs font-bold text-blue-700 underline"
+                        >المتابعة إلى Chrome بدون نقل الجلسة</a>
                       )}
                     </>
                   )}

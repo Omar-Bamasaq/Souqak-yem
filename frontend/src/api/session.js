@@ -1,9 +1,10 @@
 import axios from "axios";
 import { getApiBaseUrl, ensureCsrfToken } from "./csrf.js";
 import { getRetryAfterMs, recordRateLimit } from "./retryAfter.js";
-import { getAuthStorageKeys } from "./authStorage.js";
+import { getAuthStorageKeys, setStoredAuthToken } from "./authStorage.js";
 
 let refreshRequest = null;
+let storePwaHandoffRequest = null;
 const MAX_ROTATION_RETRIES = 5;
 
 export function getSessionRotationRetryDelay(error, attempt) {
@@ -69,23 +70,44 @@ export function refreshSession() {
   return refreshRequest;
 }
 
+async function exchangeStorePwaHandoff(storeId) {
+  if (!storePwaHandoffRequest) {
+    storePwaHandoffRequest = (async () => {
+      const csrfToken = await ensureCsrfToken();
+      const response = await axios.post(
+        `${getApiBaseUrl()}/auth/store-pwa/${storeId}/handoff/exchange`,
+        {},
+        {
+          withCredentials: true,
+          timeout: 8000,
+          headers: {
+            "X-CSRF-Token": csrfToken,
+            "X-Souqak-Store-PWA-Id": storeId
+          }
+        }
+      );
+      const token = response.data?.token || null;
+      if (token) setStoredAuthToken(token);
+      return token;
+    })().finally(() => {
+      storePwaHandoffRequest = null;
+    });
+  }
+  return storePwaHandoffRequest;
+}
+
 export async function consumeStorePwaHandoff() {
   const { isStorePwa, storeId } = getAuthStorageKeys();
   if (!isStorePwa) return null;
-  const csrfToken = await ensureCsrfToken();
-  const response = await axios.post(
-    `${getApiBaseUrl()}/auth/store-pwa/${storeId}/handoff/exchange`,
-    {},
-    {
-      withCredentials: true,
-      timeout: 8000,
-      headers: {
-        "X-CSRF-Token": csrfToken,
-        "X-Souqak-Store-PWA-Id": storeId
-      }
-    }
-  );
-  return response.data?.token || null;
+
+  const exchangeIfNeeded = () => {
+    if (localStorage.getItem(getAuthStorageKeys().token)) return Promise.resolve(null);
+    return exchangeStorePwaHandoff(storeId);
+  };
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request(`souqak-store-pwa-handoff:${storeId}`, exchangeIfNeeded);
+  }
+  return exchangeIfNeeded();
 }
 
 export async function revokeCurrentSession(token) {

@@ -23,8 +23,10 @@ export function setStoredAuthUser(user) {
   localStorage.setItem(getAuthStorageKeys().user, JSON.stringify(user));
 }
 
-export function clearStoredAuth() {
+export function clearStoredAuth(expectedToken = null) {
   const keys = getAuthStorageKeys();
+  if (expectedToken && localStorage.getItem(keys.token) !== expectedToken) return false;
   localStorage.removeItem(keys.token);
   localStorage.removeItem(keys.user);
+  return true;
 }

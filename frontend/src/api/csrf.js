@@ -5,7 +5,7 @@ let csrfToken = null;
 let csrfRequest = null;
 
 export function getApiBaseUrl() {
-  let base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
+  let base = (import.meta.env?.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
   if (!base.endsWith("/api")) base = `${base}/api`;
   return base;
 }
@@ -41,4 +41,19 @@ export async function ensureCsrfToken() {
 
 export function clearCsrfToken() {
   csrfToken = null;
+}
+
+export async function retryAfterCsrfFailure(error, retryRequest, getToken = ensureCsrfToken) {
+  const config = error?.config;
+  if (error?.response?.data?.code !== "CSRF_TOKEN_INVALID" || !config || config._csrfRetry) {
+    return null;
+  }
+
+  clearCsrfToken();
+  config._csrfRetry = true;
+  config.headers = {
+    ...config.headers,
+    "X-CSRF-Token": await getToken()
+  };
+  return retryRequest(config);
 }
