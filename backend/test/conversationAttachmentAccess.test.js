@@ -9,12 +9,13 @@ const originalRefreshSecret = process.env.JWT_REFRESH_SECRET;
 process.env.JWT_ACCESS_SECRET = "conversation-attachment-test-access-secret";
 process.env.JWT_REFRESH_SECRET = "conversation-attachment-test-refresh-secret";
 
-const [{ default: router }, { default: User }, { default: Conversation }, { default: ConversationMessage }, jwtConfig] =
+const [{ default: router }, { default: User }, { default: Conversation }, { default: ConversationMessage }, { default: AuthSession }, jwtConfig] =
   await Promise.all([
     import("../src/routes/conversations.js"),
     import("../src/models/User.js"),
     import("../src/models/Conversation.js"),
     import("../src/models/ConversationMessage.js"),
+    import("../src/models/AuthSession.js"),
     import("../src/config/jwt.js")
   ]);
 
@@ -23,6 +24,7 @@ let baseUrl;
 const originalUserFindById = User.findById;
 const originalConversationFindOne = Conversation.findOne;
 const originalMessageFindOne = ConversationMessage.findOne;
+const originalAuthSessionExists = AuthSession.exists;
 
 before(async () => {
   const app = express();
@@ -40,6 +42,7 @@ after(async () => {
   User.findById = originalUserFindById;
   Conversation.findOne = originalConversationFindOne;
   ConversationMessage.findOne = originalMessageFindOne;
+  AuthSession.exists = originalAuthSessionExists;
   if (originalAccessSecret === undefined) delete process.env.JWT_ACCESS_SECRET;
   else process.env.JWT_ACCESS_SECRET = originalAccessSecret;
   if (originalRefreshSecret === undefined) delete process.env.JWT_REFRESH_SECRET;
@@ -67,6 +70,7 @@ test("conversation attachment requests reject nonparticipants before checking fi
     messageLookups += 1;
     return { select() { return this; }, lean: async () => ({ _id: "message" }) };
   };
+  AuthSession.exists = async () => null;
 
   const token = jwtConfig.signAccessToken({ id: userId });
   const response = await fetch(`${baseUrl}/api/conversations/conversation-id/attachments/private.jpg`, {

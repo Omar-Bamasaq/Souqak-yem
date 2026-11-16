@@ -7,7 +7,7 @@ import StoreTemplateRenderer from "../components/StoreTemplateRenderer.jsx";
 import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import SEO from "../components/SEO.jsx";
 import { canInstallPWA, installPWA, isStandalonePWA } from "../utils/pwaInstall.js";
-import { buildStorePwaAppUrl, getStorePwaInstallInstructions } from "../utils/storePwa.js";
+import { buildStorePwaAppUrl, buildStorePwaLaunchUrl, getStorePwaInstallInstructions } from "../utils/storePwa.js";
 import { GENERAL_STORE_TEMPLATE } from "../utils/storeTemplates.js";
 import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
 import { getStorePwaInstallationId } from "../utils/storePwaInstallTracking.js";
@@ -397,6 +397,38 @@ export default function Storefront() {
     }));
   };
 
+  const handleOpenStorePwa = async () => {
+    if (!store?._id) return;
+    const appOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
+    const appUrl = buildStorePwaAppUrl(store._id, appOrigin);
+    const launchUrl = buildStorePwaLaunchUrl(store._id, {
+      userAgent: navigator.userAgent,
+      origin: appOrigin
+    });
+    const targetWindow = window.open("about:blank", "_blank");
+    if (targetWindow) targetWindow.opener = null;
+
+    try {
+      if (user) await api.post(`/auth/store-pwa/${store._id}/handoff`, {});
+    } catch (error) {
+      console.error("Store PWA session handoff could not be started:", error);
+      setInstallFallbackMessage("تعذر نقل جلسة الدخول تلقائيًا. يمكنك فتح التطبيق ومتابعة التصفح كزائر.");
+    }
+
+    if (targetWindow) {
+      try {
+        targetWindow.location.replace(launchUrl);
+      } catch (error) {
+        console.error("Store PWA launch target was blocked:", error);
+        targetWindow.location.replace(appUrl);
+        setInstallFallbackMessage("تعذر فتح Chrome مباشرة. تم فتح صفحة التطبيق في المتصفح الحالي.");
+      }
+    } else {
+      setInstallFallbackMessage("تعذر فتح نافذة جديدة. جارٍ فتح صفحة التطبيق في النافذة الحالية.");
+      window.location.assign(appUrl);
+    }
+  };
+
   return (
     <div
       className="mx-auto max-w-7xl space-y-6 px-3 py-4 sm:space-y-8 sm:px-6 sm:py-8"
@@ -535,13 +567,25 @@ export default function Storefront() {
                 <div className="mt-2 flex flex-wrap justify-center gap-2 sm:basis-full">
                   {isDedicatedStorePwa
                     ? !isStandalonePWA() && <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">تثبيت التطبيق</button>
-                    : <a
-                      href={buildStorePwaAppUrl(store._id, import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com")}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    : <button
+                      type="button"
+                      onClick={handleOpenStorePwa}
                       className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
-                    >تثبيت التطبيق</a>}
-                  {installFallbackMessage && <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">{installFallbackMessage}</p>}
+                    >تثبيت التطبيق</button>}
+                  {installFallbackMessage && (
+                    <>
+                      <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">{installFallbackMessage}</p>
+                      {/Android/i.test(navigator.userAgent) && isDedicatedStorePwa && (
+                        <a
+                          href={buildStorePwaLaunchUrl(store._id, {
+                            userAgent: navigator.userAgent,
+                            origin: window.location.origin
+                          })}
+                          className="text-center text-xs font-bold text-blue-700 underline"
+                        >محاولة فتح التطبيق في Chrome</a>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 

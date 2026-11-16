@@ -8,7 +8,7 @@ import {
   isConversationParticipant
 } from "../src/utils/socketAuthorization.js";
 
-test("socket handshake rejects missing, invalid, and expired access tokens", () => {
+test("socket handshake rejects missing, invalid, and expired access tokens", async () => {
   const middleware = createSocketHandshakeAuth((token) => {
     if (token === "expired") {
       const error = new Error("expired");
@@ -25,14 +25,14 @@ test("socket handshake rejects missing, invalid, and expired access tokens", () 
 
   for (const cookie of ["", "accessToken=invalid", "accessToken=expired"]) {
     let handshakeError;
-    middleware({ handshake: { headers: { cookie } }, data: {} }, (error) => {
+    await middleware({ handshake: { headers: { cookie } }, data: {} }, (error) => {
       handshakeError = error;
     });
     assert.equal(handshakeError?.message, "Unauthorized");
   }
 });
 
-test("socket handshake authenticates the connection and stores the verified identity", () => {
+test("socket handshake authenticates the connection and stores the verified identity", async () => {
   const socket = {
     handshake: { headers: { cookie: "accessToken=valid" } },
     data: {}
@@ -40,7 +40,7 @@ test("socket handshake authenticates the connection and stores the verified iden
   const middleware = createSocketHandshakeAuth(() => ({ userId: "verified-user" }));
   let nextCalled = false;
 
-  middleware(socket, (error) => {
+  await middleware(socket, (error) => {
     assert.equal(error, undefined);
     nextCalled = true;
   });
@@ -49,14 +49,39 @@ test("socket handshake authenticates the connection and stores the verified iden
   assert.equal(socket.data.authenticatedUserId, "verified-user");
 });
 
-test("socket handshake propagates unexpected verifier failures", () => {
+test("socket handshake accepts the explicit app token and rejects revoked sessions", async () => {
+  const socket = {
+    handshake: { auth: { token: "app-token" }, headers: { cookie: "accessToken=other-token" } },
+    data: {}
+  };
+  const middleware = createSocketHandshakeAuth(
+    (token) => ({ id: token === "app-token" ? "app-user" : "cookie-user", sid: "session-id" }),
+    async (sessionId, userId) => sessionId === "session-id" && userId === "app-user"
+  );
+  let receivedError;
+  await middleware(socket, (error) => { receivedError = error; });
+
+  assert.equal(receivedError, undefined);
+  assert.equal(socket.data.authenticatedUserId, "app-user");
+  assert.equal(socket.data.authenticatedSessionId, "session-id");
+  assert.match(socket.data.authenticatedAccessTokenHash, /^[a-f\d]{64}$/);
+
+  const rejected = createSocketHandshakeAuth(
+    () => ({ id: "app-user", sid: "revoked-session" }),
+    async () => false
+  );
+  await rejected(socket, (error) => { receivedError = error; });
+  assert.equal(receivedError?.message, "Unauthorized");
+});
+
+test("socket handshake propagates unexpected verifier failures", async () => {
   const verifierError = new Error("verifier configuration failure");
   const middleware = createSocketHandshakeAuth(() => {
     throw verifierError;
   });
   let receivedError;
 
-  middleware(
+  await middleware(
     { handshake: { headers: { cookie: "accessToken=valid" } }, data: {} },
     (error) => { receivedError = error; }
   );

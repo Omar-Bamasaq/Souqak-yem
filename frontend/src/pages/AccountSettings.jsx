@@ -5,6 +5,7 @@ import { useTheme } from "../store/ThemeContext.jsx";
 import { useNavigate, Link } from "react-router-dom";
 import { uploadsUrl } from "../lib/uploads.js";
 import { subscribeToPush } from "../utils/pushNotifications.js";
+import { setStoredAuthUser } from "../api/authStorage.js";
 
 export default function AccountSettings() {
   const api = useApi();
@@ -107,7 +108,7 @@ export default function AccountSettings() {
       await api.put("/notifications/prefs", newPrefs);
       const updatedUser = { ...user, notificationPrefs: newPrefs };
       setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setStoredAuthUser(updatedUser);
       setNotifPrefs(newPrefs);
     } catch (err) {
       alert("حدث خطأ أثناء تحديث الإشعارات.");
@@ -167,7 +168,7 @@ export default function AccountSettings() {
       }
 
       setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setStoredAuthUser(updatedUser);
       setShowEditProfileModal(false);
       alert("تم تحديث الملف الشخصي بنجاح");
     } catch (err) {

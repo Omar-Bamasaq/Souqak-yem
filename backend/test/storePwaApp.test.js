@@ -112,6 +112,10 @@ test("initial app HTML contains its manifest, title, Apple icon, and safely seri
 
   assert.match(html, /rel="manifest" href="https:\/\/apps\.example\.test\/store\/64d3d93a1a2b3c4d5e6f7701\/manifest\.webmanifest"/);
   assert.match(html, /rel="apple-touch-icon" href="https:\/\/apps\.example\.test\/store\/64d3d93a1a2b3c4d5e6f7701\/icon\/192\.png"/);
+  assert.match(html, /name="mobile-web-app-capable" content="yes"/);
+  assert.match(html, /name="apple-mobile-web-app-capable" content="yes"/);
+  assert.match(html, /fonts\.googleapis\.com\/css2\?family=IBM\+Plex\+Sans\+Arabic:wght@400;500;600;700/);
+  assert.match(html, /fonts\.gstatic\.com" crossorigin/);
   assert.match(html, /<title>متجر &lt;\/title&gt;&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt;<\/title>/);
   assert.match(html, /assets\.example\.test\/assets\/store-pwa-entry\.js/);
   assert.match(html, /window\.__SOUQAK_STORE_PWA_APP__/);

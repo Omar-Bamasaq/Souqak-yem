@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
+import { getStoredAuthToken } from "../api/authStorage.js";
 
 export default function VerifyPhone() {
   const api = useApi();
@@ -28,7 +29,7 @@ export default function VerifyPhone() {
     try {
       const res = await api.post("/phone/verify-otp", { code });
       if (res.data?.user) {
-        const token = localStorage.getItem("token");
+        const token = getStoredAuthToken();
         login(token, res.data.user);
       }
       setMsg("Phone verified");

@@ -1,24 +1,29 @@
 import User from "../models/User.js";
 import {
   verifyAccessToken,
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-  JWT_ALGORITHM,
-  ACCESS_TOKEN_EXPIRES_IN,
-  REFRESH_TOKEN_EXPIRES_IN,
-  inspectJwtClaimsOnly,
+  inspectJwtClaimsOnly
 } from "../config/jwt.js";
+import {
+  ACCESS_COOKIE_TTL_MS,
+  createAuthSession,
+  getAccessCookieOptions,
+  getAuthSessionContext,
+  getRefreshCookieName,
+  getRefreshCookieOptions,
+  isAuthSessionActive,
+  isLegacyAccessTokenActive,
+  revokeSessionForRefreshToken
+} from "../services/authSessions.js";
 
 async function auth(req, res, next) {
   const shouldLogRequest = !req.privateMessageAttachmentRequest;
-  let token = req.cookies?.accessToken;
-  let source = token ? "cookie" : null;
-
-  if (!token) {
-    const header = req.headers.authorization || "";
-    token = header && header.startsWith("Bearer ") ? header.slice(7).trim() : null;
-    if (token) source = "header";
+  const header = req.headers.authorization || "";
+  let token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+  let source = token ? "header" : null;
+  const hasStorePwaContext = req.headers["x-souqak-store-pwa-id"] !== undefined;
+  if (!token && !hasStorePwaContext) {
+    token = req.cookies?.accessToken || null;
+    if (token) source = "cookie";
   }
 
   if (!token) {
@@ -41,6 +46,19 @@ async function auth(req, res, next) {
         );
       }
       return res.status(401).json({ error: "Unauthorized: User not found" });
+    }
+
+    if (payload.sid && !(await isAuthSessionActive(payload.sid, user._id))) {
+      return res.status(401).json({ error: "Unauthorized: Session revoked", code: "SESSION_REVOKED" });
+    }
+    if (!payload.sid) {
+      const legacyAccessRevokedAt = user.legacyAccessTokensRevokedAt
+        ? new Date(user.legacyAccessTokensRevokedAt).getTime()
+        : 0;
+      if ((legacyAccessRevokedAt && payload.iat * 1000 <= legacyAccessRevokedAt)
+        || !(await isLegacyAccessTokenActive(token, user._id))) {
+        return res.status(401).json({ error: "Unauthorized: Legacy session revoked", code: "SESSION_REVOKED" });
+      }
     }
 
     if (user.isDisabled) {
@@ -75,6 +93,8 @@ async function auth(req, res, next) {
       isDisabled: !!user.isDisabled,
       isDeleted: !!user.isDeleted,
     };
+    req.authSessionId = payload.sid || null;
+    req.authToken = token;
 
     if (shouldLogRequest) {
       console.log(
@@ -89,41 +109,49 @@ async function auth(req, res, next) {
         `[Auth][${req.method} ${req.path}] FAILED (source=${source}): ${error.name} ${error.message}`
       );
     }
-    if (error.name === "TokenExpiredError") {
+    if (["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(error.name)) {
+      if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         error: "Unauthorized: Token expired",
         code: "TOKEN_EXPIRED",
       });
+      }
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
     }
-    res.status(401).json({ error: "Unauthorized: Invalid token" });
+    next(error);
   }
 }
 
-export const sendAuthResponse = async (user, res) => {
+export const sendAuthResponse = async (user, res, { req } = {}) => {
   const userId = user._id.toString();
+  const context = getAuthSessionContext(req || { headers: {} });
+  const existingRefreshToken = req?.cookies?.[getRefreshCookieName(context)];
+  const revokedSessionIds = await revokeSessionForRefreshToken(existingRefreshToken, context);
+  disconnectAuthSessionSockets(req, revokedSessionIds);
+  const { accessToken, refreshToken } = await createAuthSession({ user, context });
+  const refreshCookieOptions = getRefreshCookieOptions(context);
+  res.cookie(getRefreshCookieName(context), refreshToken, refreshCookieOptions);
 
-  const accessToken = signAccessToken({ id: userId, role: user.role });
-  const refreshToken = signRefreshToken({ id: userId });
-
-  await User.findByIdAndUpdate(userId, { refreshToken });
-
-  const isProduction = process.env.NODE_ENV === "production";
-
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-  };
-
-  res.cookie("accessToken", accessToken, {
-    ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-  res.cookie("refreshToken", refreshToken, cookieOptions);
+  if (context.appType === "main") {
+    res.cookie("accessToken", accessToken, getAccessCookieOptions(ACCESS_COOKIE_TTL_MS));
+    if (user.refreshToken) {
+      await User.updateOne(
+        {
+          _id: userId,
+          refreshToken: user.refreshToken
+        },
+        {
+          $set: {
+            legacyRefreshTokenDisabledAt: user.legacyRefreshTokenDisabledAt || new Date()
+          },
+          $unset: { refreshToken: 1 }
+        }
+      );
+    }
+  }
 
   console.log(
-    `[sendAuthResponse] user=${userId} role=${user.role} access_exp=${ACCESS_TOKEN_EXPIRES_IN} refresh_exp=${REFRESH_TOKEN_EXPIRES_IN} algo=${JWT_ALGORITHM}`
+    `[sendAuthResponse] user=${userId} role=${user.role} app=${context.appType}`
   );
 
   return { accessToken, refreshToken };
@@ -138,6 +166,14 @@ export const requireAdmin = (req, res, next) => {
   }
   next();
 };
+
+export function disconnectAuthSessionSockets(req, sessionIds = []) {
+  const io = req?.app?.get("io");
+  if (!io) return;
+  for (const sessionId of new Set(sessionIds.filter(Boolean))) {
+    io.in(`session:${sessionId}`).disconnectSockets(true);
+  }
+}
 
 export const authenticate = auth;
 export default auth;

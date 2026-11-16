@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
 import authRouter from "../src/routes/auth.js";
+import AuthSession from "../src/models/AuthSession.js";
 import User from "../src/models/User.js";
 import ReferralEngine from "../src/engines/ReferralEngine.js";
 import { requireRole } from "../src/middleware/roles.js";
@@ -69,6 +70,7 @@ test("admin login uses the existing token and cookie session for admins", async 
   const originals = {
     findOne: User.findOne,
     findByIdAndUpdate: User.findByIdAndUpdate,
+    createSession: AuthSession.create,
     compare: bcrypt.compare,
     ensureProfile: ReferralEngine.ensureProfile
   };
@@ -83,6 +85,7 @@ test("admin login uses the existing token and cookie session for admins", async 
   try {
     User.findOne = async () => user;
     User.findByIdAndUpdate = async () => user;
+    AuthSession.create = async (session) => ({ sessionId: session.sessionId });
     bcrypt.compare = async () => true;
     ReferralEngine.ensureProfile = async () => {};
 
@@ -100,6 +103,7 @@ test("admin login uses the existing token and cookie session for admins", async 
   } finally {
     User.findOne = originals.findOne;
     User.findByIdAndUpdate = originals.findByIdAndUpdate;
+    AuthSession.create = originals.createSession;
     bcrypt.compare = originals.compare;
     ReferralEngine.ensureProfile = originals.ensureProfile;
   }
@@ -109,6 +113,7 @@ test("ordinary users retain username login and the existing session cookies", as
   const originals = {
     findOne: User.findOne,
     findByIdAndUpdate: User.findByIdAndUpdate,
+    createSession: AuthSession.create,
     compare: bcrypt.compare
   };
   const user = {
@@ -123,6 +128,7 @@ test("ordinary users retain username login and the existing session cookies", as
   try {
     User.findOne = async (query) => query?.name ? user : null;
     User.findByIdAndUpdate = async () => user;
+    AuthSession.create = async (session) => ({ sessionId: session.sessionId });
     bcrypt.compare = async () => true;
 
     const response = await invoke(getRouteHandler("/phone-login"), {
@@ -138,6 +144,7 @@ test("ordinary users retain username login and the existing session cookies", as
   } finally {
     User.findOne = originals.findOne;
     User.findByIdAndUpdate = originals.findByIdAndUpdate;
+    AuthSession.create = originals.createSession;
     bcrypt.compare = originals.compare;
   }
 });

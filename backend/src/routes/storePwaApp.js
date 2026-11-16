@@ -110,8 +110,12 @@ export function renderStorePwaAppHtml(store, {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="${escapeHtml(themeColor)}">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="${escapeHtml(shortName)}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&family=Tajawal:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="${escapeHtml(manifestUrl)}">
   <link rel="apple-touch-icon" href="${escapeHtml(iconUrl)}">
   <link rel="stylesheet" href="${escapeHtml(stylesheetUrl)}">
@@ -123,6 +127,24 @@ export function renderStorePwaAppHtml(store, {
   <script type="module" src="${escapeHtml(entryUrl)}"></script>
 </body>
 </html>`;
+}
+
+export async function findEligibleStorePwa(storeId, {
+  StoreProfileModel = StoreProfile,
+  StoreSubscriptionModel = StoreSubscription,
+  hasFeature = hasStoreFeature
+} = {}) {
+  if (!mongoose.isValidObjectId(storeId)) return null;
+  const store = await StoreProfileModel.findOne({ _id: storeId, status: "active" })
+    .select("_id storeName slug storeType status logo primaryColor")
+    .lean();
+  if (!store || !["store", "family-production"].includes(store.storeType || "store")) return null;
+
+  const subscription = await StoreSubscriptionModel.findOne({ storeId: store._id })
+    .sort({ createdAt: -1, _id: -1 })
+    .populate("planId", "name type features")
+    .lean();
+  return hasFeature({ status: store.status, subscription }, "pwa") ? store : null;
 }
 
 export function createStorePwaAppRouter({
@@ -146,20 +168,11 @@ export function createStorePwaAppRouter({
   };
   const router = Router();
 
-  const findEligibleStore = async (storeId) => {
-    if (!mongoose.isValidObjectId(storeId)) return null;
-    const store = await StoreProfileModel.findOne({ _id: storeId, status: "active" })
-      .select("_id storeName slug storeType status logo primaryColor")
-      .lean();
-    if (!store) return null;
-    if (!["store", "family-production"].includes(store.storeType || "store")) return null;
-
-    const subscription = await StoreSubscriptionModel.findOne({ storeId: store._id })
-      .sort({ createdAt: -1, _id: -1 })
-      .populate("planId", "name type features")
-      .lean();
-    return hasFeature({ status: store.status, subscription }, "pwa") ? store : null;
-  };
+  const findEligibleStore = (storeId) => findEligibleStorePwa(storeId, {
+    StoreProfileModel,
+    StoreSubscriptionModel,
+    hasFeature
+  });
 
   router.get("/:storeId/manifest.webmanifest", async (req, res) => {
     try {

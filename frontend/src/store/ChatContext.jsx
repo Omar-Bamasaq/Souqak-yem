@@ -8,7 +8,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || new URL(API_URL, window.lo
 const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const api = useApi();
   const [unread, setUnread] = useState(0);
   const [socket, setSocket] = useState(null);
@@ -35,17 +35,24 @@ export function ChatProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    if (!user && socket) {
+    if ((!user || !token) && socket) {
       setSocketAuthenticated(false);
       socket.disconnect();
       setSocket(null);
       return;
     }
 
-    if (!socket && user) {
+    if (socket && user && token && socket.auth?.token !== token) {
+      socket.auth = { ...socket.auth, token };
+      socket.disconnect().connect();
+      return;
+    }
+
+    if (!socket && user && token) {
       const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
         withCredentials: true,
+        auth: { token },
       });
 
       newSocket.on("connect", () => {
@@ -108,7 +115,7 @@ export function ChatProvider({ children }) {
 
       setSocket(newSocket);
     }
-  }, [user, socket]);
+  }, [user, token, socket]);
 
   useEffect(() => {
     if (socketAuthenticated && activeChatRef.current) {

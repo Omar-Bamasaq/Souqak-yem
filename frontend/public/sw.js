@@ -100,6 +100,20 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  let notificationUrl = data.data?.url || "/";
+  const storeId = String(data.data?.storeProfileId || "");
+  if (/^[a-f\d]{24}$/i.test(storeId) && typeof data.data?.storePwaUrl === "string") {
+    try {
+      const storePwaUrl = new URL(data.data.storePwaUrl);
+      if (storePwaUrl.origin === self.location.origin
+        && storePwaUrl.pathname === `/store/${storeId}/`
+        && !storePwaUrl.search
+        && !storePwaUrl.hash) {
+        notificationUrl = storePwaUrl.href;
+      }
+    } catch {}
+  }
+
   const title = data.title || "سوقك";
   const options = {
     body: data.body || "",
@@ -108,8 +122,8 @@ self.addEventListener("push", (event) => {
     silent: data.silent === true,
     vibrate: Array.isArray(data.vibrate) ? data.vibrate : [100, 50, 100],
     data: {
-      url: data.data?.url || "/",
-      ...data.data
+      ...data.data,
+      url: notificationUrl
     },
     actions: [
       { action: "open", title: "عرض الآن" },
@@ -133,7 +147,11 @@ self.addEventListener("notificationclick", (event) => {
 
   if (action === "close") return;
 
-  const urlToOpen = notification.data?.url || "/";
+  let urlToOpen = new URL("/", self.location.origin).href;
+  try {
+    const targetUrl = new URL(notification.data?.url || "/", self.location.origin);
+    if (targetUrl.origin === self.location.origin) urlToOpen = targetUrl.href;
+  } catch {}
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {

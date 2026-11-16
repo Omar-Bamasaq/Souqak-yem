@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 export function getSocketAccessToken(cookieHeader = "") {
   const cookies = new Map();
   for (const entry of String(cookieHeader).split(";")) {
@@ -24,19 +26,34 @@ export function getAuthenticatedSocketUserId(accessToken, requestedUserId, verif
   return authenticatedUserId;
 }
 
-export function createSocketHandshakeAuth(verifyAccessToken) {
-  return (socket, next) => {
-    const accessToken = getSocketAccessToken(socket.handshake?.headers?.cookie);
+export function syncSocketAdminRoom(socket, user) {
+  if (user?.role === "admin" && !user.isDisabled && !user.isDeleted) {
+    socket.join("role:admin");
+  } else {
+    socket.leave("role:admin");
+  }
+}
+
+export function createSocketHandshakeAuth(verifyAccessToken, validateSession = async () => true) {
+  return async (socket, next) => {
+    const accessToken = socket.handshake?.auth?.token
+      || getSocketAccessToken(socket.handshake?.headers?.cookie);
     if (!accessToken) return next(new Error("Unauthorized"));
 
     try {
+      const payload = verifyAccessToken(accessToken);
       const authenticatedUserId = getAuthenticatedSocketUserId(
         accessToken,
         null,
         verifyAccessToken
       );
       if (!authenticatedUserId) return next(new Error("Unauthorized"));
+      if (!(await validateSession(payload.sid || null, authenticatedUserId, accessToken, payload))) {
+        return next(new Error("Unauthorized"));
+      }
       socket.data.authenticatedUserId = authenticatedUserId;
+      socket.data.authenticatedSessionId = payload.sid || null;
+      socket.data.authenticatedAccessTokenHash = crypto.createHash("sha256").update(accessToken).digest("hex");
       return next();
     } catch (error) {
       if (["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(error?.name)) {

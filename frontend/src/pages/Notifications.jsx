@@ -3,9 +3,12 @@ import { useApi } from "../api/axios.js";
 import { useChat } from "../store/ChatContext.jsx";
 
 import { useNavigate } from "react-router-dom";
+import { getStorePwaNotificationLink } from "../utils/storePwa.js";
 
 export default function Notifications() {
   const navigate = useNavigate();
+  const storePwaContext = typeof window !== "undefined" ? window.__SOUQAK_STORE_PWA_APP__ : null;
+  const storePwaOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
   const api = useApi();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,10 +32,13 @@ export default function Notifications() {
   const handleNotificationClick = async (n) => {
     if (!n.isRead) await markRead(n._id);
     
-    if (n.storeProfileId && n.link) {
-      navigate(n.link);
+    const notificationLink = getStorePwaNotificationLink(n, storePwaContext, storePwaOrigin);
+    if (/^https?:\/\//i.test(notificationLink)) {
+      window.location.assign(notificationLink);
+    } else if (n.storeProfileId && n.link) {
+      navigate(notificationLink);
     } else if (n.link) {
-      navigate(n.link);
+      navigate(notificationLink);
     } else if (n.type === "message" && n.data?.conversationId) {
       navigate(`/messages?chat=${n.data.conversationId}`);
     } else if (n.type === "admin_message") {

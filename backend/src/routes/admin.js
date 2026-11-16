@@ -5,6 +5,8 @@ import auth from "../middleware/auth.js";
 import { requireMainAdmin, requireRole } from "../middleware/roles.js";
 import Ad from "../models/Ad.js";
 import User from "../models/User.js";
+import AuthSession from "../models/AuthSession.js";
+import StorePwaHandoff from "../models/StorePwaHandoff.js";
 import QuoteRequest from "../models/QuoteRequest.js";
 import PurchaseRequest from "../models/PurchaseRequest.js";
 import Plan from "../models/Plan.js";
@@ -47,6 +49,10 @@ import ListingService from "../services/listingService.js";
 
 const router = Router();
 const pageData = (page, limit, total) => ({ page, limit, total, pages: Math.ceil(total / limit) });
+
+function disconnectUserSockets(req, userId) {
+  req.app.get("io")?.in(`user:${String(userId)}`).disconnectSockets(true);
+}
 
 router.use(auth, requireRole(["admin"]), adminAudit());
 
@@ -1040,6 +1046,7 @@ router.patch("/users/:id/role", requireMainAdmin, async (req, res) => {
     if (!["admin", "user", "seller", "buyer"].includes(role)) return res.status(400).json({ error: "Invalid role" });
     const updated = await User.findByIdAndUpdate(req.params.id, { role }, { new: true }).select("name email role isDisabled").lean();
     if (!updated) return res.status(404).json({ error: "Not found" });
+    disconnectUserSockets(req, updated._id);
     res.json(updated);
   } catch {
     res.status(500).json({ error: "Server error" });
@@ -1064,7 +1071,12 @@ router.patch("/users/:id/ambassador-rate", validateBody(Joi.object({ rate: Joi.n
 router.patch("/users/:id/disable", async (req, res) => {
   try {
     const { disabled } = req.body || {};
-    const updated = await User.findByIdAndUpdate(req.params.id, { isDisabled: !!disabled }, { new: true }).select("name email role isDisabled").lean();
+    let updated;
+    try {
+      updated = await User.findByIdAndUpdate(req.params.id, { isDisabled: !!disabled }, { new: true }).select("name email role isDisabled").lean();
+    } finally {
+      if (disabled) disconnectUserSockets(req, req.params.id);
+    }
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json(updated);
   } catch {
@@ -1075,6 +1087,16 @@ router.patch("/users/:id/disable", async (req, res) => {
 router.delete("/users/:id", async (req, res) => {
   try {
     console.log(`[DEBUG] Attempting to delete user with ID: ${req.params.id}`);
+    const now = new Date();
+    await Promise.all([
+      AuthSession.updateMany({ userId: req.params.id, revokedAt: null }, {
+        $set: { revokedAt: now, revokeReason: "account_deleted" }
+      }),
+      StorePwaHandoff.updateMany({ userId: req.params.id, revokedAt: null }, {
+        $set: { revokedAt: now }
+      })
+    ]);
+    req.app.get("io")?.in(`user:${String(req.params.id)}`).disconnectSockets(true);
     const u = await User.findByIdAndDelete(req.params.id).lean();
     if (!u) {
       console.log(`[DEBUG] User with ID ${req.params.id} not found.`);
@@ -1687,7 +1709,11 @@ router.patch("/password-reset-requests/:id/status", async (req, res) => {
       user.mustResetPassword = true;
       user.temporaryPassword = tempPassword;
       user.temporaryPasswordExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await user.save();
+      try {
+        await user.save();
+      } finally {
+        disconnectUserSockets(req, user._id);
+      }
 
       request.temporaryPassword = tempPassword;
       await request.save();

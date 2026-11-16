@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
 import { useApi } from "../api/axios";
+import { setStoredAuthToken } from "../api/authStorage.js";
 
 // Simple SVG Icons to avoid external dependency issues
 const Icons = {
@@ -180,7 +181,7 @@ const VerifyEmail = () => {
       if (res.data.token) {
         setSuccessMsg(res.data.message || "تم تفعيل حسابك بنجاح، مرحبًا بك في سوقك.");
         localStorage.setItem("souqak_new_user_welcome", "true");
-        localStorage.setItem("token", res.data.token);
+        setStoredAuthToken(res.data.token);
         setTimeout(() => {
           login(res.data.token, res.data.user);
           navigate("/", { replace: true });

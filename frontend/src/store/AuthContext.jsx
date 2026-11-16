@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { refreshSession } from "../api/session.js";
+import { consumeStorePwaHandoff, refreshSession, revokeCurrentSession } from "../api/session.js";
+import {
+  clearStoredAuth,
+  getAuthStorageKeys,
+  setStoredAuthToken,
+  setStoredAuthUser
+} from "../api/authStorage.js";
 
 const AuthContext = createContext(null);
 
@@ -15,13 +21,15 @@ export function AuthProvider({ children }) {
     try {
       const newToken = await refreshSession();
       if (newToken) {
-        localStorage.setItem("token", newToken);
+        setStoredAuthToken(newToken);
         setToken(newToken);
         return true;
       }
       return false;
     } catch (err) {
-      console.warn("[Auth] Proactive silent refresh failed:", err.message);
+      if (err.response?.status !== 401) {
+        console.warn("[Auth] Proactive silent refresh failed:", err.message);
+      }
       return false;
     }
   };
@@ -38,25 +46,31 @@ export function AuthProvider({ children }) {
       console.log(`[Auth] Checking session at: ${base}auth/me`);
       
       const res = await axios.get(`${base}auth/me`, {
-        headers: existingToken ? { Authorization: `Bearer ${existingToken}` } : {},
+        headers: {
+          ...(existingToken ? { Authorization: `Bearer ${existingToken}` } : {}),
+          ...(getAuthStorageKeys().isStorePwa
+            ? { "X-Souqak-Store-PWA-Id": getAuthStorageKeys().storeId }
+            : {})
+        },
         withCredentials: true,
         timeout: 5000
       });
       
       if (res.data) {
         setUser(res.data);
-        localStorage.setItem("user", JSON.stringify(res.data));
-        if (existingToken) setTokenCookie(existingToken);
+        setStoredAuthUser(res.data);
         return true;
       }
       return false;
     } catch (err) {
-      console.warn("[Auth] Session check failed:", err.message);
+      if (err.response?.status !== 401) {
+        console.warn("[Auth] Session check failed:", err.message);
+      }
       if (err.response?.status === 401) {
         const refreshed = await doSilentRefresh();
         if (refreshed) {
-          const t = localStorage.getItem("token");
-          if (t) return await fetchUserWithCurrentToken(t);
+          const currentToken = localStorage.getItem(getAuthStorageKeys().token);
+          if (currentToken) return await fetchUserWithCurrentToken(currentToken);
         }
       }
       return false;
@@ -66,19 +80,39 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const savedUserStr = localStorage.getItem("user");
+        const storageKeys = getAuthStorageKeys();
+        const savedUserStr = localStorage.getItem(storageKeys.user);
         const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
-        const t = localStorage.getItem("token") || getTokenFromCookie();
+        const t = localStorage.getItem(storageKeys.token)
+          || (!storageKeys.isStorePwa ? getTokenFromCookie() : null);
         
         if (savedUser && t) {
           setUser(savedUser);
           setToken(t);
         }
+
+        if (storageKeys.isStorePwa) {
+          try {
+            const transferredToken = await consumeStorePwaHandoff();
+            if (transferredToken) {
+              setStoredAuthToken(transferredToken);
+              setToken(transferredToken);
+              if (await fetchUserWithCurrentToken(transferredToken)) {
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (error) {
+            if (error.response?.status !== 401) {
+              console.warn("[Auth] Store PWA session handoff was unavailable:", error.message);
+            }
+          }
+        }
         
         if (!t && !savedUser) {
-          if (window.__SOUQAK_STORE_PWA_APP__?.storeId) {
+          if (storageKeys.isStorePwa) {
             const refreshed = await doSilentRefresh();
-            const refreshedToken = localStorage.getItem("token");
+            const refreshedToken = localStorage.getItem(storageKeys.token);
             if (refreshed && refreshedToken) {
               await fetchUserWithCurrentToken(refreshedToken);
             }
@@ -89,8 +123,8 @@ export function AuthProvider({ children }) {
 
         await fetchUserWithCurrentToken(t);
 
-        const cachedUser = localStorage.getItem("user");
-        const cachedToken = localStorage.getItem("token");
+        const cachedUser = localStorage.getItem(storageKeys.user);
+        const cachedToken = localStorage.getItem(storageKeys.token);
         if (cachedUser && !user) setUser(JSON.parse(cachedUser));
         if (cachedToken && !token) setToken(cachedToken);
       } finally {
@@ -135,20 +169,25 @@ export function AuthProvider({ children }) {
   }, [user, token]);
 
   const login = (t, u) => {
-    localStorage.setItem("token", t);
-    localStorage.setItem("user", JSON.stringify(u));
-    setTokenCookie(t);
+    setStoredAuthToken(t);
+    setStoredAuthUser(u);
     setToken(t);
     setUser(u);
   };
 
   const logout = () => {
+    const storedToken = localStorage.getItem(getAuthStorageKeys().token);
+    const tokenToRevoke = token || storedToken;
+    if (tokenToRevoke) {
+      revokeCurrentSession(tokenToRevoke).catch((error) => {
+        console.error("[Auth] Server-side logout failed:", error.message);
+      });
+    }
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
     }
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearStoredAuth();
     clearTokenCookie();
     setToken(null);
     setUser(null);
@@ -162,14 +201,9 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-function setTokenCookie(value) {
-  try {
-    const maxAge = 7 * 24 * 60 * 60;
-    document.cookie = `token=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
-  } catch {}
-}
 function getTokenFromCookie() {
   try {
+    if (getAuthStorageKeys().isStorePwa) return null;
     const m = document.cookie.match(/(?:^|; )token=([^;]*)/);
     return m ? decodeURIComponent(m[1]) : null;
   } catch {
@@ -178,6 +212,7 @@ function getTokenFromCookie() {
 }
 function clearTokenCookie() {
   try {
+    if (getAuthStorageKeys().isStorePwa) return;
     document.cookie = "token=; Max-Age=0; Path=/; SameSite=Lax";
   } catch {}
 }

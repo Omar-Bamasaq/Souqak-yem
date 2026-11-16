@@ -119,12 +119,14 @@ import swaggerUi from "swagger-ui-express";
 import { verifyEmailAccounts } from "./utils/emailSender.js";
 import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
 import { getBackendBaseUrl } from "./utils/siteUrl.js";
+import { isAuthSessionActive, isLegacyAccessTokenActive } from "./services/authSessions.js";
 import {
   createSocketHandshakeAuth,
   getAuthenticatedSocketUserId,
   getSocketAccessToken,
   isChatParticipant,
-  isConversationParticipant
+  isConversationParticipant,
+  syncSocketAdminRoom
 } from "./utils/socketAuthorization.js";
 
 try {
@@ -532,9 +534,29 @@ const io = new Server(server, {
   allowRequest: socketAllowRequest
 });
 
-io.use(createSocketHandshakeAuth(jwtConfigBootstrap.verifyAccessToken));
+io.use(createSocketHandshakeAuth(
+  jwtConfigBootstrap.verifyAccessToken,
+  async (sessionId, userId, accessToken, payload) => {
+    if (sessionId) return isAuthSessionActive(sessionId, userId);
+    const user = await User.findById(userId).select("isDisabled isDeleted legacyAccessTokensRevokedAt").lean();
+    if (!user || user.isDisabled || user.isDeleted) return false;
+    const revokedAt = user.legacyAccessTokensRevokedAt
+      ? new Date(user.legacyAccessTokensRevokedAt).getTime()
+      : 0;
+    return !(revokedAt && payload.iat * 1000 <= revokedAt)
+      && isLegacyAccessTokenActive(accessToken, userId);
+  }
+));
 
 io.on("connection", (socket) => {
+  socket.userId = socket.data.authenticatedUserId;
+  socket.join(`user:${socket.userId}`);
+  if (socket.data.authenticatedSessionId) {
+    socket.join(`session:${socket.data.authenticatedSessionId}`);
+  }
+  if (socket.data.authenticatedAccessTokenHash) {
+    socket.join(`access:${socket.data.authenticatedAccessTokenHash}`);
+  }
   socket.on("join", async ({ chatId } = {}) => {
     try {
       if (await isChatParticipant(Chat, socket.userId, chatId)) {
@@ -552,7 +574,8 @@ io.on("connection", (socket) => {
   });
   socket.on("join_user", async (payload = {}) => {
     const userId = payload?.userId;
-    const accessToken = getSocketAccessToken(socket.handshake.headers.cookie);
+    const accessToken = socket.handshake.auth?.token
+      || getSocketAccessToken(socket.handshake.headers.cookie);
     if (!accessToken) return;
 
     try {
@@ -570,11 +593,7 @@ io.on("connection", (socket) => {
 
       socket.join(`user:${authenticatedUserId}`);
       socket.userId = authenticatedUserId;
-      if (user.role === "admin") {
-        socket.join("role:admin");
-      } else {
-        socket.leave("role:admin");
-      }
+      syncSocketAdminRoom(socket, user);
 
       const now = new Date();
       await User.findByIdAndUpdate(authenticatedUserId, { isOnline: true, socketId: socket.id, lastSeen: now });

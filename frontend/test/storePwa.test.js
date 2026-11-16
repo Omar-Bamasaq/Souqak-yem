@@ -5,11 +5,14 @@ import path from "node:path";
 import vm from "node:vm";
 import {
   buildStorePwaAppUrl,
+  buildStorePwaLaunchUrl,
   buildStorePwaIconUrl,
-  getStorePwaInstallInstructions
+  getStorePwaInstallInstructions,
+  getStorePwaNotificationLink
 } from "../src/utils/storePwa.js";
 
 const STORE_ID = "64d3d93a1a2b3c4d5e6f7701";
+const OTHER_STORE_ID = "64d3d93a1a2b3c4d5e6f7702";
 
 test("store app URLs are fixed by database ID and reject mutable slugs", () => {
   assert.equal(
@@ -37,6 +40,51 @@ test("store app icons use the immutable database ID and manual instructions are 
     getStorePwaInstallInstructions({ userAgent: "Mozilla/5.0 (Windows NT 10.0)" }),
     /قائمة المتصفح/
   );
+  assert.match(
+    getStorePwaInstallInstructions({ userAgent: "Mozilla/5.0 (Linux; Android 14)" }),
+    /قائمة Chrome/
+  );
+  assert.match(
+    getStorePwaInstallInstructions({ userAgent: "Mozilla/5.0 (iPhone)" }),
+    /Safari/
+  );
+});
+
+test("Android store launch tries Chrome while preserving a normal URL for other platforms", () => {
+  const appUrl = buildStorePwaAppUrl(STORE_ID);
+  assert.equal(buildStorePwaLaunchUrl(STORE_ID), appUrl);
+
+  const intentUrl = buildStorePwaLaunchUrl(STORE_ID, {
+    userAgent: "Mozilla/5.0 (Linux; Android 14)"
+  });
+  assert.match(intentUrl, /^intent:\/\/apps\.souqak-yem\.com\/store\//);
+  assert.match(intentUrl, /package=com\.android\.chrome/);
+  assert.ok(intentUrl.includes(encodeURIComponent(appUrl)));
+});
+
+test("store notification links stay on the main app and resolve to the right independent app", () => {
+  const notification = {
+    link: "/store/old-slug",
+    storeProfileId: STORE_ID,
+    data: { storeProfileId: STORE_ID, storePwaUrl: `https://apps.souqak-yem.com/store/${STORE_ID}/` }
+  };
+  assert.equal(getStorePwaNotificationLink(notification, null), notification.link);
+  assert.equal(getStorePwaNotificationLink(notification, { storeId: STORE_ID }), "/");
+  assert.equal(getStorePwaNotificationLink({
+    link: "/store/old-slug",
+    storeProfileId: STORE_ID
+  }, { storeId: STORE_ID, slug: "old-slug" }), "/");
+  assert.equal(
+    getStorePwaNotificationLink(notification, { storeId: OTHER_STORE_ID }),
+    notification.data.storePwaUrl
+  );
+  assert.equal(
+    getStorePwaNotificationLink({
+      ...notification,
+      data: { ...notification.data, storePwaUrl: `https://attacker.example/store/${STORE_ID}/` }
+    }, { storeId: OTHER_STORE_ID }),
+    notification.link
+  );
 });
 
 test("storefront delegates installation to the dedicated app without mutating the market manifest", () => {
@@ -46,7 +94,7 @@ test("storefront delegates installation to the dedicated app without mutating th
   const globalManifest = JSON.parse(fs.readFileSync(path.join(root, "public", "manifest.json"), "utf8"));
   const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
-  assert.match(storefront, /buildStorePwaAppUrl\(store\._id/);
+  assert.match(storefront, /buildStorePwaLaunchUrl\(store\._id/);
   assert.match(storefront, /store:\$\{data\.store\._id\}/);
   assert.match(storefront, /storePwaAppContext\?\.slug/);
   assert.doesNotMatch(storefront, /applyStoreManifest|restoreGlobalManifest|getStorePwaInstallFallback/);
@@ -54,6 +102,50 @@ test("storefront delegates installation to the dedicated app without mutating th
   assert.match(main, /utils\/pwaInstall\.js/);
   assert.equal(globalManifest.start_url, "/");
   assert.match(indexHtml, /href="\/manifest\.json"/);
+});
+
+test("push notification click targets the store app only on its configured origin", async () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "public", "sw.js"), "utf8");
+  const listeners = new Map();
+  const shown = [];
+  const storePwaUrl = `https://apps.souqak-yem.com/store/${STORE_ID}/`;
+  const context = {
+    self: {
+      location: { origin: "https://apps.souqak-yem.com" },
+      addEventListener(name, callback) { listeners.set(name, callback); },
+      registration: { showNotification: async (_title, options) => { shown.push(options); } }
+    },
+    URL,
+    console
+  };
+  vm.runInNewContext(source, context);
+
+  await listeners.get("push")({
+    data: { json: () => ({
+      title: "إشعار متجر",
+      data: {
+        url: "/store/old-slug",
+        storeProfileId: STORE_ID,
+        storePwaUrl
+      }
+    }) },
+    waitUntil(promise) { return promise; }
+  });
+  assert.equal(shown[0].data.url, storePwaUrl);
+
+  context.self.location.origin = "https://souqak-yem.com";
+  await listeners.get("push")({
+    data: { json: () => ({
+      title: "إشعار متجر",
+      data: {
+        url: "/store/old-slug",
+        storeProfileId: STORE_ID,
+        storePwaUrl
+      }
+    }) },
+    waitUntil(promise) { return promise; }
+  });
+  assert.equal(shown[1].data.url, "/store/old-slug");
 });
 
 test("service-worker activation removes only its own prior cache versions", async () => {

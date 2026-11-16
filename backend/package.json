@@ -15,6 +15,7 @@
     "prelaunch:indexes:plan": "node src/scripts/prelaunchIndexes.js",
     "prelaunch:indexes:apply": "node src/scripts/prelaunchIndexes.js --apply",
     "prelaunch:indexes:verify": "node src/scripts/prelaunchIndexesVerify.js",
+    "auth-sessions:indexes": "node src/scripts/authSessionIndexes.js",
     "backfill:store-legacy-cutoff": "node src/scripts/backfillStoreLegacyListingsCutoff.js",
     "watermark:ads": "node src/scripts/applyAdWatermark.js"
   },

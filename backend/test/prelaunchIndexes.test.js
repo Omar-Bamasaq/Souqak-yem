@@ -14,8 +14,8 @@ test("prelaunch index plan covers all application models without incompatible de
   const plan = buildIndexPlan(models);
   const summary = summarizeIndexPlan(plan);
 
-  assert.equal(summary.models, 85);
-  assert.equal(summary.collections, 85);
+  assert.equal(summary.models, 87);
+  assert.equal(summary.collections, 87);
   assert.ok(summary.indexes > 0);
   assert.ok(summary.uniqueIndexes > 0);
   assert.ok(summary.compoundIndexes > 0);

@@ -1,11 +1,13 @@
 import User from "../models/User.js";
 import { verifyAccessToken } from "../config/jwt.js";
+import { isAuthSessionActive, isLegacyAccessTokenActive } from "../services/authSessions.js";
 
 export function getOptionalAuthTokens(req) {
   const candidates = [];
   if (req.headers.authorization?.startsWith("Bearer ")) {
     candidates.push({ source: "header", token: req.headers.authorization.slice(7).trim() });
   }
+  if (req.headers["x-souqak-store-pwa-id"] !== undefined) return candidates;
   if (req.cookies?.accessToken) {
     candidates.push({ source: "cookie", token: req.cookies.accessToken });
   }
@@ -25,8 +27,18 @@ export default async function optionalAuth(req, res, next) {
       const payload = verifyAccessToken(cand.token);
       const uid = payload.userId || payload.id;
       if (!uid) continue;
+      if (payload.sid && !(await isAuthSessionActive(payload.sid, uid))) continue;
       const user = await User.findById(uid).lean();
       if (user && !user.isDisabled && !user.isDeleted) {
+        if (!payload.sid) {
+          const revokedAt = user.legacyAccessTokensRevokedAt
+            ? new Date(user.legacyAccessTokensRevokedAt).getTime()
+            : 0;
+          if ((revokedAt && payload.iat * 1000 <= revokedAt)
+            || !(await isLegacyAccessTokenActive(cand.token, user._id))) {
+            continue;
+          }
+        }
         req.user = {
           id: user._id.toString(),
           role: user.role,

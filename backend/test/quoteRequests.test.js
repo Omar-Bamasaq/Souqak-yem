@@ -61,6 +61,13 @@ test("optional auth ignores query-string tokens on sensitive details routes", ()
     { source: "cookie", token: "cookie-token" },
     { source: "cookie-legacy", token: "legacy-token" }
   ]);
+  assert.deepEqual(getOptionalAuthTokens({
+    headers: {
+      authorization: "Bearer store-token",
+      "x-souqak-store-pwa-id": "507f1f77bcf86cd799439011"
+    },
+    cookies: { accessToken: "main-token" }
+  }), [{ source: "header", token: "store-token" }]);
 });
 
 test("offer creation rejects missing and malformed prices before database access", async () => {

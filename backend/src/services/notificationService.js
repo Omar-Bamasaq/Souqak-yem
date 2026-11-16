@@ -126,6 +126,8 @@ export async function sendStorePushToSubscriber(subscriber, payload, pushSender 
 }
 
 async function saveAndEmitStoreNotification(app, store, recipientId, { type, title, body, link, data }) {
+  const storePwaOrigin = process.env.STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
+  const storePwaUrl = new URL(`/store/${store._id}/`, storePwaOrigin).href;
   const entityId = data?.eventId
     || data?.messageId
     || data?.orderId && `${data.orderId}:${data.status || type}`
@@ -143,7 +145,7 @@ async function saveAndEmitStoreNotification(app, store, recipientId, { type, tit
     body,
     link,
     eventKey,
-    data: { ...data, storeProfileId: String(store._id), storeSlug: store.slug, url: link }
+    data: { ...data, storeProfileId: String(store._id), storeSlug: store.slug, storePwaUrl, url: link }
   });
   const io = app ? (typeof app.get === "function" ? app.get("io") : app) : null;
   if (io) {
@@ -180,7 +182,17 @@ export async function createStoreNotification(app, {
     const context = await getStoreNotificationContext(storeProfileId);
     if (!context) return [];
     const { store } = context;
-    const safeLink = typeof link === "string" && link.startsWith("/") ? link : `/store/${encodeURIComponent(store.slug)}`;
+    const safeLink = typeof link === "string"
+      && link.startsWith("/")
+      && !link.startsWith("//")
+      && !link.includes("\\")
+      && !/[\u0000-\u001f]/.test(link)
+      ? link
+      : `/store/${encodeURIComponent(store.slug)}`;
+    const storePwaUrl = new URL(
+      `/store/${store._id}/`,
+      process.env.STORE_PWA_ORIGIN || "https://apps.souqak-yem.com"
+    ).href;
     const notifications = [];
 
     if (recipient === "owner") {
@@ -192,7 +204,12 @@ export async function createStoreNotification(app, {
         title,
         body,
         url: safeLink,
-        data: { ...data, storeProfileId: String(store._id), type }
+        data: {
+          ...data,
+          storeProfileId: String(store._id),
+          storePwaUrl,
+          type
+        }
       });
       return notifications;
     }
@@ -225,7 +242,12 @@ export async function createStoreNotification(app, {
             title,
             body,
             url: safeLink,
-            data: { ...data, storeProfileId: String(store._id), type }
+            data: {
+              ...data,
+              storeProfileId: String(store._id),
+              storePwaUrl,
+              type
+            }
           }, pushSender);
         }
       } catch (error) {

@@ -3,8 +3,10 @@ import bcrypt from "bcryptjs";
 import multer from "multer";
 import { rateLimit as expressRateLimit } from "express-rate-limit";
 import User from "../models/User.js";
+import AuthSession from "../models/AuthSession.js";
+import StorePwaHandoff from "../models/StorePwaHandoff.js";
 import OtpCode from "../models/OtpCode.js";
-import auth, { sendAuthResponse } from "../middleware/auth.js";
+import auth, { disconnectAuthSessionSockets, sendAuthResponse } from "../middleware/auth.js";
 import { uploadIdDoc, uploadAvatar } from "../middleware/upload.js";
 import rateLimit from "../middleware/rateLimit.js";
 import { requireRole } from "../middleware/roles.js";
@@ -20,12 +22,23 @@ import Withdrawal from "../models/Withdrawal.js";
 import Wallet from "../models/Wallet.js";
 import Ad from "../models/Ad.js";
 import ReferralEngine from "../engines/ReferralEngine.js";
+import { findEligibleStorePwa } from "./storePwaApp.js";
 import {
-  signAccessToken,
-  verifyRefreshToken,
-  JWT_ALGORITHM,
-  inspectJwtClaimsOnly,
-} from "../config/jwt.js";
+  ACCESS_COOKIE_TTL_MS,
+  createAuthSession,
+  createLegacyAccessSourceSession,
+  createStorePwaHandoff,
+  consumeStorePwaHandoff,
+  getAccessCookieOptions,
+  getAuthSessionContext,
+  getRefreshCookieName,
+  getRefreshCookieOptions,
+  hashAuthToken,
+  isAuthSessionActive,
+  revokeAuthSession,
+  revokeSessionsForSourceAccessToken,
+  rotateRefreshSession
+} from "../services/authSessions.js";
 import {
   hasReachedPasswordResetOtpAttemptLimit,
   isPasswordResetOtpLocked,
@@ -76,6 +89,43 @@ const accountRecoveryLimit = expressRateLimit({
 
 function canUseEmailAccountRecovery(user) {
   return ["admin", "supervisor"].includes(user.role) || Boolean(user.managedAccount?.createdByAdmin);
+}
+
+function getStorePwaOrigin() {
+  try {
+    return new URL(process.env.STORE_PWA_ORIGIN || "https://apps.souqak-yem.com").origin;
+  } catch {
+    throw new Error("STORE_PWA_ORIGIN must be a valid origin.");
+  }
+}
+
+function isLocalDevelopmentOrigin(origin) {
+  return process.env.NODE_ENV !== "production"
+    && typeof origin === "string"
+    && /^https?:\/\/localhost(?::\d+)?$/.test(origin);
+}
+
+function isStorePwaOrigin(req) {
+  return req.headers.origin === getStorePwaOrigin() || isLocalDevelopmentOrigin(req.headers.origin);
+}
+
+function isMainSiteOrigin(req) {
+  const origin = req.headers.origin;
+  return ["https://souqak-yem.com", "https://www.souqak-yem.com"].includes(origin)
+    || isLocalDevelopmentOrigin(origin);
+}
+
+function clearSessionCookies(res, context) {
+  const baseOptions = getRefreshCookieOptions(context, 0);
+  res.clearCookie(getRefreshCookieName(context), baseOptions);
+  if (context.appType === "main") {
+    res.clearCookie("accessToken", getAccessCookieOptions(0));
+  }
+}
+
+function disconnectUserSockets(req, userId) {
+  const io = req.app.get("io");
+  if (io) io.in(`user:${String(userId)}`).disconnectSockets(true);
 }
 
 /**
@@ -338,7 +388,7 @@ router.post("/verify-email", (_req, res) => {
     console.log(`[LOG] Verify success: ${inputEmail}`);
 
     // Generate tokens and set cookies
-    const { accessToken } = await sendAuthResponse(user, res);
+    const { accessToken } = await sendAuthResponse(user, res, { req });
 
     res.json({
       message: "تم تفعيل حسابك بنجاح، مرحبًا بك في سوقك.",
@@ -600,7 +650,11 @@ router.post("/reset-password", async (req, res) => {
 
     // Update password
     user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    try {
+      await user.save();
+    } finally {
+      disconnectUserSockets(req, user._id);
+    }
 
     // Clear OTP
     await OtpCode.deleteMany({ email: inputEmail });
@@ -744,7 +798,7 @@ router.post("/login", async (req, res) => {
     await ReferralEngine.ensureProfile(user._id);
 
     // Generate tokens and set cookies
-    const { accessToken } = await sendAuthResponse(user, res);
+    const { accessToken } = await sendAuthResponse(user, res, { req });
 
     logSecurityEvent("Login successful", req, { userId: user._id });
 
@@ -821,7 +875,7 @@ router.post("/phone-register", phoneRegistrationLimit, async (req, res) => {
     await ReferralEngine.ensureProfile(user._id);
     await ReferralEngine.claimAttribution(user._id, req.cookies?.souqak_referral);
 
-    const { accessToken } = await sendAuthResponse(user, res);
+    const { accessToken } = await sendAuthResponse(user, res, { req });
 
     await createAdminNotification(req.app, {
       type: "new_user",
@@ -922,7 +976,7 @@ router.post("/phone-login", phoneLoginLimit, async (req, res) => {
     await user.save();
 
     if (user.mustResetPassword) {
-      const { accessToken } = await sendAuthResponse(user, res);
+      const { accessToken } = await sendAuthResponse(user, res, { req });
       return res.status(200).json({
         token: accessToken,
         requiresPasswordReset: true,
@@ -954,7 +1008,7 @@ router.post("/phone-login", phoneLoginLimit, async (req, res) => {
       await user.save();
     }
 
-    const { accessToken } = await sendAuthResponse(user, res);
+    const { accessToken } = await sendAuthResponse(user, res, { req });
     return res.json({
       token: accessToken,
       user: {
@@ -1064,7 +1118,11 @@ router.post("/set-new-password", auth, async (req, res) => {
       user.managedAccount.status = "claimed";
       user.managedAccount.claimedAt = new Date();
     }
-    await user.save();
+    try {
+      await user.save();
+    } finally {
+      disconnectUserSockets(req, user._id);
+    }
 
     return res.json({ message: "تم تعيين كلمة المرور الجديدة بنجاح." });
   } catch (err) {
@@ -1363,7 +1421,11 @@ router.post("/change-password", auth, async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    try {
+      await user.save();
+    } finally {
+      disconnectUserSockets(req, user._id);
+    }
 
     res.json({ message: "تم تغيير كلمة المرور بنجاح." });
   } catch (err) {
@@ -1457,14 +1519,16 @@ router.delete("/account", auth, async (req, res) => {
     // 3. تنفيذ الحذف الناعم
     user.isDeleted = true;
     user.deletionRequestedAt = new Date();
-    await user.save();
+    try {
+      await user.save();
+    } finally {
+      disconnectUserSockets(req, userId);
+    }
 
     // 4. إخفاء الإعلانات
     await Ad.updateMany({ userId: userId }, { isVisible: false });
 
-    // Clear cookies on account deletion
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+    clearSessionCookies(res, getAuthSessionContext(req));
 
     res.json({ message: "تم إرسال طلب حذف الحساب بنجاح. سيتم تعطيل حسابك فوراً وحذفه نهائياً خلال 30 يوم." });
 
@@ -1474,52 +1538,220 @@ router.delete("/account", auth, async (req, res) => {
   }
 });
 
-// Logout
-router.post("/logout", auth, async (req, res) => {
+router.post("/store-pwa/:storeId/handoff", auth, rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  message: "محاولات كثيرة. يرجى الانتظار قبل إعادة المحاولة."
+}), async (req, res) => {
   try {
-    const userId = req.user.id;
-    await User.findByIdAndUpdate(userId, { refreshToken: null });
-    
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
-    
-    res.json({ message: "تم تسجيل الخروج بنجاح." });
-  } catch (err) {
-    res.status(500).json({ error: "حدث خطأ في الخادم." });
+    if (!isMainSiteOrigin(req)) return res.status(403).json({ error: "Origin not allowed" });
+    const store = await findEligibleStorePwa(req.params.storeId);
+    if (!store) return res.status(404).json({ error: "Store PWA not found" });
+
+    let sourceSessionId = req.authSessionId;
+    if (!sourceSessionId) {
+      const sourceSession = await createLegacyAccessSourceSession({
+        userId: req.user.id,
+        accessToken: req.authToken
+      });
+      if (!sourceSession) return res.status(401).json({ error: "Source session is no longer valid" });
+      sourceSessionId = sourceSession.sessionId;
+    }
+
+    const { grant } = await createStorePwaHandoff({
+      userId: req.user.id,
+      targetStoreId: store._id,
+      sourceSessionId,
+      sourceAccessTokenHash: hashAuthToken(req.authToken)
+    });
+    const storeId = String(store._id);
+    res.cookie(`storePwaHandoff_${storeId}`, grant, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: `/api/auth/store-pwa/${storeId}/handoff/exchange`,
+      maxAge: 60_000
+    });
+    res.set("Cache-Control", "no-store");
+    return res.status(204).end();
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("Store PWA handoff creation failed:", error);
+    return res.status(500).json({ error: "Unable to start store app session handoff" });
   }
 });
 
-// Refresh Token
+router.post("/store-pwa/:storeId/handoff/exchange", rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  message: "محاولات كثيرة. يرجى الانتظار قبل إعادة المحاولة."
+}), async (req, res) => {
+  const storeId = String(req.params.storeId || "");
+  const handoffCookieName = `storePwaHandoff_${storeId}`;
+  const handoffCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: `/api/auth/store-pwa/${storeId}/handoff/exchange`,
+    maxAge: 0
+  };
+  try {
+    if (!/^[a-f\d]{24}$/i.test(storeId) || !isStorePwaOrigin(req)) {
+      return res.status(403).json({ error: "Origin or store is not allowed" });
+    }
+    const context = getAuthSessionContext(req);
+    if (context.appType !== "store-pwa" || String(context.storeProfileId) !== storeId) {
+      return res.status(403).json({ error: "Store PWA context mismatch" });
+    }
+    const store = await findEligibleStorePwa(storeId);
+    if (!store) return res.status(404).json({ error: "Store PWA not found" });
+
+    const handoff = await consumeStorePwaHandoff({
+      grant: req.cookies?.[handoffCookieName],
+      targetStoreId: store._id
+    });
+    res.clearCookie(handoffCookieName, handoffCookieOptions);
+    if (!handoff) return res.status(401).json({ error: "Session handoff is missing or expired" });
+
+    const user = await User.findById(handoff.userId);
+    if (!user || user.isDisabled || user.isDeleted) {
+      return res.status(401).json({ error: "The source account is no longer available" });
+    }
+    if (handoff.sourceSessionId
+      && !(await isAuthSessionActive(handoff.sourceSessionId, user._id))) {
+      return res.status(401).json({ error: "The source session is no longer active" });
+    }
+    const stillValidHandoff = await StorePwaHandoff.findById(handoff._id).select("revokedAt").lean();
+    if (!stillValidHandoff || stillValidHandoff.revokedAt) {
+      return res.status(401).json({ error: "The source session has been revoked" });
+    }
+
+    const refreshCookieName = getRefreshCookieName(context);
+    const existingRefreshToken = req.cookies?.[refreshCookieName];
+    if (existingRefreshToken) {
+      const existing = await AuthSession.findOne({
+        currentRefreshTokenHash: hashAuthToken(existingRefreshToken),
+        appType: "store-pwa",
+        storeProfileId: store._id,
+        revokedAt: null
+      }).select("sessionId").lean();
+      if (existing) {
+        const revokedSessionIds = await revokeAuthSession(existing.sessionId, "store_pwa_handoff_replaced");
+        disconnectAuthSessionSockets(req, revokedSessionIds);
+      }
+    }
+
+    const { accessToken, refreshToken } = await createAuthSession({
+      user,
+      context,
+      sourceSessionId: handoff.sourceSessionId,
+      sourceAccessTokenHash: handoff.sourceAccessTokenHash
+    });
+    if (!(await isAuthSessionActive(handoff.sourceSessionId, user._id))) {
+      await revokeAuthSession((await AuthSession.findOne({
+        currentRefreshTokenHash: hashAuthToken(refreshToken)
+      }).select("sessionId").lean())?.sessionId, "source_session_revoked");
+      return res.status(401).json({ error: "The source session has been revoked" });
+    }
+
+    res.cookie(refreshCookieName, refreshToken, getRefreshCookieOptions(context));
+    res.set("Cache-Control", "no-store");
+    return res.json({ token: accessToken });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("Store PWA handoff exchange failed:", error);
+    return res.status(500).json({ error: "Unable to complete store app session handoff" });
+  }
+});
+
+router.post("/logout", auth, async (req, res) => {
+  try {
+    const context = getAuthSessionContext(req);
+    const revokedSessionIds = [];
+    if (req.authSessionId) {
+      revokedSessionIds.push(...await revokeAuthSession(req.authSessionId, "logout"));
+    }
+    if (req.authToken) {
+      if (!req.authSessionId) {
+        const legacySource = await createLegacyAccessSourceSession({
+          userId: req.user.id,
+          accessToken: req.authToken
+        });
+        revokedSessionIds.push(...await revokeAuthSession(legacySource?.sessionId, "logout"));
+      }
+      revokedSessionIds.push(...await revokeSessionsForSourceAccessToken(req.authToken));
+      if (!req.authSessionId && req.cookies?.refreshToken) {
+        await User.updateOne(
+          { _id: req.user.id, refreshToken: req.cookies?.refreshToken },
+          {
+            $set: { legacyRefreshTokenDisabledAt: new Date() },
+            $unset: { refreshToken: 1 }
+          }
+        );
+      }
+    }
+
+    const io = req.app.get("io");
+    disconnectAuthSessionSockets(req, revokedSessionIds);
+    if (io && req.authToken) io.in(`access:${hashAuthToken(req.authToken)}`).disconnectSockets(true);
+    clearSessionCookies(res, context);
+    return res.json({ message: "تم تسجيل الخروج بنجاح." });
+  } catch (error) {
+    console.error("Logout failed:", error);
+    return res.status(500).json({ error: "حدث خطأ في الخادم." });
+  }
+});
+
+async function respondWithRefresh(req, res, context) {
+  const refreshToken = req.cookies?.[getRefreshCookieName(context)];
+  const result = await rotateRefreshSession(refreshToken, context);
+  disconnectAuthSessionSockets(req, result.sessionIds);
+  if (result.status === "rotated") {
+    res.set("Retry-After", "1");
+    return res.status(409).json({
+      error: "Refresh token was rotated by a concurrent request",
+      code: "SESSION_TOKEN_ROTATED",
+      retryAfterMs: result.retryAfterMs
+    });
+  }
+  if (result.status !== "ok") {
+    return res.status(401).json({ error: "Unauthorized: Session expired", code: "SESSION_REFRESH_INVALID" });
+  }
+
+  res.cookie(getRefreshCookieName(context), result.refreshToken, getRefreshCookieOptions(context));
+  if (context.appType === "main") {
+    res.cookie("accessToken", result.accessToken, getAccessCookieOptions(ACCESS_COOKIE_TTL_MS));
+  }
+  res.set("Cache-Control", "no-store");
+  return res.json({ token: result.accessToken });
+}
+
 router.post("/refresh-token", async (req, res) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken) return res.status(401).json({ error: "Unauthorized" });
+    const context = getAuthSessionContext(req);
+    if (context.appType !== "main") return res.status(400).json({ error: "Use the store PWA refresh endpoint" });
+    return await respondWithRefresh(req, res, context);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("Main session refresh failed:", error);
+    return res.status(500).json({ error: "Unable to refresh session" });
+  }
+});
 
-    const payload = verifyRefreshToken(refreshToken);
-    const claims = inspectJwtClaimsOnly(refreshToken);
-    const alg = claims?.header?.alg || "?";
-    
-    const user = await User.findById(payload.id);
-    if (!user || user.refreshToken !== refreshToken) {
-      console.log(
-        `[Auth][/refresh-token] FAILED invalid refresh (alg=${alg}) uid=${payload.id}`
-      );
-      return res.status(401).json({ error: "Unauthorized: Invalid refresh token" });
+router.post("/store-pwa/:storeId/refresh-token", async (req, res) => {
+  try {
+    if (!/^[a-f\d]{24}$/i.test(String(req.params.storeId || "")) || !isStorePwaOrigin(req)) {
+      return res.status(403).json({ error: "Origin or store is not allowed" });
     }
-
-    if (user.isDisabled || user.isDeleted) {
-      return res.status(403).json({ error: "Unauthorized" });
+    const context = getAuthSessionContext(req);
+    if (context.appType !== "store-pwa" || String(context.storeProfileId) !== req.params.storeId) {
+      return res.status(403).json({ error: "Store PWA context mismatch" });
     }
-
-    const { accessToken } = await sendAuthResponse(user, res);
-    
-    console.log(
-      `[Auth][/refresh-token] OK (alg=${alg}) uid=${user._id} role=${user.role}`
-    );
-    res.json({ token: accessToken });
-  } catch (err) {
-    console.error(`[Auth][/refresh-token] FAILED: ${err.name} ${err.message}`);
-    res.status(401).json({ error: "Unauthorized: Session expired" });
+    return await respondWithRefresh(req, res, context);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("Store PWA session refresh failed:", error);
+    return res.status(500).json({ error: "Unable to refresh store app session" });
   }
 });
 

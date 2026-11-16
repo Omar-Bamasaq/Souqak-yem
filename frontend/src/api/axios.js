@@ -4,6 +4,7 @@ import { useAuth } from "../store/AuthContext.jsx";
 import { IS_MAINTENANCE } from "../config/maintenance.js";
 import { clearCsrfToken, ensureCsrfToken, isApiRequest } from "./csrf.js";
 import { refreshSession } from "./session.js";
+import { getAuthStorageKeys, setStoredAuthToken } from "./authStorage.js";
 import { getRetryAfterMs, recordRateLimit, waitForRateLimit } from "./retryAfter.js";
 
 let apiInstance = null;
@@ -71,6 +72,10 @@ export function useApi() {
         config.url = config.url.substring(1);
       }
       if (token) config.headers.Authorization = `Bearer ${token}`;
+      const sessionContext = getAuthStorageKeys();
+      if (sessionContext.isStorePwa) {
+        config.headers["X-Souqak-Store-PWA-Id"] = sessionContext.storeId;
+      }
 
       const nonGetMethods = ["post", "put", "delete", "patch"];
       if (nonGetMethods.includes(config.method?.toLowerCase()) && isApiRequest(config)) {
@@ -125,7 +130,7 @@ export function useApi() {
             console.log("[API] Access token expired, attempting silent refresh...");
             const newToken = await refreshSession();
             if (newToken) {
-              localStorage.setItem("token", newToken);
+              setStoredAuthToken(newToken);
               setToken(newToken);
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
               processQueue(null, newToken);
@@ -135,9 +140,11 @@ export function useApi() {
               throw new Error("No token in refresh response");
             }
           } catch (refreshErr) {
-            console.error("[API] Silent token refresh failed, logging out:", refreshErr.message);
+            console.error("[API] Silent token refresh failed:", refreshErr.message);
             processQueue(refreshErr, null);
-            if (refreshErr.response?.status !== 429) {
+            const retryableRefreshRace = refreshErr.response?.data?.code === "SESSION_TOKEN_ROTATED";
+            if (refreshErr.response?.status !== 429 && !retryableRefreshRace) {
+              console.error("[API] Session refresh failed; clearing authentication state.");
               logout();
               window.location.href = "/login";
             }

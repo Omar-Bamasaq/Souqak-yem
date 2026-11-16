@@ -210,10 +210,14 @@ test("store owner receives the notification for the owned store without a custom
     assert.equal(notifications.length, 1);
     assert.equal(String(captured.created[0].userId), OWNER_ID);
     assert.equal(String(captured.created[0].storeProfileId), STORE_ID);
+    assert.equal(captured.created[0].link, "/store/shop");
+    assert.equal(captured.created[0].data.storePwaUrl, `https://apps.souqak-yem.com/store/${STORE_ID}/`);
   });
   assert.equal(pushCalls.length, 1);
   assert.equal(String(pushCalls[0].userId), OWNER_ID);
   assert.equal(pushCalls[0].payload.data.storeProfileId, STORE_ID);
+  assert.equal(pushCalls[0].payload.data.storePwaUrl, `https://apps.souqak-yem.com/store/${STORE_ID}/`);
+  assert.equal(pushCalls[0].payload.url, "/store/shop");
 });
 
 test("a customer can follow a store internally without granting browser Push permission", async () => {

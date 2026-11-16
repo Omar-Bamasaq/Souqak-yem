@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import bcrypt from "bcryptjs";
 import adminRouter from "../src/routes/admin.js";
 import Plan from "../src/models/Plan.js";
 import PurchaseRequest from "../src/models/PurchaseRequest.js";
 import User from "../src/models/User.js";
 import Ad from "../src/models/Ad.js";
+import PasswordResetRequest from "../src/models/PasswordResetRequest.js";
 
 const route = adminRouter.stack.find((entry) => entry.route?.path === "/purchase-requests" && entry.route.methods.get);
 const handler = route.route.stack.at(-1).handle;
@@ -91,5 +93,150 @@ test("search input is escaped before it is used in promotion-request filters", a
     PurchaseRequest.find = originals.requestFind;
     User.find = originals.userFind;
     Ad.find = originals.adFind;
+  }
+});
+
+test("admin password reset disconnects the user's sockets after saving the password", async () => {
+  const resetRoute = adminRouter.stack.find(
+    (entry) => entry.route?.path === "/password-reset-requests/:id/status"
+      && entry.route.methods.patch
+  );
+  assert.ok(resetRoute, "password reset review route exists");
+  const handler = resetRoute.route.stack.at(-1).handle;
+  const originals = {
+    findRequest: PasswordResetRequest.findById,
+    findUser: User.findOne,
+    findUserById: User.findById,
+    bcryptHash: bcrypt.hash
+  };
+  const events = [];
+  const user = {
+    _id: "64d3d93a1a2b3c4d5e6f7788",
+    name: "Test User",
+    phone: "777123456",
+    role: "user",
+    save: async () => { events.push("password-saved"); }
+  };
+  const request = {
+    username: user.name,
+    phone: user.phone,
+    save: async () => {}
+  };
+  PasswordResetRequest.findById = async () => request;
+  User.findOne = async () => user;
+  User.findById = () => ({
+    select() {
+      return {
+        lean: async () => ({
+          notificationPrefs: { new_user: { inApp: false, push: false } }
+        })
+      };
+    }
+  });
+
+  bcrypt.hash = async () => "temporary-password-hash";
+  const responseResult = { statusCode: 200, body: null };
+  const response = {
+    status(statusCode) { responseResult.statusCode = statusCode; return this; },
+    json(body) { responseResult.body = body; return this; }
+  };
+  const io = {
+    in(room) {
+      return {
+        disconnectSockets(force) {
+          events.push({ room, force });
+        }
+      };
+    }
+  };
+
+  try {
+    await handler(
+      {
+        params: { id: "reset-request" },
+        body: { status: "approved" },
+        user: { id: "admin-id" },
+        app: { get: () => io }
+      },
+      response
+    );
+
+    assert.equal(responseResult.statusCode, 200);
+    assert.deepEqual(events, [
+      "password-saved",
+      { room: `user:${user._id}`, force: true }
+    ]);
+  } finally {
+    PasswordResetRequest.findById = originals.findRequest;
+    User.findOne = originals.findUser;
+    User.findById = originals.findUserById;
+    bcrypt.hash = originals.bcryptHash;
+  }
+});
+
+test("admin password reset disconnects sockets when post-save revocation fails", async () => {
+  const resetRoute = adminRouter.stack.find(
+    (entry) => entry.route?.path === "/password-reset-requests/:id/status"
+      && entry.route.methods.patch
+  );
+  const handler = resetRoute.route.stack.at(-1).handle;
+  const originals = {
+    findRequest: PasswordResetRequest.findById,
+    findUser: User.findOne,
+    bcryptHash: bcrypt.hash
+  };
+  const events = [];
+  const user = {
+    _id: "64d3d93a1a2b3c4d5e6f7788",
+    name: "Test User",
+    phone: "777123456",
+    role: "user",
+    save: async () => {
+      events.push("password-persisted");
+      throw new Error("simulated post-save revocation failure");
+    }
+  };
+  PasswordResetRequest.findById = async () => ({
+    username: user.name,
+    phone: user.phone,
+    save: async () => {}
+  });
+  User.findOne = async () => user;
+  bcrypt.hash = async () => "temporary-password-hash";
+  const responseResult = { statusCode: 200, body: null };
+  const response = {
+    status(statusCode) { responseResult.statusCode = statusCode; return this; },
+    json(body) { responseResult.body = body; return this; }
+  };
+  const io = {
+    in(room) {
+      return {
+        disconnectSockets(force) {
+          events.push({ room, force });
+        }
+      };
+    }
+  };
+
+  try {
+    await handler(
+      {
+        params: { id: "reset-request" },
+        body: { status: "approved" },
+        user: { id: "admin-id" },
+        app: { get: () => io }
+      },
+      response
+    );
+
+    assert.equal(responseResult.statusCode, 500);
+    assert.deepEqual(events, [
+      "password-persisted",
+      { room: `user:${user._id}`, force: true }
+    ]);
+  } finally {
+    PasswordResetRequest.findById = originals.findRequest;
+    User.findOne = originals.findUser;
+    bcrypt.hash = originals.bcryptHash;
   }
 });

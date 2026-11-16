@@ -1,4 +1,34 @@
 import mongoose from "mongoose";
+import AuthSession from "./AuthSession.js";
+import StorePwaHandoff from "./StorePwaHandoff.js";
+
+async function revokeUserAuthState(userIds, reason) {
+  const ids = userIds.filter(Boolean);
+  if (!ids.length) return;
+  const now = new Date();
+  await Promise.all([
+    AuthSession.updateMany(
+      { userId: { $in: ids }, revokedAt: null },
+      { $set: { revokedAt: now, revokeReason: reason } }
+    ),
+    StorePwaHandoff.updateMany(
+      { userId: { $in: ids }, consumedAt: null, revokedAt: null },
+      { $set: { revokedAt: now } }
+    )
+  ]);
+}
+
+function getSensitiveUpdateReason(update = {}) {
+  const changes = {
+    ...update,
+    ...(update.$set || {}),
+    ...(update.$setOnInsert || {})
+  };
+  if (Object.prototype.hasOwnProperty.call(changes, "password")) return "password_changed";
+  if (changes.isDisabled === true) return "account_disabled";
+  if (changes.isDeleted === true) return "account_deleted";
+  return null;
+}
 
 const userSchema = new mongoose.Schema(
   {
@@ -182,7 +212,10 @@ const userSchema = new mongoose.Schema(
     hasUsedWelcomePromotion: { type: Boolean, default: false },
     welcomePromotionUsedAt: { type: Date, default: null },
 
-    refreshToken: { type: String }, // For secure auth session
+    refreshToken: { type: String }, // Legacy refresh token retained for transition compatibility
+    legacyRefreshTokenDisabledAt: { type: Date, default: null },
+    legacyAccessTokensRevokedAt: { type: Date, default: null },
+    authVersion: { type: Number, default: 0 },
 
     // Security & Account Lockout
     loginAttempts: { type: Number, default: 0 },
@@ -211,6 +244,67 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.pre("save", async function () {
+  if (this.isNew) return;
+  let reason = null;
+  if (this.isModified("password")) reason = "password_changed";
+  else if (this.isModified("isDisabled") && this.isDisabled) reason = "account_disabled";
+  else if (this.isModified("isDeleted") && this.isDeleted) reason = "account_deleted";
+  if (reason) {
+    if (!this.legacyRefreshTokenDisabledAt) this.legacyRefreshTokenDisabledAt = new Date();
+    this.legacyAccessTokensRevokedAt = new Date();
+    this.set("refreshToken", undefined);
+    this.$inc("authVersion", 1);
+    this.$locals.authStateRevocationReason = reason;
+  }
+});
+
+for (const operation of ["findOneAndUpdate", "updateOne", "updateMany"]) {
+  userSchema.pre(operation, async function () {
+    const reason = getSensitiveUpdateReason(this.getUpdate());
+    if (!reason) return;
+    const update = this.getUpdate() || {};
+    const now = new Date();
+    const set = {
+      ...(update.$set || {}),
+      legacyRefreshTokenDisabledAt: now,
+      legacyAccessTokensRevokedAt: now
+    };
+    const unset = { ...(update.$unset || {}), refreshToken: 1 };
+    delete set.refreshToken;
+    const increment = { ...(update.$inc || {}), authVersion: 1 };
+    for (const [key, value] of Object.entries(update)) {
+      if (!key.startsWith("$")) {
+        set[key] = value;
+        delete update[key];
+      }
+    }
+    delete set.refreshToken;
+    update.$set = set;
+    update.$unset = unset;
+    update.$inc = increment;
+    this.setUpdate(update);
+    const users = await this.model.find(this.getFilter()).select("_id").lean();
+    this._authStateRevocation = { userIds: users.map((user) => user._id), reason };
+  });
+
+  userSchema.post(operation, async function (result) {
+    const state = this._authStateRevocation;
+    delete this._authStateRevocation;
+    if (!state || !state.userIds.length) return;
+    const didUpdate = operation === "findOneAndUpdate"
+      ? Boolean(result)
+      : Number(result?.matchedCount ?? result?.n ?? 0) > 0;
+    if (didUpdate) await revokeUserAuthState(state.userIds, state.reason);
+  });
+}
+
+userSchema.post("save", async function () {
+  const reason = this.$locals.authStateRevocationReason;
+  delete this.$locals.authStateRevocationReason;
+  if (reason) await revokeUserAuthState([this._id], reason);
+});
 
 userSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 userSchema.index(

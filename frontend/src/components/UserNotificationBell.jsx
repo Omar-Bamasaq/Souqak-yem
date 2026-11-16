@@ -6,9 +6,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext.jsx';
 import { useChat } from '../store/ChatContext.jsx';
 import { getNotificationRequest } from '../api/notificationRequests.js';
+import { getStorePwaNotificationLink } from '../utils/storePwa.js';
 
 export default function UserNotificationBell({ mobile = false }) {
   const { user } = useAuth();
+  const storePwaContext = typeof window !== "undefined" ? window.__SOUQAK_STORE_PWA_APP__ : null;
+  const storePwaOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
   const api = useApi();
   const { socket } = useChat();
   const [notifications, setNotifications] = useState([]);
@@ -110,7 +113,9 @@ export default function UserNotificationBell({ mobile = false }) {
   };
 
   const getLinkForNotification = (notif) => {
-    if (notif.link) return notif.link;
+    if (notif.link || notif.data?.storePwaUrl) {
+      return getStorePwaNotificationLink(notif, storePwaContext, storePwaOrigin);
+    }
 
     switch (notif.type) {
       case 'ad_status':
@@ -205,10 +210,16 @@ export default function UserNotificationBell({ mobile = false }) {
             {notifications.length > 0 ? (
               notifications.map((notif) => {
                 const styles = getTypeStyles(notif.type);
+                const notificationLink = getLinkForNotification(notif);
+                const isOtherStoreApp = /^https?:\/\//i.test(notificationLink);
+                const NotificationLink = isOtherStoreApp ? "a" : Link;
+                const notificationLinkProps = isOtherStoreApp
+                  ? { href: notificationLink }
+                  : { to: notificationLink };
                 return (
-                  <Link
+                  <NotificationLink
                     key={notif._id}
-                    to={getLinkForNotification(notif)}
+                    {...notificationLinkProps}
                     onClick={() => {
                       markAsRead(notif._id);
                       setIsOpen(false);
@@ -233,7 +244,7 @@ export default function UserNotificationBell({ mobile = false }) {
                         <p className="text-[10px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">{notif.body}</p>
                       </div>
                     </div>
-                  </Link>
+                  </NotificationLink>
                 );
               })
             ) : (
