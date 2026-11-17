@@ -167,6 +167,11 @@ test("eligible store page and generated icon share the store-specific origin and
   assert.equal(htmlResponse.statusCode, 200);
   assert.equal(htmlResponse.headers["cache-control"], "no-store");
   assert.match(htmlResponse.body, new RegExp(`basePath":"\\/store\\/${STORE_ID}"`));
+  assert.match(htmlResponse.body, /navigator\.serviceWorker\s*\.getRegistration\(window\.location\.href\)/);
+  assert.match(htmlResponse.body, /navigator\.serviceWorker\.register\("\/sw\.js"/);
+  assert.match(htmlResponse.body, /updateViaCache:\s*"none"/);
+  assert.match(htmlResponse.body, new RegExp(`const storeScope = "\\/store\\/${STORE_ID}\\/"`));
+  assert.match(htmlResponse.body, /__SOUQAK_STORE_PWA_REGISTRATION__/);
   assert.equal(iconResponse.headers["content-type"], "image/png");
   assert.deepEqual(generatedIcon, { storeId: STORE_ID, size: 512 });
 });

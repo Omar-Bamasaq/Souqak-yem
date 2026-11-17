@@ -14,10 +14,10 @@ import { BrokerageStatusProvider } from "./store/BrokerageStatusContext.jsx";
 import { PublicSsgContent } from "./ssg/PublicSsgContent.mjs";
 import { SsgDataProvider } from "./ssg/SsgDataContext.jsx";
 import { resolveSiteBaseUrl } from "./lib/siteUrl.js";
+import { startPwaUpdateManager } from "./utils/pwaUpdate.js";
 import "./utils/pwaInstall.js";
 import "./index.css";
 
-const PRELOAD_RECOVERY_KEY = "souqak-preload-recovery";
 const publicSiteBaseUrl = resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL);
 const publicApiOrigin = (import.meta.env.VITE_API_URL || "https://api.souqak-yem.com/api")
   .replace(/\/api\/?$/, "");
@@ -47,17 +47,6 @@ axios.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-window.addEventListener("vite:preloadError", (event) => {
-  event.preventDefault();
-  if (sessionStorage.getItem(PRELOAD_RECOVERY_KEY) === "1") return;
-  sessionStorage.setItem(PRELOAD_RECOVERY_KEY, "1");
-  window.location.reload();
-});
-
-window.addEventListener("load", () => {
-  sessionStorage.removeItem(PRELOAD_RECOVERY_KEY);
-});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -119,20 +108,10 @@ if (ssgData && rootElement?.childNodes.length) {
   createRoot(rootElement).render(appTree);
 }
 
-// Keep the development server and HMR independent from the production PWA worker.
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
-    if (import.meta.env.PROD) {
-      try {
-        const registration = await navigator.serviceWorker.register("/sw.js");
-        console.log("SW registered:", registration);
-      } catch (error) {
-        console.log("SW registration failed:", error);
-      }
-      return;
-    }
-
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-  });
+if (import.meta.env.PROD) {
+  startPwaUpdateManager(__SOUQAK_BUILD_ID__);
+} else if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) =>
+    Promise.all(registrations.map((registration) => registration.unregister()))
+  );
 }

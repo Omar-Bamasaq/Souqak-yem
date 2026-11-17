@@ -124,6 +124,28 @@ export function renderStorePwaAppHtml(store, {
 <body>
   <div id="root"></div>
   <script>window.__SOUQAK_STORE_PWA_APP__=${bootstrapJson};</script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      const storeScope = ${JSON.stringify(paths.basePath)};
+      window.__SOUQAK_STORE_PWA_REGISTRATION__ = navigator.serviceWorker
+        .getRegistration(window.location.href)
+        .then((existing) => {
+          const existingScope = existing ? new URL(existing.scope).pathname : "/";
+          const scope = existingScope === "/" || existingScope.startsWith(storeScope)
+            ? existingScope
+            : "/";
+          return navigator.serviceWorker.register("/sw.js", {
+            scope,
+            updateViaCache: "none"
+          });
+        });
+      window.__SOUQAK_STORE_PWA_REGISTRATION__.catch((error) => {
+        console.warn("[PWA] Store worker registration failed.", {
+          name: error?.name || "RegistrationFailed"
+        });
+      });
+    }
+  </script>
   <script type="module" src="${escapeHtml(entryUrl)}"></script>
 </body>
 </html>`;

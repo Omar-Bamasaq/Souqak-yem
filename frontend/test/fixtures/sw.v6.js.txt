@@ -1,0 +1,142 @@
+const CACHE_NAME = "suqaq-pwa-v6";
+const ASSETS_TO_CACHE = [
+  "/favicon.svg",
+  "/icon-cart.svg",
+  "/manifest.json"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((key) => key.startsWith("suqaq-pwa-") && key !== CACHE_NAME)
+        .map((key) => caches.delete(key))
+    ))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (
+    event.request.method !== "GET"
+    || url.pathname.startsWith("/api")
+    || url.pathname.startsWith("/socket.io")
+    || url.origin !== self.location.origin
+  ) return;
+
+  const isVersionedAsset = url.pathname.startsWith("/assets/")
+    && /\.(js|css)$/.test(url.pathname)
+    && url.pathname !== "/assets/store-pwa-entry.js"
+    && url.pathname !== "/assets/store-pwa.css";
+  if (isVersionedAsset) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) return cachedResponse;
+        try {
+          const networkResponse = await fetch(event.request);
+          const contentType = networkResponse.headers.get("content-type") || "";
+          const isJavaScript = url.pathname.endsWith(".js")
+            && /javascript|ecmascript/i.test(contentType);
+          const isStylesheet = url.pathname.endsWith(".css")
+            && /text\/css/i.test(contentType);
+          if (networkResponse.ok && (isJavaScript || isStylesheet)) {
+            await cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          return new Response("Asset unavailable", {
+            status: 503,
+            statusText: "Asset Unavailable",
+            headers: { "Content-Type": "text/plain; charset=utf-8" }
+          });
+        }
+      })
+    );
+    return;
+  }
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request).catch(() =>
+      new Response("Offline", {
+        status: 503,
+        statusText: "Offline",
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      })
+    ));
+  }
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: "سوقك", body: event.data.text() };
+    }
+  }
+
+  let notificationUrl = data.data?.url || "/";
+  const storeId = String(data.data?.storeProfileId || "");
+  if (/^[a-f\d]{24}$/i.test(storeId) && typeof data.data?.storePwaUrl === "string") {
+    try {
+      const storePwaUrl = new URL(data.data.storePwaUrl);
+      if (storePwaUrl.origin === self.location.origin
+        && storePwaUrl.pathname === `/store/${storeId}/`
+        && !storePwaUrl.search
+        && !storePwaUrl.hash) {
+        notificationUrl = storePwaUrl.href;
+      }
+    } catch {}
+  }
+
+  const title = data.title || "سوقك";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/pwa/icon-192x192.png",
+    badge: data.badge || "/pwa/icon-96x96.png",
+    silent: data.silent === true,
+    vibrate: Array.isArray(data.vibrate) ? data.vibrate : [100, 50, 100],
+    data: {
+      ...data.data,
+      url: notificationUrl
+    },
+    actions: [
+      { action: "open", title: "عرض الآن" },
+      { action: "close", title: "إغلاق" }
+    ],
+    requireInteraction: true
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  const notification = event.notification;
+  const action = event.action;
+  notification.close();
+  if (action === "close") return;
+
+  let urlToOpen = new URL("/", self.location.origin).href;
+  try {
+    const targetUrl = new URL(notification.data?.url || "/", self.location.origin);
+    if (targetUrl.origin === self.location.origin) urlToOpen = targetUrl.href;
+  } catch {}
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url === urlToOpen && "focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(urlToOpen);
+    })
+  );
+});

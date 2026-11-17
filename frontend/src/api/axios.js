@@ -6,6 +6,7 @@ import { clearCsrfToken, ensureCsrfToken, isApiRequest, retryAfterCsrfFailure } 
 import { refreshSession } from "./session.js";
 import { getAuthStorageKeys, setStoredAuthToken } from "./authStorage.js";
 import { getRetryAfterMs, recordRateLimit, waitForRateLimit } from "./retryAfter.js";
+import { trackPwaUpdateRequestFinish, trackPwaUpdateRequestStart } from "../utils/pwaUpdate.js";
 
 let apiInstance = null;
 let isRefreshing = false;
@@ -82,15 +83,25 @@ export function useApi() {
         config.headers["X-CSRF-Token"] = await ensureCsrfToken();
       }
 
+      trackPwaUpdateRequestStart(config);
       return config;
     }, (error) => Promise.reject(error));
     
     responseInterceptorRef.current = instance.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        trackPwaUpdateRequestFinish(response.config, true);
+        return response;
+      },
       async (error) => {
         recordRateLimit(error);
         if (error.response?.data?.code === "CSRF_TOKEN_INVALID") {
-          const csrfRetry = await retryAfterCsrfFailure(error, (config) => instance(config));
+          let csrfRetry;
+          try {
+            csrfRetry = await retryAfterCsrfFailure(error, (config) => instance(config));
+          } catch (retryError) {
+            trackPwaUpdateRequestFinish(error.config, false);
+            throw retryError;
+          }
           if (csrfRetry) return csrfRetry;
           clearCsrfToken();
         }
@@ -124,7 +135,8 @@ export function useApi() {
               originalRequest.headers.Authorization = `Bearer ${token}`;
               return instance(originalRequest);
             })
-            .catch(err => Promise.reject(err));
+            .catch(err => Promise.reject(err))
+            .finally(() => trackPwaUpdateRequestFinish(originalRequest, false));
           }
 
           originalRequest._retry = true;
@@ -152,6 +164,7 @@ export function useApi() {
               logout();
               window.location.href = "/login";
             }
+            trackPwaUpdateRequestFinish(originalRequest, false);
             return Promise.reject(refreshErr);
           } finally {
             isRefreshing = false;
@@ -163,6 +176,7 @@ export function useApi() {
           window.location.href = "/login";
         }
 
+        trackPwaUpdateRequestFinish(error.config, false);
         return Promise.reject(error);
       }
     );

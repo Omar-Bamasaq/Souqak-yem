@@ -169,7 +169,7 @@ test("push notification click targets the store app only on its configured origi
   assert.equal(shown[1].data.url, "/store/old-slug");
 });
 
-test("service-worker activation removes only its own prior cache versions", async () => {
+test("service-worker activation claims clients and preserves old caches during migration", async () => {
   const source = fs.readFileSync(path.join(process.cwd(), "public", "sw.js"), "utf8");
   const listeners = new Map();
   const deletedCaches = [];
@@ -178,7 +178,7 @@ test("service-worker activation removes only its own prior cache versions", asyn
     self: {
       addEventListener(name, callback) { listeners.set(name, callback); },
       clients: { claim() {} },
-      skipWaiting() {}
+      skipWaiting() { throw new Error("A newly installed worker must wait for safe activation."); }
     },
     caches: {
       keys: async () => ["suqaq-pwa-v5", "suqaq-pwa-v6", "another-app-cache"],
@@ -190,8 +190,7 @@ test("service-worker activation removes only its own prior cache versions", asyn
 
   listeners.get("activate")({ waitUntil(promise) { activationPromise = promise; } });
   await activationPromise;
-
-  assert.deepEqual(deletedCaches, ["suqaq-pwa-v5"]);
+  assert.deepEqual(deletedCaches, []);
 });
 
 test("stable dedicated-store app assets bypass the shared service-worker cache", () => {

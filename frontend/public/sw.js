@@ -1,95 +1,167 @@
-const CACHE_NAME = "suqaq-pwa-v6";
-const ASSETS_TO_CACHE = [
-  "/favicon.svg",
-  "/icon-cart.svg",
-  "/manifest.json"
-];
+const BUILD_ID = "__SOUQAK_BUILD_ID__";
+const ASSET_CACHE = "suqaq-pwa-assets-v1";
+const SHELL_CACHE = "suqaq-pwa-shell-v1";
+const LEGACY_ASSET_CACHES = ["suqaq-pwa-v6"];
+const MAX_CACHED_ASSETS = 200;
+const MAX_CACHED_PAGES = 40;
 
-// Install Event - Pre-cache critical assets
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("Pre-caching assets...");
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
-  self.skipWaiting();
+  event.waitUntil(self.skipWaiting());
 });
 
-// Activate Event - Clean up old caches
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key.startsWith("suqaq-pwa-") && key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      );
-    })
-  );
-  self.clients.claim();
+  event.waitUntil(self.clients.claim());
 });
 
-// Fetch Event
+self.addEventListener("message", (event) => {
+  const message = event.data || {};
+  if (message.type === "GET_BUILD_ID") {
+    event.source?.postMessage({
+      type: "BUILD_ID_RESPONSE",
+      requestId: message.requestId,
+      buildId: BUILD_ID
+    });
+  }
+});
+
+async function getCachedResponse(cacheName, request) {
+  const cache = await caches.open(cacheName);
+  return cache.match(request);
+}
+
+async function putBounded(cacheName, request, response, limit) {
+  const cache = await caches.open(cacheName);
+  await cache.put(request, response);
+  const requests = await cache.keys();
+  for (let index = 0; index < requests.length - limit; index += 1) {
+    await cache.delete(requests[index]);
+  }
+}
+
+function reportCacheFailure(action, error) {
+  console.warn(`[PWA] ${action} failed; continuing without the cache.`, {
+    name: error?.name || "CacheOperationFailed"
+  });
+}
+
+async function fetchNavigation(event) {
+  const url = new URL(event.request.url);
+  const cacheKey = new Request(`${url.origin}${url.pathname}`, {
+    method: "GET",
+    credentials: "same-origin"
+  });
+  let response;
+  try {
+    response = await fetch(event.request, { cache: "no-cache" });
+  } catch {
+    try {
+      let cachedPage = await getCachedResponse(SHELL_CACHE, cacheKey);
+      if (!cachedPage && !url.pathname.startsWith("/store/")) {
+        cachedPage = await getCachedResponse(
+          SHELL_CACHE,
+          new Request(`${url.origin}/`, { method: "GET", credentials: "same-origin" })
+        );
+      }
+      if (cachedPage) return cachedPage;
+    } catch (error) {
+      reportCacheFailure("Offline shell lookup", error);
+    }
+    return new Response("Offline", {
+      status: 503,
+      statusText: "Offline",
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (response.ok && /text\/html/i.test(contentType)) {
+    try {
+      await putBounded(SHELL_CACHE, cacheKey, response.clone(), MAX_CACHED_PAGES);
+    } catch (error) {
+      reportCacheFailure("Navigation cache write", error);
+    }
+  }
+  return response;
+}
+
+async function findCachedAsset(request) {
+  for (const cacheName of [ASSET_CACHE, ...LEGACY_ASSET_CACHES]) {
+    let response;
+    try {
+      if (cacheName !== ASSET_CACHE && !(await caches.has(cacheName))) continue;
+      response = await getCachedResponse(cacheName, request);
+    } catch (error) {
+      reportCacheFailure("Asset cache lookup", error);
+      continue;
+    }
+    if (!response) continue;
+    if (cacheName !== ASSET_CACHE) {
+      try {
+        await putBounded(ASSET_CACHE, request, response.clone(), MAX_CACHED_ASSETS);
+      } catch (error) {
+        reportCacheFailure("Legacy asset migration", error);
+      }
+    }
+    return response;
+  }
+  return null;
+}
+
+async function fetchVersionedAsset(event, url) {
+  let cachedResponse = null;
+  try {
+    cachedResponse = await findCachedAsset(event.request);
+  } catch (error) {
+    reportCacheFailure("Asset cache lookup", error);
+  }
+  if (cachedResponse) return cachedResponse;
+
+  let networkResponse;
+  try {
+    networkResponse = await fetch(event.request);
+  } catch {
+    return new Response("Asset unavailable", {
+      status: 503,
+      statusText: "Asset Unavailable",
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
+  }
+  const contentType = networkResponse.headers.get("content-type") || "";
+  const isJavaScript = url.pathname.endsWith(".js") && /javascript|ecmascript/i.test(contentType);
+  const isStylesheet = url.pathname.endsWith(".css") && /text\/css/i.test(contentType);
+  if (networkResponse.ok && (isJavaScript || isStylesheet)) {
+    try {
+      await putBounded(ASSET_CACHE, event.request, networkResponse.clone(), MAX_CACHED_ASSETS);
+    } catch (error) {
+      reportCacheFailure("Asset cache write", error);
+    }
+  }
+  return networkResponse;
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-
-  // 1. Skip non-GET requests, API, and Socket.io
   if (
-    event.request.method !== "GET" || 
-    url.pathname.startsWith("/api") || 
-    url.pathname.startsWith("/socket.io") ||
-    url.origin !== self.location.origin
-  ) {
-    return;
-  }
+    event.request.method !== "GET"
+    || url.pathname.startsWith("/api")
+    || url.pathname.startsWith("/socket.io")
+    || url.origin !== self.location.origin
+  ) return;
 
-  // Cache only versioned JavaScript and CSS files, never the app shell.
-  const isVersionedAsset = url.pathname.startsWith("/assets/")
-    && /\.(js|css)$/.test(url.pathname)
-    && url.pathname !== "/assets/store-pwa-entry.js"
-    && url.pathname !== "/assets/store-pwa.css";
-  if (isVersionedAsset) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(event.request);
-        if (cachedResponse) return cachedResponse;
-
-        try {
-          const networkResponse = await fetch(event.request);
-          const contentType = networkResponse.headers.get("content-type") || "";
-          const isJavaScript = url.pathname.endsWith(".js") && /javascript|ecmascript/i.test(contentType);
-          const isStylesheet = url.pathname.endsWith(".css") && /text\/css/i.test(contentType);
-          if (networkResponse.ok && (isJavaScript || isStylesheet)) {
-            await cache.put(event.request, networkResponse.clone());
-          }
-          return networkResponse;
-        } catch {
-          return new Response("Asset unavailable", {
-            status: 503,
-            statusText: "Asset Unavailable",
-            headers: { "Content-Type": "text/plain; charset=utf-8" }
-          });
-        }
-      })
-    );
-    return;
-  }
-
-  // Always fetch navigations first so the app shell cannot become stale.
   if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        new Response("Offline", {
-          status: 503,
-          statusText: "Offline",
-          headers: { "Content-Type": "text/plain; charset=utf-8" }
-        })
-      )
-    );
+    event.respondWith(fetchNavigation(event));
+    return;
+  }
+
+  const isContentHashedAsset = url.pathname.startsWith("/assets/")
+    && url.pathname !== "/assets/store-pwa-entry.js"
+    && url.pathname !== "/assets/store-pwa.css"
+    && /-[A-Za-z0-9_-]{8}\.(js|css)$/.test(url.pathname);
+  if (isContentHashedAsset) {
+    event.respondWith(fetchVersionedAsset(event, url));
   }
 });
 
-// Push Event - Handle incoming push notifications
 self.addEventListener("push", (event) => {
   let data = {};
   if (event.data) {
@@ -129,22 +201,16 @@ self.addEventListener("push", (event) => {
       { action: "open", title: "عرض الآن" },
       { action: "close", title: "إغلاق" }
     ],
-    // Ensure notification stays until interacted with (good for important alerts)
-    requireInteraction: true 
+    requireInteraction: true
   };
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Notification Click Event - Handle user interaction
 self.addEventListener("notificationclick", (event) => {
   const notification = event.notification;
   const action = event.action;
-
   notification.close();
-
   if (action === "close") return;
 
   let urlToOpen = new URL("/", self.location.origin).href;
@@ -155,16 +221,10 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      // If a window is already open with the same URL, focus it
-      for (let client of windowClients) {
-        if (client.url === urlToOpen && "focus" in client) {
-          return client.focus();
-        }
+      for (const client of windowClients) {
+        if (client.url === urlToOpen && "focus" in client) return client.focus();
       }
-      // Otherwise, open a new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
-      }
+      if (self.clients.openWindow) return self.clients.openWindow(urlToOpen);
     })
   );
 });
