@@ -44,3 +44,25 @@ test("existing drafts offer resume or a new order without blocking other service
   assert.match(source, /getWalletServiceIdempotencyKey\("catalog"/);
   assert.match(source, /<IncompleteActions userId=\{userId\} \/>/);
 });
+
+test("catalog step handlers are in component scope and navigation preserves entered values", () => {
+  const advanceHandlerStart = source.indexOf("const advanceOrderStep = () => {");
+  const previousHandlerStart = source.indexOf("const goToPreviousOrderStep = () => {");
+  const submitHandlerStart = source.indexOf("const submitCatalogOrder = async (event) => {");
+
+  assert.ok(advanceHandlerStart >= 0 && advanceHandlerStart < submitHandlerStart);
+  assert.ok(previousHandlerStart > advanceHandlerStart && previousHandlerStart < submitHandlerStart);
+  assert.match(source, /onClick=\{advanceOrderStep\}/);
+  assert.match(source, /onClick=\{goToPreviousOrderStep\}/);
+
+  const advanceHandler = source.slice(advanceHandlerStart, previousHandlerStart);
+  const previousHandler = source.slice(previousHandlerStart, submitHandlerStart);
+  assert.match(advanceHandler, /canAdvanceWalletServiceOrderStep\(activeOrderStep/);
+  assert.match(advanceHandler, /orderFormRef\.current\?\.reportValidity\(\)/);
+  assert.match(advanceHandler, /setOrderStepIndex\(\(current\) => Math\.min\(current \+ 1/);
+  assert.match(previousHandler, /setOrderStepIndex\(\(current\) => Math\.max\(current - 1/);
+
+  const stateSetters = [...`${advanceHandler}${previousHandler}`.matchAll(/\b(set[A-Z]\w*)\s*\(/g)]
+    .map(([, setter]) => setter);
+  assert.deepEqual(stateSetters, ["setError", "setOrderStepIndex", "setError", "setOrderStepIndex"]);
+});

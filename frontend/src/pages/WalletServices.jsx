@@ -442,6 +442,28 @@ export default function WalletServices() {
     navigate(getWalletServicesPath(`/wallet-services/order/${service._id}`, searchParams), { replace: true });
   };
 
+  const advanceOrderStep = () => {
+    const canAdvance = canAdvanceWalletServiceOrderStep(activeOrderStep, {
+      selectionComplete: selectionStepComplete,
+      detailsComplete: detailsStepComplete
+    });
+    if (activeOrderStep === "selection") {
+      if (!canAdvance) return;
+    } else if (activeOrderStep === "details") {
+      const formIsValid = orderFormRef.current?.reportValidity();
+      if (!canAdvance || formIsValid === false) return;
+    } else {
+      return;
+    }
+    setError("");
+    setOrderStepIndex((current) => Math.min(current + 1, orderSteps.length - 1));
+  };
+
+  const goToPreviousOrderStep = () => {
+    setError("");
+    setOrderStepIndex((current) => Math.max(current - 1, 0));
+  };
+
   const submitCatalogOrder = async (event) => {
     event.preventDefault();
     if (!orderable || activeOrderStep !== "review" || submitting) return;
@@ -470,27 +492,6 @@ export default function WalletServices() {
         ...(draftActionId ? { draftActionId } : {})
       };
 
-      const advanceOrderStep = () => {
-        const canAdvance = canAdvanceWalletServiceOrderStep(activeOrderStep, {
-          selectionComplete: selectionStepComplete,
-          detailsComplete: detailsStepComplete
-        });
-        if (activeOrderStep === "selection") {
-          if (!canAdvance) return;
-        } else if (activeOrderStep === "details") {
-          const formIsValid = orderFormRef.current?.reportValidity();
-          if (!canAdvance || formIsValid === false) return;
-        } else {
-          return;
-        }
-        setError("");
-        setOrderStepIndex((current) => Math.min(current + 1, orderSteps.length - 1));
-      };
-
-      const goToPreviousOrderStep = () => {
-        setError("");
-        setOrderStepIndex((current) => Math.max(current - 1, 0));
-      };
       const idempotencyKey = getWalletServiceIdempotencyKey("catalog", payload);
       const response = await api.post("/wallet-services/orders", payload, {
         headers: { "Idempotency-Key": idempotencyKey }
