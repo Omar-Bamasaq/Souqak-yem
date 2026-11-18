@@ -558,17 +558,6 @@ export default function WalletServices() {
         </section>
       )}
 
-      {completedOrderCountError
-        ? <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">{completedOrderCountError}</p>
-        : completedOrderCount !== null && (
-          <section aria-label="الطلبات المكتملة" className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/25">
-            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-900/60">✓</span>
-            <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
-              <span className="font-black">{completedOrderCount.toLocaleString("ar")}</span> طلبات مكتملة فعليًا عبر خدمات الدفع الرقمية
-            </p>
-          </section>
-        )}
-
       {routeServiceId && <Link replace to={getWalletServiceCategoryPath(selectedCatalogCategory?.slug, searchParams)} className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى {selectedCatalogCategory?.name || "التصنيفات"}</Link>}
       {isMyOrdersPage && <Link to="/wallet-services" className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى الخدمات</Link>}
       {!isOrderPage && !isMyOrdersPage && <div className="flex justify-end"><Link to="/wallet-services/my-orders" className="inline-flex min-h-10 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-blue-800">طلباتي</Link></div>}
@@ -576,13 +565,25 @@ export default function WalletServices() {
       {!isMyOrdersPage && <div className="space-y-6">
         {!isOrderPage && (
           <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7">
-            <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-xs font-black text-blue-700 dark:text-blue-300">خدمات سوقك الرقمية</p>
                 <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">
                   {showCategoryGrid ? "اختر تصنيفًا" : showUncategorizedServices ? "خدمات أخرى" : categories.find((category) => category._id === categoryFilter)?.name || "خدمات التصنيف"}
                 </h1>
               </div>
+              {showCategoryGrid && (completedOrderCountError
+                ? <p role="alert" className="w-fit max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">{completedOrderCountError}</p>
+                : completedOrderCount !== null && (
+                  <div role="group" aria-label="إجمالي الطلبات المكتملة" className="flex w-fit max-w-full shrink-0 items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100/80 text-sm font-black text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">✓</span>
+                    <p className="min-w-0 text-xs leading-5 text-slate-700 dark:text-slate-200">
+                      <span className="font-black text-emerald-800 dark:text-emerald-300">{completedOrderCount.toLocaleString("ar")}</span>
+                      <span className="ms-1 font-black">إجمالي الطلبات المكتملة</span>
+                      <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">عبر منصة سوقك</span>
+                    </p>
+                  </div>
+                ))}
             </header>
             <label className="mt-5 block text-xs font-black text-slate-600 dark:text-slate-300">
               {showCategoryGrid ? "ابحث عن تصنيف" : "ابحث عن خدمة"}
