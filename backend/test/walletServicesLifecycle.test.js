@@ -305,6 +305,13 @@ test("custom request lifecycle records history and notifies the customer through
       params: { id }, user: admin, app: null, body: { completionNote: "تم تنفيذ الخدمة" }
     });
     assert.equal(completed.body.status, "COMPLETED");
+    assert.equal(completed.body.completionCounted, true);
+    const repeatedCompletion = await invoke(routeHandler("post", "/admin/orders/:id/complete"), {
+      params: { id }, user: admin, app: null, body: { completionNote: "تم تنفيذ الخدمة مرة أخرى" }
+    });
+    assert.equal(repeatedCompletion.statusCode, 400);
+    assert.equal(repeatedCompletion.body.error, "الطلب غير متاح للإكمال.");
+    assert.equal(mocks.orders.get(id).statusHistory.length, completed.body.statusHistory.length);
     assert.deepEqual(
       completed.body.statusHistory.map((event) => event.status),
       [

@@ -10,6 +10,10 @@ import { confirmUntrustedExternalLink, getExternalLinkHost } from "../utils/untr
 import { clearWalletServiceIdempotencyKey, getWalletServiceIdempotencyKey } from "../lib/walletServiceIdempotency.js";
 import { findWalletServiceDrafts } from "../lib/walletServiceDrafts.js";
 import { uploadsUrl } from "../lib/uploads.js";
+import {
+  canAdvanceWalletServiceOrderStep,
+  getWalletServiceOrderSteps
+} from "../lib/walletServiceOrderSteps.js";
 import IncompleteActions from "../components/IncompleteActions.jsx";
 import DigitalServiceForm from "../components/DigitalServiceForm.jsx";
 import { getVisibleDigitalServiceAnswers, hasRequiredDigitalServiceAnswers } from "../lib/digitalServiceForm.js";
@@ -34,6 +38,11 @@ const STATUS_LABELS = {
 };
 
 const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white";
+const ORDER_STEP_LABELS = {
+  selection: "اختيار السعر",
+  details: "بيانات الطلب",
+  review: "مراجعة الطلب"
+};
 
 function getMatchingFee(amount, currency, feeBands) {
   const band = feeBands.find((item) =>
@@ -72,6 +81,8 @@ export default function WalletServices() {
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [feeBands, setFeeBands] = useState([]);
+  const [completedOrderCount, setCompletedOrderCount] = useState(null);
+  const [completedOrderCountError, setCompletedOrderCountError] = useState("");
   const [orders, setOrders] = useState([]);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [selectedId, setSelectedId] = useState("");
@@ -80,6 +91,7 @@ export default function WalletServices() {
   const [serviceSearch, setServiceSearch] = useState(() => searchParams.get("serviceSearch") || "");
   const [sectionId, setSectionId] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [orderStepIndex, setOrderStepIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [serviceVersion, setServiceVersion] = useState(null);
   const [formSchemaVersion, setFormSchemaVersion] = useState(null);
@@ -97,6 +109,7 @@ export default function WalletServices() {
   const [draftPrompt, setDraftPrompt] = useState(null);
   const [resumeNeedsCustomerInfo, setResumeNeedsCustomerInfo] = useState(false);
   const submissionCompletedRef = useRef(false);
+  const orderFormRef = useRef(null);
   const isCustomOrderPage = pathname === "/wallet-services/custom-order";
   const isMyOrdersPage = pathname === "/wallet-services/my-orders";
   const isOrderPage = Boolean(routeServiceId) || isCustomOrderPage;
@@ -142,6 +155,22 @@ export default function WalletServices() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    api.get("/wallet-services/completed-count")
+      .then(({ data }) => {
+        if (!active) return;
+        setCompletedOrderCount(Number.isSafeInteger(data?.count) ? data.count : null);
+        setCompletedOrderCountError("");
+      })
+      .catch((countError) => {
+        if (!active) return;
+        setCompletedOrderCount(null);
+        setCompletedOrderCountError(countError.response?.data?.error || "تعذر تحميل عدد الطلبات المكتملة.");
+      });
+    return () => { active = false; };
+  }, [api]);
+
+  useEffect(() => {
     if (!referencesLoaded || !routeServiceId || searchParams.has("draftActionId")) return;
     const service = services.find((item) => item._id === routeServiceId);
     if (!service) {
@@ -162,6 +191,7 @@ export default function WalletServices() {
       setServiceSnapshot(null);
       setSectionId("");
       setSelectedPackageId("");
+      setOrderStepIndex(0);
       setQuantity(service.pricingType === "UNIT" && service.minimumQuantityEnabled !== false ? service.minimumQuantity : 1);
       setServiceVersion(Number(service.serviceVersion || 1));
       setFormSchemaVersion(Number(service.formSchemaVersion || 1));
@@ -215,6 +245,7 @@ export default function WalletServices() {
     setServiceSnapshot(null);
     setSectionId("");
     setSelectedPackageId("");
+    setOrderStepIndex(0);
     setQuantity(service.pricingType === "UNIT" && service.minimumQuantityEnabled !== false ? service.minimumQuantity : 1);
     setServiceVersion(Number(service.serviceVersion || 1));
     setFormSchemaVersion(Number(service.formSchemaVersion || 1));
@@ -281,6 +312,7 @@ export default function WalletServices() {
         setServiceSnapshot(versionResponse ? service : null);
         setSectionId(section?._id || "");
         setSelectedPackageId(packageItem?.id || "");
+        setOrderStepIndex(0);
         setQuantity(draft.data?.quantity ?? (service.pricingType === "UNIT" && service.minimumQuantityEnabled !== false ? service.minimumQuantity : 1));
         setServiceVersion(savedVersion);
         setFormSchemaVersion(Number(draft.data?.formSchemaVersion || service.formSchemaVersion || 1));
@@ -309,6 +341,9 @@ export default function WalletServices() {
   const customOrderCategory = categories.find((category) => category.slug === searchParams.get("category")) || null;
   const selectedSection = selectedService?.sections?.find((section) => section._id === sectionId) || null;
   const selectedPackage = selectedService?.packages?.find((item) => item.id === selectedPackageId && item.isActive) || null;
+  const orderSteps = useMemo(() => getWalletServiceOrderSteps(selectedService), [selectedService]);
+  const activeOrderStep = orderSteps[Math.min(orderStepIndex, orderSteps.length - 1)];
+  const hasSelectionStep = orderSteps[0] === "selection";
   const quantityNumber = selectedService?.pricingType === "UNIT" ? Number(quantity) : 1;
   const serviceAmount = Math.round((servicePrice(selectedService, selectedSection, selectedPackage, quantityNumber) + Number.EPSILON) * 100) / 100;
   const platformFee = selectedService ? getMatchingFee(serviceAmount, selectedService.currency, feeBands) : null;
@@ -358,11 +393,20 @@ export default function WalletServices() {
     ? filteredServices.filter((service) => !service.categoryId)
     : filteredServices.filter((service) => String(service.categoryId || "") === String(categoryFilter));
 
+  const quantityAllowed = !selectedService || selectedService.pricingType !== "UNIT"
+    || (Number.isSafeInteger(quantityNumber)
+      && (selectedService.minimumQuantityEnabled === false || quantityNumber >= selectedService.minimumQuantity)
+      && (selectedService.maximumQuantityEnabled === false || quantityNumber <= selectedService.maximumQuantity));
+  const selectionStepComplete = Boolean(selectedService)
+    && (selectedService.pricingType !== "PACKAGE" || Boolean(selectedPackage))
+    && (selectedService.pricingType !== "UNIT" || !selectedService.sections?.length || Boolean(selectedSection))
+    && quantityAllowed;
+  const detailsStepComplete = Boolean(formAnswersComplete
+    && ownershipConsentAccepted
+    && (!selectedService?.customerInfoLabel || customerInfo.trim())
+    && /^\d{9}$/.test(whatsappNumber));
   const orderable = Boolean(selectedService)
-    && (selectedService.pricingType !== "UNIT"
-      || (Number.isSafeInteger(quantityNumber)
-        && (selectedService.minimumQuantityEnabled === false || quantityNumber >= selectedService.minimumQuantity)
-        && (selectedService.maximumQuantityEnabled === false || quantityNumber <= selectedService.maximumQuantity)))
+    && quantityAllowed
     && (selectedService.pricingType !== "UNIT" || !selectedService.sections?.length || selectedSection)
     && (selectedService.pricingType !== "PACKAGE" || selectedPackage)
     && formAnswersComplete
@@ -382,6 +426,7 @@ export default function WalletServices() {
     setServiceSnapshot(null);
     setSectionId("");
     setSelectedPackageId("");
+    setOrderStepIndex(0);
     setQuantity(1);
     setServiceVersion(null);
     setFormSchemaVersion(null);
@@ -399,7 +444,7 @@ export default function WalletServices() {
 
   const submitCatalogOrder = async (event) => {
     event.preventDefault();
-    if (!orderable || submitting) return;
+    if (!orderable || activeOrderStep !== "review" || submitting) return;
     setError("");
     setSubmitting(true);
     try {
@@ -423,6 +468,28 @@ export default function WalletServices() {
         answers: currentAnswers,
         ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
         ...(draftActionId ? { draftActionId } : {})
+      };
+
+      const advanceOrderStep = () => {
+        const canAdvance = canAdvanceWalletServiceOrderStep(activeOrderStep, {
+          selectionComplete: selectionStepComplete,
+          detailsComplete: detailsStepComplete
+        });
+        if (activeOrderStep === "selection") {
+          if (!canAdvance) return;
+        } else if (activeOrderStep === "details") {
+          const formIsValid = orderFormRef.current?.reportValidity();
+          if (!canAdvance || formIsValid === false) return;
+        } else {
+          return;
+        }
+        setError("");
+        setOrderStepIndex((current) => Math.min(current + 1, orderSteps.length - 1));
+      };
+
+      const goToPreviousOrderStep = () => {
+        setError("");
+        setOrderStepIndex((current) => Math.max(current - 1, 0));
       };
       const idempotencyKey = getWalletServiceIdempotencyKey("catalog", payload);
       const response = await api.post("/wallet-services/orders", payload, {
@@ -489,6 +556,17 @@ export default function WalletServices() {
           </div>
         </section>
       )}
+
+      {completedOrderCountError
+        ? <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">{completedOrderCountError}</p>
+        : completedOrderCount !== null && (
+          <section aria-label="الطلبات المكتملة" className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/25">
+            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg dark:bg-emerald-900/60">✓</span>
+            <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+              <span className="font-black">{completedOrderCount.toLocaleString("ar")}</span> طلبات مكتملة فعليًا عبر خدمات الدفع الرقمية
+            </p>
+          </section>
+        )}
 
       {routeServiceId && <Link replace to={getWalletServiceCategoryPath(selectedCatalogCategory?.slug, searchParams)} className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى {selectedCatalogCategory?.name || "التصنيفات"}</Link>}
       {isMyOrdersPage && <Link to="/wallet-services" className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">← العودة إلى الخدمات</Link>}
@@ -600,7 +678,7 @@ export default function WalletServices() {
 
         {routeServiceId && !selectedService && <p role="alert" className="text-sm font-bold text-red-700">{error || "الخدمة المطلوبة غير متاحة حاليًا."}</p>}
         {routeServiceId && selectedService && (
-          <form onSubmit={submitCatalogOrder} className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.8fr)] lg:items-start lg:gap-8">
+          <form ref={orderFormRef} onSubmit={submitCatalogOrder} className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.8fr)] lg:items-start lg:gap-8">
             <div className="space-y-5">
               <header className="rounded-2xl bg-gradient-to-l from-blue-50 to-cyan-50 p-4 dark:from-blue-950/30 dark:to-cyan-950/20 sm:p-5">
                 <p className="text-xs font-black text-blue-700 dark:text-blue-300">{getServiceTypeLabel(selectedService.serviceType)}{serviceVersion ? ` · إصدار الخدمة ${serviceVersion}` : ""}</p>
@@ -608,77 +686,124 @@ export default function WalletServices() {
                 {selectedService.description && <p className="mt-2 text-sm font-medium leading-6 text-slate-600 dark:text-slate-300">{selectedService.description}</p>}
               </header>
 
-              {["SOFTWARE", "ENTERTAINMENT"].includes(selectedService.serviceType) && ownershipConsentRequired && (
-                <aside role="note" aria-labelledby="subscription-activation-notice" className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-5">
-                  <h2 id="subscription-activation-notice" className="font-black">تنبيه مهم بشأن تفعيل الاشتراك</h2>
-                  <p className="font-semibold leading-6">قد يتطلب إتمام تفعيل الاشتراك دخول فريق سوقك إلى حسابك الشخصي بشكل مؤقت. بعد تأكيد الدفع، سيتواصل معك الفريق عبر واتساب للاتفاق معك على آلية الدخول والخطوات اللازمة، ولن يتم الدخول دون تنسيق وموافقتك.</p>
-                  <ul className="list-inside list-disc space-y-1 text-xs font-semibold leading-5">
-                    <li>يجب أن يكون الحساب ملكًا لك.</li>
-                    <li>تأكد من إدخال البريد الإلكتروني الصحيح.</li>
-                    <li>يجب أن تكون متاحًا عبر واتساب لمتابعة إجراءات التفعيل.</li>
-                    <li>لا ترسل كلمة المرور أو رموز التحقق في نموذج الطلب أو عبر واتساب.</li>
-                    <li>بعد إتمام المهمة، ينهي الفريق الوصول المؤقت ويسجل الخروج من الحساب.</li>
-                  </ul>
-                </aside>
+              <nav aria-label="خطوات الطلب">
+                <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${orderSteps.length}, minmax(0, 1fr))` }}>
+                  {orderSteps.map((step, index) => (
+                    <li key={step} aria-current={activeOrderStep === step ? "step" : undefined} className={`flex min-w-0 items-center gap-2 rounded-xl px-2 py-2 text-xs font-black sm:px-3 ${activeOrderStep === step ? "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white dark:bg-slate-700">{index + 1}</span>
+                      <span className="truncate">{ORDER_STEP_LABELS[step]}</span>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+
+              {activeOrderStep === "selection" && (
+                <section className="space-y-5 rounded-2xl border border-slate-200 p-4 dark:border-slate-700 sm:p-5">
+                  {selectedService.pricingType === "PACKAGE" && (
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-black text-slate-800 dark:text-white">اختر الباقة</legend>
+                      <div className="grid grid-cols-2 gap-3">
+                        {(selectedService.packages || []).filter((item) => item.isActive).map((item) => (
+                          <button key={item.id} type="button" aria-pressed={selectedPackageId === item.id} onClick={() => setSelectedPackageId(item.id)} className={`relative min-w-0 rounded-2xl border p-3 text-right transition sm:p-4 ${selectedPackageId === item.id ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100 dark:bg-blue-950/30" : "border-slate-200 hover:border-blue-300 dark:border-slate-700"}`}>
+                            <span className="block break-words font-black text-slate-900 dark:text-white">{item.name}</span>
+                            {item.description && <span className="mt-1 block break-words text-xs leading-5 text-slate-500">{item.description}</span>}
+                            <span className="mt-3 block text-lg font-black text-blue-700 dark:text-blue-300">{Number(item.price).toLocaleString()} {CURRENCIES[item.currency]}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+
+                  {selectedService.pricingType === "UNIT" && selectedService.sections?.length > 0 && (
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-black text-slate-800 dark:text-white">اختر القسم</legend>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {selectedService.sections.map((section) => (
+                          <button key={section._id} type="button" aria-pressed={sectionId === section._id} onClick={() => setSectionId(section._id)} className={`min-w-0 rounded-2xl border p-4 text-right transition ${sectionId === section._id ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100 dark:bg-blue-950/30" : "border-slate-200 hover:border-blue-300 dark:border-slate-700"}`}>
+                            <span className="block break-words font-black text-slate-900 dark:text-white">{section.name}</span>
+                            <span className="mt-1 block break-words text-sm font-black text-blue-700 dark:text-blue-300">{Number(section.unitPrice).toLocaleString()} {CURRENCIES[selectedService.currency]} / {selectedService.unitLabel}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+
+                  {selectedService.pricingType === "UNIT" && (
+                    <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                      الكمية ({selectedService.unitLabel})
+                      <input className={inputClass} type="number" min={selectedService.minimumQuantityEnabled === false ? 1 : selectedService.minimumQuantity} max={selectedService.maximumQuantityEnabled === false ? undefined : selectedService.maximumQuantity} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
+                    </label>
+                  )}
+                  {!selectionStepComplete && <p className="text-xs font-semibold text-slate-500">{selectedService.pricingType === "PACKAGE" ? "اختر باقة للمتابعة." : !selectedSection ? "اختر القسم للمتابعة." : "أدخل كمية ضمن الحدود المسموح بها."}</p>}
+                </section>
               )}
 
-              {selectedService.pricingType === "PACKAGE" && (
-                <fieldset className="space-y-3">
-                  <legend className="text-sm font-black text-slate-800 dark:text-white">اختر الباقة</legend>
-                  <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                    {(selectedService.packages || []).filter((item) => item.isActive).map((item) => (
-                      <button key={item.id} type="button" aria-pressed={selectedPackageId === item.id} onClick={() => setSelectedPackageId(item.id)} className={`relative min-w-0 rounded-2xl border p-3 text-right transition sm:p-4 ${selectedPackageId === item.id ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100 dark:bg-blue-950/30" : "border-slate-200 hover:border-blue-300 dark:border-slate-700"}`}>
-                        <span className="block font-black text-slate-900 dark:text-white">{item.name}</span>
-                        {item.description && <span className="mt-1 block text-xs leading-5 text-slate-500">{item.description}</span>}
-                        <span className="mt-3 block text-lg font-black text-blue-700 dark:text-blue-300">{Number(item.price).toLocaleString()} {CURRENCIES[item.currency]}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
+              {activeOrderStep === "details" && (
+                <>
+                  {["SOFTWARE", "ENTERTAINMENT"].includes(selectedService.serviceType) && ownershipConsentRequired && (
+                    <aside role="note" aria-labelledby="subscription-activation-notice" className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-5">
+                      <h2 id="subscription-activation-notice" className="font-black">تنبيه مهم بشأن تفعيل الاشتراك</h2>
+                      <p className="font-semibold leading-6">قد يتطلب إتمام تفعيل الاشتراك دخول فريق سوقك إلى حسابك الشخصي بشكل مؤقت. بعد تأكيد الدفع، سيتواصل معك الفريق عبر واتساب للاتفاق معك على آلية الدخول والخطوات اللازمة، ولن يتم الدخول دون تنسيق وموافقتك.</p>
+                      <ul className="list-inside list-disc space-y-1 text-xs font-semibold leading-5">
+                        <li>يجب أن يكون الحساب ملكًا لك.</li>
+                        <li>تأكد من إدخال البريد الإلكتروني الصحيح.</li>
+                        <li>يجب أن تكون متاحًا عبر واتساب لمتابعة إجراءات التفعيل.</li>
+                        <li>لا ترسل كلمة المرور أو رموز التحقق في نموذج الطلب أو عبر واتساب.</li>
+                        <li>بعد إتمام المهمة، ينهي الفريق الوصول المؤقت ويسجل الخروج من الحساب.</li>
+                      </ul>
+                    </aside>
+                  )}
+
+                  <section className="space-y-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700 sm:p-5">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-800 dark:text-white">بيانات تنفيذ الخدمة</h2>
+                      <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">تختلف الحقول حسب الخدمة؛ لا ترسل كلمات مرور أو بيانات دخول حساسة.</p>
+                    </div>
+                    {selectedService.pricingType === "UNIT" && !hasSelectionStep && (
+                      <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        الكمية ({selectedService.unitLabel})
+                        <input className={inputClass} type="number" min={selectedService.minimumQuantityEnabled === false ? 1 : selectedService.minimumQuantity} max={selectedService.maximumQuantityEnabled === false ? undefined : selectedService.maximumQuantity} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
+                      </label>
+                    )}
+                    <DigitalServiceForm schema={selectedService.formSchema || []} answers={answers} onChange={setAnswers} idPrefix={`service-${selectedService._id}`} />
+                    {selectedService.customerInfoLabel && (
+                      <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        {selectedService.customerInfoLabel}
+                        <input className={inputClass} value={customerInfo} onChange={(event) => setCustomerInfo(event.target.value)} required maxLength={300} />
+                      </label>
+                    )}
+                    <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                      رقم واتساب لاستلام نتيجة الطلب (9 أرقام)
+                      <input className={inputClass} inputMode="numeric" maxLength={9} pattern="[0-9]{9}" value={whatsappNumber} onChange={(event) => setWhatsappNumber(event.target.value.replace(/\D/g, "").slice(0, 9))} required />
+                    </label>
+                    <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                      ملاحظات (اختياري)
+                      <textarea className={inputClass} rows={3} maxLength={1000} value={customerNotes} onChange={(event) => setCustomerNotes(event.target.value)} />
+                    </label>
+                    {!detailsStepComplete && <p className="text-xs font-semibold text-slate-500">أكمل الحقول المطلوبة ورقم واتساب صحيحًا للمتابعة.</p>}
+                  </section>
+                </>
               )}
 
-              {selectedService.pricingType === "UNIT" && selectedService.sections?.length > 0 && (
-                <fieldset className="space-y-3">
-                  <legend className="text-sm font-black text-slate-800 dark:text-white">اختر القسم</legend>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {selectedService.sections.map((section) => (
-                      <button key={section._id} type="button" aria-pressed={sectionId === section._id} onClick={() => setSectionId(section._id)} className={`rounded-2xl border p-4 text-right transition ${sectionId === section._id ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100 dark:bg-blue-950/30" : "border-slate-200 hover:border-blue-300 dark:border-slate-700"}`}>
-                        <span className="block font-black text-slate-900 dark:text-white">{section.name}</span>
-                        <span className="mt-1 block text-sm font-black text-blue-700 dark:text-blue-300">{Number(section.unitPrice).toLocaleString()} {CURRENCIES[selectedService.currency]} / {selectedService.unitLabel}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
+              {activeOrderStep === "review" && (
+                <section aria-label="مراجعة الطلب" className="space-y-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700 sm:p-5">
+                  <h2 className="text-sm font-black text-slate-800 dark:text-white">راجع تفاصيل طلبك قبل الإرسال</h2>
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div><dt className="text-xs font-bold text-slate-500">الخدمة</dt><dd className="mt-1 break-words font-black">{selectedService.name}</dd></div>
+                    {selectedPackage && <div><dt className="text-xs font-bold text-slate-500">الباقة</dt><dd className="mt-1 break-words font-black">{selectedPackage.name}</dd></div>}
+                    {selectedSection && <div><dt className="text-xs font-bold text-slate-500">القسم</dt><dd className="mt-1 break-words font-black">{selectedSection.name}</dd></div>}
+                    <div><dt className="text-xs font-bold text-slate-500">الكمية</dt><dd className="mt-1 font-black">{quantityNumber.toLocaleString()} {selectedService.pricingType === "UNIT" ? selectedService.unitLabel : "طلب واحد"}</dd></div>
+                    {selectedService.customerInfoLabel && <div><dt className="text-xs font-bold text-slate-500">{selectedService.customerInfoLabel}</dt><dd className="mt-1 break-words font-semibold">{customerInfo || "—"}</dd></div>}
+                    <div><dt className="text-xs font-bold text-slate-500">واتساب</dt><dd className="mt-1 font-semibold" dir="ltr">{whatsappNumber}</dd></div>
+                    {Object.entries(visibleAnswers).map(([fieldId, value]) => {
+                      const field = selectedService.formSchema?.find((item) => item.id === fieldId);
+                      return <div key={fieldId}><dt className="text-xs font-bold text-slate-500">{field?.label || fieldId}</dt><dd className="mt-1 break-words font-semibold">{Array.isArray(value) ? value.join("، ") : typeof value === "boolean" ? value ? "نعم" : "لا" : String(value)}</dd></div>;
+                    })}
+                    {customerNotes && <div className="sm:col-span-2"><dt className="text-xs font-bold text-slate-500">ملاحظات</dt><dd className="mt-1 break-words font-semibold">{customerNotes}</dd></div>}
+                  </dl>
+                  <p className="rounded-xl bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200">بعد تأكيد الطلب ستنتقل إلى صفحة الدفع لإتمام الدفع وإرفاق سند الإثبات بالطريقة المعتادة.</p>
+                </section>
               )}
-
-              {selectedService.pricingType === "UNIT" && (
-                <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                  الكمية ({selectedService.unitLabel})
-                  <input className={inputClass} type="number" min={selectedService.minimumQuantityEnabled === false ? 1 : selectedService.minimumQuantity} max={selectedService.maximumQuantityEnabled === false ? undefined : selectedService.maximumQuantity} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
-                </label>
-              )}
-
-              <section className="space-y-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700 sm:p-5">
-                <div>
-                  <h2 className="text-sm font-black text-slate-800 dark:text-white">بيانات تنفيذ الخدمة</h2>
-                  <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">تختلف الحقول حسب الخدمة؛ لا ترسل كلمات مرور أو بيانات دخول حساسة.</p>
-                </div>
-                <DigitalServiceForm schema={selectedService.formSchema || []} answers={answers} onChange={setAnswers} idPrefix={`service-${selectedService._id}`} />
-                {selectedService.customerInfoLabel && (
-                  <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                    {selectedService.customerInfoLabel}
-                    <input className={inputClass} value={customerInfo} onChange={(event) => setCustomerInfo(event.target.value)} required maxLength={300} />
-                  </label>
-                )}
-                <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                  رقم واتساب لاستلام نتيجة الطلب (9 أرقام)
-                  <input className={inputClass} inputMode="numeric" maxLength={9} pattern="[0-9]{9}" value={whatsappNumber} onChange={(event) => setWhatsappNumber(event.target.value.replace(/\D/g, "").slice(0, 9))} required />
-                </label>
-                <label className="block space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                  ملاحظات (اختياري)
-                  <textarea className={inputClass} rows={3} maxLength={1000} value={customerNotes} onChange={(event) => setCustomerNotes(event.target.value)} />
-                </label>
-              </section>
             </div>
 
             {!isOrderPage && <section aria-labelledby="tmam-pay-partner-title" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-5">
@@ -710,10 +835,28 @@ export default function WalletServices() {
                 </div>
               </section>
               {totalAmount != null && <CurrencyCalculator amount={totalAmount} currency={selectedService.currency} />}
-              <button disabled={!orderable || submitting} className="w-full rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-black text-white shadow-md transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
-                {submitting ? "جارٍ الإرسال..." : "تأكيد وإرسال الطلب"}
-              </button>
-              {!orderable && <p className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400">{selectedService.pricingType === "PACKAGE" && !selectedPackage ? "اختر باقة لإظهار التكلفة." : selectedService.pricingType === "UNIT" && selectedService.sections?.length && !selectedSection ? "اختر القسم أولًا لإظهار التكلفة." : !formAnswersComplete ? "أكمل الحقول المطلوبة في نموذج الخدمة." : !ownershipConsentAccepted ? "يجب الموافقة على تعهد ملكية الحساب لإرسال الطلب." : platformFee == null ? "أكمل البيانات وتحقق من توفر شريحة الرسوم لهذه العملة والقيمة." : "أكمل البيانات المطلوبة لتتمكن من إرسال الطلب."}</p>}
+              {activeOrderStep === "review" ? (
+                <button type="submit" disabled={!orderable || submitting} className="w-full rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-black text-white shadow-md transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
+                  {submitting ? "جارٍ الإرسال..." : "تأكيد وإرسال الطلب"}
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  {orderStepIndex > 0 && (
+                    <button type="button" onClick={goToPreviousOrderStep} className="min-h-12 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                      السابق
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={advanceOrderStep}
+                    disabled={activeOrderStep === "selection" && !selectionStepComplete}
+                    className="min-h-12 flex-1 rounded-xl bg-blue-700 px-4 py-3 text-sm font-black text-white shadow-md transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    التالي
+                  </button>
+                </div>
+              )}
+              {activeOrderStep === "review" && !orderable && <p className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400">{selectedService.pricingType === "PACKAGE" && !selectedPackage ? "اختر باقة لإظهار التكلفة." : selectedService.pricingType === "UNIT" && selectedService.sections?.length && !selectedSection ? "اختر القسم أولًا لإظهار التكلفة." : !formAnswersComplete ? "أكمل الحقول المطلوبة في نموذج الخدمة." : !ownershipConsentAccepted ? "يجب الموافقة على تعهد ملكية الحساب لإرسال الطلب." : platformFee == null ? "أكمل البيانات وتحقق من توفر شريحة الرسوم لهذه العملة والقيمة." : "أكمل البيانات المطلوبة لتتمكن من إرسال الطلب."}</p>}
             </aside>
           </form>
         )}

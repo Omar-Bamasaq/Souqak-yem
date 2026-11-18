@@ -170,8 +170,8 @@ export default function StoreDirectory({ storeType = "store" }) {
         </button>
       </div>
 
-      <section aria-label="تصفية النتائج" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="تصفية النتائج" className="rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
           <h2 className="text-sm font-black text-slate-800 dark:text-white">تصفية {view === "discounts" ? "التخفيضات" : (isFamilyProduction ? "المشاريع" : "المتاجر")}</h2>
           {(activityKey || governorateId || cityId) && (
             <button type="button" onClick={() => updateFilters({ activityKey: "", governorateId: "", cityId: "" })} className="text-xs font-bold text-blue-700 hover:underline dark:text-blue-300">
@@ -179,24 +179,24 @@ export default function StoreDirectory({ storeType = "store" }) {
             </button>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
+          <label className="min-w-0 text-xs font-bold text-slate-600 dark:text-slate-300">
             النشاط
-            <select value={activityKey} onChange={(event) => updateFilters({ activityKey: event.target.value })} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+            <select value={activityKey} onChange={(event) => updateFilters({ activityKey: event.target.value })} className="mt-1 min-h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:mt-1.5 sm:min-h-11 sm:px-3 sm:text-sm">
               <option value="">كل الأنشطة</option>
               {activities.map((activity) => <option key={activity.activityKey} value={activity.activityKey}>{activity.nameAr}</option>)}
             </select>
           </label>
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+          <label className="min-w-0 text-xs font-bold text-slate-600 dark:text-slate-300">
             المحافظة
-            <select value={governorateId} onChange={(event) => updateFilters({ governorateId: event.target.value, cityId: "" })} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+            <select value={governorateId} onChange={(event) => updateFilters({ governorateId: event.target.value, cityId: "" })} className="mt-1 min-h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:mt-1.5 sm:min-h-11 sm:px-3 sm:text-sm">
               <option value="">كل المحافظات</option>
               {governorates.map((governorate) => <option key={governorate._id} value={governorate._id}>{governorate.name}</option>)}
             </select>
           </label>
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+          <label className="min-w-0 text-xs font-bold text-slate-600 dark:text-slate-300">
             المدينة
-            <select value={cityId} disabled={!governorateId} onChange={(event) => updateFilters({ cityId: event.target.value })} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+            <select value={cityId} disabled={!governorateId} onChange={(event) => updateFilters({ cityId: event.target.value })} className="mt-1 min-h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:mt-1.5 sm:min-h-11 sm:px-3 sm:text-sm">
               <option value="">{governorateId ? "كل المدن" : "اختر المحافظة أولًا"}</option>
               {cities.map((city) => <option key={city._id} value={city._id}>{city.name}</option>)}
             </select>

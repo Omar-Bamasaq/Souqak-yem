@@ -54,6 +54,14 @@ const SystemSettingsSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
+    walletServiceCompletionBaseline: {
+      type: new mongoose.Schema({
+        initialCount: { type: Number, min: 3 },
+        historicalCompletedCount: { type: Number, min: 0 },
+        initializedAt: { type: Date }
+      }, { _id: false }),
+      default: undefined
+    },
     welcomePromotion: {
       enabled: { type: Boolean, default: true },
       durationHours: { type: Number, default: 6 },
