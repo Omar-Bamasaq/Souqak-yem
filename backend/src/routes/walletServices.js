@@ -19,6 +19,7 @@ import WalletServiceFeeSettings from "../models/WalletServiceFeeSettings.js";
 import { findDraftActionResult, getIncompleteDraftForSubmission, markDraftCompleted } from "../services/draftActions.js";
 import { rejectIfDraftActionWritesPaused } from "../services/draftActionWritePause.js";
 import { createAdminNotification, createNotification } from "../services/notificationService.js";
+import { getWalletServiceCompletedOrderCount } from "../services/walletServiceCompletionStats.js";
 import { scanUrlWithCloudflare, UrlScanServiceError } from "../services/cloudflareUrlScanner.js";
 import {
   calculateWalletServiceTotals,
@@ -522,6 +523,16 @@ router.get("/services/:id/versions/:version", async (req, res) => {
   } catch (error) {
     console.error("Load historical digital service version failed:", error);
     res.status(500).json({ error: "تعذر تحميل إصدار الخدمة." });
+  }
+});
+
+router.get("/completed-count", async (_req, res) => {
+  try {
+    const count = await getWalletServiceCompletedOrderCount();
+    res.json({ count });
+  } catch (error) {
+    console.error("Load wallet service completed order count failed:", error);
+    res.status(500).json({ error: "تعذر تحميل عدد الطلبات المكتملة." });
   }
 });
 
@@ -1508,7 +1519,13 @@ router.post("/admin/orders/:id/complete", ...isAdmin, async (req, res) => {
     const order = await WalletServiceOrder.findOneAndUpdate(
       { _id: req.params.id, status: "IN_PROGRESS" },
       {
-        $set: { status: "COMPLETED", completionNote, completedBy: req.user.id, completedAt: new Date() },
+        $set: {
+          status: "COMPLETED",
+          completionCounted: true,
+          completionNote,
+          completedBy: req.user.id,
+          completedAt: new Date()
+        },
         $push: { statusHistory: makeHistoryEntry("COMPLETED", `اكتمل الطلب: ${completionNote}`, req.user) }
       },
       { new: true }

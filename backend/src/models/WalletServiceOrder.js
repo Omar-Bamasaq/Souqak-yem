@@ -21,6 +21,7 @@ const walletServiceOrderSchema = new mongoose.Schema(
       default: "AWAITING_PAYMENT",
       index: true
     },
+    completionCounted: { type: Boolean, default: false },
     serviceName: { type: String, required: true, trim: true, maxlength: 160 },
     serviceType: { type: String, default: "", maxlength: 40 },
     serviceVersion: { type: Number, default: null, min: 1 },
