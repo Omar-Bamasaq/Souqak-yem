@@ -66,3 +66,22 @@ test("catalog step handlers are in component scope and navigation preserves ente
     .map(([, setter]) => setter);
   assert.deepEqual(stateSetters, ["setError", "setOrderStepIndex", "setError", "setOrderStepIndex"]);
 });
+
+test("completed order total appears only beside the root category heading", () => {
+  const headerStart = source.indexOf('<header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">');
+  const headerEnd = source.indexOf("</header>", headerStart);
+  const header = source.slice(headerStart, headerEnd);
+  const counterStart = source.indexOf('role="group" aria-label="إجمالي الطلبات المكتملة"');
+
+  assert.ok(headerStart >= 0);
+  assert.ok(headerEnd > headerStart);
+  assert.ok(counterStart >= headerStart && counterStart < headerEnd);
+  assert.match(header, /\{showCategoryGrid &&/);
+  assert.match(header, /completedOrderCount !== null/);
+  assert.match(header, /إجمالي الطلبات المكتملة/);
+  assert.match(header, /عبر منصة سوقك/);
+  assert.match(source, /const showCategoryGrid = !categorySlug && !categoryFilter;/);
+  assert.match(source, /\{!isMyOrdersPage && <div className="space-y-6">\s*\{!isOrderPage && \(/);
+  assert.equal((source.match(/role="group" aria-label="إجمالي الطلبات المكتملة"/g) || []).length, 1);
+  assert.equal((source.match(/api\.get\("\/wallet-services\/completed-count"\)/g) || []).length, 1);
+});
