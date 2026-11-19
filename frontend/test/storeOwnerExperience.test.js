@@ -155,6 +155,16 @@ test('store and family-production dashboards expose a shareable public installat
   assert.match(source, /store\.slug && \([\s\S]*?رابط متجرك للتسويق/);
 });
 
+test('storefront gives verified owners a dashboard shortcut for stores and family projects', () => {
+  const source = fs.readFileSync(path.join(root, 'src', 'pages', 'Storefront.jsx'), 'utf8');
+  assert.match(source, /api\.get\("\/stores\/me"[\s\S]*?storeType:\s*store\?\.storeType === "family-production"/);
+  assert.match(source, /String\(ownerStore\?\._id \|\| ""\) === storeId/);
+  assert.match(source, /verifiedStoreOwnerKey === storeOwnerKey/);
+  assert.match(source, /to=\{store\.storeType === "family-production" \? "\/my-family-production" : "\/my-store"\}/);
+  assert.match(source, /إدارة مشروعي/);
+  assert.match(source, /إدارة متجري/);
+});
+
 test('store creation only shows the custom city field after selecting Other', () => {
   const source = fs.readFileSync(createStorePagePath, 'utf8');
   const stepTwo = source.split('{step === 2 && (')[1]?.split('{step === 3 && (')[0] || '';

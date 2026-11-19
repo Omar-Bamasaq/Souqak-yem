@@ -10,11 +10,23 @@ const source = fs.readFileSync(path.join(frontendRoot, "src", "pages", "Storefro
 
 test("store cart is opened from a floating button and displays the server item count", () => {
   assert.match(source, /className="fixed bottom-20 left-5 z-\[60\].*md:bottom-5"/);
-  assert.match(source, /onClick=\{\(\) => navigate\("\/cart"\)\}/);
+  assert.match(source, /onClick=\{\(\) => navigate\("\/cart", \{ state: \{ storeSlug: store\.slug \} \}\)\}/);
   assert.match(source, /aria-label=\{`فتح سلة المتجر/);
   assert.match(source, /response\.data\?\.itemCount/);
   assert.match(source, /cartItemCount > 0/);
   assert.doesNotMatch(source, /className="min-h-11 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white">سلة المتجر/);
+});
+
+test("store cart continues shopping at the active store product section", () => {
+  const cart = fs.readFileSync(
+    path.join(frontendRoot, "src", "pages", "StoreCart.jsx"),
+    "utf8"
+  );
+  assert.match(cart, /const continueShoppingPath = location\.state\?\.storeSlug[\s\S]*?#products/);
+  assert.ok(cart.indexOf("location.state?.storeSlug") < cart.indexOf("cart.store?.slug"));
+  assert.match(cart, /location\.state\?\.storeSlug/);
+  assert.match(cart, /<Link to=\{continueShoppingPath\}[\s\S]*?>متابعة التسوق<\/Link>/);
+  assert.doesNotMatch(cart, /<Link to="\/"[^>]*>متابعة التسوق<\/Link>/);
 });
 
 test("store checkout shows bank details and converts a proof image to WebP before submission", () => {
