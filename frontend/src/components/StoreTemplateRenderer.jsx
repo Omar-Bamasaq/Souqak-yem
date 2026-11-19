@@ -140,6 +140,10 @@ export default function StoreTemplateRenderer({
     accentColor: advanced.primaryColor || storefrontColor,
     secondaryColor: advanced.secondaryColor || "#0f172a"
   } : null;
+  const storefrontMobileGridClassName = config.gridClassName.replace(
+    /^grid-cols-\S+/,
+    "grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))]"
+  );
   const buttonTargets = { products: "#products", story: "#story", contact: "#store-contact" };
 
   const catalog = (
@@ -196,8 +200,8 @@ export default function StoreTemplateRenderer({
           {(selectedCategory !== "all" || storeSearch) && <button type="button" onClick={() => { onSelectCategory("all"); onSearchChange(""); }} className="mt-4 min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700" style={sectionBackgroundColor ? { backgroundColor: sectionBackgroundColor } : undefined}>عرض كل المنتجات</button>}
         </div>
       ) : (
-        <div className={`mt-5 grid gap-3 sm:gap-4 ${config.gridClassName}`}>
-          {ads.map((ad) => <ProductCard key={ad._id} product={ad} to={`/ad/${ad._id}`} featured={!!ad.featured} presentationVariant={presentationVariant} presentationBadge={config.productBadge} storefrontCardColors={storeCardColors} onAddToCart={onAddToCart} />)}
+        <div className={`mt-5 grid gap-3 sm:gap-4 ${storefrontMobileGridClassName}`}>
+          {ads.map((ad) => <ProductCard key={ad._id} product={ad} to={`/ad/${ad._id}`} featured={!!ad.featured} presentationVariant={presentationVariant} presentationBadge={config.productBadge} storefrontCardColors={storeCardColors} onAddToCart={onAddToCart} storefrontMobileCompact />)}
         </div>
       )}
 
@@ -245,8 +249,8 @@ export default function StoreTemplateRenderer({
     featuredProducts: productView === "products" && featuredProducts.length ? (
       <section key="featuredProducts" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" style={sectionBackgroundColor ? { backgroundColor: sectionBackgroundColor, borderColor: `${storefrontColor}44` } : undefined}>
         <h2 className="mb-4 text-xl font-black" style={{ color: advanced?.secondaryColor || "#0f172a" }}>منتجات مميزة</h2>
-        <div className={`grid gap-3 sm:gap-4 ${config.gridClassName}`}>
-          {featuredProducts.map((product) => <ProductCard key={product._id} product={product} to={`/ad/${product._id}`} featured presentationVariant={presentationVariant} presentationBadge={config.productBadge} storefrontCardColors={storeCardColors} onAddToCart={onAddToCart} />)}
+        <div className={`grid gap-3 sm:gap-4 ${storefrontMobileGridClassName}`}>
+          {featuredProducts.map((product) => <ProductCard key={product._id} product={product} to={`/ad/${product._id}`} featured presentationVariant={presentationVariant} presentationBadge={config.productBadge} storefrontCardColors={storeCardColors} onAddToCart={onAddToCart} storefrontMobileCompact />)}
         </div>
       </section>
     ) : null,
