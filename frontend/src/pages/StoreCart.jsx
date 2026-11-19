@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import { buildCartWhatsAppMessage, buildWhatsAppLink, getStoreWhatsAppContacts } from "../utils/whatsappOrdering.js";
 import { getStoreCurrencyLabel } from "../utils/storeArabicLabels.js";
@@ -13,6 +13,7 @@ const EMPTY_CART = { items: [], subtotal: 0, total: 0, currency: null, bankAccou
 export default function StoreCart() {
   const api = useApi();
   const navigate = useNavigate();
+  const location = useLocation();
   const [cart, setCart] = useState(EMPTY_CART);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,6 +29,11 @@ export default function StoreCart() {
   const hasBankAccounts = cart.ordersEnabled === true && (cart.bankAccounts || []).length > 0;
   const storeWhatsAppContacts = getStoreWhatsAppContacts(cart?.store || null);
   const whatsappOrderingEnabled = Boolean(cart?.whatsappOrderingEnabled === true && storeWhatsAppContacts.length);
+  const continueShoppingPath = location.state?.storeSlug
+    ? `/store/${encodeURIComponent(location.state.storeSlug)}#products`
+    : cart.store?.slug
+      ? `/store/${encodeURIComponent(cart.store.slug)}#products`
+      : "/";
 
   useEffect(() => {
     setSelectedBankAccountId(matchingBankAccounts.length === 1 ? String(matchingBankAccounts[0]._id) : "");
@@ -141,7 +147,7 @@ export default function StoreCart() {
           <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">سلة المتجر</h1>
           <p className="mt-2 text-sm text-slate-500">{cart.items.length ? `${cart.items.length.toLocaleString("ar-EG")} منتجات` : "راجع المنتجات قبل إرسال الطلب"}</p>
         </div>
-        <Link to="/" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">متابعة التسوق</Link>
+        <Link to={continueShoppingPath} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">متابعة التسوق</Link>
       </header>
 
       {error && <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{error}</div>}

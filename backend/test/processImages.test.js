@@ -175,3 +175,55 @@ test("watermarks narrow portrait WebP inputs at 64x1200 and 50x1200", async () =
     await fs.promises.rm(directory, { recursive: true, force: true });
   }
 });
+
+test("fits oversized watermarks to the final canvas of wide shallow image variants", async () => {
+  const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "souqak-shallow-watermark-"));
+  const sourcePath = path.join(directory, "source.webp");
+  const watermarkCanvasSizes = [];
+
+  try {
+    await sharp({
+      create: {
+        width: 1_200,
+        height: 50,
+        channels: 3,
+        background: { r: 35, g: 110, b: 190 }
+      }
+    }).webp().toFile(sourcePath);
+
+    const variants = await processPublicImageVariants({
+      sourcePath,
+      destination: directory,
+      baseName: "shallow-image",
+      watermarkForVariant: ({ variant, width, height }) => {
+        watermarkCanvasSizes.push({ variant, width, height });
+        return Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="24"><rect width="100%" height="100%" fill="white"/></svg>'
+        );
+      }
+    });
+
+    assert.deepEqual(watermarkCanvasSizes, [
+      { variant: "full", width: 1_200, height: 50 },
+      { variant: "med", width: 600, height: 25 },
+      { variant: "thumb", width: 300, height: 50 }
+    ]);
+    for (const outputPath of Object.values(variants.paths)) {
+      assert.equal(fs.existsSync(outputPath), true);
+    }
+    const thumbMetadata = await sharp(variants.paths.thumb).metadata();
+    assert.deepEqual(
+      { width: thumbMetadata.width, height: thumbMetadata.height },
+      { width: 300, height: 50 }
+    );
+    const markedPixel = await sharp(variants.paths.full)
+      .extract({ left: 1_199, top: 0, width: 1, height: 1 })
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+    assert.ok(markedPixel[0] > 220 && markedPixel[1] > 220 && markedPixel[2] > 220);
+  } finally {
+    sharp.cache(false);
+    await fs.promises.rm(directory, { recursive: true, force: true });
+  }
+});

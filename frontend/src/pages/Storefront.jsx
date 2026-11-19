@@ -68,6 +68,7 @@ export default function Storefront() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState(null);
+  const [verifiedStoreOwnerKey, setVerifiedStoreOwnerKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -231,9 +232,32 @@ export default function Storefront() {
   }, [api, data?.store?._id, data?.store?.slug, installTarget]);
 
   const { store, ads = [], pages = 1 } = data || {};
+  const storeId = String(store?._id || "");
+  const userId = String(user?._id || user?.id || "");
+  const storeOwnerKey = storeId && userId ? `${storeId}:${userId}` : "";
   const isDedicatedStorePwa = Boolean(storePwaAppContext?.storeId)
     && storePwaAppContext.storeId === String(store?._id);
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    if (authLoading || !storeId || !userId) return undefined;
+    let active = true;
+    setVerifiedStoreOwnerKey("");
+    api.get("/stores/me", {
+      params: {
+        storeType: store?.storeType === "family-production" ? "family-production" : "store"
+      }
+    })
+      .then(({ data: ownerStore }) => {
+        if (active && String(ownerStore?._id || "") === storeId) {
+          setVerifiedStoreOwnerKey(`${storeId}:${userId}`);
+        }
+      })
+      .catch((error) => {
+        if (active) console.error("Store owner shortcut check failed:", error);
+      });
+    return () => { active = false; };
+  }, [api, authLoading, store?.storeType, storeId, userId]);
 
   useEffect(() => {
     setNativeInstallAvailable(Boolean(installTarget && canInstallPWA(installTarget)));
@@ -661,6 +685,14 @@ export default function Storefront() {
                 <span className="font-black text-emerald-700">{followerCount.toLocaleString("ar-EG")}</span>
                 <span className="mr-1">متابع</span>
               </div>
+              {verifiedStoreOwnerKey === storeOwnerKey && (
+                <Link
+                  to={store.storeType === "family-production" ? "/my-family-production" : "/my-store"}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-800 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {store.storeType === "family-production" ? "إدارة مشروعي" : "إدارة متجري"}
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={toggleStoreFollow}
@@ -813,7 +845,7 @@ export default function Storefront() {
           {cartMessage && <span role="status" className="max-w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-lg">{cartMessage}</span>}
           <button
             type="button"
-            onClick={() => navigate("/cart")}
+            onClick={() => navigate("/cart", { state: { storeSlug: store.slug } })}
             aria-label={`فتح سلة المتجر${cartItemCount ? `، ${cartItemCount} منتجات` : ""}`}
             className="relative flex min-h-12 items-center gap-2 rounded-full bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
           >

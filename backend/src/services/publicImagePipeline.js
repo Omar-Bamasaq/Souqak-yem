@@ -105,11 +105,16 @@ export async function processPublicImageVariants({
       const oriented = metadata.orientation >= 5 && metadata.orientation <= 8
         ? { width: metadata.height, height: metadata.width }
         : { width: metadata.width, height: metadata.height };
-      const scale = settings.fit === "cover"
-        ? Math.min(Math.max(settings.width / oriented.width, settings.height / oriented.height), 1)
-        : Math.min(settings.width / oriented.width, settings.height / oriented.height, 1);
-      const width = Math.max(1, Math.round(oriented.width * scale));
-      const height = Math.max(1, Math.round(oriented.height * scale));
+      let width;
+      let height;
+      if (settings.fit === "cover") {
+        width = Math.min(settings.width, oriented.width);
+        height = Math.min(settings.height, oriented.height);
+      } else {
+        const scale = Math.min(settings.width / oriented.width, settings.height / oriented.height, 1);
+        width = Math.max(1, Math.round(oriented.width * scale));
+        height = Math.max(1, Math.round(oriented.height * scale));
+      }
       const watermark = watermarkForVariant
         ? await watermarkForVariant({ variant, width, height })
         : null;
@@ -125,7 +130,17 @@ export async function processPublicImageVariants({
         });
 
       if (watermark) {
-        encoder.composite([{ input: watermark, gravity: "northeast" }]);
+        const watermarkMetadata = await sharp(watermark).metadata();
+        if (!watermarkMetadata.width || !watermarkMetadata.height) {
+          throw new Error("Watermark dimensions are unavailable.");
+        }
+        const fittedWatermark = watermarkMetadata.width > width || watermarkMetadata.height > height
+          ? await sharp(watermark)
+            .resize(width, height, { fit: "inside", withoutEnlargement: true })
+            .png()
+            .toBuffer()
+          : watermark;
+        encoder.composite([{ input: fittedWatermark, gravity: "northeast" }]);
       }
 
       created.push(outputs[variant]);

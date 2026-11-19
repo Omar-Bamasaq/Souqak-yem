@@ -68,13 +68,33 @@ function timeAgo(publishedAt, createdAt) {
   return `منذ ${years} سنة`;
 }
 
-export default function ProductCard({ product, to, featured = false, governorateName = "", cityName = "", presentationVariant = null, presentationBadge = null, storefrontCardColors = null, onAddToCart, displayMode = "grid" }) {
+export default function ProductCard({ product, to, featured = false, governorateName = "", cityName = "", presentationVariant = null, presentationBadge = null, storefrontCardColors = null, onAddToCart, displayMode = "grid", storefrontMobileCompact = false }) {
   const { prefetchAdDetails } = useAdsQuery();
   const isHorizontal = displayMode === "list" && !presentationVariant;
   const storeProfile = product.storeProfileId?.storeName ? product.storeProfileId : null;
   const hasStoreDiscount = Boolean(storeProfile && product.discountEnabled === true && Number.isFinite(Number(product.unitPrice)));
   const usesStoreInventory = Boolean(storeProfile && product.inventoryEnabled === true);
   const isOutOfStock = usesStoreInventory && Number(product.stockQuantity) === 0;
+  const knownStockQuantity = product.stockQuantity !== null
+    && product.stockQuantity !== undefined
+    && !(typeof product.stockQuantity === "string" && product.stockQuantity.trim() === "")
+    && Number.isFinite(Number(product.stockQuantity))
+    && Number(product.stockQuantity) >= 0
+    ? Number(product.stockQuantity)
+    : null;
+  const compactIsOutOfStock = usesStoreInventory && knownStockQuantity === 0;
+  const compactCurrencySymbol = getCurrencySymbol(product.currency).replace(/\s*\([^)]*\)/, "");
+  const compactOriginalPrice = Number(product.originalPrice ?? product.price);
+  const compactCurrentPrice = Number(product.unitPrice ?? product.price);
+  const compactCurrentPriceIsValid = Number.isFinite(compactCurrentPrice) && compactCurrentPrice >= 0;
+  const compactDiscountPercent = product.discountEnabled === true
+    && Number.isFinite(compactOriginalPrice)
+    && Number.isFinite(compactCurrentPrice)
+    && compactOriginalPrice > 0
+    && compactCurrentPrice >= 0
+    && compactCurrentPrice < compactOriginalPrice
+    ? Math.round((compactOriginalPrice - compactCurrentPrice) / compactOriginalPrice * 100)
+    : null;
   const storeAvailabilityLabel = getStoreProductAvailabilityLabel(product);
   const storeAttributeSummary = storeProfile ? getStoreProductAttributeSummary(product) : [];
   const presentationCardClass = {
@@ -86,6 +106,11 @@ export default function ProductCard({ product, to, featured = false, governorate
     "family-tailoring": "bg-white dark:bg-slate-900 border-teal-100 dark:border-teal-950 shadow-sm hover:border-teal-300"
   }[presentationVariant];
   const imageAspectClass = presentationVariant === "automotive" ? "aspect-[16/10]" : presentationVariant === "consumer-electronics" ? "aspect-square" : "aspect-[4/3]";
+  const compactImageAspectClass = presentationVariant === "automotive"
+    ? "aspect-[4/3] sm:aspect-[16/10]"
+    : presentationVariant === "consumer-electronics"
+      ? "aspect-[4/3] sm:aspect-square"
+      : "aspect-[4/3] sm:aspect-[4/3]";
   const legacyFamilyBadge = presentationVariant === "family-food"
     ? { icon: "🍲", label: "مأكولات منزلية", className: "border-orange-200 bg-orange-50/95 text-orange-900" }
     : presentationVariant === "family-handicrafts"
@@ -167,7 +192,7 @@ export default function ProductCard({ product, to, featured = false, governorate
         <div className="absolute inset-0 bg-gradient-to-tr from-amber-200/10 via-transparent to-amber-200/10 pointer-events-none" />
       )}
       {/* Image Container */}
-      <div className={`relative ${isHorizontal ? "aspect-square w-[32%] min-w-[88px] max-w-28 shrink-0 self-center sm:h-28 sm:w-28 lg:h-32 lg:w-32" : `${imageAspectClass} w-full`} overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200`}>
+      <div className={`relative ${isHorizontal ? "aspect-square w-[32%] min-w-[88px] max-w-28 shrink-0 self-center sm:h-28 sm:w-28 lg:h-32 lg:w-32" : `${storefrontMobileCompact ? compactImageAspectClass : imageAspectClass} w-full`} overflow-hidden ${storefrontMobileCompact ? "bg-slate-50 sm:bg-gradient-to-br sm:from-slate-100 sm:to-slate-200" : "bg-gradient-to-br from-slate-100 to-slate-200"}`}>
         {product.images?.[0] ? (
           <picture className="block h-full w-full">
             <source media="(max-width: 640px)" srcSet={uploadsUrl(product.images[0], "thumb")} />
@@ -176,7 +201,7 @@ export default function ProductCard({ product, to, featured = false, governorate
               src={uploadsUrl(product.images[0])}
               alt={product.title}
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+              className={`h-full w-full ${storefrontMobileCompact ? "object-contain sm:object-cover" : "object-cover"} transition-transform duration-700 group-hover:scale-110`}
             />
           </picture>
         ) : (
@@ -188,7 +213,7 @@ export default function ProductCard({ product, to, featured = false, governorate
         )}
 
         {familyBadge && (
-          <div className="absolute left-2 top-2 z-10">
+          <div className={`absolute left-2 top-2 z-10 ${storefrontMobileCompact ? "hidden sm:block" : ""}`}>
             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-black shadow-sm backdrop-blur-sm ${familyBadge.className}`}>
               <span>{familyBadge.icon}</span>
               {familyBadge.label}
@@ -211,7 +236,7 @@ export default function ProductCard({ product, to, featured = false, governorate
         )}
 
         {/* Badges */}
-        {!isHorizontal && <div className="absolute right-2 top-2 flex flex-col gap-1.5 z-10">
+        {!isHorizontal && <div className={`absolute right-2 top-2 flex flex-col gap-1.5 z-10 ${storefrontMobileCompact ? "hidden sm:flex" : ""}`}>
           {product.isWelcomePromoted && (
             <span className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1 text-[10px] font-black text-white shadow-lg ring-2 ring-white/20">
               <span className="animate-bounce">🎁</span> هدية ترحيبية
@@ -242,7 +267,7 @@ export default function ProductCard({ product, to, featured = false, governorate
         </div>}
 
         {!isHorizontal && product.isAvailableForDelivery === true && (
-          <span className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-300/95 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-md backdrop-blur-sm sm:bottom-3 sm:right-3 sm:px-3 sm:text-xs">
+          <span className={`absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-300/95 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-md backdrop-blur-sm sm:bottom-3 sm:right-3 sm:px-3 sm:text-xs ${storefrontMobileCompact ? "hidden sm:inline-flex" : ""}`}>
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z" />
               <circle cx="7.5" cy="18" r="1.5" />
@@ -252,13 +277,13 @@ export default function ProductCard({ product, to, featured = false, governorate
           </span>
         )}
         {!isHorizontal && usesStoreInventory && (
-          <span className={`absolute right-2 top-12 z-10 rounded-full px-2.5 py-1 text-[10px] font-black shadow-sm ${isOutOfStock ? "bg-slate-700 text-white" : "bg-emerald-100 text-emerald-900"}`}>
+          <span className={`absolute right-2 top-12 z-10 rounded-full px-2.5 py-1 text-[10px] font-black shadow-sm ${isOutOfStock ? "bg-slate-700 text-white" : "bg-emerald-100 text-emerald-900"} ${storefrontMobileCompact ? "hidden sm:inline-flex" : ""}`}>
             {isOutOfStock ? "نفد المخزون" : `المتبقي: ${Number(product.stockQuantity).toLocaleString("ar-YE")}`}
           </span>
         )}
 
         {/* Price Tag Overlay */}
-        {!isHorizontal && <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 rounded-xl sm:rounded-2xl bg-white/95 dark:bg-slate-900/95 px-2 py-0.5 sm:px-3 sm:py-1.5 text-[11px] sm:text-base font-black ${priceTextClass} backdrop-blur-md shadow-lg sm:shadow-2xl border border-white/30 dark:border-slate-800 z-10`} style={storefrontCardColors ? { backgroundColor: storefrontCardColors.backgroundColor, borderColor: `${storefrontCardColors.accentColor}55`, color: storefrontCardColors.accentColor } : undefined}>
+        {!isHorizontal && <div className={`absolute bottom-2 left-2 sm:bottom-3 sm:left-3 rounded-xl sm:rounded-2xl bg-white/95 dark:bg-slate-900/95 px-2 py-0.5 sm:px-3 sm:py-1.5 text-[11px] sm:text-base font-black ${priceTextClass} backdrop-blur-md shadow-lg sm:shadow-2xl border border-white/30 dark:border-slate-800 z-10 ${storefrontMobileCompact ? "hidden sm:block" : ""}`} style={storefrontCardColors ? { backgroundColor: storefrontCardColors.backgroundColor, borderColor: `${storefrontCardColors.accentColor}55`, color: storefrontCardColors.accentColor } : undefined}>
           {product.priceOnContact ? (
             "تواصل"
           ) : (
@@ -273,11 +298,11 @@ export default function ProductCard({ product, to, featured = false, governorate
             </div>
           )}
         </div>}
-        {!isHorizontal && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60" />}
+        {!isHorizontal && <div className={`pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 ${storefrontMobileCompact ? "hidden sm:block" : ""}`} />}
       </div>
 
       {/* Content */}
-      <div className={`flex min-w-0 flex-1 flex-col ${isHorizontal ? "gap-1.5 p-2 sm:gap-2 sm:p-3" : "space-y-2 p-3 sm:space-y-3 sm:p-5"}`}>
+      <div className={`flex min-w-0 flex-1 flex-col ${isHorizontal ? "gap-1.5 p-2 sm:gap-2 sm:p-3" : "space-y-2 p-3 sm:space-y-3 sm:p-5"} ${storefrontMobileCompact ? "hidden sm:flex" : ""}`}>
         {isHorizontal ? (
           <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-4">
             <h3 className="line-clamp-2 min-w-0 flex-1 text-sm font-black leading-5 text-emerald-700 transition-colors group-hover:text-emerald-800 dark:text-emerald-300 dark:group-hover:text-emerald-200 sm:text-lg sm:leading-7" style={storefrontCardColors ? { color: storefrontCardColors.secondaryColor } : undefined}>
@@ -492,6 +517,69 @@ export default function ProductCard({ product, to, featured = false, governorate
         </div>
         {presentationVariant && <span className="mt-1 inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-black text-slate-700">عرض التفاصيل</span>}
       </div>
+      {storefrontMobileCompact && (
+        <div className="pointer-events-none relative z-10 flex min-w-0 flex-col gap-2 p-2.5 sm:hidden">
+          <h3
+            className="line-clamp-2 min-h-9 break-words text-sm font-black leading-[1.125rem] text-slate-900 dark:text-white"
+            style={storefrontCardColors ? { color: storefrontCardColors.secondaryColor } : undefined}
+          >
+            {product.title}
+          </h3>
+
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1">
+            {product.priceOnContact ? (
+              <span className={`text-sm font-black ${priceTextClass}`}>تواصل للسعر</span>
+            ) : compactCurrentPriceIsValid ? (
+              <>
+                <span className={`max-w-full break-words text-sm font-black ${priceTextClass}`}>
+                  {compactCurrentPrice.toLocaleString("ar-YE")} {compactCurrencySymbol}
+                </span>
+                {compactDiscountPercent !== null && (
+                  <>
+                    <s className="text-[10px] font-bold text-slate-500 decoration-rose-500">
+                      {compactOriginalPrice.toLocaleString("ar-YE")} {compactCurrencySymbol}
+                    </s>
+                    <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[9px] font-black text-rose-700">
+                      خصم {compactDiscountPercent}٪
+                    </span>
+                  </>
+                )}
+              </>
+            ) : (
+              <span className="text-xs font-bold text-slate-500">السعر غير متاح</span>
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-wrap gap-1">
+            {storeAvailabilityLabel && (
+              <span className={`max-w-full rounded-full px-2 py-1 text-[9px] font-black ${product.isAvailable === false ? "bg-slate-100 text-slate-700" : "bg-emerald-50 text-emerald-800"}`}>
+                {storeAvailabilityLabel}
+              </span>
+            )}
+            {usesStoreInventory && knownStockQuantity !== null && (
+              <span className={`max-w-full rounded-full px-2 py-1 text-[9px] font-black ${knownStockQuantity === 0 ? "bg-slate-100 text-slate-700" : "bg-blue-50 text-blue-800"}`}>
+                المتبقي: {knownStockQuantity.toLocaleString("ar-YE")}
+              </span>
+            )}
+            {typeof product.isAvailableForDelivery === "boolean" && (
+              <span className={`max-w-full rounded-full px-2 py-1 text-[9px] font-black ${product.isAvailableForDelivery ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-600"}`}>
+                {product.isAvailableForDelivery ? "التوصيل متاح" : "لا يشمل التوصيل"}
+              </span>
+            )}
+          </div>
+
+          {storeProfile && onAddToCart && product.adType !== "order" && (
+            <button
+              type="button"
+              disabled={product.isAvailable === false || compactIsOutOfStock}
+              onClick={() => onAddToCart(product)}
+              className="pointer-events-auto min-h-10 w-full rounded-lg bg-blue-600 px-2 py-2 text-xs font-black text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {product.isAvailable === false ? "غير متوفر" : compactIsOutOfStock ? "نفد المخزون" : "أضف للسلة"}
+            </button>
+          )}
+        </div>
+      )}
       </div>
     </article>
   );
