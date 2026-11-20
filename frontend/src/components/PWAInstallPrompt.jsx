@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { canInstallPWA, installPWA, isStandalonePWA } from "../utils/pwaInstall.js";
+import StorePwaInstallGuideModal from "./StorePwaInstallGuideModal.jsx";
 import { getStorePwaInstallContent } from "../utils/storePwaInstallPrompt.js";
 import { buildStorePwaIconUrl } from "../utils/storePwa.js";
 import {
   canShowStorePwaInstallGuide,
   createStorePwaInstallGuideController,
   dismissStorePwaInstallGuide,
+  hasStorePwaInstallAttempt,
   shouldShowStorePwaInstallGuide
 } from "../utils/storePwaInstallGuide.js";
 
@@ -122,15 +124,9 @@ export default function PWAInstallPrompt({ store, apiBase }) {
 
   useEffect(() => {
     if (!isAndroidStorePwaGuide || !installTarget) return;
+    if (!hasStorePwaInstallAttempt(location.search)) return;
     const params = new URLSearchParams(location.search);
-    if (params.get("pwaInstallAttempt") !== "1") {
-      return;
-    }
-
     params.delete("pwaInstallAttempt");
-    window.dispatchEvent(new CustomEvent("pwa:store-install-request", {
-      detail: { target: installTarget, source: "market-install" }
-    }));
     navigate({
       pathname: location.pathname,
       search: params.toString() ? `?${params.toString()}` : "",
@@ -229,87 +225,10 @@ export default function PWAInstallPrompt({ store, apiBase }) {
         </motion.div>
       )}
       {showInstallGuide && isAndroidStorePwaGuide && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/60 p-3 sm:p-5"
-          dir="rtl"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) handleInstallGuideDismiss();
-          }}
-        >
-          <motion.section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="store-pwa-install-guide-title"
-            initial={{ y: 20, scale: 0.98 }}
-            animate={{ y: 0, scale: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-6"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5a1 1 0 001 1h12a1 1 0 001-1v-5" />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 id="store-pwa-install-guide-title" className="text-lg font-black text-slate-950 dark:text-white">
-                  ثبّت تطبيق المتجر
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  استمتع بتجربة تسوق أسهل وأسرع.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleInstallGuideDismiss}
-                aria-label="إغلاق إرشادات التثبيت"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white"
-              >
-                <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <ol className="mt-5 space-y-3">
-              <li className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/70">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-700 shadow-sm dark:bg-slate-700 dark:text-slate-100">
-                  <svg aria-hidden="true" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" />
-                  </svg>
-                </span>
-                <span className="text-sm font-bold leading-6 text-slate-800 dark:text-slate-100"><b className="ml-1 text-blue-700 dark:text-blue-300">1.</b>اضغط على النقاط الثلاث أعلى الشاشة.</span>
-              </li>
-              <li className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/70">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300">
-                  <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7v7m-1-6-9 9M5 5h5M5 9V5m0 0h5m9 6v8H5v-8" />
-                  </svg>
-                </span>
-                <span className="text-sm font-bold leading-6 text-slate-800 dark:text-slate-100"><b className="ml-1 text-blue-700 dark:text-blue-300">2.</b>اختر «فتح في Chrome».</span>
-              </li>
-              <li className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/70">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm dark:bg-slate-700 dark:text-emerald-300">
-                  <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
-                  </svg>
-                </span>
-                <span className="text-sm font-bold leading-6 text-slate-800 dark:text-slate-100"><b className="ml-1 text-blue-700 dark:text-blue-300">3.</b>اضغط على «تثبيت التطبيق».</span>
-              </li>
-            </ol>
-
-            <button
-              type="button"
-              onClick={handleInstallGuideDismiss}
-              className="mt-5 min-h-12 w-full rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-[0.99] dark:shadow-none"
-            >
-              فهمت
-            </button>
-          </motion.section>
-        </motion.div>
+        <StorePwaInstallGuideModal
+          initialPlatform="android"
+          onClose={handleInstallGuideDismiss}
+        />
       )}
     </AnimatePresence>
   );
