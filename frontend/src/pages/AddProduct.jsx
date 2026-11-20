@@ -18,7 +18,7 @@ import { getStoreCategoriesForActivity } from "../utils/storeCategories.js";
 import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
 import SmartProgress from "../components/SmartProgress.jsx";
 import { calculateAdProgress, getAdProgressMessage } from "../utils/adProgress.js";
-import { getAdCreationError } from "../utils/adCreationError.js";
+import { getAdCreationError, getAdImageAspectRatioFailure } from "../utils/adCreationError.js";
 
 export default function AddProduct() {
   const { data: governoratesData = [] } = useGovernorates();
@@ -73,6 +73,7 @@ export default function AddProduct() {
   const [cityId, setCityId] = useState("");
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [imageErrorIndex, setImageErrorIndex] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [phoneVerificationRequired, setPhoneVerificationRequired] = useState(false);
@@ -253,6 +254,7 @@ export default function AddProduct() {
   const handleFiles = (e) => {
     const fAll = Array.from(e.target.files || []);
     const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+    setImageErrorIndex(null);
 
     setFiles((currentFiles) => {
       const existingKeys = new Set(currentFiles.map(fileKey));
@@ -273,6 +275,8 @@ export default function AddProduct() {
   };
 
   const removeFile = (indexToRemove) => {
+    if (imageErrorIndex !== null) setErr("");
+    setImageErrorIndex(null);
     setFiles((currentFiles) => currentFiles.filter((_, index) => index !== indexToRemove));
   };
 
@@ -502,11 +506,6 @@ export default function AddProduct() {
       setErr("يرجى تسجيل الدخول أولاً");
       return;
     }
-    if (!user.phoneVerifiedAt) {
-      setPhoneVerificationRequired(true);
-      setErr("يلزم توثيق رقم الهاتف قبل نشر الإعلان.");
-      return;
-    }
     if (AD_COMMISSION_ENABLED && !commissionAgreed) {
       setErr("يجب الموافقة على التعهد بدفع عمولة المنصة 1% بعد البيع");
       return;
@@ -612,9 +611,15 @@ export default function AddProduct() {
       console.error("Ad creation failed:", e);
       const status = e?.response?.status;
       const data = e?.response?.data;
-      const adCreationError = getAdCreationError(e);
+      const imageAspectRatioFailure = getAdImageAspectRatioFailure(e);
+      const adCreationError = isStoreProduct && imageAspectRatioFailure
+        ? null
+        : getAdCreationError(e);
 
-      if (e?.message === "تعذر تجهيز إحدى الصور. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.") {
+      if (imageAspectRatioFailure && !isStoreProduct) {
+        setErr(imageAspectRatioFailure.message);
+        setImageErrorIndex(imageAspectRatioFailure.imageIndex);
+      } else if (e?.message === "تعذر تجهيز إحدى الصور. يرجى اختيار صورة أخرى أو صورة بحجم أصغر.") {
         setErr(e.message);
       } else if (adCreationError) {
         setErr(adCreationError);
@@ -1309,7 +1314,7 @@ export default function AddProduct() {
       {previews.length > 0 && (
         <div className="order-4 mt-2 flex flex-wrap gap-3">
           {previews.map((src, i) => (
-            <div key={src} className="relative">
+            <div key={src} className={`relative ${imageErrorIndex === i + 1 ? "rounded-md ring-2 ring-red-600 ring-offset-2" : ""}`}>
               <img src={src} alt={`${isStoreProduct ? "صورة المنتج" : "صورة الإعلان"} ${i + 1}`} className="h-24 w-32 rounded-md object-cover" />
               <button
                 type="button"

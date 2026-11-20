@@ -1,10 +1,30 @@
 const AD_ALREADY_CREATED_MESSAGE =
   "يبدو أن الإعلان أُضيف بالفعل. تحقق من إعلاناتك قبل المحاولة مرة أخرى.";
 
+export function getAdImageAspectRatioFailure(error) {
+  const data = error?.response?.data;
+  const imageIndex = data?.imageIndex;
+  if (
+    error?.response?.status !== 422
+    || data?.code !== "AD_IMAGE_TOO_TALL"
+    || !Number.isSafeInteger(imageIndex)
+    || imageIndex < 1
+  ) {
+    return null;
+  }
+
+  return {
+    imageIndex,
+    message: `الصورة رقم ${imageIndex} طويلة جدًا. يرجى قصها أو حذفها ثم إعادة المحاولة.`
+  };
+}
+
 export function getAdCreationError(error) {
   const status = error?.response?.status;
   const serverMessage = error?.response?.data?.error;
+  const imageAspectRatioFailure = getAdImageAspectRatioFailure(error);
 
+  if (imageAspectRatioFailure) return imageAspectRatioFailure.message;
   if (status === 400 && typeof serverMessage === "string" && serverMessage.includes("إعلان مشابه")) {
     return AD_ALREADY_CREATED_MESSAGE;
   }

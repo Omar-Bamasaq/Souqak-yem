@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import User from "../src/models/User.js";
+import SystemSettings from "../src/models/SystemSettings.js";
 import requirePhoneVerification from "../src/middleware/requirePhoneVerification.js";
 import {
   buildPhoneVerificationWhatsAppLink,
@@ -67,7 +68,7 @@ test("the phone number unique index ignores empty or absent values", () => {
   });
 });
 
-test("ad creation phone guard rejects unverified accounts and allows verified accounts", () => {
+async function runPhoneGuard(user) {
   let nextCalled = false;
   let statusCode = null;
   let body = null;
@@ -82,17 +83,64 @@ test("ad creation phone guard rejects unverified accounts and allows verified ac
     }
   };
 
-  requirePhoneVerification({ user: { phone: "771234567", phoneVerifiedAt: null } }, res, () => {
+  await requirePhoneVerification({ user }, res, () => {
     nextCalled = true;
   });
-  assert.equal(nextCalled, false);
-  assert.equal(statusCode, 403);
-  assert.equal(body.code, "PHONE_VERIFICATION_REQUIRED");
+  return { nextCalled, statusCode, body };
+}
 
-  statusCode = null;
-  requirePhoneVerification({ user: { phone: "771234567", phoneVerifiedAt: new Date() } }, res, () => {
-    nextCalled = true;
-  });
-  assert.equal(nextCalled, true);
-  assert.equal(statusCode, null);
+test("ad creation requires verification by default, including settings without the new field", async () => {
+  const originalGetSettings = SystemSettings.getSettings;
+  try {
+    for (const settings of [{ requirePhoneVerificationForAds: true }, {}]) {
+      SystemSettings.getSettings = async () => settings;
+      const result = await runPhoneGuard({ phone: "771234567", phoneVerifiedAt: null });
+      assert.equal(result.nextCalled, false);
+      assert.equal(result.statusCode, 403);
+      assert.equal(result.body.code, "PHONE_VERIFICATION_REQUIRED");
+
+      const verified = await runPhoneGuard({ phone: "771234567", phoneVerifiedAt: new Date() });
+      assert.equal(verified.nextCalled, true);
+    }
+    assert.equal(SystemSettings.schema.path("requirePhoneVerificationForAds").defaultValue, true);
+  } finally {
+    SystemSettings.getSettings = originalGetSettings;
+  }
+});
+
+test("disabling ad verification only bypasses verification for users with a valid phone", async () => {
+  const originalGetSettings = SystemSettings.getSettings;
+  SystemSettings.getSettings = async () => ({ requirePhoneVerificationForAds: false });
+  try {
+    const unverified = await runPhoneGuard({ phone: "771234567", phoneVerifiedAt: null });
+    assert.equal(unverified.nextCalled, true);
+
+    const verified = await runPhoneGuard({ phone: "771234567", phoneVerifiedAt: new Date() });
+    assert.equal(verified.nextCalled, true);
+
+    const invalidPhone = await runPhoneGuard({ phone: "", phoneVerifiedAt: null });
+    assert.equal(invalidPhone.nextCalled, false);
+    assert.equal(invalidPhone.statusCode, 403);
+    assert.equal(invalidPhone.body.code, "PHONE_VERIFICATION_REQUIRED");
+  } finally {
+    SystemSettings.getSettings = originalGetSettings;
+  }
+});
+
+test("a settings read failure falls back to requiring phone verification", async () => {
+  const originalGetSettings = SystemSettings.getSettings;
+  const originalConsoleError = console.error;
+  SystemSettings.getSettings = async () => {
+    throw new Error("local settings read failure");
+  };
+  console.error = () => {};
+  try {
+    const result = await runPhoneGuard({ phone: "771234567", phoneVerifiedAt: null });
+    assert.equal(result.nextCalled, false);
+    assert.equal(result.statusCode, 403);
+    assert.equal(result.body.code, "PHONE_VERIFICATION_REQUIRED");
+  } finally {
+    SystemSettings.getSettings = originalGetSettings;
+    console.error = originalConsoleError;
+  }
 });

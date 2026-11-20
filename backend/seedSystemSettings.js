@@ -15,6 +15,7 @@ const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 
 export const OWNER_APPROVED_SETTING_FIELDS = [
   "adReviewMode",
+  "requirePhoneVerificationForAds",
   "adReviewDelayMinutes",
   "prohibitedKeywords",
   "withdrawalIdentityThresholdUsd",
@@ -48,6 +49,10 @@ function requireFiniteNumber(value, field, { min = 0, max = Infinity } = {}) {
 
 export function validateApprovedSystemSettings(input) {
   if (!isRecord(input)) throw new Error("Approved system settings must be a JSON object.");
+  if (input.requirePhoneVerificationForAds !== undefined
+    && typeof input.requirePhoneVerificationForAds !== "boolean") {
+    throw new Error("requirePhoneVerificationForAds must be a boolean.");
+  }
 
   if (!["manual", "auto"].includes(input.adReviewMode)) {
     throw new Error("adReviewMode must be explicitly set to manual or auto.");
@@ -122,6 +127,7 @@ export function validateApprovedSystemSettings(input) {
   return {
     singletonKey: "global",
     adReviewMode: input.adReviewMode,
+    requirePhoneVerificationForAds: input.requirePhoneVerificationForAds !== false,
     adReviewDelayMinutes: input.adReviewDelayMinutes,
     prohibitedKeywords: [...input.prohibitedKeywords],
     withdrawalIdentityThresholdUsd: input.withdrawalIdentityThresholdUsd,

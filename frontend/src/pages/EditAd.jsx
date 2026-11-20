@@ -14,6 +14,7 @@ import { getStoreCategoriesForActivity } from "../utils/storeCategories.js";
 import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
 import SmartProgress from "../components/SmartProgress.jsx";
 import { calculateAdProgress, getAdProgressMessage } from "../utils/adProgress.js";
+import { getAdImageAspectRatioFailure } from "../utils/adCreationError.js";
 
 export default function EditAd() {
   const { data: governoratesData = [] } = useGovernorates();
@@ -46,6 +47,7 @@ export default function EditAd() {
   const [cityId, setCityId] = useState("");
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [imageErrorIndex, setImageErrorIndex] = useState(null);
   const [currentImages, setCurrentImages] = useState([]);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -108,6 +110,7 @@ export default function EditAd() {
   const handleFiles = (e) => {
     const selectedFiles = Array.from(e.target.files || []);
     const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+    setImageErrorIndex(null);
 
     setFiles((currentFiles) => {
       const existingKeys = new Set(currentFiles.map(fileKey));
@@ -127,6 +130,8 @@ export default function EditAd() {
   };
 
   const removeFile = (indexToRemove) => {
+    if (imageErrorIndex !== null) setErr("");
+    setImageErrorIndex(null);
     setFiles((currentFiles) => currentFiles.filter((_, index) => index !== indexToRemove));
   };
 
@@ -462,7 +467,11 @@ export default function EditAd() {
       console.error("Error updating ad:", e);
       const status = e?.response?.status;
       const data = e?.response?.data;
-      if (status === 400 && data) {
+      const imageAspectRatioFailure = getAdImageAspectRatioFailure(e);
+      if (imageAspectRatioFailure && !isStoreProduct) {
+        setErr(imageAspectRatioFailure.message);
+        setImageErrorIndex(imageAspectRatioFailure.imageIndex);
+      } else if (status === 400 && data) {
         let errorMsg = "";
         if (Array.isArray(data.details) && data.details.length > 0 && data.details[0]?.message) {
           errorMsg = data.details[0].message;
@@ -896,7 +905,7 @@ export default function EditAd() {
       {previews.length > 0 && (
         <div className="order-4 mt-2 flex flex-wrap gap-3">
           {previews.map((src, i) => (
-            <div key={src} className="relative">
+            <div key={src} className={`relative ${imageErrorIndex === i + 1 ? "rounded-md ring-2 ring-red-600 ring-offset-2" : ""}`}>
               <img src={src} alt={`${isStoreProduct ? "صورة المنتج" : "صورة الإعلان"} ${i + 1}`} className="h-24 w-32 rounded-md object-cover" />
               <button
                 type="button"
