@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import imageCompression from "browser-image-compression";
 import { normalizeImageUploadFile } from "../lib/imageCompression.js";
+import { getAdImageAspectRatioFailure } from "../utils/adCreationError.js";
 import { useApi } from "../api/axios.js";
 import CategorySelect from "../components/CategorySelect.jsx";
 import { useSearchParams } from "react-router-dom";
@@ -38,6 +39,7 @@ export default function AdminManagedSellerAd() {
   const [form, setForm] = useState(initialForm);
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [imageErrorIndex, setImageErrorIndex] = useState(null);
   const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -84,6 +86,7 @@ export default function AdminManagedSellerAd() {
   const handleImages = (event) => {
     const selectedFiles = Array.from(event.target.files || []);
     const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+    setImageErrorIndex(null);
 
     setImages((currentImages) => {
       const existingKeys = new Set(currentImages.map(fileKey));
@@ -103,6 +106,8 @@ export default function AdminManagedSellerAd() {
   };
 
   const removeImage = (indexToRemove) => {
+    if (imageErrorIndex !== null) setError("");
+    setImageErrorIndex(null);
     setImages((currentImages) => currentImages.filter((_, index) => index !== indexToRemove));
   };
 
@@ -177,7 +182,13 @@ export default function AdminManagedSellerAd() {
       setImages([]);
       setCities([]);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || "تعذر إنشاء الحساب والإعلان.");
+      const imageAspectRatioFailure = getAdImageAspectRatioFailure(err);
+      if (imageAspectRatioFailure) {
+        setError(imageAspectRatioFailure.message);
+        setImageErrorIndex(imageAspectRatioFailure.imageIndex);
+      } else {
+        setError(err.response?.data?.error || err.message || "تعذر إنشاء الحساب والإعلان.");
+      }
     } finally {
       setLoading(false);
       setIsPreparingImages(false);
@@ -235,7 +246,7 @@ export default function AdminManagedSellerAd() {
           {previews.length > 0 && (
             <div className="flex flex-wrap gap-3">
               {previews.map((src, index) => (
-                <div key={src} className="relative">
+                <div key={src} className={`relative ${imageErrorIndex === index + 1 ? "rounded-md ring-2 ring-red-600 ring-offset-2" : ""}`}>
                   <img src={src} alt={`صورة الإعلان ${index + 1}`} className="h-24 w-32 rounded-md object-cover" />
                   <button
                     type="button"

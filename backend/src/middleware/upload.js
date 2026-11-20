@@ -46,10 +46,13 @@ const MAX_IMAGE_PIXELS = IMAGE_PROCESSING_LIMITS.maxInputPixels;
 const MAX_IMAGE_DIMENSION = IMAGE_PROCESSING_LIMITS.maxInputDimension;
 const OUTPUT_IMAGE_DIMENSION = IMAGE_PROCESSING_LIMITS.legacyOutputDimension;
 const MAX_IMAGE_OUTPUT_BYTES = IMAGE_PROCESSING_LIMITS.maxOutputBytes;
+export const MAX_AD_IMAGE_HEIGHT_TO_WIDTH_RATIO = 10;
+const AD_IMAGE_TOO_TALL_CODE = "AD_IMAGE_TOO_TALL";
 
-function uploadError(message, status = 400) {
+function uploadError(message, status = 400, details = {}) {
   const error = new Error(message);
   error.status = status;
+  Object.assign(error, details);
   return error;
 }
 
@@ -185,7 +188,9 @@ export function createSafeUpload({
   cleanupStagingDirectory = cleanupRequestUploadStagingDirectory,
   temporaryDirectory = os.tmpdir(),
   maxInputPixels = MAX_IMAGE_PIXELS,
-  maxInputDimension = MAX_IMAGE_DIMENSION
+  maxInputDimension = MAX_IMAGE_DIMENSION,
+  maxImageHeightToWidthRatio = null,
+  shouldCheckImageAspectRatio = () => true
 }) {
   const stagingRoot = path.resolve(temporaryDirectory);
   const stagingPrefix = "souqak-upload-";
@@ -255,7 +260,7 @@ export function createSafeUpload({
         const generatedPaths = [];
         const temporaryPaths = uploadedFiles.map((file) => file.path);
         (async () => {
-          for (const file of uploadedFiles) {
+          for (const [fileIndex, file] of uploadedFiles.entries()) {
             const mode = validateUploadMetadata(file, modeForFile(file, req), maxInputPixels, maxInputDimension);
             const createPublicVariants = mode === "image" && (
               publicImageVariantsForFile
@@ -276,6 +281,30 @@ export function createSafeUpload({
                 }).metadata();
               } catch {
                 throw uploadError("الصورة تالفة أو غير مدعومة.");
+              }
+              if (
+                maxImageHeightToWidthRatio
+                && shouldCheckImageAspectRatio(file, req)
+                && imageMetadata.width > 0
+                && imageMetadata.height > 0
+              ) {
+                const orientedWidth = imageMetadata.orientation >= 5 && imageMetadata.orientation <= 8
+                  ? imageMetadata.height
+                  : imageMetadata.width;
+                const orientedHeight = imageMetadata.orientation >= 5 && imageMetadata.orientation <= 8
+                  ? imageMetadata.width
+                  : imageMetadata.height;
+                if (orientedHeight / orientedWidth > maxImageHeightToWidthRatio) {
+                  throw uploadError(
+                    `الصورة رقم ${fileIndex + 1} طويلة جدًا. يرجى قصها أو حذفها ثم إعادة المحاولة.`,
+                    422,
+                    {
+                      code: AD_IMAGE_TOO_TALL_CODE,
+                      imageIndex: fileIndex + 1,
+                      reason: "portrait_aspect_ratio_exceeded"
+                    }
+                  );
+                }
               }
             }
             const extension = mode === "pdf"
@@ -435,12 +464,48 @@ export const processImage = async (filePath, type = "ads") => {
 const imageOnlyMode = () => "image";
 const imageOrPdfMode = () => "image-or-pdf";
 
+export function createAdImageUpload(options = {}) {
+  const uploader = createSafeUpload({
+    ...options,
+    destinationForFile: options.destinationForFile || (() => uploadDir),
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 10,
+      ...options.limits
+    },
+    modeForFile: imageOnlyMode,
+    publicImageVariants: true,
+    maxImageHeightToWidthRatio: MAX_AD_IMAGE_HEIGHT_TO_WIDTH_RATIO,
+    shouldCheckImageAspectRatio: (_file, req) => req.body?.storeProduct !== "true"
+      && req.body?.storeProduct !== true
+  });
+
+  return {
+    array(fieldName, maxCount) {
+      const upload = uploader.array(fieldName, maxCount);
+      return (req, res, next) => upload(req, res, (error) => {
+        if (error?.code === AD_IMAGE_TOO_TALL_CODE) {
+          return res.status(422).json({
+            error: error.message,
+            code: error.code,
+            reason: error.reason,
+            imageIndex: error.imageIndex
+          });
+        }
+        return next(error);
+      });
+    }
+  };
+}
+
 export const uploadImages = createSafeUpload({
   destinationForFile: () => uploadDir,
   limits: { fileSize: 5 * 1024 * 1024, files: 10 },
   modeForFile: imageOnlyMode,
   publicImageVariants: true
 });
+
+export const uploadAdImages = createAdImageUpload();
 
 export const uploadMessageImages = createSafeUpload({
   destinationForFile: () => privateMessageUploadsDirectory,

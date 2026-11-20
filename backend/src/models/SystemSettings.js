@@ -12,6 +12,10 @@ const SystemSettingsSchema = new mongoose.Schema(
       enum: ["manual", "auto"],
       default: "manual"
     },
+    requirePhoneVerificationForAds: {
+      type: Boolean,
+      default: true
+    },
     adReviewDelayMinutes: {
       type: Number,
       enum: [0, 5, 10, 15, -1], // -1 for random (5, 10, or 15)

@@ -27,6 +27,7 @@ const validTarget = {
 function approvedSettingsFixture() {
   return {
     adReviewMode: "manual",
+    requirePhoneVerificationForAds: true,
     adReviewDelayMinutes: 0,
     prohibitedKeywords: ["owner-approved-policy"],
     withdrawalIdentityThresholdUsd: 250,
@@ -635,6 +636,7 @@ test("approved settings require explicit owner decisions for commercial values",
   const settings = validateApprovedSystemSettings(input);
 
   assert.equal(settings.singletonKey, "global");
+  assert.equal(settings.requirePhoneVerificationForAds, true);
   assert.equal(settings.brokerageEnabled, false);
   assert.equal(settings.referralProgram.programEnabled, false);
   assert.equal(settings.welcomePromotion.enabled, false);
@@ -648,6 +650,21 @@ test("approved settings require explicit owner decisions for commercial values",
   const missingReferralChoice = approvedSettingsFixture();
   delete missingReferralChoice.brokerageEnabled;
   assert.throws(() => validateApprovedSystemSettings(missingReferralChoice), /brokerageEnabled/);
+
+  const missingPhoneVerificationChoice = approvedSettingsFixture();
+  delete missingPhoneVerificationChoice.requirePhoneVerificationForAds;
+  assert.equal(validateApprovedSystemSettings(missingPhoneVerificationChoice).requirePhoneVerificationForAds, true);
+
+  const disabledPhoneVerification = approvedSettingsFixture();
+  disabledPhoneVerification.requirePhoneVerificationForAds = false;
+  assert.equal(validateApprovedSystemSettings(disabledPhoneVerification).requirePhoneVerificationForAds, false);
+
+  const invalidPhoneVerificationChoice = approvedSettingsFixture();
+  invalidPhoneVerificationChoice.requirePhoneVerificationForAds = "false";
+  assert.throws(
+    () => validateApprovedSystemSettings(invalidPhoneVerificationChoice),
+    /requirePhoneVerificationForAds must be a boolean/
+  );
 });
 
 test("system-settings initializer validates target and approval before database operations", async () => {

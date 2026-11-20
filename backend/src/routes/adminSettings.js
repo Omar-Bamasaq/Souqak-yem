@@ -9,6 +9,16 @@ import { validateBody } from "../middleware/validate.js";
 
 const router = Router();
 
+function requireMainAdminForPhoneVerificationSetting(req, res, next) {
+  if (
+    req.body.requirePhoneVerificationForAds !== undefined
+    && req.user?.role !== "admin"
+  ) {
+    return res.status(403).json({ error: "تغيير اشتراط توثيق الهاتف متاح للمدير فقط." });
+  }
+  next();
+}
+
 // Get public settings (withdrawal threshold, exchange rates, brokerage status) - Public access
 router.get("/public", async (req, res) => {
   try {
@@ -55,6 +65,7 @@ router.patch(
   validateBody(
     Joi.object({
       adReviewMode: Joi.string().valid("manual", "auto").optional(),
+      requirePhoneVerificationForAds: Joi.boolean().optional(),
       adReviewDelayMinutes: Joi.number().valid(0, 5, 10, 15, -1).optional(),
       prohibitedKeywords: Joi.array().items(Joi.string()).optional(),
       withdrawalIdentityThresholdUsd: Joi.number().min(0).optional(),
@@ -100,10 +111,12 @@ router.patch(
       }).optional()
     })
   ),
+  requireMainAdminForPhoneVerificationSetting,
   async (req, res) => {
     try {
       const { 
         adReviewMode, 
+        requirePhoneVerificationForAds,
         adReviewDelayMinutes, 
         prohibitedKeywords,
         withdrawalIdentityThresholdUsd,
@@ -123,6 +136,9 @@ router.patch(
       };
       
       if (adReviewMode) updateData.adReviewMode = adReviewMode;
+      if (requirePhoneVerificationForAds !== undefined) {
+        updateData.requirePhoneVerificationForAds = requirePhoneVerificationForAds;
+      }
       if (adReviewDelayMinutes !== undefined) updateData.adReviewDelayMinutes = adReviewDelayMinutes;
       if (prohibitedKeywords) updateData.prohibitedKeywords = prohibitedKeywords;
       if (withdrawalIdentityThresholdUsd !== undefined) updateData.withdrawalIdentityThresholdUsd = withdrawalIdentityThresholdUsd;

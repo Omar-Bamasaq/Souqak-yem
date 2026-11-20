@@ -10,7 +10,7 @@ import AdReport from "../models/AdReport.js";
 import auth from "../middleware/auth.js";
 import requirePhoneVerification from "../middleware/requirePhoneVerification.js";
 import { requireRole } from "../middleware/roles.js";
-import { uploadImages } from "../middleware/upload.js";
+import { uploadAdImages } from "../middleware/upload.js";
 import City from "../models/City.js";
 import fs from "fs";
 import path from "path";
@@ -514,7 +514,7 @@ router.patch(
   auth,
   requireRole(["seller", "user"]),
   protectSensitiveFields,
-  uploadImages.array("images", 10),
+  uploadAdImages.array("images", 10),
   processImages(),
   validateProcessedImages,
   validateParams(Joi.object({ id: Joi.string().length(24).hex().required() })),
@@ -1579,7 +1579,7 @@ router.post(
   requireRole(["seller", "user"]),
   requirePhoneVerification,
   createAdRateLimit,
-  uploadImages.array("images", 10),
+  uploadAdImages.array("images", 10),
   processImages(),
   validateProcessedImages,
   parseJsonAttributes,

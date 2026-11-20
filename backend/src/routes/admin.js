@@ -43,7 +43,7 @@ import { logActivity } from "../services/activityLogService.js";
 import ReferralEngine from "../engines/ReferralEngine.js";
 
 import processImages, { validateProcessedImages } from "../middleware/processImages.js";
-import { uploadImages } from "../middleware/upload.js";
+import { uploadAdImages, uploadImages } from "../middleware/upload.js";
 import City from "../models/City.js";
 import ListingService from "../services/listingService.js";
 
@@ -702,7 +702,7 @@ router.delete("/products/:id", async (req, res) => {
 
 router.post(
   "/managed-sellers/ads",
-  uploadImages.array("images", 10),
+  uploadAdImages.array("images", 10),
   processImages(),
   validateProcessedImages,
   async (req, res) => {

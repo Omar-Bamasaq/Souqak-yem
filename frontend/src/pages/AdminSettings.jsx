@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "../api/axios.js";
+import { useAuth } from "../store/AuthContext.jsx";
+import {
+  getConfirmedPhoneVerificationSetting,
+  getPhoneVerificationSettingUpdate,
+  getUnknownPhoneVerificationSetting
+} from "../utils/adminPhoneVerificationSetting.js";
 
 const EXCHANGE_RATE_CURRENCIES = [
   { code: "SAR", label: "الريال السعودي" },
@@ -9,8 +15,10 @@ const EXCHANGE_RATE_CURRENCIES = [
 
 export default function AdminSettings() {
   const api = useApi();
+  const { user } = useAuth();
   const [settings, setSettings] = useState({
     adReviewMode: "manual",
+    requirePhoneVerificationForAds: true,
     adReviewDelayMinutes: 0,
     prohibitedKeywords: [],
     exchangeRatePairs: {
@@ -21,6 +29,11 @@ export default function AdminSettings() {
   });
   const [newKeyword, setNewKeyword] = useState("");
   const [loading, setLoading] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsLoadError, setSettingsLoadError] = useState("");
+  const [phoneVerificationSetting, setPhoneVerificationSetting] = useState(
+    getUnknownPhoneVerificationSetting
+  );
   const [saving, setSaving] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetCode, setResetCode] = useState("");
@@ -28,11 +41,17 @@ export default function AdminSettings() {
 
   const load = async () => {
     setLoading(true);
+    setSettingsLoaded(false);
+    setSettingsLoadError("");
+    setPhoneVerificationSetting(getUnknownPhoneVerificationSetting());
     try {
       const res = await api.get("/admin/settings");
       setSettings(res.data);
+      setPhoneVerificationSetting(getConfirmedPhoneVerificationSetting(res.data));
+      setSettingsLoaded(true);
     } catch (error) {
       console.error("Failed to load admin settings:", error);
+      setSettingsLoadError("تعذر تحميل الإعدادات. لم تُعرض القيم للتحرير؛ أعد المحاولة.");
       toast(error.response?.data?.details || error.response?.data?.error || "تعذر تحميل الإعدادات", "error");
     } finally {
       setLoading(false);
@@ -48,6 +67,19 @@ export default function AdminSettings() {
   };
 
   const handleSave = async () => {
+    if (!settingsLoaded) return;
+
+    const phoneVerificationUpdate = getPhoneVerificationSettingUpdate(
+      phoneVerificationSetting,
+      user?.role
+    );
+    if (phoneVerificationUpdate === null) {
+      setSettingsLoaded(false);
+      setPhoneVerificationSetting(getUnknownPhoneVerificationSetting());
+      setSettingsLoadError("تعذر تأكيد حالة الإعدادات. أعد تحميلها قبل الحفظ.");
+      return;
+    }
+
     const pairs = settings.exchangeRatePairs || {};
     const invalidCurrency = EXCHANGE_RATE_CURRENCIES.find(({ code }) => (
       ["buy", "sell"].some((side) => (
@@ -64,6 +96,8 @@ export default function AdminSettings() {
       // Only send the necessary fields, not the entire document (including _id, __v, etc.)
       const { _id, __v, createdAt, updatedAt, updatedBy, ...dataToSave } = settings;
       delete dataToSave.exchangeRates;
+      delete dataToSave.requirePhoneVerificationForAds;
+      Object.assign(dataToSave, phoneVerificationUpdate);
       dataToSave.exchangeRatePairs = Object.fromEntries(
         EXCHANGE_RATE_CURRENCIES.map(({ code }) => [code, {
           buy: Number(pairs[code].buy),
@@ -72,8 +106,12 @@ export default function AdminSettings() {
       );
       const response = await api.patch("/admin/settings", dataToSave);
       setSettings(response.data);
+      setPhoneVerificationSetting(getConfirmedPhoneVerificationSetting(response.data));
       toast("تم حفظ الإعدادات بنجاح", "success");
     } catch (error) {
+      setSettingsLoaded(false);
+      setPhoneVerificationSetting(getUnknownPhoneVerificationSetting());
+      setSettingsLoadError("تعذر تأكيد نتيجة الحفظ؛ قد يكون الخادم حفظ التغييرات. أعد تحميل الإعدادات للتحقق.");
       toast(error.response?.data?.details || error.response?.data?.error || "تعذر حفظ الإعدادات", "error");
     } finally {
       setSaving(false);
@@ -124,6 +162,23 @@ export default function AdminSettings() {
     );
   }
 
+  if (!settingsLoaded) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10">
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800">
+          <p className="font-bold">{settingsLoadError || "تعذر تأكيد حالة الإعدادات."}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-4 rounded-xl bg-red-700 px-5 py-2.5 font-bold text-white hover:bg-red-800"
+          >
+            إعادة تحميل الإعدادات
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-0 py-6">
       {/* Header Section */}
@@ -149,6 +204,27 @@ export default function AdminSettings() {
       </div>
 
       <div className="grid gap-6">
+        {user?.role === "admin" && (
+          <label className="flex cursor-pointer items-start justify-between gap-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">اشتراط توثيق الهاتف لنشر الإعلانات</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-500">
+                عند الإيقاف يمكن نشر الإعلانات ومنتجات المتاجر والأسر المنتجة دون توثيق الهاتف؛ وتبقى بقية الضوابط كما هي.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              aria-label="اشتراط توثيق الهاتف لنشر الإعلانات"
+              checked={phoneVerificationSetting.draftValue}
+              onChange={(event) => setPhoneVerificationSetting((current) => ({
+                ...current,
+                draftValue: event.target.checked
+              }))}
+              className="mt-1 h-5 w-5 shrink-0 accent-blue-600"
+            />
+          </label>
+        )}
+
         {/* Ad Review Mode */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
