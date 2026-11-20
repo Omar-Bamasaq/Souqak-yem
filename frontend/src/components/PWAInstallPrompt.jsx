@@ -10,6 +10,7 @@ import {
   createStorePwaInstallGuideController,
   dismissStorePwaInstallGuide,
   hasStorePwaInstallAttempt,
+  shouldRequestStorePwaInstallGuide,
   shouldShowStorePwaInstallGuide
 } from "../utils/storePwaInstallGuide.js";
 
@@ -126,7 +127,13 @@ export default function PWAInstallPrompt({ store, apiBase }) {
     if (!isAndroidStorePwaGuide || !installTarget) return;
     if (!hasStorePwaInstallAttempt(location.search)) return;
     const params = new URLSearchParams(location.search);
+    if (shouldRequestStorePwaInstallGuide(location.search)) {
+      window.dispatchEvent(new CustomEvent("pwa:store-install-request", {
+        detail: { target: installTarget, source: "market-install" }
+      }));
+    }
     params.delete("pwaInstallAttempt");
+    params.delete("pwaInstallGuided");
     navigate({
       pathname: location.pathname,
       search: params.toString() ? `?${params.toString()}` : "",
