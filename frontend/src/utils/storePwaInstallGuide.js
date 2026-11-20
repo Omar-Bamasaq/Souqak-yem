@@ -3,6 +3,29 @@ export const STORE_PWA_INSTALL_GUIDE_DISMISSAL_MS = 7 * 24 * 60 * 60 * 1_000;
 
 const STORE_TYPES_WITH_PWA = new Set(["store", "family-production"]);
 
+export function getStorePwaInstallGuidePlatform({
+  userAgent = "",
+  platform = "",
+  maxTouchPoints = 0
+} = {}) {
+  if (/Android/i.test(userAgent)) return "android";
+  if (/iPhone|iPad|iPod/i.test(userAgent)
+    || (platform === "MacIntel" && maxTouchPoints > 1)) return "iphone";
+  return "android";
+}
+
+export function hasStorePwaInstallAttempt(search = "") {
+  return new URLSearchParams(search).get("pwaInstallAttempt") === "1";
+}
+
+export function continueStorePwaInstallNavigation(url, target, targetWindow = window) {
+  if (target === "_blank") {
+    targetWindow.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  targetWindow.location.assign(url);
+}
+
 export function canShowStorePwaInstallGuide({
   isAndroid,
   storeId,

@@ -3,11 +3,16 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
+import StorePwaInstallGuideModal from "../components/StorePwaInstallGuideModal.jsx";
 import StoreTemplateRenderer from "../components/StoreTemplateRenderer.jsx";
 import PWAInstallPrompt from "../components/PWAInstallPrompt.jsx";
 import SEO from "../components/SEO.jsx";
 import { canInstallPWA, installPWA, isStandalonePWA } from "../utils/pwaInstall.js";
 import { buildStorePwaAppUrl, buildStorePwaLaunchUrl, getStorePwaInstallInstructions } from "../utils/storePwa.js";
+import {
+  continueStorePwaInstallNavigation,
+  getStorePwaInstallGuidePlatform
+} from "../utils/storePwaInstallGuide.js";
 import { GENERAL_STORE_TEMPLATE } from "../utils/storeTemplates.js";
 import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
 import { getStorePwaInstallationId } from "../utils/storePwaInstallTracking.js";
@@ -58,6 +63,28 @@ function getSocialLabel(platform) {
   }[platform.toLowerCase()] || "رابط تواصل";
 }
 
+function StorePwaDownloadIcon() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
+    </svg>
+  );
+}
+
+function StorePwaInstallHelpButton({ onClick, compact = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="مساعدة تنزيل تطبيق المتجر"
+      title="مساعدة تنزيل التطبيق"
+      className={`flex ${compact ? "h-9 w-9" : "h-10 w-10"} shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-black text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200`}
+    >
+      ؟
+    </button>
+  );
+}
+
 export default function Storefront() {
   const { slug: routeSlug } = useParams();
   const storePwaAppContext = typeof window !== "undefined" ? window.__SOUQAK_STORE_PWA_APP__ : null;
@@ -76,7 +103,7 @@ export default function Storefront() {
   const [storeSearch, setStoreSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [installFallbackMessage, setInstallFallbackMessage] = useState("");
-  const [nativeInstallAvailable, setNativeInstallAvailable] = useState(false);
+  const [installGuide, setInstallGuide] = useState(null);
   const [preparedHandoff, setPreparedHandoff] = useState(null);
   const [handoffPreparingStoreId, setHandoffPreparingStoreId] = useState(null);
   const [handoffFailedStoreId, setHandoffFailedStoreId] = useState(null);
@@ -238,6 +265,12 @@ export default function Storefront() {
   const isDedicatedStorePwa = Boolean(storePwaAppContext?.storeId)
     && storePwaAppContext.storeId === String(store?._id);
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  const installGuidePlatform = getStorePwaInstallGuidePlatform({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    maxTouchPoints: navigator.maxTouchPoints
+  });
+  const isMobileInstallGuidePlatform = isAndroid || installGuidePlatform === "iphone";
 
   useEffect(() => {
     if (authLoading || !storeId || !userId) return undefined;
@@ -258,24 +291,6 @@ export default function Storefront() {
       });
     return () => { active = false; };
   }, [api, authLoading, store?.storeType, storeId, userId]);
-
-  useEffect(() => {
-    setNativeInstallAvailable(Boolean(installTarget && canInstallPWA(installTarget)));
-    const handleInstallAvailability = (event) => {
-      if (event.detail?.target === installTarget) {
-        setNativeInstallAvailable(Boolean(installTarget && canInstallPWA(installTarget)));
-      }
-    };
-    const handleInstalled = (event) => {
-      if (event.detail?.target === installTarget) setNativeInstallAvailable(false);
-    };
-    window.addEventListener("pwa:can-install", handleInstallAvailability);
-    window.addEventListener("pwa:installed", handleInstalled);
-    return () => {
-      window.removeEventListener("pwa:can-install", handleInstallAvailability);
-      window.removeEventListener("pwa:installed", handleInstalled);
-    };
-  }, [installTarget]);
 
   const storePwaOrigin = import.meta.env.VITE_STORE_PWA_ORIGIN || "https://apps.souqak-yem.com";
   const storeAppUrl = store?._id ? buildStorePwaAppUrl(store._id, storePwaOrigin) : "";
@@ -547,6 +562,34 @@ export default function Storefront() {
     }));
   };
 
+  const openInstallGuide = (navigation = null) => {
+    setInstallGuide({ platform: installGuidePlatform, navigation });
+  };
+
+  const closeInstallGuide = () => setInstallGuide(null);
+
+  const handleExternalStorePwaClick = (event, href, target) => {
+    if (canInstallPWA(installTarget)) {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent("pwa:store-install-started", {
+        detail: { target: installTarget }
+      }));
+      void installPWA(installTarget);
+      return;
+    }
+
+    if (!isMobileInstallGuidePlatform) return;
+    event.preventDefault();
+    openInstallGuide({ href, target });
+  };
+
+  const continueStorePwaInstall = () => {
+    const navigation = installGuide?.navigation;
+    if (!navigation) return;
+    setInstallGuide(null);
+    continueStorePwaInstallNavigation(navigation.href, navigation.target);
+  };
+
   const handlePrepareStorePwa = () => {
     if (!store?._id || authLoading || handoffIsPreparing) return;
     void prepareStorePwaHandoff(store._id);
@@ -565,6 +608,13 @@ export default function Storefront() {
       } : undefined}
     >
       <PWAInstallPrompt store={store} apiBase={api.defaults.baseURL} />
+      {installGuide && (
+        <StorePwaInstallGuideModal
+          initialPlatform={installGuide.platform}
+          onClose={closeInstallGuide}
+          onContinue={installGuide.navigation ? continueStorePwaInstall : undefined}
+        />
+      )}
       <SEO
         title={store.storeName}
         description={store.description || `${store.storeName}، ${store.businessActivity}`}
@@ -629,45 +679,57 @@ export default function Storefront() {
                   {storeNotificationSubscription?.enabled && <span aria-hidden="true" className="absolute -left-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-emerald-600 text-[10px] font-black text-white">✓</span>}
                 </button>
               )}
-              {store.pwaEnabled && (
-                isDedicatedStorePwa
-                  ? !isStandalonePWA() && (
+              {store.pwaEnabled && (!isDedicatedStorePwa || !isStandalonePWA()) && (
+                <div className="flex items-center gap-2">
+                  {isDedicatedStorePwa ? (
                     <button
                       type="button"
                       onClick={handleInstallClick}
-                      aria-label={isAndroid && !nativeInstallAvailable ? "طريقة تثبيت التطبيق" : "تثبيت التطبيق"}
-                      title={isAndroid && !nativeInstallAvailable ? "طريقة تثبيت التطبيق" : "تثبيت التطبيق"}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100"
+                      aria-label="تنزيل التطبيق"
+                      title="تنزيل التطبيق"
+                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition-colors hover:bg-blue-100"
                     >
-                      <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
-                      </svg>
+                      <StorePwaDownloadIcon />
+                      <span>تنزيل التطبيق</span>
                     </button>
-                  )
-                  : isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
-                    ? (
-                      <a href={storeAppLaunchUrl} aria-label="تثبيت التطبيق" title="تثبيت التطبيق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100">
-                        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                      </a>
-                    )
-                    : !isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
-                      ? (
-                        <a href={storeAppUrl} target="_blank" rel="noopener noreferrer" aria-label="تثبيت التطبيق" title="تثبيت التطبيق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100">
-                          <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                        </a>
-                      )
-                      : (
-                        <button
-                          type="button"
-                          disabled={authLoading || handoffIsPreparing}
-                          onClick={handlePrepareStorePwa}
-                          aria-label={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز التطبيق" : "تجهيز فتح التطبيق"}
-                          title={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز التطبيق" : "تجهيز فتح التطبيق"}
-                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
-                        >
-                          <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                        </button>
-                      )
+                  ) : isAndroid && !authLoading && (!user || preparedHandoffIsCurrent) ? (
+                    <a
+                      href={storeAppLaunchUrl}
+                      onClick={(event) => handleExternalStorePwaClick(event, storeAppLaunchUrl, "_self")}
+                      aria-label="تنزيل التطبيق"
+                      title="تنزيل التطبيق"
+                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition-colors hover:bg-blue-100"
+                    >
+                      <StorePwaDownloadIcon />
+                      <span>تنزيل التطبيق</span>
+                    </a>
+                  ) : !isAndroid && !authLoading && (!user || preparedHandoffIsCurrent) ? (
+                    <a
+                      href={storeAppUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => handleExternalStorePwaClick(event, storeAppUrl, "_blank")}
+                      aria-label="تنزيل التطبيق"
+                      title="تنزيل التطبيق"
+                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 transition-colors hover:bg-blue-100"
+                    >
+                      <StorePwaDownloadIcon />
+                      <span>تنزيل التطبيق</span>
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={authLoading || handoffIsPreparing}
+                      onClick={handlePrepareStorePwa}
+                      aria-label={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز التطبيق" : "تجهيز فتح التطبيق"}
+                      title={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز التطبيق" : "تجهيز فتح التطبيق"}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <StorePwaDownloadIcon />
+                    </button>
+                  )}
+                  <StorePwaInstallHelpButton compact onClick={() => openInstallGuide()} />
+                </div>
               )}
               {storeNotificationError && <p role="alert" className="w-full text-xs font-bold text-rose-700">{storeNotificationError}</p>}
               {installFallbackMessage && <p role="status" className="w-full text-xs leading-5 text-slate-600">{installFallbackMessage}</p>}
@@ -763,25 +825,39 @@ export default function Storefront() {
               {store.pwaEnabled && (
                 <div className="mt-2 hidden flex-wrap justify-center gap-2 sm:flex sm:basis-full">
                   {isDedicatedStorePwa
-                    ? !isStandalonePWA() && <button type="button" onClick={handleInstallClick} className="min-h-11 w-full max-w-48 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">{isAndroid && !nativeInstallAvailable ? "طريقة التثبيت" : "تثبيت التطبيق"}</button>
+                    ? !isStandalonePWA() && (
+                      <div className="flex items-center justify-center gap-2">
+                        <button type="button" onClick={handleInstallClick} aria-label="تنزيل التطبيق" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
+                          <StorePwaDownloadIcon />
+                          تنزيل التطبيق
+                        </button>
+                        <StorePwaInstallHelpButton onClick={() => openInstallGuide()} />
+                      </div>
+                    )
                     : isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
                       ? <a
                         href={storeAppLaunchUrl}
-                        className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
-                      >تثبيت التطبيق</a>
+                        onClick={(event) => handleExternalStorePwaClick(event, storeAppLaunchUrl, "_self")}
+                        aria-label="تنزيل التطبيق"
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                      ><StorePwaDownloadIcon />تنزيل التطبيق</a>
                       : !isAndroid && !authLoading && (!user || preparedHandoffIsCurrent)
                         ? <a
                           href={storeAppUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
-                        >تثبيت التطبيق</a>
+                          onClick={(event) => handleExternalStorePwaClick(event, storeAppUrl, "_blank")}
+                          aria-label="تنزيل التطبيق"
+                          className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                        ><StorePwaDownloadIcon />تنزيل التطبيق</a>
                         : <button
                           type="button"
                           disabled={authLoading || handoffIsPreparing}
                           onClick={handlePrepareStorePwa}
+                          aria-label={authLoading ? "جارٍ التحقق من الدخول" : handoffIsPreparing ? "جارٍ تجهيز جلسة الدخول..." : "تجهيز فتح التطبيق"}
                           className="flex min-h-11 w-full max-w-48 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
                         >{authLoading ? "جارٍ التحقق من الدخول..." : handoffIsPreparing ? "جارٍ تجهيز جلسة الدخول..." : "تجهيز فتح التطبيق"}</button>}
+                  {!isDedicatedStorePwa && <StorePwaInstallHelpButton onClick={() => openInstallGuide()} />}
                   {installFallbackMessage && (
                     <>
                       <p role="status" className="w-full text-center text-xs leading-5 text-slate-600">{installFallbackMessage}</p>
@@ -798,6 +874,7 @@ export default function Storefront() {
                       {isAndroid && !isDedicatedStorePwa && handoffFailed && (
                         <a
                           href={storeAppLaunchUrl}
+                          onClick={(event) => handleExternalStorePwaClick(event, storeAppLaunchUrl, "_self")}
                           className="text-center text-xs font-bold text-blue-700 underline"
                         >المتابعة إلى Chrome بدون نقل الجلسة</a>
                       )}

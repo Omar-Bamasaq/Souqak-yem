@@ -99,6 +99,7 @@ test("storefront delegates installation to the dedicated app without mutating th
   const root = process.cwd();
   const storefront = fs.readFileSync(path.join(root, "src", "pages", "Storefront.jsx"), "utf8");
   const installPrompt = fs.readFileSync(path.join(root, "src", "components", "PWAInstallPrompt.jsx"), "utf8");
+  const installGuide = fs.readFileSync(path.join(root, "src", "components", "StorePwaInstallGuideModal.jsx"), "utf8");
   const main = fs.readFileSync(path.join(root, "src", "main.jsx"), "utf8");
   const globalManifest = JSON.parse(fs.readFileSync(path.join(root, "public", "manifest.json"), "utf8"));
   const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -108,13 +109,13 @@ test("storefront delegates installation to the dedicated app without mutating th
   assert.match(storefront, /href=\{storeAppLaunchUrl\}/);
   assert.match(storefront, /pwa:store-install-request/);
   assert.match(storefront, /installAttempt:\s*true/);
-  assert.match(storefront, /"طريقة التثبيت"/);
+  assert.match(storefront, /handleInstallClick/);
+  assert.match(storefront, /continueStorePwaInstallNavigation/);
   assert.match(installPrompt, /canShowStorePwaInstallGuide/);
-  assert.match(installPrompt, /params\.get\("pwaInstallAttempt"\)/);
-  assert.match(installPrompt, /source:\s*"market-install"/);
+  assert.match(installPrompt, /hasStorePwaInstallAttempt\(location\.search\)/);
   assert.match(installPrompt, /source === "method-button"/);
-  assert.match(installPrompt, /ثبّت تطبيق المتجر/);
-  assert.match(installPrompt, /اختر «فتح في Chrome»/);
+  assert.match(installPrompt, /StorePwaInstallGuideModal/);
+  assert.match(installGuide, /اختر فتح في Chrome/);
   assert.doesNotMatch(storefront, /window\.open\("about:blank"/);
   assert.match(storefront, /store:\$\{data\.store\._id\}/);
   assert.match(storefront, /storePwaAppContext\?\.slug/);
