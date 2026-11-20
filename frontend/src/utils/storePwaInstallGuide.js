@@ -18,12 +18,43 @@ export function hasStorePwaInstallAttempt(search = "") {
   return new URLSearchParams(search).get("pwaInstallAttempt") === "1";
 }
 
+export function shouldRequestStorePwaInstallGuide(search = "") {
+  const params = new URLSearchParams(search);
+  return params.get("pwaInstallAttempt") === "1"
+    && params.get("pwaInstallGuided") !== "1";
+}
+
+function markStorePwaInstallGuidanceShown(url) {
+  const parsedUrl = new URL(url);
+  if (parsedUrl.searchParams.get("pwaInstallAttempt") !== "1") return url;
+  parsedUrl.searchParams.set("pwaInstallGuided", "1");
+  return parsedUrl.href;
+}
+
+function markIntentAndFallbackGuided(url) {
+  const intentMarker = "#Intent;";
+  const markerIndex = url.indexOf(intentMarker);
+  if (markerIndex === -1) return markStorePwaInstallGuidanceShown(url);
+
+  const intentTarget = markStorePwaInstallGuidanceShown(url.slice(0, markerIndex));
+  const intentOptions = url.slice(markerIndex + intentMarker.length).split(";");
+  const fallbackPrefix = "S.browser_fallback_url=";
+  const fallbackIndex = intentOptions.findIndex((option) => option.startsWith(fallbackPrefix));
+  if (fallbackIndex !== -1) {
+    const fallbackUrl = decodeURIComponent(intentOptions[fallbackIndex].slice(fallbackPrefix.length));
+    intentOptions[fallbackIndex] = `${fallbackPrefix}${encodeURIComponent(markStorePwaInstallGuidanceShown(fallbackUrl))}`;
+  }
+
+  return `${intentTarget}${intentMarker}${intentOptions.join(";")}`;
+}
+
 export function continueStorePwaInstallNavigation(url, target, targetWindow = window) {
+  const guidedUrl = markIntentAndFallbackGuided(url);
   if (target === "_blank") {
-    targetWindow.open(url, "_blank", "noopener,noreferrer");
+    targetWindow.open(guidedUrl, "_blank", "noopener,noreferrer");
     return;
   }
-  targetWindow.location.assign(url);
+  targetWindow.location.assign(guidedUrl);
 }
 
 export function canShowStorePwaInstallGuide({

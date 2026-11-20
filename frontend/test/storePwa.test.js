@@ -114,7 +114,9 @@ test("storefront delegates installation to the dedicated app without mutating th
   assert.match(installPrompt, /canShowStorePwaInstallGuide/);
   assert.match(installPrompt, /hasStorePwaInstallAttempt\(location\.search\)/);
   assert.match(installPrompt, /source === "method-button"/);
+  assert.match(installPrompt, /source:\s*"market-install"/);
   assert.match(installPrompt, /StorePwaInstallGuideModal/);
+  assert.match(installPrompt, /params\.delete\("pwaInstallGuided"\)/);
   assert.match(installGuide, /اختر فتح في Chrome/);
   assert.doesNotMatch(storefront, /window\.open\("about:blank"/);
   assert.match(storefront, /store:\$\{data\.store\._id\}/);
