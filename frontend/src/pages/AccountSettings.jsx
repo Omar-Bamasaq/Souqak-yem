@@ -477,11 +477,12 @@ export default function AccountSettings() {
             {/* Section: Social Media */}
             <div className="pt-6 border-t border-gray-100 dark:border-slate-800">
               <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 px-1">تابعنا على منصات التواصل</h2>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                 <a 
-                  href="https://www.facebook.com/share/1GGvSFnu8Q/"
+                  href="https://www.facebook.com/profile.php?id=61595141417781"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center p-4 rounded-3xl bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-900/30 transition-all active:scale-95 group"
+                  target="_blank"
                 >
                   <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center mb-2 shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -491,10 +492,25 @@ export default function AccountSettings() {
                   <span className="text-xs font-black text-blue-700 dark:text-blue-400">فيسبوك</span>
                 </a>
 
-                <a 
+                <a
+                  href="https://www.tiktok.com/@souqak.yem?is_from_webapp=1&sender_device=pc"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center p-4 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-200 dark:border-slate-700 transition-all active:scale-95 group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center mb-2 shadow-lg shadow-slate-500/20 group-hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.9 2.9 0 1 1-2.9-2.9c.19 0 .38.02.56.06V9.35a6.33 6.33 0 1 0 5.79 6.32V9.88a8.26 8.26 0 0 0 4.77 1.52V8.05a4.83 4.83 0 0 1-1-.36Z"/>
+                    </svg>
+                  </div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">تيك توك</span>
+                </a>
+
+                <a
                   href="https://www.instagram.com/souqak.ye?igsh=dWlpa215M2x1MWxz"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center p-4 rounded-3xl bg-rose-50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-900/30 transition-all active:scale-95 group"
+                  target="_blank"
                 >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 text-white flex items-center justify-center mb-2 shadow-lg shadow-rose-500/20 group-hover:scale-110 transition-transform">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -508,6 +524,7 @@ export default function AccountSettings() {
                   href="https://whatsapp.com/channel/0029VbDWxY0BlHplgBSNoc12"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-3xl bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-900/30 transition-all active:scale-95 group"
+                  target="_blank"
                 >
                   <div className="w-10 h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center mb-2 shadow-lg shadow-green-500/20 group-hover:scale-110 transition-transform">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

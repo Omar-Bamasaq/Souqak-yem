@@ -456,7 +456,8 @@ export default function SellerFeaturedAd() {
                       <span className="mt-1 block text-xs font-medium text-gray-500">
                         يُراجع الطلب وينفذ يدوياً من الإدارة؛ لا يوجد نشر آلي على منصات التواصل.
                         <span className="mt-1 flex flex-wrap gap-x-3">
-                          <a href="https://www.facebook.com/share/1GGvSFnu8Q/" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">فيسبوك سوقك</a>
+                          <a href="https://www.facebook.com/profile.php?id=61595141417781" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">فيسبوك سوقك</a>
+                          <a href="https://www.tiktok.com/@souqak.yem?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">تيك توك سوقك</a>
                           <a href="https://www.instagram.com/souqak.ye?igsh=dWlpa215M2x1MWxz" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">إنستغرام سوقك</a>
                           <a href="https://whatsapp.com/channel/0029VbDWxY0BlHplgBSNoc12" target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">قناة واتساب سوقك</a>
                         </span>
