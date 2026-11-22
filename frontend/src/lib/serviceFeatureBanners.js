@@ -65,7 +65,7 @@ export const SERVICE_FEATURE_BANNERS = [
   },
   {
     id: "wallet-services",
-    title: "خدمات الدفع الإلكتروني وتمام باي",
+    title: "الخدمات الرقمية وتمام باي",
     description: "تمام باي شريك مستقل لخدمات الدفع الإلكتروني؛ طلبات هذا الكتالوج لا تزال تستخدم طريقة الدفع الموضحة بكل طلب.",
     action: "تصفّح الخدمات",
     to: "/wallet-services",

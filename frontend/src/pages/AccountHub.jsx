@@ -132,7 +132,7 @@ export default function AccountHub() {
   const sellerItems = [
     { to: "/wallet", label: "المحفظة والشراء الآمن", icon: "wallet", color: "cyan" },
     { to: "/seller/subscriptions", label: "خدمات سوقك", icon: "sparkle", color: "emerald" },
-    { to: "/wallet-services", label: "خدمات الدفع الإلكتروني | تمام باي", icon: "wallet", color: "cyan" },
+    { to: "/wallet-services", label: "الخدمات الرقمية", icon: "wallet", color: "cyan" },
     { to: "/quote-requests", label: "تسعيرة سوقك", icon: "tag", color: "violet" },
     { to: "/referrals", label: "سفراء سوقك", icon: "people", color: "emerald" },
     { to: "/seller/featured-ad", label: "ترويج إعلان", icon: "sparkle", color: "orange" },
@@ -158,7 +158,7 @@ export default function AccountHub() {
       ...(stores.store.status === "rejected"
         ? [{ to: "/seller/store/create", label: "إعادة تقديم طلب المتجر", icon: "store", color: "rose" }]
         : [
-          { to: "/my-store", label: stores.store.status === "pending" ? "متابعة طلب المتجر" : "إدارة متجري", icon: "store", color: "blue" },
+          { to: "/my-store", label: stores.store.status === "pending" ? "متابعة طلب المتجر" : "إدارة وتجهيز متجري", icon: "store", color: "blue" },
           ...(stores.store.status === "active" && stores.store.subscriptionStatus === "active" && stores.store.slug ? [{ to: `/store/${stores.store.slug}`, label: "عرض متجري", icon: "store", color: "emerald" }] : []),
           ...(stores.store.status === "active" && stores.store.subscriptionStatus === "active" ? [{ to: "/my-store/orders", label: "طلبات متجري", icon: "wallet", color: "cyan" }] : [])
         ])
@@ -169,7 +169,7 @@ export default function AccountHub() {
       ...(stores.family.status === "rejected"
         ? [{ to: "/family-production/register", label: "إعادة تقديم طلب صناعات سوقك", icon: "home", color: "rose" }]
         : [
-          { to: "/my-family-production", label: stores.family.status === "pending" ? "متابعة طلب صناعات سوقك" : "إدارة مشروع الأسرة", icon: "home", color: "fuchsia" },
+          { to: "/my-family-production", label: stores.family.status === "pending" ? "متابعة طلب صناعات سوقك" : "إدارة وتجهيز مشروع الأسرة", icon: "home", color: "fuchsia" },
           ...(stores.family.status === "active" && stores.family.subscriptionStatus === "active" && stores.family.slug ? [{ to: `/store/${stores.family.slug}`, label: "عرض مشروع الأسرة", icon: "home", color: "emerald" }] : []),
           ...(stores.family.status === "active" && stores.family.subscriptionStatus === "active" ? [{ to: "/my-family-production/orders", label: "طلبات مشروع الأسرة", icon: "wallet", color: "cyan" }] : [])
         ])

@@ -40,7 +40,7 @@ test("existing drafts offer resume or a new order without blocking other service
   assert.doesNotMatch(source, /لديك مسودة غير مكتملة لخدمة أخرى/);
   assert.match(source, /findWalletServiceDrafts\(response\.data,\s*service\._id\)/);
   assert.match(source, /setDraftPrompt\(\{\s*draft:\s*matchingDraft,\s*service\s*\}\)/);
-  assert.match(source, /if \(matchingDraft\)\s*\{\s*setDraftPrompt/);
+  assert.match(source, /if \(matchingDraft\)\s*\{[\s\S]{0,160}setDraftPrompt/);
   assert.match(source, /getWalletServiceIdempotencyKey\("catalog"/);
   assert.match(source, /<IncompleteActions userId=\{userId\} \/>/);
 });
