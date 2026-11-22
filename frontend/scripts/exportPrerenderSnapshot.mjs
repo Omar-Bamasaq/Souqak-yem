@@ -6,6 +6,7 @@ import { isPublicAdIndexable } from '../src/lib/publicAdIndexing.js';
 import { resolveSiteBaseUrl } from '../src/lib/siteUrl.js';
 import { slugify } from './prerenderRoutes.mjs';
 import { validatePrerenderSnapshot, loadPrerenderSnapshot, PRERENDER_SNAPSHOT_SCHEMA_VERSION } from './validatePrerenderSnapshot.mjs';
+import { sanitizeSeoAdDescription } from '../src/lib/seoAdDescription.js';
 
 export const DEFAULT_MAX_AGE_MS = 86_400_000;
 const idPattern = /^[a-f\d]{24}$/i;
@@ -68,7 +69,10 @@ function inspectPublicData(value, mediaOrigins, fieldPath = 'snapshot', key = ''
   if (typeof value === 'string') {
     if (key === '_id') { id(value); return; }
     let decoded;
-    try { decoded = decodeURIComponent(value); } catch { throw new Error('Invalid encoded public text'); }
+    try { decoded = decodeURIComponent(value); } catch {
+      requireValue(!/%[a-f\d]{2}/i.test(value), 'Invalid encoded public text');
+      decoded = value;
+    }
     if (key === 'image' || key === 'images') {
       inspectImageLink(decoded, mediaOrigins);
     } else {
@@ -166,6 +170,7 @@ export async function createPrerenderSnapshot({
     requireValue(typeof raw.description === 'string', 'Missing ad description');
     if (raw.slug !== undefined && raw.slug !== null) segment(raw.slug);
     ad._id = key; ad.slug = segment(raw.slug || slugify(raw.title) || 'ad');
+    ad.description = sanitizeSeoAdDescription(raw.description);
     const adUrl = `/ad/${encodeURIComponent(key)}/${encodeURIComponent(ad.slug)}`;
     requireValue(!adUrls.has(adUrl), 'Duplicate public ad URL');
     adUrls.add(adUrl);

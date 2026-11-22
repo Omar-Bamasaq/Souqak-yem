@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { PublicSsgContent } from '../src/ssg/PublicSsgContent.mjs';
 import { createAdStructuredData, createBreadcrumbList } from '../src/lib/structuredData.js';
 import { resolveCanonicalUrl, resolveSiteUrl } from '../src/lib/siteUrl.js';
+import { sanitizeSeoAdDescription } from '../src/lib/seoAdDescription.js';
 import { runAtomicPrerender } from './prerenderBuild.mjs';
 import { generateFromPrerenderData } from './prerenderData.mjs';
 import {
@@ -365,7 +366,7 @@ const sanitizeAd = (ad) => {
     _id: String(ad._id),
     title: ad.title || '',
     slug: slugify(ad.slug || ad.title) || 'ad',
-    description: ad.description || '',
+    description: sanitizeSeoAdDescription(ad.description),
     images: Array.isArray(ad.images) ? ad.images.slice(0, 3).map(publicImage).filter(Boolean) : [],
     price: ad.price,
     priceOnContact: Boolean(ad.priceOnContact),

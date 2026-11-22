@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { createPrerenderSnapshot, exportPrerenderSnapshot, DEFAULT_MAX_AGE_MS } from '../scripts/exportPrerenderSnapshot.mjs';
 import { loadPrerenderSnapshot, validatePrerenderSnapshot } from '../scripts/validatePrerenderSnapshot.mjs';
 import { getPrerenderData } from '../scripts/prerenderData.mjs';
+import { SAFE_EMPTY_AD_DESCRIPTION, sanitizeSeoAdDescription } from '../src/lib/seoAdDescription.js';
 const execFileAsync=promisify(execFile), exporterPath=fileURLToPath(new URL('../scripts/exportPrerenderSnapshot.mjs',import.meta.url));
 const time = Date.parse('2026-11-11T10:00:00Z'), catId = 'a'.repeat(24);
 const category = { _id: catId, slug: 'cars', name: 'Cars', description: '', image: null, children: [] };
@@ -129,8 +130,6 @@ test('rejects private and traversal paths in ad image links',async t=>{
 test('sensitive-data errors identify the field and type without echoing its value',async t=>{
  const cases=[
   {field:'categories[0].description',value:'diagnostic-email-secret@example.org',mutate(u,d){if(u.pathname==='/api/categories/cars')d.description=this.value;return d;}},
-  {field:'ads[0].description',value:'+967 771234567',mutate(u,d){if(/\/ads\//.test(u.pathname))d.description=this.value;return d;}},
-  {field:'ads[0].description',value:'secret=diagnostic-token',mutate(u,d){if(/\/ads\//.test(u.pathname))d.description=this.value;return d;}}
  ];
  for(const item of cases) {
   const {options}=await mock(t,{ads:[ad()],mutate:item.mutate.bind(item)});
@@ -143,6 +142,54 @@ test('sensitive-data errors identify the field and type without echoing its valu
   });
  }
 });
+test('sanitizes synthetic ad descriptions for SEO without exposing sensitive values',()=> {
+ const cases=[
+  {value:'بيع سيارة. البريد هو owner@example.com',forbidden:['owner@example.com'],expected:/تم إزالة البريد/},
+  {value:'للتواصل واتساب 967771234567',forbidden:['967771234567'],expected:/تم إزالة رقم/},
+  {value:'رؤية التفاصيل على https://example.org/item',forbidden:['https://example.org/item'],expected:/تم إزالة رابط/},
+  {value:'الرابط https%253A%252F%252Fexample.org%252Fitem',forbidden:['example.org','%253A'],expected:/تم إزالة رابط/},
+  {value:'البريد owner&#64;example&#46;com',forbidden:['owner','example'],expected:/تم إزالة البريد/},
+  {value:'البريد owner&commat;example&period;com',forbidden:['owner','example'],expected:/تم إزالة البريد/},
+  {value:'الرابط https&colon;&sol;&sol;example&period;org/item',forbidden:['example.org'],expected:/تم إزالة رابط/},
+  {value:'الهاتف %2B967%20771234567',forbidden:['967','771234567'],expected:/تم إزالة رقم/},
+  {value:'token=diagnostic-secret',forbidden:['diagnostic-secret'],expected:new RegExp(SAFE_EMPTY_AD_DESCRIPTION.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))},
+  {value:'token%253Ddiagnostic-secret',forbidden:['diagnostic-secret','%253D'],expected:new RegExp(SAFE_EMPTY_AD_DESCRIPTION.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))},
+  {value:'الملف موجود في private%252Fdocuments%252Fpassport.jpg',forbidden:['private','passport'],expected:/الملف موجود في/},
+  {value:'سيارة موديل سامسونج A55 إصدار 2025 بسعر 125000 ريال',forbidden:[],expected:/سيارة موديل سامسونج A55 إصدار 2025 بسعر 125000 ريال/},
+  {value:'خصم 20% متوفر حتى نهاية الشهر',forbidden:[],expected:/خصم 20% متوفر حتى نهاية الشهر/},
+  {value:'967771234567',forbidden:['967771234567'],expected:new RegExp(SAFE_EMPTY_AD_DESCRIPTION.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))},
+  {value:'',forbidden:[],expected:new RegExp(SAFE_EMPTY_AD_DESCRIPTION.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))}
+ ];
+ for(const item of cases) {
+  const result=sanitizeSeoAdDescription(item.value);
+  assert.match(result,item.expected);
+  for(const forbidden of item.forbidden) assert.doesNotMatch(result,new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.equal(sanitizeSeoAdDescription(result),result);
+ }
+ const longDescription=sanitizeSeoAdDescription('م'.repeat(2200));
+ assert.equal(longDescription.length,2000);
+});
+test('sanitizes encoded sensitive data while preserving ordinary percentages in the exported snapshot',async t=>{
+ const original='سيارة بحالة ممتازة وخصم 20%: https%3A%2F%2Fexample.org%2Fitem، owner%40example.com، %2B967%20771234567، token%3Ddiagnostic-secret، private%2Fdocuments%2Fpassport.jpg';
+ const {options}=await mock(t,{ads:[{...ad(),description:original}]});
+ const snapshot=await createPrerenderSnapshot(options);
+ const serialized=JSON.stringify(snapshot);
+ for(const sensitive of ['example.org','owner%40example.com','771234567','diagnostic-secret','passport.jpg']) {
+  assert.equal(serialized.includes(sensitive),false);
+ }
+ assert.match(snapshot.ads[0].description,/سيارة بحالة ممتازة/);
+ assert.match(snapshot.ads[0].description,/خصم 20%/);
+ assert.equal(snapshot.categorySsgDataBySlug.cars.ads[0].description,snapshot.ads[0].description);
+});
+test('sanitized ad description is copied consistently into the snapshot',async t=>{
+ const original='السيارة بحالة جيدة، واتساب 967771234567، البريد owner@example.com';
+ const {options}=await mock(t,{ads:[{...ad(),description:original}]});
+ const snapshot=await createPrerenderSnapshot(options);
+ const sanitized=snapshot.ads[0].description;
+ assert.match(sanitized,/السيارة بحالة جيدة/);
+ assert.doesNotMatch(sanitized,/967771234567|owner@example\.com/i);
+ assert.equal(snapshot.categorySsgDataBySlug.cars.ads[0].description,sanitized);
+});
 for(const [name,mutate,pattern] of [
  ['missing categories',(u,d)=>u.pathname.endsWith('/main')?[]:d,/Expected/],
  ['missing children',(u,d)=>{if(u.pathname.endsWith('/cars'))delete d.children;return d;},/children/],
@@ -152,12 +199,10 @@ for(const [name,mutate,pattern] of [
  ['truncated page',(u,d)=>{if(u.pathname==='/api/ads')d.items=[];return d;},/truncated/],
  ['missing pagination',(u,d)=>{if(u.pathname==='/api/ads')delete d.total;return d;},/pagination/],
  ['category global mismatch',(u,d)=>u.searchParams.has('categoryId')?{...d,items:[],total:0,pages:0}:d,/disagree/],
- ['sensitive text',(u,d)=>{if(/\/ads\//.test(u.pathname))d.description='private@example.org';return d;},/Sensitive/],
  ['encoded private link',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['/uploads/%64ocuments/a.png'];return d;},/Unsafe/],
  ['signed image',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['https://api.souqak-yem.com/uploads/a.png?token=secret'];return d;},/Sensitive|Unsafe/],
  ['external image',(u,d)=>{if(/\/ads\//.test(u.pathname))d.images=['https://untrusted.example/a.png'];return d;},/Unsafe/],
  ['private category image',(u,d)=>{if(u.pathname.endsWith('/cars'))d.image='/uploads/private/a.png';return d;},/Unsafe/],
- ['text URL',(u,d)=>{if(/\/ads\//.test(u.pathname))d.description='https://example.org/secret';return d;},/Links/]
 ])test(`rejects ${name}`,async t=>{const {options}=await mock(t,{mutate});await assert.rejects(createPrerenderSnapshot(options),pattern);});
 for(const patch of [{status:'pending'},{isDeleted:true},{isVisible:false},{isArchived:true},{sold:true},{isSold:true},{isAvailable:false},{expiresAt:'2020-01-01'},{inventoryEnabled:true,stockQuantity:0}])test(`rejects nonindexable ${JSON.stringify(patch)}`,async t=>{const {options}=await mock(t,{ads:[{...ad(),...patch}]});await assert.rejects(createPrerenderSnapshot(options),/eligible/);});
 test('API failure publishes no output',async t=>{const {options}=await mock(t,{fail:true});const dir=await fs.mkdtemp(path.join(os.tmpdir(),'seo-failed-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));await assert.rejects(exportPrerenderSnapshot(path.join(dir,'bad.json'),options),/503/);assert.deepEqual(await fs.readdir(dir),[]);});
