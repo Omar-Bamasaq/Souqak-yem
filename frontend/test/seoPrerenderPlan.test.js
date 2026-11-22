@@ -220,6 +220,27 @@ test("prerender validation CLI checks complete output and rejects a missing site
   }
 });
 
+test("duplicate ad slugs still produce distinct sitemap URLs", () => {
+  const ads = [
+    { _id: "aaaaaaaaaaaaaaaaaaaaaaaa", title: "Same title", slug: "same-title", status: "approved", isVisible: true, isDeleted: false, isArchived: false, sold: false, expiresAt: "2099-01-01" },
+    { _id: "bbbbbbbbbbbbbbbbbbbbbbbb", title: "Same title", slug: "same-title", status: "approved", isVisible: true, isDeleted: false, isArchived: false, sold: false, expiresAt: "2099-01-01" }
+  ];
+  const plan = createPublicPrerenderPlan({
+    siteBase: "https://souqak-yem.com/",
+    ads
+  });
+  assert.equal(plan.adPages.length, 2);
+  assert.equal(plan.sitemapUrls.filter((url) => url.includes("/ad/")).length, 2);
+  assert.equal(new Set(plan.adPages.map((page) => page.url)).size, 2);
+  assert.deepEqual(
+    plan.adPages.map((page) => page.url).sort(),
+    [
+      "https://souqak-yem.com/ad/aaaaaaaaaaaaaaaaaaaaaaaa/same-title",
+      "https://souqak-yem.com/ad/bbbbbbbbbbbbbbbbbbbbbbbb/same-title"
+    ].sort()
+  );
+});
+
 test("sitemap URLs match category and ad pages with prerender data", () => {
   const categorySsgDataBySlug = new Map([
     ["cars", { category: { name: "Cars" }, ads: [] }]

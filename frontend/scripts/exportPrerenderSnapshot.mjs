@@ -154,16 +154,21 @@ export async function createPrerenderSnapshot({
     categorySsgDataBySlug[slug] = { category: detail, breadcrumbs, subcategories: detail.children, ads: [] };
   }
   const listing = await paginate();
-  const ads = [], adSlugs = new Set();
+  const ads = [], adIds = new Set(), adUrls = new Set();
   for (const entry of listing) {
     const key = id(entry._id);
+    requireValue(!adIds.has(key), 'Duplicate public ad id');
+    adIds.add(key);
     const raw = await get('/ads/' + key);
     requireValue(id(raw._id) === key && isPublicAdIndexable(raw, now()), 'Ad is not eligible for indexing or detail mismatched');
     requireValue(!(raw.inventoryEnabled === true && !(typeof raw.stockQuantity === 'number' && raw.stockQuantity > 0)), 'Ad inventory is not eligible for indexing');
     const ad = pick(raw, ['title', 'description', 'status', 'isDeleted', 'isVisible', 'isArchived', 'sold', 'isSold', 'expiresAt', 'adType', 'price', 'currency', 'priceOnContact', 'images', 'isAvailable', 'inventoryEnabled', 'stockQuantity']);
     requireValue(typeof raw.description === 'string', 'Missing ad description');
-    ad._id = key; ad.slug = segment(raw.slug || slugify(raw.title));
-    requireValue(!adSlugs.has(ad.slug), 'Duplicate public ad slug'); adSlugs.add(ad.slug);
+    if (raw.slug !== undefined && raw.slug !== null) segment(raw.slug);
+    ad._id = key; ad.slug = segment(raw.slug || slugify(raw.title) || 'ad');
+    const adUrl = `/ad/${encodeURIComponent(key)}/${encodeURIComponent(ad.slug)}`;
+    requireValue(!adUrls.has(adUrl), 'Duplicate public ad URL');
+    adUrls.add(adUrl);
     // Resolve a leaf category through the authoritative category tree; never
     // fabricate the root id from a populated parent that only contains a name.
     const leafId = id(raw.categoryId?._id);

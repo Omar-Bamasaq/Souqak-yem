@@ -8,7 +8,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createPrerenderSnapshot, exportPrerenderSnapshot, DEFAULT_MAX_AGE_MS } from '../scripts/exportPrerenderSnapshot.mjs';
-import { loadPrerenderSnapshot } from '../scripts/validatePrerenderSnapshot.mjs';
+import { loadPrerenderSnapshot, validatePrerenderSnapshot } from '../scripts/validatePrerenderSnapshot.mjs';
 import { getPrerenderData } from '../scripts/prerenderData.mjs';
 const execFileAsync=promisify(execFile), exporterPath=fileURLToPath(new URL('../scripts/exportPrerenderSnapshot.mjs',import.meta.url));
 const time = Date.parse('2026-11-11T10:00:00Z'), catId = 'a'.repeat(24);
@@ -169,10 +169,42 @@ test('default requires all 22 root categories',async t=>{
  const {options}=await mock(t,{ads:[]});delete options.expectedCategoryCount;
  await assert.rejects(createPrerenderSnapshot(options),/Expected 22/);
 });
-test('does not manufacture omitted descriptions or accept duplicate slugs',async t=>{
- for(const mode of ['description','slug']) {
+test('does not manufacture omitted descriptions',async t=>{
+ for(const mode of ['description']) {
   const {options}=await mock(t,{ads:[ad(1),ad(2)],mutate(u,d){if(/\/ads\//.test(u.pathname)){if(mode==='description')delete d.description;else d.slug='same';}return d;}});
-  await assert.rejects(createPrerenderSnapshot(options),/description|Duplicate public ad slug/);
+  await assert.rejects(createPrerenderSnapshot(options),/description/);
+ }
+});
+test('allows different ad ids to share a title-derived slug',async t=>{
+ const ads=[{...ad(1),slug:'same-title'},{...ad(2),slug:'same-title'}];
+ const {options}=await mock(t,{ads});
+ const snapshot=await createPrerenderSnapshot(options);
+ assert.equal(snapshot.ads.length,2);
+ assert.equal(snapshot.ads[0].slug,'same-title');
+ assert.equal(snapshot.ads[1].slug,'same-title');
+ assert.equal(new Set(snapshot.ads.map(item=>`/ad/${item._id}/${item.slug}`)).size,2);
+});
+test('snapshot validator allows duplicate ad slugs but rejects duplicate ids and unsafe links',async t=>{
+ const ads=[{...ad(1),slug:'same-title'},{...ad(2),slug:'same-title'}];
+ const {options}=await mock(t,{ads});
+ const snapshot=await createPrerenderSnapshot(options);
+ assert.doesNotThrow(()=>validatePrerenderSnapshot(snapshot,{now:time,maxAgeMs:DEFAULT_MAX_AGE_MS}));
+
+ const duplicateId=structuredClone(snapshot);
+ duplicateId.ads.push({...duplicateId.ads[0],title:'Another title',slug:'other-title'});
+ await assert.rejects(Promise.resolve().then(()=>validatePrerenderSnapshot(duplicateId,{now:time,maxAgeMs:DEFAULT_MAX_AGE_MS})),/duplicate public ad id/);
+
+ const unsafeSlug=structuredClone(snapshot);
+ unsafeSlug.ads[0].slug='unsafe slug';
+ unsafeSlug.categorySsgDataBySlug.cars.ads[0].slug='unsafe slug';
+ await assert.rejects(Promise.resolve().then(()=>validatePrerenderSnapshot(unsafeSlug,{now:time,maxAgeMs:DEFAULT_MAX_AGE_MS})),/slug must be a single URL path segment/);
+});
+test('rejects duplicate ad ids and unsafe ad slugs',async t=>{
+ const {options}=await mock(t,{ads:[ad(1),ad(1)]});
+ await assert.rejects(createPrerenderSnapshot(options),/Duplicate ad across pages|Duplicate public ad id/);
+ for(const slug of ['same/title','same%20title','same title','same?title','..']) {
+  const {options}=await mock(t,{ads:[{...ad(1),slug}]});
+  await assert.rejects(createPrerenderSnapshot(options),/Unsafe or missing slug/);
  }
 });
 test('recursively loads category pages and maps leaf ads to a real root ID',async t=>{
