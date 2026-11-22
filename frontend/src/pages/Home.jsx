@@ -21,7 +21,7 @@ const EMPTY_GOVERNORATES = [];
 const HOME_SERVICES = [
   { label: "متاجر", to: "/stores", icon: "store", color: "text-blue-600", background: "bg-blue-50 dark:bg-blue-900/20" },
   { label: "أسر منتجة", to: "/family-production", icon: "family", color: "text-fuchsia-600", background: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
-  { label: "خدمات الدفع الإلكتروني", to: "/wallet-services", icon: "payment", color: "text-cyan-600", background: "bg-cyan-50 dark:bg-cyan-900/20" },
+  { label: "الخدمات الرقمية", to: "/wallet-services", icon: "payment", color: "text-cyan-600", background: "bg-cyan-50 dark:bg-cyan-900/20" },
   { label: "تسعيرة", to: "/quote-requests", icon: "quote", color: "text-violet-600", background: "bg-violet-50 dark:bg-violet-900/20" },
   { label: "مزادات", to: "/auctions", icon: "auction", color: "text-amber-600", background: "bg-amber-50 dark:bg-amber-900/20" },
   { label: "حجوزات", to: "/bookings", icon: "booking", color: "text-emerald-600", background: "bg-emerald-50 dark:bg-emerald-900/20" }

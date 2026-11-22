@@ -569,7 +569,7 @@ export default function NavBar() {
                   ["🗂️", "تصفح الفئات", "/categories"],
                   ["🏪", "تصفح المتاجر", "/stores"],
                   ["🏠", "تصفح الأسر المنتجة", "/family-production"],
-                  ["💳", "خدمة الدفع الإلكتروني", "/wallet-services"],
+                  ["💳", "الخدمات الرقمية", "/wallet-services"],
                   ["🔨", "تصفح المزادات", "/auctions"],
                   ["📅", "تصفح الحجوزات", "/bookings"],
                   ["🏷️", "تصفح طلبات التسعيرات", "/quote-requests"],
@@ -601,8 +601,8 @@ export default function NavBar() {
                     ["🔨", "مزاداتي", "/my-auctions"],
                     ["🧾", "طلباتي للتسعير", "/my-quote-requests"],
                     ["💬", "عروضي على التسعيرات", "/my-quote-offers"],
-                    [myStore ? "🏬" : "🏪", myStore?.status === "pending" ? "متابعة طلب متجري" : myStore?.status === "rejected" ? "إعادة تقديم طلب المتجر" : myStore ? "إدارة متجري" : "أنشئ متجرك", myStore?.status === "rejected" || !myStore ? "/seller/store/create" : "/my-store"],
-                    [myFamilyProduction ? "🏡" : "🌱", myFamilyProduction?.status === "pending" ? "متابعة طلب الأسرة المنتجة" : myFamilyProduction?.status === "rejected" ? "إعادة تقديم طلب الأسرة المنتجة" : myFamilyProduction ? "إدارة الأسرة المنتجة" : "انضم إلى الأسر المنتجة", myFamilyProduction?.status === "rejected" || !myFamilyProduction ? "/family-production/register" : "/my-family-production"]
+                    [myStore ? "🏬" : "🏪", myStore?.status === "pending" ? "متابعة طلب متجري" : myStore?.status === "rejected" ? "إعادة تقديم طلب المتجر" : myStore ? "إدارة وتجهيز متجري" : "أنشئ متجرك", myStore?.status === "rejected" || !myStore ? "/seller/store/create" : "/my-store"],
+                    [myFamilyProduction ? "🏡" : "🌱", myFamilyProduction?.status === "pending" ? "متابعة طلب الأسرة المنتجة" : myFamilyProduction?.status === "rejected" ? "إعادة تقديم طلب الأسرة المنتجة" : myFamilyProduction ? "إدارة وتجهيز مشروع الأسرة" : "انضم إلى الأسر المنتجة", myFamilyProduction?.status === "rejected" || !myFamilyProduction ? "/family-production/register" : "/my-family-production"]
                   ].map(([icon, label, to]) => (
                     <Link
                       key={to}

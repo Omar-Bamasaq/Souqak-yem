@@ -10,6 +10,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { StoreEmptyState, StoreLoadingCards, StoreStatCard, StoreStatusBadge } from "../components/StoreUi.jsx";
 import { parseMapCoordinates } from "../components/mapCoordinates.js";
 import { subscribeToPush } from "../utils/pushNotifications.js";
+import { getStoreSetupProgress } from "../lib/quickUxHelpers.js";
 
 const MapLocationPicker = lazy(() => import("../components/MapLocationPicker.jsx"));
 
@@ -40,6 +41,7 @@ export default function MyStore({ storeType = "store" }) {
   const api = useApi();
   const [store, setStore] = useState(null);
   const [ads, setAds] = useState([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [productStatusFilter, setProductStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -129,6 +131,11 @@ export default function MyStore({ storeType = "store" }) {
     let cancelled = false;
 
     const fetchStore = async () => {
+      setLoading(true);
+      setStore(null);
+      setAds([]);
+      setProductsLoaded(false);
+      setError("");
       try {
         const storeRes = await api.get("/stores/me", { params: { storeType } });
         if (cancelled) return;
@@ -186,7 +193,10 @@ export default function MyStore({ storeType = "store" }) {
           });
           setCityIsOther(!!nextStore.customCityName);
           const adsRes = await api.get("/ads/my", { params: { storeProducts: "true", storeType } });
-          if (!cancelled) setAds(adsRes.data || []);
+          if (!cancelled) {
+            setAds(adsRes.data || []);
+            setProductsLoaded(true);
+          }
         } else {
           setBankAccounts([]);
           setBankDraft(null);
@@ -219,11 +229,13 @@ export default function MyStore({ storeType = "store" }) {
             cover: null
           });
           if (!cancelled) setAds([]);
+          if (!cancelled) setProductsLoaded(true);
         }
       } catch (err) {
         if (!cancelled) {
           setStore(null);
           setAds([]);
+          setProductsLoaded(false);
           setError(err?.response?.status === 404 ? "لا يوجد متجر مرتبط بحسابك." : "تعذّر تحميل متجر المتجر.");
         }
       } finally {
@@ -319,6 +331,17 @@ export default function MyStore({ storeType = "store" }) {
       return `${ad.title || ""} ${ad.categoryId?.name || ""}`.toLocaleLowerCase().includes(query);
     });
   }, [ads, productSearch, productStatusFilter]);
+  const setupProgress = getStoreSetupProgress(store, ads, store?._id);
+  const openSetupSection = (tab) => {
+    setActiveMobileTab(tab);
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(tab);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (tab === "customization" && customizationDetailsRef.current) {
+        customizationDetailsRef.current.open = true;
+      }
+    });
+  };
   const featuredCandidates = useMemo(() => ads.filter((ad) => (
     String(ad.storeProfileId?._id || ad.storeProfileId || "") === String(store?._id || "")
     && ad.status === "approved"
@@ -933,6 +956,41 @@ export default function MyStore({ storeType = "store" }) {
           <a href="#subscription" className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl px-4 text-xs font-extrabold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
             renewalRequest ? "bg-amber-900 text-white focus-visible:ring-amber-500" : "bg-rose-900 text-white focus-visible:ring-rose-500"
           }`}>{renewalRequest ? "عرض حالة التجديد" : "إدارة الاشتراك"}</a>
+        </section>
+      )}
+
+      {effectiveStoreStatus === "active" && subscriptionStatus === "active" && productsLoaded && !setupProgress.complete && (
+        <section className="rounded-2xl border border-blue-100 bg-gradient-to-l from-blue-50 to-white p-4 shadow-sm sm:p-5" aria-labelledby="store-setup-title">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-black text-blue-700">{setupProgress.complete ? "المشروع جاهز" : "إرشادات التجهيز"}</p>
+              <h2 id="store-setup-title" className="mt-1 text-base font-black text-slate-900">
+                {setupProgress.complete
+                  ? `تم تجهيز ${store.storeType === "family-production" ? "مشروع الأسرة المنتجة" : "متجرك"}`
+                  : `أكمل تجهيز ${store.storeType === "family-production" ? "مشروعك" : "متجرك"}`}
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                {setupProgress.completedCount} من {setupProgress.totalCount} خطوات مكتملة
+              </p>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-blue-100 sm:w-44" role="progressbar" aria-label="نسبة تجهيز المشروع" aria-valuemin="0" aria-valuemax={setupProgress.totalCount} aria-valuenow={setupProgress.completedCount}>
+              <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${(setupProgress.completedCount / setupProgress.totalCount) * 100}%` }} />
+            </div>
+          </div>
+          {!setupProgress.complete && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {setupProgress.items.filter((item) => !item.complete).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => openSetupSection(item.tab)}
+                  className="min-h-12 rounded-xl border border-blue-100 bg-white px-3 py-2 text-right text-xs font-black text-blue-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  إكمال: {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

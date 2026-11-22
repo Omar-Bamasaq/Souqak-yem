@@ -18,6 +18,7 @@ import IncompleteActions from "../components/IncompleteActions.jsx";
 import DigitalServiceForm from "../components/DigitalServiceForm.jsx";
 import { getVisibleDigitalServiceAnswers, hasRequiredDigitalServiceAnswers } from "../lib/digitalServiceForm.js";
 import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
+import { getRouteServiceStatus } from "../lib/quickUxHelpers.js";
 
 const CURRENCIES = {
   USD: "دولار أمريكي",
@@ -104,7 +105,10 @@ export default function WalletServices() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [dataLoadStatus, setDataLoadStatus] = useState("loading");
+  const [routeServiceStatus, setRouteServiceStatus] = useState(routeServiceId ? "loading" : "idle");
   const [referencesLoaded, setReferencesLoaded] = useState(false);
+  const catalogLoadRequestRef = useRef(0);
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState(null);
   const [resumeNeedsCustomerInfo, setResumeNeedsCustomerInfo] = useState(false);
@@ -131,27 +135,42 @@ export default function WalletServices() {
   };
 
   const loadData = async () => {
+    const requestId = ++catalogLoadRequestRef.current;
     setError("");
+    setDataLoadStatus("loading");
+    setLoading(true);
+    if (routeServiceId) setRouteServiceStatus("loading");
     try {
       const [catalogRes, orderRes, categoriesRes] = await Promise.all([
         api.get("/wallet-services"),
         api.get("/wallet-services/mine/orders"),
         api.get("/wallet-services/categories")
       ]);
+      if (catalogLoadRequestRef.current !== requestId) return;
       setServices(catalogRes.data?.services || []);
       setFeeBands(catalogRes.data?.feeBands || []);
       setOrders(orderRes.data || []);
       setCategories(categoriesRes.data || []);
+      setDataLoadStatus("success");
     } catch (loadError) {
-      setError(loadError.response?.data?.error || "تعذر تحميل خدمات الدفع.");
+      if (catalogLoadRequestRef.current !== requestId) return;
+      const message = loadError.response?.data?.error || "تعذر تحميل خدمات سوقك الرقمية بسبب مشكلة في الاتصال.";
+      setError(message);
+      setDataLoadStatus("error");
+      if (routeServiceId) setRouteServiceStatus("error");
     } finally {
-      setLoading(false);
-      setReferencesLoaded(true);
+      if (catalogLoadRequestRef.current === requestId) {
+        setLoading(false);
+        setReferencesLoaded(true);
+      }
     }
   };
 
   useEffect(() => {
     loadData();
+    return () => {
+      catalogLoadRequestRef.current += 1;
+    };
   }, []);
 
   useEffect(() => {
@@ -171,13 +190,24 @@ export default function WalletServices() {
   }, [api]);
 
   useEffect(() => {
+    if (routeServiceId) setRouteServiceStatus("loading");
     if (!referencesLoaded || !routeServiceId || searchParams.has("draftActionId")) return;
-    const service = services.find((item) => item._id === routeServiceId);
-    if (!service) {
-      setError("الخدمة المطلوبة غير متاحة حاليًا.");
+    if (dataLoadStatus !== "success") {
+      setRouteServiceStatus(dataLoadStatus === "error" ? "error" : "loading");
       return;
     }
-    if (selectedId === service._id) return;
+    const service = services.find((item) => item._id === routeServiceId);
+    if (!service) {
+      setError("");
+      setRouteServiceStatus("unavailable");
+      return;
+    }
+    setError("");
+    setRouteServiceStatus("loading");
+    if (selectedId === service._id) {
+      setRouteServiceStatus("success");
+      return;
+    }
 
     let cancelled = false;
     draftAction.clear();
@@ -187,6 +217,7 @@ export default function WalletServices() {
     const startServiceOrder = () => {
       draftAction.clear();
       setDraftPrompt(null);
+      setRouteServiceStatus("success");
       setSelectedId(service._id);
       setServiceSnapshot(null);
       setSectionId("");
@@ -212,6 +243,7 @@ export default function WalletServices() {
       if (cancelled) return;
       const { matchingDraft } = findWalletServiceDrafts(response.data, service._id);
       if (matchingDraft) {
+        setRouteServiceStatus("success");
         setDraftPrompt({ draft: matchingDraft, service });
         return;
       }
@@ -219,12 +251,12 @@ export default function WalletServices() {
     }).catch((draftError) => {
       if (!cancelled) {
         startServiceOrder();
-        setError(draftError.response?.data?.error || "تعذر التحقق من طلباتك غير المكتملة.");
+        setError(draftError.response?.data?.error || "تعذر التحقق من وجود طلبات غير مكتملة.");
       }
     });
 
     return () => { cancelled = true; };
-  }, [api, draftAction.clear, referencesLoaded, routeServiceId, searchParams, selectedId, services, setSearchParams, userId]);
+  }, [api, dataLoadStatus, draftAction.clear, referencesLoaded, routeServiceId, searchParams, selectedId, services, setSearchParams, userId]);
 
   const resumeSuggestedDraft = () => {
     if (!draftPrompt) return;
@@ -293,7 +325,7 @@ export default function WalletServices() {
         if (cancelled) return;
         const listedService = services.find((item) => item._id === draft.serviceId);
         if (draft.type !== "wallet_service_catalog" || !listedService) {
-          throw new Error("هذه العملية لم تعد متاحة بهذه البيانات. يمكنك بدء العملية من جديد.");
+          throw new Error("هذه العملية لم تعد متاحة بهذه المسودة. يمكنك بدء العملية من جديد.");
         }
         const savedVersion = Number(draft.data?.serviceVersion || listedService.serviceVersion || 1);
         const versionResponse = savedVersion === Number(listedService.serviceVersion || 1)
@@ -335,7 +367,9 @@ export default function WalletServices() {
     return () => { cancelled = true; };
   }, [api, draftAction.resume, navigate, referencesLoaded, searchParams, services, setSearchParams, userId]);
 
-  const selectedService = serviceSnapshot || services.find((service) => service._id === selectedId) || null;
+  const selectedService = routeServiceId && selectedId !== routeServiceId
+    ? null
+    : serviceSnapshot || services.find((service) => service._id === selectedId) || null;
   const selectedCatalogCategory = categories.find((category) => String(category._id) === String(selectedService?.categoryId)) || null;
   const listingCategory = categories.find((category) => String(category._id) === String(categoryFilter)) || null;
   const customOrderCategory = categories.find((category) => category.slug === searchParams.get("category")) || null;
@@ -540,7 +574,12 @@ export default function WalletServices() {
   };
 
   if (loading) {
-    return <div className="mx-auto max-w-6xl px-4 py-12 text-center font-bold text-slate-500 sm:py-20">جارٍ تحميل الخدمات...</div>;
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-12 text-center text-slate-600 sm:py-20" role="status" aria-live="polite" dir="rtl">
+        <span aria-hidden="true" className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+        <p className="font-bold">{routeServiceId ? "جارٍ تحميل تفاصيل الخدمة..." : "جارٍ تحميل الخدمات..."}</p>
+      </div>
+    );
   }
 
   return (
@@ -678,7 +717,21 @@ export default function WalletServices() {
           </section>
         )}
 
-        {routeServiceId && !selectedService && <p role="alert" className="text-sm font-bold text-red-700">{error || "الخدمة المطلوبة غير متاحة حاليًا."}</p>}
+        {routeServiceId && !selectedService && routeServiceStatus === "loading" && (
+          <div role="status" aria-live="polite" className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-center dark:border-blue-900 dark:bg-blue-950/30">
+            <span aria-hidden="true" className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-blue-900" />
+            <p className="text-sm font-bold text-blue-800 dark:text-blue-200">جارٍ تحميل تفاصيل الخدمة...</p>
+          </div>
+        )}
+        {routeServiceId && !selectedService && routeServiceStatus === "error" && (
+          <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+            <p className="text-sm font-bold">{error || "تعذر تحميل تفاصيل الخدمة بسبب مشكلة في الاتصال."}</p>
+            <button type="button" onClick={() => loadData()} className="mt-3 min-h-11 rounded-xl bg-red-700 px-4 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">إعادة المحاولة</button>
+          </div>
+        )}
+        {routeServiceId && !selectedService && routeServiceStatus === "unavailable" && (
+          <p role="alert" className="text-sm font-bold text-red-700">الخدمة المطلوبة غير متاحة حاليًا.</p>
+        )}
         {routeServiceId && selectedService && (
           <form ref={orderFormRef} onSubmit={submitCatalogOrder} className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.8fr)] lg:items-start lg:gap-8">
             <div className="space-y-5">
