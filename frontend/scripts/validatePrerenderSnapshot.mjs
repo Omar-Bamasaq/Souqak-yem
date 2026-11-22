@@ -104,7 +104,7 @@ function validateAd(ad, label, { now, requireIndexable }) {
     throw new Error(`${label}._id must be a valid 24-character ObjectId.`);
   }
   requireString(ad.slug, `${label}.slug`);
-  if (ad.slug.includes("/") || ad.slug.includes("\\")) {
+  if (/[\\/%?#\s]/u.test(ad.slug) || ad.slug === "." || ad.slug === "..") {
     throw new Error(`${label}.slug must be a single URL path segment.`);
   }
   requireString(ad.title, `${label}.title`);
@@ -283,10 +283,15 @@ export function validatePrerenderSnapshot(snapshot, {
     }
 
     const adIds = new Set();
+    const adUrls = new Set();
     for (const [index, ad] of snapshot.ads.entries()) {
       validateAd(ad, `ads[${index}]`, { now, requireIndexable: true });
-      if (adIds.has(ad._id)) throw new Error(`duplicate public ad id "${ad._id}".`);
-      adIds.add(ad._id);
+      const normalizedId = ad._id.toLowerCase();
+      if (adIds.has(normalizedId)) throw new Error(`duplicate public ad id "${ad._id}".`);
+      adIds.add(normalizedId);
+      const adUrl = `/ad/${encodeURIComponent(normalizedId)}/${encodeURIComponent(ad.slug)}`;
+      if (adUrls.has(adUrl)) throw new Error(`duplicate public ad URL "${adUrl}".`);
+      adUrls.add(adUrl);
       const category = snapshot.categories.find((item) => item.slug === ad.categoryId.slug);
       if (!category || category._id.toLowerCase() !== ad.categoryId._id.toLowerCase()) {
         throw new Error(`ads[${index}].categoryId has no matching public category.`);
