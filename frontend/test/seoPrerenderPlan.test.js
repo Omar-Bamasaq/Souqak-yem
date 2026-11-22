@@ -349,6 +349,14 @@ test("ad structured data omits synthetic offers and non-product schema", () => {
   assert.equal(noPriceOffer["@type"], "Product");
   assert.equal("offers" in noPriceOffer, false);
 
+  const safeDescriptionData = createAdStructuredData({
+    ad: { ...ad, description: "سيارة بحالة ممتازة، البريد owner@example.com والهاتف 967771234567" },
+    url,
+    siteBaseUrl: "https://preview.example.test"
+  });
+  assert.match(safeDescriptionData.description, /سيارة بحالة ممتازة/);
+  assert.doesNotMatch(safeDescriptionData.description, /owner@example\.com|967771234567/);
+
   const offer = createAdStructuredData({
     ad: { ...ad, price: 100, currency: "YER_ADEN" },
     url,
@@ -378,6 +386,31 @@ test("ad structured data omits synthetic offers and non-product schema", () => {
       "https://preview.example.test/catalog/category/cars"
     ]
   );
+});
+
+test("public ad SSG markup sanitizes description without changing other ad content", () => {
+  const original = "سيارة بحالة ممتازة، للتواصل 967771234567 أو owner@example.com";
+  const markup = renderToStaticMarkup(React.createElement(PublicSsgContent, {
+    kind: "ad",
+    data: {
+      ad: {
+        _id: "0123456789abcdef01234567",
+        slug: "local-listing",
+        title: "سيارة سيدان",
+        description: original,
+        images: [],
+        price: 125000,
+        currency: "YER",
+        adType: "sell"
+      }
+    },
+    siteBaseUrl: "https://preview.example.test"
+  }));
+
+  assert.match(markup, /سيارة بحالة ممتازة/);
+  assert.match(markup, /سيارة سيدان/);
+  assert.match(markup, /١٢٥٬٠٠٠ YER/);
+  assert.doesNotMatch(markup, /967771234567|owner@example\.com/);
 });
 
 test("failed prerender generation leaves the existing dist output intact", async () => {

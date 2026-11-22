@@ -25,6 +25,7 @@ import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
 import { isPublicAdIndexable } from "../lib/publicAdIndexing.js";
 import { createAdStructuredData } from "../lib/structuredData.js";
 import { resolveSiteBaseUrl } from "../lib/siteUrl.js";
+import { sanitizeSeoAdDescription } from "../lib/seoAdDescription.js";
 
 const REPORT_CONFIG = {
   ad: {
@@ -658,7 +659,7 @@ export default function ProductDetail() {
             return (
           <SEO 
             title={p.title} 
-            description={p.description} 
+            description={sanitizeSeoAdDescription(p.description)}
             image={p.images?.[0] ? uploadsUrl(p.images[0]) : null}
             url={canonicalAdUrl}
             canonicalUrl={canonicalAdUrl}

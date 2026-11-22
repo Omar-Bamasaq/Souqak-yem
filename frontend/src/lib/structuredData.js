@@ -1,4 +1,5 @@
 import { resolveCanonicalUrl } from "./siteUrl.js";
+import { sanitizeSeoAdDescription } from "./seoAdDescription.js";
 
 const CURRENCY_CODES = Object.freeze({
   YER_ADEN: "YER",
@@ -38,7 +39,7 @@ export function createAdStructuredData({
       "@context": "https://schema.org",
       "@type": "Product",
       name: ad.title,
-      ...(ad.description ? { description: ad.description } : {}),
+      ...(ad.description ? { description: sanitizeSeoAdDescription(ad.description) } : {}),
       ...(image ? { image } : {}),
       url: resolveCanonicalUrl(url, siteBaseUrl),
       ...(offer ? { offers: offer } : {})

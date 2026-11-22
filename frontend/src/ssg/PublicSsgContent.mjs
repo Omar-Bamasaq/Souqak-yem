@@ -1,5 +1,6 @@
 import React from "react";
 import { DEFAULT_SITE_BASE_URL, resolveSiteUrl } from "../lib/siteUrl.js";
+import { sanitizeSeoAdDescription } from "../lib/seoAdDescription.js";
 
 const e = React.createElement;
 
@@ -84,7 +85,7 @@ export function PublicAdContent({ ad, breadcrumbs = [], similarAds = [], siteBas
     e("article", null,
       e("h1", null, title),
       image ? e("img", { src: imageUrl(image, siteBaseUrl, apiOrigin), alt: title, loading: "eager" }) : null,
-      e("p", null, ad.description || `إعلان ${title} في سوقك.`),
+      e("p", null, sanitizeSeoAdDescription(ad.description)),
       e("p", null, formatPrice(ad)),
       ad.governorateId?.name || ad.cityId?.name ? e("p", null, [ad.governorateId?.name, ad.cityId?.name].filter(Boolean).join("، ")) : null,
       category?.slug ? e("p", null, e("a", { href: absoluteUrl(`/category/${category.slug}`, siteBaseUrl) }, category.name)) : null,
