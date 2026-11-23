@@ -70,7 +70,7 @@ export default function BottomNavBar() {
 
   const openPersonalAd = () => {
     setShowAddMenu(false);
-    navigate("/add-product");
+    navigate("/choose-add-type");
   };
 
   const openStoreProduct = (storeType) => {
