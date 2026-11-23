@@ -67,7 +67,10 @@ test("bottom add button waits for fresh store authorization and has no stale use
 
 test("bottom add menu navigates to the personal ad and active store product routes", () => {
   const bottomNav = readSource("components/BottomNavBar.jsx");
-  assert.match(bottomNav, /navigate\("\/add-product"\)/);
+  assert.match(bottomNav, /navigate\("\/choose-add-type"\)/);
+  const chooseAddType = readSource("pages/ChooseAddType.jsx");
+  assert.match(chooseAddType, /\/add-product\?type=sell/);
+  assert.match(chooseAddType, /\/add-product\?type=order/);
   assert.match(bottomNav, /\/add-product\?storeProduct=1&storeType=/);
   assert.match(bottomNav, /إعلان شخصي/);
   assert.match(bottomNav, /منتج للمتجر/);
