@@ -35,7 +35,25 @@ class PrepareReleaseTests(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, command)
             if command[:2] == ["git", "clone"]:
                 source = Path(command[-1])
-                (source / "backend").mkdir(parents=True)
+                backend = source / "backend"
+                backend.mkdir(parents=True)
+                (backend / ".env").write_text("SYNTHETIC_SECRET=must-not-copy\n", encoding="utf-8")
+                (backend / "package.json").write_text(
+                    '{"type":"module","scripts":{"fixture":"must-not-copy"}}\n',
+                    encoding="utf-8",
+                )
+                (backend / "src" / "routes").mkdir(parents=True)
+                (backend / "src" / "routes" / "ads.js").write_text(
+                    "unapproved fixture\n",
+                    encoding="utf-8",
+                )
+                for relative_name in prepare_module.FRONTEND_TEST_BACKEND_FILES:
+                    fixture_path = backend / relative_name
+                    fixture_path.parent.mkdir(parents=True, exist_ok=True)
+                    fixture_path.write_text(
+                        f"synthetic fixture for {relative_name}\n",
+                        encoding="utf-8",
+                    )
                 frontend = source / "frontend"
                 frontend.mkdir()
                 (frontend / ".env.production").write_text(
@@ -87,6 +105,29 @@ class PrepareReleaseTests(unittest.TestCase):
                     '<body><div id="root"></div><script type="module" src="/assets/app-a1.js"></script></body></html>',
                     encoding="utf-8",
                 )
+            if command[:2] == ["npm", "test"]:
+                backend_workspace = Path(cwd).parent / "backend"
+                expected_files = set(prepare_module.FRONTEND_TEST_BACKEND_FILES)
+                expected_files.add("package.json")
+                copied_files = {
+                    path.relative_to(backend_workspace).as_posix()
+                    for path in backend_workspace.rglob("*")
+                    if path.is_file()
+                }
+                self.assertEqual(copied_files, expected_files)
+                self.assertEqual(
+                    (backend_workspace / "package.json").read_text(encoding="utf-8"),
+                    '{"type":"module"}\n',
+                )
+                for relative_name in prepare_module.FRONTEND_TEST_BACKEND_FILES:
+                    copied_path = backend_workspace / relative_name
+                    self.assertEqual(
+                        copied_path.read_text(encoding="utf-8"),
+                        f"synthetic fixture for {relative_name}\n",
+                    )
+                    self.assertEqual(copied_path.stat().st_mode & 0o222, 0)
+                    copied_path.chmod(0o644)
+                (backend_workspace / "package.json").chmod(0o644)
             return None
 
         return runner, calls

@@ -41,6 +41,13 @@ BACKEND_TESTS = (
     "test/storePublicVisibility.test.js",
 )
 SHARED_RUNTIME_FILES = ("seoRules.mjs",)
+FRONTEND_TEST_BACKEND_FILES = (
+    "seedCategories.js",
+    "src/services/dynamicSitemap.js",
+    "src/utils/storeActivityRegistry.js",
+    "src/utils/walletServiceDynamicConfig.js",
+    "src/utils/walletServicePricing.js",
+)
 
 
 class PrepareError(Exception):
@@ -86,6 +93,41 @@ def ignore_frontend_build_inputs(_directory, names):
         or name.startswith(".env.")
         or name.lower().endswith((".pem", ".key", ".p12", ".pfx", ".jks", ".keystore"))
     }
+
+
+def copy_frontend_test_backend_files(backend, frontend_workspace_root):
+    source_root = Path(backend)
+    if source_root.is_symlink() or not source_root.is_dir():
+        raise PrepareError("Frontend test backend source directory is missing or unsafe.")
+    source_root = source_root.resolve(strict=True)
+    destination_root = Path(frontend_workspace_root) / "backend"
+    destination_root.mkdir()
+
+    package_marker = destination_root / "package.json"
+    package_marker.write_text('{"type":"module"}\n', encoding="utf-8")
+    package_marker.chmod(0o444)
+
+    for relative_name in FRONTEND_TEST_BACKEND_FILES:
+        relative_path = Path(relative_name)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise PrepareError("Frontend test backend allowlist contains an invalid path.")
+        source_path = source_root / relative_path
+        current_path = source_root
+        for component in relative_path.parts:
+            current_path = current_path / component
+            if current_path.is_symlink():
+                raise PrepareError("Frontend test backend source contains a symbolic link.")
+        if not source_path.is_file():
+            raise PrepareError(f"Frontend test backend file is missing: {relative_name}")
+        try:
+            source_path.resolve(strict=True).relative_to(source_root)
+        except ValueError as error:
+            raise PrepareError("Frontend test backend source escapes its backend directory.") from error
+
+        destination_path = destination_root / relative_path
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, destination_path)
+        destination_path.chmod(0o444)
 
 
 def run(command, *, cwd, env=None):
@@ -172,6 +214,7 @@ def prepare(release_id, output_root=None, runner=run, active_release=None):
             frontend_shared.mkdir(parents=True)
             for name in SHARED_RUNTIME_FILES:
                 shutil.copy2(source / "shared" / name, frontend_shared / name)
+            copy_frontend_test_backend_files(backend, frontend_workspace_root)
             runner(
                 ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"],
                 cwd=backend,
