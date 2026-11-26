@@ -66,3 +66,5 @@ backend/exports/production-data/
 
 deploy/deploy.conf
 deploy/deploy-state/
+shared/*
+!shared/seoRules.mjs

@@ -2,10 +2,12 @@
 """Root-owned, fixed-policy Souqak activation and rollback helper."""
 
 import argparse
+import glob
 import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -16,6 +18,11 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
+
+DEPLOY_SOURCE_ROOT = Path(__file__).resolve().parents[1]
+if str(DEPLOY_SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(DEPLOY_SOURCE_ROOT))
+from snapshot_contract import MAX_AGE_MS, SNAPSHOT_PATH, snapshot_info, validate_manifest
 
 try:
     import fcntl
@@ -37,6 +44,8 @@ STATE_ROOT = Path("/var/lib/souqak-deploy")
 STATE_FILE = STATE_ROOT / "last-activation.json"
 LOCK_FILE = STATE_ROOT / "activation.lock"
 STAGING_ROOT = STATE_ROOT / "staging"
+SEO_RECEIPT_ROOT = STATE_ROOT / "seo-receipts"
+RELEASE_RECEIPT_ROOT = STATE_ROOT / "release-receipts"
 BUILD_ROOT = Path("/var/lib/souqak-build-work")
 BUILD_USER = "souqak-build"
 BACKEND = "souqak-backend"
@@ -53,13 +62,20 @@ SITE_HEALTH_URL = "https://souqak-yem.com"
 INITIAL_FRONTEND = MANAGED_RELEASES / "legacy-baseline-20261108" / "frontend" / "dist"
 MAX_BUNDLE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_FILE_BYTES = 256 * 1024 * 1024
+MAX_METADATA_BYTES = 1024 * 1024
 REQUIRED_FRONTEND_FILES = (
     "index.html",
     "sitemap.xml",
     "robots.txt",
     "prerender-manifest.json",
+    "dynamic-ad-renderer-template.html",
     "souqak-release.txt",
 )
+LEGACY_FRONTEND_FILES = tuple(
+    name for name in REQUIRED_FRONTEND_FILES
+    if name != "dynamic-ad-renderer-template.html"
+)
+REQUIRED_SHARED_RUNTIME_FILES = ("seoRules.mjs",)
 DRAFT_INDEX_ATTESTATION_VALUES = {
     "FORMAT": "souqak-draft-index-attestation-v1",
     "DATABASE": "suqaq",
@@ -96,6 +112,20 @@ def digest_tree(root):
         if not path.is_file():
             raise DeploymentError("A release contains a non-regular file.")
         digest.update(path.relative_to(root).as_posix().encode("utf-8") + b"\0")
+        with path.open("rb") as source:
+            for block in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(block)
+    return digest.hexdigest()
+
+
+def digest_shared_runtime(root):
+    root = Path(root)
+    digest = hashlib.sha256()
+    for name in REQUIRED_SHARED_RUNTIME_FILES:
+        path = root / name
+        if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
+            raise DeploymentError(f"Release is missing a valid shared/{name}.")
+        digest.update(name.encode("utf-8") + b"\0")
         with path.open("rb") as source:
             for block in iter(lambda: source.read(1024 * 1024), b""):
                 digest.update(block)
@@ -312,6 +342,23 @@ def copy_frontend_build(source, destination):
             os.close(fd)
 
 
+def is_allowed_bundle_path(parts):
+    return (
+        parts == ("manifest.json",)
+        or parts == ("readiness.txt",)
+        or parts == (SNAPSHOT_PATH,)
+        or parts == ("frontend",)
+        or parts == ("frontend", "dist")
+        or (len(parts) >= 3 and parts[:2] == ("frontend", "dist"))
+        or parts == ("shared",)
+        or (
+            len(parts) == 2
+            and parts[0] == "shared"
+            and parts[1] in REQUIRED_SHARED_RUNTIME_FILES
+        )
+    )
+
+
 def snapshot_directory(source_fd, destination, relative, total):
     for name in sorted(os.listdir(source_fd)):
         if name in {".", ".."} or "/" in name or "\\" in name:
@@ -320,14 +367,7 @@ def snapshot_directory(source_fd, destination, relative, total):
         target = destination / name
         child_relative = relative / name
         parts = child_relative.parts
-        allowed = (
-            parts == ("manifest.json",)
-            or parts == ("readiness.txt",)
-            or parts == ("frontend",)
-            or parts == ("frontend", "dist")
-            or (len(parts) >= 3 and parts[:2] == ("frontend", "dist"))
-        )
-        if not allowed:
+        if not is_allowed_bundle_path(parts):
             raise DeploymentError("Prepared bundle contains an unexpected path.")
         if stat.S_ISDIR(source_stat.st_mode):
             child_fd = os.open(
@@ -352,18 +392,27 @@ def snapshot_directory(source_fd, destination, relative, total):
             raise DeploymentError("The submitted release contains a link or special file.")
 
 
-def snapshot_bundle(bundle, destination, expected_release, submitter_uid):
+def snapshot_bundle(
+    bundle,
+    destination,
+    expected_release,
+    submitter_uid,
+    *,
+    prepared_root=None,
+    verify_receipts=True,
+):
     bundle = Path(bundle)
-    if not bundle.is_absolute() or bundle.parent != PREPARED_ROOT:
+    allowed_root = Path(prepared_root or PREPARED_ROOT)
+    if not bundle.is_absolute() or bundle.parent != allowed_root:
         raise DeploymentError("Release directory must be a direct child of the prepared-release directory.")
     if bundle.name != expected_release or not re.fullmatch(r"[a-f0-9]{40}", expected_release):
         raise DeploymentError("Release directory does not match the approved full commit SHA.")
     if os.open not in os.supports_dir_fd or not hasattr(os, "O_NOFOLLOW"):
         raise DeploymentError("Secure release snapshot requires Linux openat and O_NOFOLLOW support.")
-    if PREPARED_ROOT.is_symlink():
+    if allowed_root.is_symlink():
         raise DeploymentError("Prepared-release root must not be a symlink.")
     prepared_fd = os.open(
-        PREPARED_ROOT,
+        allowed_root,
         os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
     )
     source_fd = None
@@ -386,28 +435,261 @@ def snapshot_bundle(bundle, destination, expected_release, submitter_uid):
             os.close(source_fd)
         os.close(prepared_fd)
 
+    manifest = validate_prepared_snapshot(destination, expected_release)
+    if verify_receipts:
+        try:
+            seo_receipt(expected_release, manifest["seo_snapshot"])
+            if manifest["schema"] == 2:
+                release_receipt(expected_release, destination, manifest)
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            raise DeploymentError("Prepared release does not match protected receipts.") from error
+    return manifest
+
+
+def validate_prepared_snapshot(destination, expected_release):
+    destination = Path(destination)
     manifest_path = destination / "manifest.json"
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
+        manifest_stat = manifest_path.lstat()
+        if (
+            not stat.S_ISREG(manifest_stat.st_mode)
+            or stat.S_ISLNK(manifest_stat.st_mode)
+            or manifest_stat.st_size > MAX_METADATA_BYTES
+        ):
+            raise ValueError("Manifest must be a bounded regular file.")
+        manifest_bytes = manifest_path.read_bytes()
+        manifest = json.loads(manifest_bytes)
+        schema = validate_manifest(manifest, expected_release)
+    except (OSError, ValueError, TypeError) as error:
         raise DeploymentError("Prepared release manifest is missing or invalid.") from error
-    if (
-        manifest.get("schema") != 1
-        or manifest.get("repository") != REPOSITORY
-        or manifest.get("branch") != BRANCH
-        or manifest.get("release") != expected_release
-        or manifest.get("checks", {}).get("frontend_tests") is not True
-        or manifest.get("checks", {}).get("frontend_build") is not True
-    ):
-        raise DeploymentError("Prepared release manifest does not describe the approved source.")
     dist = destination / "frontend" / "dist"
-    if any(not (dist / name).is_file() for name in REQUIRED_FRONTEND_FILES):
+    required_frontend = REQUIRED_FRONTEND_FILES if schema == 2 else LEGACY_FRONTEND_FILES
+    if dist.is_symlink() or not dist.is_dir() or any(
+        (dist / name).is_symlink() or not (dist / name).is_file()
+        for name in required_frontend
+    ):
         raise DeploymentError("Prepared frontend is missing required static or SEO files.")
-    if (dist / "souqak-release.txt").read_text(encoding="utf-8").strip() != expected_release:
+    try:
+        release_marker = (dist / "souqak-release.txt").read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError) as error:
+        raise DeploymentError("Prepared frontend release marker is missing or invalid.") from error
+    if release_marker != expected_release:
         raise DeploymentError("Prepared frontend release marker does not match the approved SHA.")
     if digest_tree(dist) != manifest.get("frontend_sha256"):
         raise DeploymentError("Prepared frontend hash does not match its manifest.")
+    if schema == 2:
+        shared = destination / "shared"
+        if shared.is_symlink() or not shared.is_dir():
+            raise DeploymentError("Prepared release is missing the required shared runtime directory.")
+        shared_files = set()
+        for path in shared.rglob("*"):
+            if path.is_symlink():
+                raise DeploymentError("Prepared shared runtime contains a symbolic link.")
+            if path.is_file():
+                shared_files.add(path.relative_to(shared).as_posix())
+            elif not path.is_dir():
+                raise DeploymentError("Prepared shared runtime contains a special file.")
+        if shared_files != set(REQUIRED_SHARED_RUNTIME_FILES):
+            raise DeploymentError(
+                "Prepared shared runtime is missing required shared/seoRules.mjs or contains unexpected files."
+            )
+        if digest_shared_runtime(shared) != manifest.get("shared_sha256"):
+            raise DeploymentError("Prepared shared runtime hash does not match its manifest.")
+        template = dist / "dynamic-ad-renderer-template.html"
+        prerender_manifest = dist / "prerender-manifest.json"
+        if prerender_manifest.stat().st_size > MAX_METADATA_BYTES:
+            raise DeploymentError("Prepared prerender manifest exceeds the metadata size limit.")
+        if (
+            hashlib.sha256(template.read_bytes()).hexdigest() != manifest["renderer_template_sha256"]
+            or hashlib.sha256(prerender_manifest.read_bytes()).hexdigest()
+            != manifest["prerender_manifest_sha256"]
+        ):
+            raise DeploymentError("Prepared renderer or prerender manifest hash does not match.")
+        try:
+            prerender_data = json.loads(prerender_manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise DeploymentError("Prepared prerender manifest is invalid.") from error
+        if (
+            prerender_data.get("version") != 1
+            or prerender_data.get("source") != "local"
+            or prerender_data.get("siteBaseUrl") != "https://souqak-yem.com"
+        ):
+            raise DeploymentError("Prepared prerender output does not match the local approved Snapshot.")
+        try:
+            validate_frontend_index(dist)
+            validate_renderer_template(dist)
+        except (OSError, ValueError) as error:
+            raise DeploymentError("Prepared renderer template or hashed assets are invalid.") from error
+    elif (destination / "shared").exists() or (destination / "shared").is_symlink():
+        raise DeploymentError("Legacy release manifest must not contain new shared-runtime fields.")
+    try:
+        snapshot_info(
+            destination / SNAPSHOT_PATH,
+            expected_release,
+            schema,
+            manifest["seo_snapshot"],
+        )
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        raise DeploymentError("Prepared SEO Snapshot is invalid or does not match its manifest.") from error
     return manifest
+
+
+def _receipt_directory(path, *, create=False, require_protected=True):
+    path = Path(path)
+    if create:
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for item in (path, *path.parents):
+        metadata = item.lstat()
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not stat.S_ISDIR(metadata.st_mode)
+            or (require_protected and (
+                metadata.st_uid != 0 or metadata.st_mode & 0o077
+            ))
+        ):
+            raise DeploymentError("Receipt directory is not protected.")
+    if require_protected and stat.S_IMODE(path.stat().st_mode) != 0o700:
+        raise DeploymentError("Receipt directory must be root-owned mode 700.")
+    return path
+
+
+def _read_receipt(path, *, require_protected=True):
+    path = Path(path)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    fd = os.open(path, flags)
+    try:
+        metadata = os.fstat(fd)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_size > 16 * 1024
+            or (require_protected and (
+                metadata.st_uid != 0 or stat.S_IMODE(metadata.st_mode) != 0o600
+            ))
+        ):
+            raise DeploymentError("Receipt must be a protected bounded regular file.")
+        raw = os.read(fd, 16 * 1024 + 1)
+        after = os.fstat(fd)
+        if (
+            len(raw) != metadata.st_size
+            or len(raw) > 16 * 1024
+            or (metadata.st_dev, metadata.st_ino, metadata.st_size, metadata.st_mtime_ns)
+            != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        ):
+            raise DeploymentError("Receipt changed while it was read.")
+    finally:
+        os.close(fd)
+    try:
+        receipt = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise DeploymentError("Protected receipt is invalid.") from error
+    if not isinstance(receipt, dict):
+        raise DeploymentError("Protected receipt is invalid.")
+    return receipt
+
+
+def _write_receipt(path, expected, *, require_protected=True):
+    path = Path(path)
+    directory = _receipt_directory(
+        path.parent,
+        create=True,
+        require_protected=require_protected,
+    )
+    if path.exists() or path.is_symlink():
+        if _read_receipt(path, require_protected=require_protected) != expected:
+            raise DeploymentError("Existing protected receipt does not match this release.")
+        return
+
+    temporary = directory / f".{path.name}.new-{os.getpid()}"
+    payload = (json.dumps(expected, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(temporary, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            if _read_receipt(path, require_protected=require_protected) != expected:
+                raise DeploymentError("Existing protected receipt does not match this release.")
+        if hasattr(os, "O_DIRECTORY"):
+            directory_fd = os.open(
+                directory,
+                os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+            )
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def seo_receipt(
+    release,
+    expected,
+    *,
+    create=False,
+    receipt_root=None,
+    require_protected=True,
+):
+    """Receipt scope is only the exact Snapshot binding; it does not attest tests."""
+    if not re.fullmatch(r"[a-f0-9]{40}", release):
+        raise DeploymentError("Invalid SEO provenance release.")
+    directory = Path(receipt_root or SEO_RECEIPT_ROOT)
+    _receipt_directory(directory, require_protected=require_protected)
+    path = directory / f"{release}.json"
+    if create:
+        _write_receipt(path, expected, require_protected=require_protected)
+    elif _read_receipt(path, require_protected=require_protected) != expected:
+        raise DeploymentError("SEO Snapshot differs from root-issued provenance.")
+
+
+def release_receipt(
+    release,
+    bundle_root,
+    manifest,
+    *,
+    create=False,
+    receipt_root=None,
+    require_protected=True,
+):
+    """Separate protected build evidence, bound to the exact manifest bytes."""
+    if manifest.get("schema") != 2 or manifest.get("release") != release:
+        raise DeploymentError("Only a validated SEO release can have build evidence.")
+    manifest_path = Path(bundle_root) / "manifest.json"
+    metadata = manifest_path.lstat()
+    if (
+        stat.S_ISLNK(metadata.st_mode)
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_size > MAX_METADATA_BYTES
+    ):
+        raise DeploymentError("Release manifest must be a regular file.")
+    checks = manifest["checks"]
+    expected = {
+        "schema": 1,
+        "purpose": "release-build-evidence",
+        "release": release,
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "frontend_sha256": manifest["frontend_sha256"],
+        "shared_sha256": manifest["shared_sha256"],
+        "checks": {
+            "backend_tests_passed": checks["backend_tests_passed"],
+            "frontend_tests": checks["frontend_tests"],
+            "frontend_build": checks["frontend_build"],
+        },
+    }
+    directory = Path(receipt_root or RELEASE_RECEIPT_ROOT)
+    _receipt_directory(directory, require_protected=require_protected)
+    path = directory / f"{release}.json"
+    if create:
+        _write_receipt(path, expected, require_protected=require_protected)
+    elif _read_receipt(path, require_protected=require_protected) != expected:
+        raise DeploymentError("Release manifest or test evidence differs from protected provenance.")
 
 
 def extract_git_archive(archive, target):
@@ -514,6 +796,7 @@ def activate_transaction(
     previous_frontend,
     new_frontend,
     switch_frontend,
+    switch_previous_frontend=None,
     health_attempts=60,
 ):
     stopped = False
@@ -561,6 +844,7 @@ def activate_transaction(
             previous_frontend=previous_frontend,
             new_frontend=new_frontend,
             switch_frontend=switch_frontend,
+            switch_previous_frontend=switch_previous_frontend,
             stopped=stopped,
             renamed=renamed,
             started=started,
@@ -582,6 +866,7 @@ def restore_transaction(
     previous_frontend,
     new_frontend,
     switch_frontend,
+    switch_previous_frontend=None,
     stopped,
     renamed,
     started,
@@ -619,7 +904,7 @@ def restore_transaction(
             failed = True
     if switched:
         try:
-            switch_frontend(previous_frontend)
+            (switch_previous_frontend or switch_frontend)(previous_frontend)
             if not ops.check_frontend(Path(previous_frontend).joinpath("souqak-release.txt").read_text().strip()):
                 ops.reload_nginx()
                 if not ops.check_frontend(Path(previous_frontend).joinpath("souqak-release.txt").read_text().strip()):
@@ -634,13 +919,20 @@ def restore_transaction(
     return not failed
 
 
-def validate_env_file(path, submitter_uid):
-    path = Path(path)
-    metadata = path.lstat()
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != submitter_uid or metadata.st_mode & 0o077:
-        raise DeploymentError("Production environment file must be a regular souqak-owned mode-600 file.")
-    contents = path.read_text(encoding="utf-8")
-    values = {}
+def validate_seo_env_settings(contents):
+    seo_values = {}
+    seo_numeric_limits = {
+        "SEO_RENDER_CACHE_AD_TTL_MS": 86_400_000,
+        "SEO_RENDER_CACHE_CATEGORY_TTL_MS": 86_400_000,
+        "SEO_RENDER_CACHE_STORE_TTL_MS": 86_400_000,
+        "SEO_RENDER_CACHE_AUCTION_TTL_MS": 86_400_000,
+        "SEO_RENDER_CACHE_MAX_ENTRIES": 100_000,
+        "SEO_RENDER_CACHE_MAX_BYTES": 512 * 1024 * 1024,
+        "SEO_RENDER_CACHE_MAX_ITEM_BYTES": 8 * 1024 * 1024,
+        "SEO_RENDER_CACHE_MAX_IN_FLIGHT": 5_000,
+        "SEO_SITEMAP_CACHE_TTL_MS": 5 * 60_000,
+    }
+    seo_boolean_values = {"1", "true", "yes", "on", "0", "false", "no", "off"}
     for line in contents.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
@@ -649,11 +941,40 @@ def validate_env_file(path, submitter_uid):
         if not separator:
             continue
         key = key.strip()
-        if key in {
+        if key == "SEO_RENDER_CACHE_ENABLED" or key in seo_numeric_limits:
+            seo_values.setdefault(key, []).append(value.strip().strip("\"'"))
+    for key, entries in seo_values.items():
+        if len(entries) != 1:
+            raise DeploymentError(f"Production environment contains duplicate {key} settings.")
+        value = entries[0]
+        if not value:
+            continue
+        if key == "SEO_RENDER_CACHE_ENABLED":
+            if value.lower() not in seo_boolean_values:
+                raise DeploymentError("Production SEO cache enabled setting must be a boolean.")
+            continue
+        if not re.fullmatch(r"[0-9]+", value):
+            raise DeploymentError(f"Production {key} must be a positive integer.")
+        number = int(value)
+        if number <= 0 or number > seo_numeric_limits[key]:
+            raise DeploymentError(f"Production {key} is outside the supported range.")
+
+
+def validate_env_file(path, submitter_uid):
+    path = Path(path)
+    metadata = path.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != submitter_uid or metadata.st_mode & 0o077:
+        raise DeploymentError("Production environment file must be a regular souqak-owned mode-600 file.")
+    contents = path.read_text(encoding="utf-8")
+    values = {}
+    for line in contents.splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key.strip() in {
             "MONGODB_URI", "JWT_ACCESS_SECRET", "ACCESS_TOKEN_SECRET", "JWT_SECRET", "ACCESS_SECRET",
             "JWT_REFRESH_SECRET", "REFRESH_TOKEN_SECRET", "REFRESH_SECRET",
         }:
-            values.setdefault(key, []).append(value.strip().strip("\"'"))
+            values.setdefault(key.strip(), []).append(value.strip().strip("\"'"))
+    validate_seo_env_settings(contents)
     def exactly_one(label, keys):
         found = [(key, value) for key in keys for value in values.get(key, []) if value]
         if len(found) != 1:
@@ -672,7 +993,18 @@ def validate_env_file(path, submitter_uid):
     return parsed.hostname
 
 
-def verify_frontend_path(path, allowed_root):
+def verify_frontend_files(path, *, allow_legacy_renderer=False):
+    required_files = (
+        LEGACY_FRONTEND_FILES
+        if allow_legacy_renderer
+        else REQUIRED_FRONTEND_FILES
+    )
+    for name in required_files:
+        if not (path / name).is_file():
+            raise DeploymentError("Frontend release is missing required static or SEO files.")
+
+
+def verify_frontend_path(path, allowed_root, *, allow_legacy_renderer=False):
     path = Path(path)
     if path.is_symlink() or not path.is_dir():
         raise DeploymentError("Frontend release must be a real directory.")
@@ -689,20 +1021,22 @@ def verify_frontend_path(path, allowed_root):
             raise DeploymentError("Nginx must be able to read protected frontend files.")
         if not stat.S_ISDIR(mode) and not stat.S_ISREG(mode):
             raise DeploymentError("Protected frontend contains a special file.")
-    for name in REQUIRED_FRONTEND_FILES:
-        if not (resolved / name).is_file():
-            raise DeploymentError("Frontend release is missing required static or SEO files.")
+    verify_frontend_files(resolved, allow_legacy_renderer=allow_legacy_renderer)
     return resolved
 
 
-def atomic_symlink(target, link=FRONTEND_LINK):
+def atomic_symlink(target, link=FRONTEND_LINK, *, allow_legacy_renderer=False):
     target = Path(target)
     link = Path(link)
     if link.parent.stat().st_uid != 0 or link.parent.stat().st_mode & 0o022:
         raise DeploymentError("Nginx symlink parent must be root-owned and not group/other writable.")
     if not link.is_symlink():
         raise DeploymentError("The configured Nginx frontend path must already be a managed symlink.")
-    verify_frontend_path(target, MANAGED_RELEASES)
+    verify_frontend_path(
+        target,
+        MANAGED_RELEASES,
+        allow_legacy_renderer=allow_legacy_renderer,
+    )
     temporary = link.with_name(link.name + f".new-{os.getpid()}")
     if temporary.exists() or temporary.is_symlink():
         raise DeploymentError("Temporary Nginx symlink path is already occupied.")
@@ -710,7 +1044,7 @@ def atomic_symlink(target, link=FRONTEND_LINK):
     os.replace(temporary, link)
 
 
-def validate_manifest_in_source(source, release):
+def validate_manifest_in_source(source, release, schema_version=2):
     model = source / "backend" / "src" / "models" / "DraftAction.js"
     tests = source / "backend" / "test" / "draftActions.test.js"
     if not model.is_file() or not tests.is_file():
@@ -719,8 +1053,142 @@ def validate_manifest_in_source(source, release):
         raise DeploymentError("Approved source does not contain the expected multiservice draft index.")
     if "wallet service drafts are unique per service, not per user" not in tests.read_text(encoding="utf-8"):
         raise DeploymentError("Approved source is missing the multiservice draft regression test.")
-    if not (source / "Dockerfile").is_file() or not (source / "frontend" / "package-lock.json").is_file():
+    dockerfile = source / "Dockerfile"
+    if (
+        not dockerfile.is_file()
+        or not (source / "frontend" / "package-lock.json").is_file()
+        or not (source / "frontend" / "index.html").is_file()
+    ):
         raise DeploymentError("Approved source is missing the reviewed application build files.")
+    try:
+        dockerfile_text = dockerfile.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise DeploymentError("Approved source Dockerfile is missing or invalid.") from error
+    if schema_version == 2:
+        if "COPY shared/seoRules.mjs /shared/seoRules.mjs" not in dockerfile_text:
+            raise DeploymentError("Approved Dockerfile does not include the required shared SEO runtime.")
+        if "COPY frontend/index.html ./frontend/index.html" not in dockerfile_text:
+            raise DeploymentError("Approved Dockerfile does not include the release frontend renderer template.")
+        digest_shared_runtime(source / "shared")
+
+
+def validate_shared_matches_source(bundle_root, source, manifest):
+    bundle_digest = digest_shared_runtime(Path(bundle_root) / "shared")
+    source_digest = digest_shared_runtime(Path(source) / "shared")
+    if (
+        bundle_digest != manifest.get("shared_sha256")
+        or source_digest != manifest.get("shared_sha256")
+    ):
+        raise DeploymentError("Prepared shared runtime does not match the approved source commit.")
+
+
+def dockerfile_copy_sources(dockerfile):
+    """Return local COPY inputs, rejecting unsupported or ambiguous syntax."""
+    contents = Path(dockerfile).read_text(encoding="utf-8")
+    logical_lines = []
+    pending = ""
+    for line in contents.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        pending += stripped[:-1] + " " if stripped.endswith("\\") else stripped
+        if not stripped.endswith("\\"):
+            logical_lines.append(pending.strip())
+            pending = ""
+    if pending:
+        raise DeploymentError("Dockerfile ends with an incomplete COPY instruction.")
+
+    sources = []
+    for line in logical_lines:
+        if not re.match(r"^COPY(?:\s|$)", line, flags=re.IGNORECASE):
+            continue
+        argument = line.split(None, 1)[1]
+        if argument.startswith("["):
+            try:
+                values = json.loads(argument)
+            except json.JSONDecodeError as error:
+                raise DeploymentError("Dockerfile contains invalid JSON COPY syntax.") from error
+            if not isinstance(values, list) or len(values) < 2 or any(
+                not isinstance(value, str) for value in values
+            ):
+                raise DeploymentError("Dockerfile contains unsupported JSON COPY syntax.")
+            copy_sources = values[:-1]
+        else:
+            try:
+                values = shlex.split(argument, posix=True)
+            except ValueError as error:
+                raise DeploymentError("Dockerfile contains invalid COPY syntax.") from error
+            values = [value for value in values if not value.startswith("--")]
+            if len(values) < 2:
+                raise DeploymentError("Dockerfile contains incomplete COPY syntax.")
+            copy_sources = values[:-1]
+        if any(value == "." for value in copy_sources):
+            raise DeploymentError("Dockerfile may not copy the full build context.")
+        sources.extend(copy_sources)
+    return tuple(sources)
+
+
+def validate_docker_build_context(context):
+    context = Path(context).resolve(strict=True)
+    dockerfile = context / "Dockerfile"
+    if dockerfile.is_symlink() or not dockerfile.is_file():
+        raise DeploymentError("Restricted Docker context has no regular Dockerfile.")
+    sources = dockerfile_copy_sources(dockerfile)
+    if not sources:
+        raise DeploymentError("Dockerfile has no verifiable COPY inputs.")
+    for source in sources:
+        if source.startswith("/") or "\\" in source or ".." in PurePosixPath(source).parts:
+            raise DeploymentError("Dockerfile COPY input escapes the restricted build context.")
+        matches = glob.glob(str(context / source), recursive=False)
+        if not matches:
+            raise DeploymentError(f"Dockerfile COPY input is missing from restricted context: {source}.")
+        for match in matches:
+            candidate = Path(match)
+            if candidate.is_symlink() or context not in candidate.resolve(strict=True).parents:
+                raise DeploymentError("Dockerfile COPY input is a link or outside the build context.")
+            entries = [candidate, *candidate.rglob("*")] if candidate.is_dir() else [candidate]
+            if any(
+                entry.is_symlink() or not (entry.is_file() or entry.is_dir())
+                for entry in entries
+            ):
+                raise DeploymentError("Dockerfile COPY input contains a link or special file.")
+    return sources
+
+
+def validate_final_frontend(frontend_dist, release, manifest):
+    frontend_dist = Path(frontend_dist)
+    required = REQUIRED_FRONTEND_FILES if manifest["schema"] == 2 else LEGACY_FRONTEND_FILES
+    for name in required:
+        path = frontend_dist / name
+        if path.is_symlink() or not path.is_file():
+            raise DeploymentError("Rebuilt frontend is missing required release artifacts.")
+    marker = frontend_dist / "souqak-release.txt"
+    marker_value = marker.read_text(encoding="utf-8").strip()
+    if marker_value != release:
+        raise DeploymentError("Rebuilt frontend release marker does not match its SHA.")
+    if digest_tree(frontend_dist) != manifest["frontend_sha256"]:
+        raise DeploymentError("Rebuilt frontend artifacts differ from the prepared manifest.")
+    if manifest["schema"] == 2:
+        template = frontend_dist / "dynamic-ad-renderer-template.html"
+        prerender_manifest = frontend_dist / "prerender-manifest.json"
+        if (
+            hashlib.sha256(template.read_bytes()).hexdigest() != manifest["renderer_template_sha256"]
+            or hashlib.sha256(prerender_manifest.read_bytes()).hexdigest()
+            != manifest["prerender_manifest_sha256"]
+        ):
+            raise DeploymentError("Rebuilt Renderer or Prerender manifest differs from the release.")
+        try:
+            data = json.loads(prerender_manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise DeploymentError("Rebuilt Prerender manifest is invalid.") from error
+        if (
+            data.get("version") != 1
+            or data.get("source") != "local"
+            or data.get("siteBaseUrl") != "https://souqak-yem.com"
+        ):
+            raise DeploymentError("Rebuilt Prerender manifest is not bound to the local public Snapshot.")
+        validate_frontend_index(frontend_dist)
+        validate_renderer_template(frontend_dist)
 
 
 def validate_draft_index_attestation(attestation_path, schema_path, now=None, require_protected=True):
@@ -805,7 +1273,11 @@ def validate_production_layout(ops, submitter_uid):
     if not FRONTEND_LINK.is_symlink():
         raise DeploymentError("The Nginx frontend path must be a managed symlink before transition.")
     previous_frontend = Path(os.path.realpath(FRONTEND_LINK))
-    verify_frontend_path(previous_frontend, MANAGED_RELEASES)
+    verify_frontend_path(
+        previous_frontend,
+        MANAGED_RELEASES,
+        allow_legacy_renderer=True,
+    )
     uri_host = validate_env_file(ENV_FILE, submitter_uid)
 
     mongo = parse_container(ops, MONGODB)
@@ -853,7 +1325,7 @@ def validate_production_layout(ops, submitter_uid):
     return backend, mongo, previous_frontend
 
 
-def fetch_approved_source(release, staging):
+def fetch_approved_source(release, staging, *, schema_version=2, active_release=None):
     repository = staging / "repository"
     repository.mkdir(mode=0o700)
     run(["git", "init", "--quiet", str(repository)])
@@ -863,6 +1335,19 @@ def fetch_approved_source(release, staging):
     if commit != release:
         raise DeploymentError("The requested SHA is not an exact commit in the approved repository.")
     run(["git", "-C", str(repository), "merge-base", "--is-ancestor", release, "FETCH_HEAD"])
+    if active_release and re.fullmatch(r"[a-f0-9]{40}", active_release):
+        if active_release == release:
+            raise DeploymentError("Candidate release is already active.")
+        active_commit = run(
+            ["git", "-C", str(repository), "rev-parse", "--verify", f"{active_release}^{{commit}}"],
+            capture=True,
+        )
+        if active_commit != active_release:
+            raise DeploymentError("Active release is not present in the approved source history.")
+        run([
+            "git", "-C", str(repository), "merge-base", "--is-ancestor",
+            active_release, release,
+        ])
     archive = subprocess.Popen(
         ["git", "-C", str(repository), "archive", "--format=tar", release],
         stdout=subprocess.PIPE,
@@ -876,19 +1361,152 @@ def fetch_approved_source(release, staging):
     finally:
         if archive.stdout:
             archive.stdout.close()
-    validate_manifest_in_source(staging / "source", release)
+    validate_manifest_in_source(staging / "source", release, schema_version)
     return staging / "source"
 
 
-def build_backend_image(ops, source, release):
+def validate_hashed_frontend_html(frontend_dist, filename, *, require_renderer_shell):
+    frontend_dist = Path(frontend_dist)
+    html_file = frontend_dist / filename
+    if html_file.is_symlink() or not html_file.is_file():
+        raise DeploymentError(f"Built frontend is missing required HTML: {filename}.")
+    try:
+        contents = html_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise DeploymentError(f"Built frontend HTML is unreadable: {filename}.") from error
+    scripts = re.findall(
+        r"<script\b(?=[^>]*\btype=[\"']module[\"'])[^>]*\bsrc=[\"']([^\"']+)[\"']",
+        contents,
+        flags=re.IGNORECASE,
+    )
+    stylesheets = re.findall(
+        r"<link\b(?=[^>]*\brel=[\"']stylesheet[\"'])[^>]*\bhref=[\"']([^\"']+)[\"']",
+        contents,
+        flags=re.IGNORECASE,
+    )
+    module_preloads = re.findall(
+        r"<link\b(?=[^>]*\brel=[\"']modulepreload[\"'])[^>]*\bhref=[\"']([^\"']+)[\"']",
+        contents,
+        flags=re.IGNORECASE,
+    )
+    local_stylesheets = [asset for asset in stylesheets if asset.startswith("/assets/")]
+    external_stylesheets = [asset for asset in stylesheets if not asset.startswith("/assets/")]
+    valid_font_stylesheets = []
+    for asset in external_stylesheets:
+        parsed = urllib.parse.urlsplit(asset)
+        if (
+            parsed.scheme == "https"
+            and parsed.netloc == "fonts.googleapis.com"
+            and parsed.path == "/css2"
+            and bool(parsed.query)
+            and not parsed.fragment
+        ):
+            valid_font_stylesheets.append(asset)
+    assets = scripts + local_stylesheets + module_preloads
+    renderer_shell_valid = not require_renderer_shell or (
+        re.search(
+            r"<meta\b(?=[^>]*\bname=[\"']robots[\"'])[^>]*\bcontent=[\"']noindex,nofollow[\"']",
+            contents,
+            flags=re.IGNORECASE,
+        )
+        and re.search(
+            r"<div\b(?=[^>]*\bid=[\"']root[\"'])[^>]*>\s*</div>",
+            contents,
+            flags=re.IGNORECASE,
+        )
+    )
+    if (
+        not scripts
+        or any(not re.fullmatch(r"/assets/[a-z\d._-]+\.(?:js|css)", asset, flags=re.IGNORECASE) for asset in assets)
+        or any(not asset.lower().endswith(".css") for asset in local_stylesheets)
+        or len(valid_font_stylesheets) != len(external_stylesheets)
+        or any(not asset.lower().endswith(".js") for asset in scripts + module_preloads)
+        or not renderer_shell_valid
+    ):
+        raise DeploymentError(f"Built frontend HTML contains invalid or unversioned app assets: {filename}.")
+    for asset in assets:
+        asset_file = frontend_dist / asset.lstrip("/")
+        if asset_file.is_symlink() or not asset_file.is_file() or asset_file.stat().st_size == 0:
+            raise DeploymentError(f"Built frontend asset is missing or invalid: {asset}.")
+    return html_file
+
+
+def validate_renderer_template(frontend_dist):
+    return validate_hashed_frontend_html(
+        frontend_dist,
+        "dynamic-ad-renderer-template.html",
+        require_renderer_shell=True,
+    )
+
+
+def validate_frontend_index(frontend_dist):
+    return validate_hashed_frontend_html(
+        frontend_dist,
+        "index.html",
+        require_renderer_shell=False,
+    )
+
+
+def ensure_release_marker(frontend_dist, release):
+    marker = Path(frontend_dist) / "souqak-release.txt"
+    try:
+        metadata = marker.lstat()
+    except FileNotFoundError:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(marker, flags, 0o600)
+        except FileExistsError as error:
+            raise DeploymentError("Frontend release marker changed during validation.") from error
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            output.write(release + "\n")
+            output.flush()
+            os.fsync(output.fileno())
+        metadata = marker.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise DeploymentError("Frontend release marker must be a regular file.")
+    if marker.read_text(encoding="utf-8").strip() != release:
+        raise DeploymentError("Frontend release marker does not match the reviewed release SHA.")
+
+
+def build_backend_image(ops, source, release, frontend_dist, manifest):
     context = source.parent / "backend-build-context"
     context.mkdir(mode=0o700)
     shutil.copy2(source / "Dockerfile", context / "Dockerfile")
+    docker_sources = dockerfile_copy_sources(context / "Dockerfile")
+    if manifest["schema"] == 2:
+        expected_sources = {
+            "backend/package.json",
+            "backend/package-lock.json",
+            "backend/src",
+            "shared/seoRules.mjs",
+            "frontend/index.html",
+        }
+        if set(docker_sources) != expected_sources:
+            raise DeploymentError("Reviewed Dockerfile COPY inputs differ from the curated SEO build context.")
     backend_context = context / "backend"
     backend_context.mkdir()
     shutil.copy2(source / "backend" / "package.json", backend_context / "package.json")
     shutil.copy2(source / "backend" / "package-lock.json", backend_context / "package-lock.json")
-    shutil.copytree(source / "backend" / "src", backend_context / "src")
+    shutil.copytree(
+        source / "backend" / "src",
+        backend_context / "src",
+        ignore=ignore_build_secrets,
+    )
+    if "shared/seoRules.mjs" in docker_sources:
+        shared_context = context / "shared"
+        shared_context.mkdir()
+        for name in REQUIRED_SHARED_RUNTIME_FILES:
+            shutil.copy2(source / "shared" / name, shared_context / name)
+    if "frontend/index.html" in docker_sources:
+        renderer_template = validate_renderer_template(frontend_dist)
+        if manifest["schema"] == 2 and hashlib.sha256(
+            renderer_template.read_bytes()
+        ).hexdigest() != manifest["renderer_template_sha256"]:
+            raise DeploymentError("Backend Renderer template differs from the prepared Frontend build.")
+        frontend_context = context / "frontend"
+        frontend_context.mkdir()
+        shutil.copy2(renderer_template, frontend_context / "index.html")
+    validate_docker_build_context(context)
     image = f"{IMAGE_REPOSITORY}:{release}"
     ops.docker(
         "build", "--pull",
@@ -903,6 +1521,18 @@ def build_backend_image(ops, source, release):
     )
     if configured_user != "node":
         raise DeploymentError("Built backend image does not run as the non-root node user.")
+    labels = ops.docker(
+        "image", "inspect", "--format", "{{json .Config.Labels}}", image, capture=True
+    )
+    try:
+        labels = json.loads(labels)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise DeploymentError("Built backend image labels are invalid.") from error
+    if (
+        labels.get("com.souqak.release") != release
+        or labels.get("com.souqak.source-commit") != release
+    ):
+        raise DeploymentError("Built backend image identity does not match the reviewed release SHA.")
     return image
 
 
@@ -975,21 +1605,44 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
         ):
             raise DeploymentError("Isolated build workspace parent must be root-owned and protected.")
         staging = Path(tempfile.mkdtemp(prefix=f"{release}.", dir=STAGING_ROOT))
+        frontend_workspace = None
         try:
             bundle_snapshot = staging / "bundle"
             bundle_snapshot.mkdir(mode=0o700)
             manifest = snapshot_bundle(bundle, bundle_snapshot, release, submitter_uid)
             backend, mongo, previous_frontend = validate_production_layout(ops, submitter_uid)
-            source = fetch_approved_source(release, staging)
+            active_release = (
+                previous_frontend / "souqak-release.txt"
+            ).read_text(encoding="utf-8").strip()
+            source = fetch_approved_source(
+                release,
+                staging,
+                schema_version=manifest["schema"],
+                active_release=active_release,
+            )
+            if manifest["schema"] == 2:
+                validate_shared_matches_source(bundle_snapshot, source, manifest)
             validate_draft_index_attestation(
                 STATE_ROOT / "draft-index-attestation.txt",
                 source / "backend" / "src" / "models" / "DraftAction.js",
             )
             confirm(release, digest_tree(bundle_snapshot))
-            builder = preflight_builder()
-            frontend_workspace = Path(tempfile.mkdtemp(prefix=f"{release}-", dir=BUILD_ROOT))
-            frontend_dist = build_frontend_as_builder(source, frontend_workspace, builder)
-            image = build_backend_image(ops, source, release)
+            if manifest["schema"] == 2:
+                builder = preflight_builder()
+                frontend_workspace = Path(tempfile.mkdtemp(prefix=f"{release}-", dir=BUILD_ROOT))
+                frontend_dist = build_frontend_as_builder(
+                    source,
+                    frontend_workspace,
+                    builder,
+                    bundle_snapshot / SNAPSHOT_PATH,
+                    release,
+                    manifest["seo_snapshot"],
+                )
+            else:
+                frontend_dist = bundle_snapshot / "frontend" / "dist"
+            ensure_release_marker(frontend_dist, release)
+            validate_final_frontend(frontend_dist, release, manifest)
+            image = build_backend_image(ops, source, release, frontend_dist, manifest)
             check_volume_access(ops, image)
             release_directory = MANAGED_RELEASES / release
             if release_directory.exists() or release_directory.is_symlink():
@@ -1039,6 +1692,10 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
                     previous_frontend=previous_frontend,
                     new_frontend=frontend_target,
                     switch_frontend=atomic_symlink,
+                    switch_previous_frontend=lambda target: atomic_symlink(
+                        target,
+                        allow_legacy_renderer=True,
+                    ),
                 )
             except DeploymentError as error:
                 state["status"] = (
@@ -1062,6 +1719,10 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
                     previous_frontend=previous_frontend,
                     new_frontend=frontend_target,
                     switch_frontend=atomic_symlink,
+                    switch_previous_frontend=lambda target: atomic_symlink(
+                        target,
+                        allow_legacy_renderer=True,
+                    ),
                     stopped=transaction["stopped"],
                     renamed=transaction["renamed"],
                     started=transaction["started"],
@@ -1073,6 +1734,10 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
         except Exception:
             raise
         finally:
+            if frontend_workspace is not None and frontend_workspace.exists():
+                if frontend_workspace.parent != BUILD_ROOT:
+                    raise DeploymentError("Frontend build workspace escaped its protected parent.")
+                shutil.rmtree(frontend_workspace)
             shutil.rmtree(staging, ignore_errors=True)
             workspace = locals().get("frontend_workspace")
             if workspace and Path(workspace).is_dir() and not Path(workspace).is_symlink():
@@ -1096,7 +1761,11 @@ def rollback_release(release, ops=None, confirm=confirm_release):
         previous = state["previous_container"]
         if ops.container_running(previous):
             raise DeploymentError("Recorded previous backend must be stopped before rollback.")
-        previous_frontend = verify_frontend_path(state["previous_frontend"], MANAGED_RELEASES)
+        previous_frontend = verify_frontend_path(
+            state["previous_frontend"],
+            MANAGED_RELEASES,
+            allow_legacy_renderer=True,
+        )
         active_frontend = verify_frontend_path(state["new_frontend"], MANAGED_RELEASES)
         if not FRONTEND_LINK.is_symlink() or Path(os.path.realpath(FRONTEND_LINK)) != active_frontend:
             raise DeploymentError("Current Nginx frontend does not match the protected rollback record.")
@@ -1113,7 +1782,7 @@ def rollback_release(release, ops=None, confirm=confirm_release):
             ops.docker("start", BACKEND)
             if not ops.wait_backend(60):
                 raise DeploymentError("Previous backend did not become ready.")
-            atomic_symlink(previous_frontend)
+            atomic_symlink(previous_frontend, allow_legacy_renderer=True)
             if not ops.check_frontend(previous_marker):
                 ops.reload_nginx()
                 if not ops.check_frontend(previous_marker):
@@ -1187,7 +1856,8 @@ def dry_run_release(release, bundle, ops=None):
     submitter_uid = pwd.getpwnam("souqak").pw_uid
     preflight_builder()
     with tempfile.TemporaryDirectory(prefix="souqak-dry-run-") as directory:
-        snapshot_bundle(bundle, Path(directory), release, submitter_uid)
+        bundle_root = Path(directory)
+        manifest = snapshot_bundle(bundle, bundle_root, release, submitter_uid)
         backend, mongo, _ = validate_production_layout(ops, submitter_uid)
         source_root = Path(directory) / "source-check"
         repository = Path(directory) / "repository"
@@ -1211,7 +1881,9 @@ def dry_run_release(release, bundle, ops=None):
         finally:
             if archive.stdout:
                 archive.stdout.close()
-        validate_manifest_in_source(source_root, release)
+        validate_manifest_in_source(source_root, release, manifest["schema"])
+        if manifest["schema"] == 2:
+            validate_shared_matches_source(bundle_root, source_root, manifest)
         validate_draft_index_attestation(
             STATE_ROOT / "draft-index-attestation.txt",
             source_root / "backend" / "src" / "models" / "DraftAction.js",
@@ -1242,11 +1914,20 @@ def preflight_builder():
     return account
 
 
-def build_frontend_as_builder(source, workspace, account):
+def build_frontend_as_builder(source, workspace, account, snapshot, release, seo_binding):
+    try:
+        snapshot_info(snapshot, release, seo_binding["schemaVersion"], seo_binding)
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        raise DeploymentError("Protected frontend build Snapshot is invalid.") from error
     if workspace.is_symlink() or not workspace.is_dir() or workspace.stat().st_uid != 0:
         raise DeploymentError("Build workspace must be a new root-created directory.")
-    frontend = workspace / "frontend"
-    shutil.copytree(source / "frontend", frontend, symlinks=False)
+    frontend = copy_frontend_sources(source, workspace)
+    local_snapshot = workspace / SNAPSHOT_PATH
+    shutil.copyfile(snapshot, local_snapshot)
+    try:
+        snapshot_info(local_snapshot, release, seo_binding["schemaVersion"], seo_binding)
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        raise DeploymentError("Frontend build Snapshot changed during staging.") from error
     for path in [workspace, *workspace.rglob("*")]:
         os.chown(path, account.pw_uid, account.pw_gid)
         if path.is_dir():
@@ -1260,7 +1941,10 @@ def build_frontend_as_builder(source, workspace, account):
         "PUBLIC_SITE_URL": "https://souqak-yem.com",
         "VITE_API_URL": "https://api.souqak-yem.com/api",
         "VITE_SOCKET_URL": "https://api.souqak-yem.com",
-        "SEO_PRERENDER_DATA_SOURCE": "api",
+        "SEO_PRERENDER_DATA_SOURCE": "local",
+        "SEO_PRERENDER_SNAPSHOT_PATH": str(local_snapshot),
+        "SEO_PRERENDER_MAX_AGE_MS": str(MAX_AGE_MS),
+        "SOUQAK_BUILD_ID": release,
         "PRERENDER_DISABLED": "false",
         "VITE_MAINTENANCE_MODE": "false",
     }
@@ -1281,8 +1965,11 @@ def build_frontend_as_builder(source, workspace, account):
         f"--property=WorkingDirectory={frontend}",
     ]
     for step, command in enumerate((
+        ["node", "scripts/exportPrerenderSnapshot.mjs", "--validate", str(local_snapshot)],
+        ["node", "--check", str(workspace / "shared" / "seoRules.mjs")],
         ["npm", "ci", "--no-audit", "--no-fund"],
         ["npm", "run", "build"],
+        ["node", "scripts/prerenderBuild.mjs", "--validate", str(frontend / "dist")],
     )):
         environment = ["env", "-i", *[f"{key}={value}" for key, value in env.items()]]
         run([
@@ -1293,6 +1980,33 @@ def build_frontend_as_builder(source, workspace, account):
     if any(not (dist / name).is_file() for name in REQUIRED_FRONTEND_FILES[:-1]):
         raise DeploymentError("Isolated frontend build is missing required static or SEO output.")
     return dist
+
+
+def copy_frontend_sources(source, workspace):
+    frontend = Path(workspace) / "frontend"
+    shutil.copytree(
+        Path(source) / "frontend",
+        frontend,
+        symlinks=False,
+        ignore=ignore_build_secrets,
+    )
+    shared_context = Path(workspace) / "shared"
+    shared_context.mkdir()
+    for name in REQUIRED_SHARED_RUNTIME_FILES:
+        source_file = Path(source) / "shared" / name
+        if source_file.is_symlink() or not source_file.is_file() or source_file.stat().st_size == 0:
+            raise DeploymentError(f"Approved source is missing a valid shared/{name}.")
+        shutil.copy2(source_file, shared_context / name)
+    return frontend
+
+
+def ignore_build_secrets(_directory, names):
+    return {
+        name for name in names
+        if name in {".env", ".envrc", ".npmrc"}
+        or name.startswith(".env.")
+        or name.lower().endswith((".pem", ".key", ".p12", ".pfx", ".jks", ".keystore"))
+    }
 
 
 def main(argv=None):

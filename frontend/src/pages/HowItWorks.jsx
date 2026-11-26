@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useBrokerageStatus } from '../store/BrokerageStatusContext';
+import PublicPageSEO from '../components/PublicPageSEO.jsx';
 
 const HowItWorks = () => {
   const [activeTab, setActiveTab] = useState('buyer');
@@ -65,6 +66,7 @@ const HowItWorks = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 pb-20 overflow-x-hidden">
+      <PublicPageSEO path="/how-it-works" />
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 px-4 pt-10 pb-16 text-center text-white relative overflow-hidden sm:pt-16 sm:pb-28">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>

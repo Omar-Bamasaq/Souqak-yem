@@ -1,9 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
 
 export default function SecureDealExplanation() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-4 px-3 sm:py-12 sm:px-6 lg:px-8">
+      <PublicPageSEO path="/secure-deal-explanation" />
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-6 sm:mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-emerald-600 text-white mb-4 sm:mb-6 shadow-2xl shadow-emerald-500/30">

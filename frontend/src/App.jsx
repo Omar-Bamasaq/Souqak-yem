@@ -20,6 +20,7 @@ import { useBrokerageStatus } from "./store/BrokerageStatusContext.jsx";
 import { AD_COMMISSION_ENABLED } from "./config/commission.js";
 import { IS_MAINTENANCE } from "./config/maintenance.js";
 import Logo from "./components/Logo.jsx";
+import { getAppRobotsDirective } from "../../shared/seoRules.mjs";
 
 // Pages
 const Home = lazy(() => import("./pages/Home.jsx"));
@@ -227,54 +228,30 @@ function MaintenanceScreen() {
 
 export default function App() {
   const location = useLocation();
+  const initialPathname = React.useRef(location.pathname);
 
   if (IS_MAINTENANCE) {
     return <MaintenanceScreen />;
   }
 
   React.useEffect(() => {
-    const noIndexPaths = [
-      '/login',
-      '/register',
-      '/forgot-password',
-      '/verify-email',
-      '/seller',
-      '/add-product',
-      '/choose-add-type',
-      '/commission/pay',
-      '/messages',
-      '/notifications',
-      '/favorites',
-      '/following',
-      '/wallet',
-      '/wallet-services',
-      '/my-ads',
-      '/my-quote-requests',
-      '/my-quote-offers',
-      '/quote-requests/new',
-      '/quote-requests',
-      '/my-store',
-      '/my-family-production',
-      '/account-settings',
-      '/orders',
-      '/admin',
-      '/search',
-      '/tag',
-      '/user',
-      '/s'
-    ];
-
-    const isNoIndex = Boolean(storePwaAppContext) || noIndexPaths.some((path) =>
-      path === location.pathname || location.pathname.startsWith(`${path}/`) || location.pathname.startsWith('/admin')
-    );
-
     let robotsMeta = document.querySelector('meta[name="robots"]');
+    const prerenderedPath = document
+      .querySelector('meta[name="souqak-prerendered-path"]')
+      ?.getAttribute("content");
+    const directive = storePwaAppContext
+      ? "noindex,nofollow"
+      : getAppRobotsDirective(location.pathname, {
+        hasTrustedPrerender: Boolean(robotsMeta && prerenderedPath === location.pathname),
+        isInitialPath: location.pathname === initialPathname.current
+      });
+    if (directive === null) return;
     if (!robotsMeta) {
       robotsMeta = document.createElement('meta');
       robotsMeta.setAttribute('name', 'robots');
       document.head.appendChild(robotsMeta);
     }
-    robotsMeta.setAttribute('content', isNoIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1');
+    robotsMeta.setAttribute('content', directive);
   }, [location.pathname]);
 
   return (

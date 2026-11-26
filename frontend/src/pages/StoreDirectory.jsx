@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import ProductCard from "../components/ProductCard.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
+import { isTrackingQueryParameter } from "../lib/siteUrl.js";
 
 const PAGE_SIZE = 12;
 
@@ -28,6 +30,10 @@ export default function StoreDirectory({ storeType = "store" }) {
   const governorateId = searchParams.get("governorateId") || "";
   const cityId = searchParams.get("cityId") || "";
   const directoryParams = { storeType, view, activityKey, governorateId, cityId };
+  const pagePath = isFamilyProduction ? "/family-production" : "/stores";
+  const isFiltered = Array.from(searchParams.keys()).some(
+    (key) => !isTrackingQueryParameter(key)
+  );
 
   useEffect(() => {
     let active = true;
@@ -133,6 +139,7 @@ export default function StoreDirectory({ storeType = "store" }) {
 
   return (
     <section dir="rtl" className="mx-auto max-w-6xl space-y-5 sm:space-y-7">
+      <PublicPageSEO path={pagePath} indexable={!isFiltered} />
       <header className={`rounded-2xl p-4 text-white shadow-lg sm:rounded-3xl sm:p-7 ${isFamilyProduction ? "bg-gradient-to-l from-fuchsia-800 via-purple-700 to-pink-700" : "bg-gradient-to-l from-blue-900 via-blue-800 to-cyan-700"}`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

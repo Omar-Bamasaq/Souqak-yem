@@ -18,6 +18,13 @@ import { claimStoreAnalyticsView } from "../utils/storeAnalyticsTracking.js";
 import { getStorePwaInstallationId } from "../utils/storePwaInstallTracking.js";
 import { subscribeToPush } from "../utils/pushNotifications.js";
 import { StoreLoadingCards } from "../components/StoreUi.jsx";
+import {
+  encodeSeoPathSegment,
+  hasMeaningfulQueryParameters,
+  isPublicStoreIndexable
+} from "../../../shared/seoRules.mjs";
+import { createStoreStructuredData } from "../lib/structuredData.js";
+import { resolveSiteBaseUrl } from "../lib/siteUrl.js";
 
 function normalizeWhatsAppPhone(phone) {
   if (!phone) return null;
@@ -122,6 +129,13 @@ export default function Storefront() {
   const [storeNotificationError, setStoreNotificationError] = useState("");
   const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
   const productView = searchParams.get("view") === "discounts" ? "discounts" : "products";
+  const indexableStore = isPublicStoreIndexable({
+    store: data?.store,
+    hasActiveSubscription: true,
+    isDedicatedPwa: Boolean(storePwaAppContext),
+    hasMeaningfulFilters: hasMeaningfulQueryParameters(searchParams)
+  });
+  const storePath = store?.slug ? `/store/${encodeSeoPathSegment(store.slug)}` : "/";
 
   useEffect(() => {
     let cancelled = false;
@@ -619,12 +633,17 @@ export default function Storefront() {
         title={store.storeName}
         description={store.description || `${store.storeName}، ${store.businessActivity}`}
         image={image ? uploadsUrl(image) : undefined}
-        url={`/store/${store.slug}`}
-        canonicalUrl={isDedicatedStorePwa
-          ? new URL(`/store/${store.slug}`, import.meta.env.PUBLIC_SITE_URL || "https://souqak-yem.com").href
-          : `/store/${store.slug}`}
-        indexable={!isDedicatedStorePwa}
+        url={storePath}
+        canonicalUrl={storePath}
+        indexable={indexableStore}
         type="collection"
+        jsonLd={indexableStore ? createStoreStructuredData({
+          store,
+          url: storePath,
+          products: data?.products || [],
+          image: image ? uploadsUrl(image) : null,
+          siteBaseUrl: resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL)
+        }) : null}
       />
 
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

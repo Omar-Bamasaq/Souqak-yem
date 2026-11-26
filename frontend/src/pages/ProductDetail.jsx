@@ -26,6 +26,7 @@ import { isPublicAdIndexable } from "../lib/publicAdIndexing.js";
 import { createAdStructuredData } from "../lib/structuredData.js";
 import { resolveSiteBaseUrl } from "../lib/siteUrl.js";
 import { sanitizeSeoAdDescription } from "../lib/seoAdDescription.js";
+import { buildAdPath } from "../../../shared/seoRules.mjs";
 
 const REPORT_CONFIG = {
   ad: {
@@ -37,17 +38,6 @@ const REPORT_CONFIG = {
     ]
   }
 };
-
-function baseSlugify(text) {
-  if (!text) return "";
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s\u0600-\u06ff-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-    .replace(/-+$/, "");
-}
 
 function hasAttributeValue(attribute) {
   const value = attribute?.value;
@@ -67,9 +57,12 @@ function getCurrencySymbol(code) {
 
 export default function ProductDetail() {
   const { data: governoratesData = [] } = useGovernorates();
-  const { id, slug: routeSlug } = useParams();
+  const { id } = useParams();
   const ssgData = useSsgData();
   const initialAd = ssgData?.kind === "ad" && String(ssgData.data?.ad?._id) === String(id) ? ssgData.data.ad : null;
+  const isDynamicServerAd = typeof window !== "undefined"
+    && window.__SOUQAK_DYNAMIC_AD__ === true
+    && String(window.__SOUQAK_SSG_DATA__?.data?.ad?._id) === String(id);
   const [searchParams] = useSearchParams();
   const refId = searchParams.get("ref");
   const navigate = useNavigate();
@@ -183,18 +176,11 @@ export default function ProductDetail() {
   }, [p?.attributes]);
 
   useEffect(() => {
-    if (!p?._id || !id || !routeSlug) return;
-    const slug = baseSlugify(p.slug || p.title) || "ad";
-    if (routeSlug === slug && location.pathname === `/ad/${id}/${routeSlug}`) return;
-    navigate(`/ad/${p._id}/${slug}${location.search}`, { replace: true });
-  }, [p?._id, p?.slug, p?.title, id, routeSlug, location.pathname, location.search, navigate]);
-
-  useEffect(() => {
     if (!p?._id || !id) return;
-    const slug = baseSlugify(p.slug || p.title) || "ad";
-    if (routeSlug === slug && location.pathname === `/ad/${id}/${routeSlug}`) return;
-    navigate(`/ad/${p._id}/${slug}${location.search}`, { replace: true });
-  }, [p?._id, p?.slug, p?.title, id, routeSlug, location.pathname, location.search, navigate]);
+    const canonicalPath = buildAdPath(p);
+    if (!canonicalPath || location.pathname === canonicalPath) return;
+    navigate(`${canonicalPath}${location.search}${location.hash}`, { replace: true });
+  }, [p?._id, p?.slug, p?.title, id, location.pathname, location.search, location.hash, navigate]);
 
   const handleShare = async () => {
     const shareUrl = buildAdShareUrl(window.location.origin, p._id);
@@ -325,7 +311,8 @@ export default function ProductDetail() {
       return;
     }
     try {
-      setLoading(true);
+      const keepInitialContent = isDynamicServerAd && initialAd && String(p?._id) === String(id);
+      if (!keepInitialContent) setLoading(true);
       setNotFound(false);
       // Use useApi instance for all requests to ensure baseURL and prefix
       const res = await api.get(`/ads/${id}`);
@@ -359,6 +346,7 @@ export default function ProductDetail() {
     } catch (err) {
       if (err?.response?.status === 404) {
         setNotFound(true);
+        setP(null);
       } else {
         console.error("Load ad error:", err);
       }
@@ -367,8 +355,14 @@ export default function ProductDetail() {
   };
 
   useEffect(() => {
-    if (!initialAd) load();
-  }, [id, initialAd]);
+    if (!initialAd || isDynamicServerAd) load();
+  }, [id, initialAd, isDynamicServerAd]);
+  useEffect(() => {
+    if (!notFound) return;
+    const robotsMeta = document.querySelector('meta[name="robots"]');
+    if (robotsMeta) robotsMeta.setAttribute("content", "noindex,nofollow");
+    document.querySelector('meta[name="souqak-prerendered-path"]')?.remove();
+  }, [notFound]);
   useEffect(() => {
     (async () => {
       try {
@@ -648,8 +642,8 @@ export default function ProductDetail() {
         {/* SEO Implementation */}
         {p && (
           (() => {
-            const slug = baseSlugify(p.slug || p.title) || "ad";
-            const canonicalAdUrl = `/ad/${p._id}/${slug}`;
+            const canonicalAdUrl = buildAdPath(p);
+            if (!canonicalAdUrl) return null;
             const siteBaseUrl = resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL);
             const breadcrumbs = [
               { name: "الرئيسية", url: "/" },

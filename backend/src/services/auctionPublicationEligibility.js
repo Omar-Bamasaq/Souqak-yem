@@ -9,7 +9,10 @@ import {
 import { resolveAuctionCategoryRequirements } from "./auctionCategoryRequirements.js";
 import { isUserVerificationCurrent } from "./userVerification.js";
 
-export async function evaluateAuctionPublication(auction, now = new Date()) {
+export async function evaluateAuctionPublication(auction, now = new Date(), {
+  loadOwner,
+  resolveCategoryRequirements = resolveAuctionCategoryRequirements
+} = {}) {
   const reasons = [];
   if (auction.reviewStatus !== "approved" || !auction.approvedAt || !auction.approvedBy) {
     reasons.push("الموافقة الإدارية النهائية غير مكتملة");
@@ -25,15 +28,17 @@ export async function evaluateAuctionPublication(auction, now = new Date()) {
   const owner = auction.ownerId && typeof auction.ownerId === "object" &&
     auction.ownerId.verificationStatus !== undefined
     ? auction.ownerId
-    : await User.findById(auction.ownerId)
-      .select("verificationStatus verificationExpiryDate isDisabled isDeleted")
-      .lean();
+    : typeof loadOwner === "function"
+      ? await loadOwner(auction.ownerId)
+      : await User.findById(auction.ownerId)
+        .select("verificationStatus verificationExpiryDate isDisabled isDeleted")
+        .lean();
   if (!isUserVerificationCurrent(owner, now)) {
     reasons.push("توثيق البائع غير سارٍ");
   }
 
   const categoryId = auction.categoryId?._id || auction.categoryId;
-  const category = await resolveAuctionCategoryRequirements(categoryId);
+  const category = await resolveCategoryRequirements(categoryId);
   if (!category || !category.requirements.supported) {
     reasons.push("تصنيف المزاد غير مدعوم");
     return { eligible: false, reasons };
@@ -68,7 +73,7 @@ export async function evaluateAuctionPublication(auction, now = new Date()) {
   return { eligible: reasons.length === 0, reasons };
 }
 
-export async function isPublicationEligible(auction, now = new Date()) {
-  const result = await evaluateAuctionPublication(auction, now);
+export async function isPublicationEligible(auction, now = new Date(), options = {}) {
+  const result = await evaluateAuctionPublication(auction, now, options);
   return result.eligible;
 }

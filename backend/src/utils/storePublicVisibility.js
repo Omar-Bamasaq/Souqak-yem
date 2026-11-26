@@ -1,5 +1,6 @@
 import StoreProfile from "../models/StoreProfile.js";
 import StoreSubscription from "../models/StoreSubscription.js";
+import { applySeoQueryTimeout } from "../services/seoCache.js";
 
 export function isPublicStoreEligible(storeProfile, subscription, now = new Date()) {
   return Boolean(
@@ -8,12 +9,21 @@ export function isPublicStoreEligible(storeProfile, subscription, now = new Date
   );
 }
 
-export async function getPublicStoreProfileIds(now = new Date()) {
-  const stores = await StoreProfile.find({ status: "active" }).select("_id status").lean();
+export async function getPublicStoreProfileIds(now = new Date(), { maxTimeMS } = {}) {
+  let storesQuery = StoreProfile.find({ status: "active" });
+  let subscriptionsQuery;
+  if (Number.isSafeInteger(maxTimeMS) && maxTimeMS > 0) {
+    storesQuery = applySeoQueryTimeout(storesQuery, maxTimeMS);
+  }
+  const stores = await storesQuery.select("_id status").lean();
   if (!stores.length) return [];
 
   const storeIds = stores.map((store) => store._id);
-  const subscriptions = await StoreSubscription.find({ storeId: { $in: storeIds } })
+  subscriptionsQuery = StoreSubscription.find({ storeId: { $in: storeIds } });
+  if (Number.isSafeInteger(maxTimeMS) && maxTimeMS > 0) {
+    subscriptionsQuery = applySeoQueryTimeout(subscriptionsQuery, maxTimeMS);
+  }
+  const subscriptions = await subscriptionsQuery
     .sort({ createdAt: -1, _id: -1 })
     .select("storeId status endDate")
     .lean();

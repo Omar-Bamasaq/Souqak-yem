@@ -44,11 +44,13 @@ import { hasStoreFeature } from "../utils/storeFeatureUtils.js";
 import { getStoreProductPricing, isValidStoreDiscount } from "../utils/storeProductPricing.js";
 import Plan from "../models/Plan.js";
 import { getFamilyProductionActivity, getStoreActivity } from "../utils/storeActivityRegistry.js";
+import { isPublicAdVisible } from "../services/publicAdAccess.js";
 import {
   applyPublicStoreFilter,
   getPublicStoreProfileIds,
   isPublicStoreEligible
 } from "../utils/storePublicVisibility.js";
+import { buildAdPath, isPublicAdIndexable } from "../../../shared/seoRules.mjs";
 
 const router = Router();
 function parseStockQuantity(value) {
@@ -866,20 +868,26 @@ router.get("/pending-followups", auth, requireRole(["seller", "user"]), async (r
 
 router.get("/share/:id", async (req, res) => {
   try {
-    const ad = await Ad.findById(req.params.id).select("title slug description images price currency status isArchived sold isVisible expiresAt").lean();
-    const isUnavailable = !ad || ad.status !== "approved" || ad.isArchived || ad.sold || ad.isVisible === false || (ad.expiresAt && new Date(ad.expiresAt) <= new Date());
-    if (isUnavailable) return res.status(404).send("Not found");
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).send("Not found");
+    const ad = await Ad.findById(req.params.id)
+      .select("title slug description images price currency status isDeleted isVisible isArchived sold isSold isAvailable scheduledPublishAt expiresAt inventoryEnabled stockQuantity storeProfileId")
+      .lean();
+    if (!isPublicAdIndexable(ad)) return res.status(404).send("Not found");
+    if (ad.storeProfileId) {
+      const storeProfile = await StoreProfile.findById(ad.storeProfileId).select("status").lean();
+      const storeSubscription = await StoreSubscription.findOne({ storeId: ad.storeProfileId })
+        .sort({ createdAt: -1, _id: -1 })
+        .lean();
+      if (!isPublicStoreEligible(storeProfile, storeSubscription)) {
+        return res.status(404).send("Not found");
+      }
+    }
 
     const frontendBase = getFrontendBaseUrl();
     const backendBase = (process.env.BACKEND_URL || "https://api.souqak-yem.com").replace(/\/+$/, "");
-    const slug = String(ad.slug || ad.title || "ad")
-      .toLowerCase()
-      .replace(/[^\w\s\u0600-\u06ff-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60)
-      .replace(/-+$/, "") || "ad";
-    const adUrl = `${frontendBase}/ad/${ad._id}/${encodeURIComponent(slug)}`;
+    const adPath = buildAdPath(ad);
+    if (!adPath) return res.status(404).send("Not found");
+    const adUrl = `${frontendBase}${adPath}`;
     const image = ad.images?.[0];
     const imageUrl = image
       ? (String(image).startsWith("http")
@@ -977,8 +985,7 @@ router.get("/:id", optionalAuth, async (req, res) => {
     // Logic for restricted ads (only owner or admin can see)
     const isAdmin = req.user?.role === "admin";
     const isOwner = req.user && String(ad.userId?._id || ad.userId) === String(req.user.id);
-    const isExpired = ad.expiresAt && new Date(ad.expiresAt) <= new Date();
-    const isPubliclyVisible = ad.status === "approved" && !isExpired && ad.isVisible !== false && ad.isArchived !== true && ad.sold !== true && ad.isDeleted !== true;
+    const isPubliclyVisible = isPublicAdVisible(ad);
     if (!isPubliclyVisible) {
       if (!isAdmin && !isOwner) {
         return res.status(404).json({ error: "Not found" });

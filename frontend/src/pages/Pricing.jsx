@@ -8,12 +8,17 @@ import { useSearchParams, Link } from "react-router-dom";
 import { prepareFilesForUpload } from "../lib/imageCompression.js";
 import CurrencyCalculator from "../components/CurrencyCalculator.jsx";
 import { useDraftAction } from "../hooks/useDraftActions.js";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
+import { isTrackingQueryParameter } from "../lib/siteUrl.js";
 
 export default function Pricing() {
   const api = useApi();
   const { user } = useAuth();
   const userId = user?._id || user?.id;
   const [searchParams, setSearchParams] = useSearchParams();
+  const isFiltered = Array.from(searchParams.keys()).some(
+    (key) => !isTrackingQueryParameter(key)
+  );
   const draftAction = useDraftAction(api, userId, "featured_ad_upgrade");
   const [plans, setPlans] = useState([]);
   const [ads, setAds] = useState([]);
@@ -222,6 +227,7 @@ export default function Pricing() {
   if (success) {
     return (
       <div className="mx-auto max-w-2xl px-3 py-6 sm:px-4 sm:py-12">
+        <PublicPageSEO path="/pricing" indexable={!isFiltered} />
         <div className="rounded-3xl bg-white border border-gray-100 p-6 text-center shadow-2xl shadow-blue-50 animate-in zoom-in duration-500 sm:rounded-[2.5rem] sm:p-10">
           <div className="mb-4 flex justify-center sm:mb-6">
             <div className="rounded-full bg-green-50 p-4 ring-8 ring-green-50/50">
@@ -249,6 +255,7 @@ export default function Pricing() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-3 py-5 sm:space-y-12 sm:px-4 sm:py-12">
+      <PublicPageSEO path="/pricing" indexable={!isFiltered} />
       {draftAction.error && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">{draftAction.error}</div>}
       {resumedDraft && selectedPlan?.type === "featured" && <p className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-800">أعد رفع سند الدفع للمتابعة؛ لا تُحفظ الملفات ضمن العمليات غير المكتملة.</p>}
       {step === 1 && (

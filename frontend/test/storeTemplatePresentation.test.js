@@ -257,8 +257,10 @@ test("template rendering leaves the shared Store PWA and SEO lifecycle in Storef
   const rendererSource = fs.readFileSync(path.join(root, "src", "components", "StoreTemplateRenderer.jsx"), "utf8");
   assert.doesNotMatch(storefrontSource, /applyStoreManifest|restoreGlobalManifest/);
   assert.match(storefrontSource, /buildStorePwaLaunchUrl\(store\._id/);
-  assert.match(storefrontSource, /<SEO[\s\S]*?canonicalUrl=\{isDedicatedStorePwa/);
-  assert.match(storefrontSource, /new URL\(`\/store\/\$\{store\.slug\}`/);
-  assert.match(storefrontSource, /: `\/store\/\$\{store\.slug\}`\}/);
+  assert.match(storefrontSource, /<SEO[\s\S]*?canonicalUrl=\{storePath\}/);
+  assert.match(storefrontSource, /indexable=\{indexableStore\}/);
+  assert.ok(storefrontSource.includes(
+    'const storePath = store?.slug ? `/store/${encodeSeoPathSegment(store.slug)}` : "/";'
+  ));
   assert.doesNotMatch(rendererSource, /applyStoreManifest|restoreGlobalManifest|buildStoreManifest/);
 });

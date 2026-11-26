@@ -11,9 +11,16 @@ import CategoryTree from "../components/CategoryTree.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
 import SEO from "../components/SEO.jsx";
 import { useSsgData } from "../ssg/SsgDataContext.jsx";
+import { resolveSiteBaseUrl } from "../lib/siteUrl.js";
+import {
+  encodeSeoPathSegment,
+  hasOnlyCategorySubcategoryParameter,
+  isPublicCategoryIndexable
+} from "../../../shared/seoRules.mjs";
+import { createCategoryStructuredData } from "../lib/structuredData.js";
 
 export default function CategoryPage() {
-  const { slug } = useParams();
+  const { slug, subSlug: routeSubSlug } = useParams();
   const ssgData = useSsgData();
   const initialCategoryData = ssgData?.kind === "category" && ssgData.data?.category?.slug === slug ? ssgData.data : null;
   const navigate = useNavigate();
@@ -31,7 +38,7 @@ export default function CategoryPage() {
 
   // URL State
   const page = parseInt(searchParams.get("page") || "1");
-  const subSlug = searchParams.get("sub");
+  const subSlug = searchParams.has("sub") ? searchParams.get("sub") : routeSubSlug;
   const subSubSlug = searchParams.get("subSub");
 
   const categoryApi = useCategoryApi();
@@ -445,7 +452,10 @@ export default function CategoryPage() {
       if (key.startsWith("attr_")) next.delete(key);
     });
     next.set("page", "1");
-    navigate(`?${next.toString()}`, { replace: true, preventScrollReset: true });
+    if (next.size === 1 && next.get("page") === "1") next.delete("page");
+    const basePath = routeSubSlug ? `/category/${encodeSeoPathSegment(slug)}` : "";
+    const query = next.toString();
+    navigate(`${basePath}${query ? `?${query}` : ""}`, { replace: true, preventScrollReset: true });
   };
 
   const handleSubSubClick = (subSub) => {
@@ -524,11 +534,38 @@ export default function CategoryPage() {
   }
 
   const activeCategory = selectedSubcategory || category;
-  const canonicalPath = `/category/${slug}`;
+  const rootCanonicalPath = `/category/${encodeSeoPathSegment(category.slug)}`;
+  const subcategoryCanonicalPath = selectedSubcategory
+    ? `${rootCanonicalPath}/${encodeSeoPathSegment(selectedSubcategory.slug)}`
+    : null;
+  const relatedSubcategories = (category.children || []).filter((child) => (
+    String(child._id || child.id || "") !== String(selectedSubcategory?._id || selectedSubcategory?.id || "")
+  ));
+  const isIndexableSubcategory = Boolean(selectedSubcategory) && isPublicCategoryIndexable({
+    category: selectedSubcategory,
+    isMainCategory: false,
+    parentCategory: category,
+    relatedCategories: [category, ...relatedSubcategories],
+    publicAdCount: totalAds
+  });
+  const isIndexableMainCategory = isPublicCategoryIndexable({
+    category,
+    isMainCategory: category.parentId == null
+  });
+  const hasOnlyAllowedQuery = hasOnlyCategorySubcategoryParameter(
+    searchParams,
+    selectedSubcategory && searchParams.has("sub") ? selectedSubcategory.slug : null
+  );
+  const routeSelectionMatches = !routeSubSlug || routeSubSlug === selectedSubcategory?.slug;
+  const indexable = hasOnlyAllowedQuery && routeSelectionMatches && (
+    isIndexableSubcategory ||
+    (!routeSubSlug && !searchParams.has("sub") && isIndexableMainCategory)
+  );
+  const canonicalPath = isIndexableSubcategory ? subcategoryCanonicalPath : rootCanonicalPath;
   const categoryBreadcrumbs = [
     { name: "الرئيسية", url: "/" },
-    { name: category.name, url: `/category/${category.slug}` },
-    ...(selectedSubcategory ? [{ name: selectedSubcategory.name, url: canonicalPath }] : [])
+    { name: category.name, url: rootCanonicalPath },
+    ...(selectedSubcategory ? [{ name: selectedSubcategory.name, url: subcategoryCanonicalPath }] : [])
   ];
 
   const handleGlobalSearch = () => {
@@ -542,10 +579,18 @@ export default function CategoryPage() {
     <div className="space-y-6">
       <SEO
         title={`${activeCategory.name} للبيع في اليمن`}
-        description={activeCategory.description || `تصفح إعلانات ${activeCategory.name} للبيع والشراء في اليمن عبر سوقك، منصة الإعلانات المبوبة اليمنية.`}
+        description={activeCategory.description || ""}
         canonicalUrl={canonicalPath}
+        indexable={indexable}
         type="collection"
         breadcrumbs={categoryBreadcrumbs}
+        jsonLd={indexable ? createCategoryStructuredData({
+          category: activeCategory,
+          url: canonicalPath,
+          ads,
+          breadcrumbs: categoryBreadcrumbs,
+          siteBaseUrl: resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL)
+        }) : null}
       />
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-gray-500 overflow-x-auto whitespace-nowrap pb-1">
@@ -558,7 +603,7 @@ export default function CategoryPage() {
             {index === breadcrumbs.length - 1 ? (
               <span className="text-gray-900 font-bold">{crumb.name}</span>
             ) : (
-              <Link to={`/category/${crumb.slug}`} className="hover:text-blue-600">
+              <Link to={`/category/${encodeSeoPathSegment(crumb.slug)}`} className="hover:text-blue-600">
                 {crumb.name}
               </Link>
             )}
@@ -598,13 +643,13 @@ export default function CategoryPage() {
 
               {/* Title (smaller on mobile) */}
               <h1 className="text-lg sm:text-2xl md:text-4xl lg:text-5xl font-black mb-1 sm:mb-3 md:mb-5 leading-[1.15] text-white drop-shadow-sm truncate">
-                {category.name}
+                {activeCategory.name}
               </h1>
 
               {/* Description (compact) */}
-              {category.description && (
+              {activeCategory.description && (
                 <p className="text-white/80 text-[10px] sm:text-xs md:text-base leading-relaxed mb-2 sm:mb-5 md:mb-7 max-w-2xl mx-0 line-clamp-2 md:line-clamp-none">
-                  {category.description}
+                  {activeCategory.description}
                 </p>
               )}
 

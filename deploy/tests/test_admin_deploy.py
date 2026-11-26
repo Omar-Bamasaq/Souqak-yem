@@ -2,10 +2,11 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import tarfile
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 from unittest import mock
@@ -126,6 +127,166 @@ def switch_for(ops):
 
 
 class AdminDeploymentTests(unittest.TestCase):
+    def test_source_fetch_rejects_active_release_that_is_not_ancestor(self):
+        active = "b" * 40
+        commands = []
+
+        def fake_run(command, *, capture=False, **_kwargs):
+            commands.append(command)
+            if "rev-parse" in command:
+                target = command[-1]
+                if target == f"{RELEASE}^{{commit}}":
+                    return RELEASE
+                if target == f"{active}^{{commit}}":
+                    return active
+            if "merge-base" in command and command[-2:] == [active, RELEASE]:
+                raise admin.DeploymentError("candidate is not a descendant")
+            return ""
+
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch.object(admin, "run", side_effect=fake_run):
+                with self.assertRaisesRegex(admin.DeploymentError, "not a descendant"):
+                    admin.fetch_approved_source(
+                        RELEASE,
+                        Path(temporary),
+                        active_release=active,
+                    )
+        self.assertTrue(any("FETCH_HEAD" in command for command in commands))
+        self.assertTrue(any(active in command for command in commands))
+
+    def test_seo_environment_accepts_candidate_values_and_rejects_invalid_values(self):
+        admin.validate_seo_env_settings(
+            "\n".join((
+                "SEO_RENDER_CACHE_ENABLED=true",
+                "SEO_RENDER_CACHE_MAX_ENTRIES=1000",
+                "SEO_RENDER_CACHE_MAX_BYTES=33554432",
+                "SEO_RENDER_CACHE_MAX_ITEM_BYTES=524288",
+                "SEO_RENDER_CACHE_MAX_IN_FLIGHT=16",
+                "SEO_RENDER_CACHE_AD_TTL_MS=60000",
+                "SEO_RENDER_CACHE_CATEGORY_TTL_MS=120000",
+                "SEO_RENDER_CACHE_STORE_TTL_MS=60000",
+                "SEO_RENDER_CACHE_AUCTION_TTL_MS=10000",
+                "SEO_SITEMAP_CACHE_TTL_MS=30000",
+            ))
+        )
+        for invalid in (
+            "SEO_RENDER_CACHE_ENABLED=maybe",
+            "SEO_RENDER_CACHE_MAX_ENTRIES=0",
+            "SEO_RENDER_CACHE_MAX_BYTES=536870913",
+            "SEO_RENDER_CACHE_AD_TTL_MS=-1",
+            "SEO_RENDER_CACHE_AUCTION_TTL_MS=0",
+            "SEO_SITEMAP_CACHE_TTL_MS=300001",
+            "SEO_RENDER_CACHE_MAX_ENTRIES=1.5",
+            "SEO_RENDER_CACHE_MAX_ENTRIES=1\nSEO_RENDER_CACHE_MAX_ENTRIES=2",
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(admin.DeploymentError):
+                admin.validate_seo_env_settings(invalid)
+
+    def test_receipts_are_idempotent_but_mismatches_are_not_replaced(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            seo_root = root / "seo-receipts"
+            release_root = root / "release-receipts"
+            seo_root.mkdir()
+            release_root.mkdir()
+            binding = {
+                "path": admin.SNAPSHOT_PATH,
+                "sha256": "1" * 64,
+                "bytes": 42,
+                "sourceCommit": RELEASE,
+                "maxAgeMs": admin.MAX_AGE_MS,
+                "schemaVersion": 2,
+                "expiresAt": "2026-03-11T00:00:00+00:00",
+            }
+            bundle = root / "bundle"
+            bundle.mkdir()
+            (bundle / "manifest.json").write_text("{}", encoding="utf-8")
+            manifest = {
+                "schema": 2,
+                "release": RELEASE,
+                "checks": {
+                    "backend_tests_passed": True,
+                    "frontend_tests": True,
+                    "frontend_build": True,
+                },
+                "frontend_sha256": "2" * 64,
+                "shared_sha256": "3" * 64,
+            }
+            admin.seo_receipt(
+                RELEASE,
+                binding,
+                create=True,
+                receipt_root=seo_root,
+                require_protected=False,
+            )
+            admin.release_receipt(
+                RELEASE,
+                bundle,
+                manifest,
+                create=True,
+                receipt_root=release_root,
+                require_protected=False,
+            )
+            admin.seo_receipt(
+                RELEASE,
+                binding,
+                create=True,
+                receipt_root=seo_root,
+                require_protected=False,
+            )
+            receipt_path = seo_root / f"{RELEASE}.json"
+            receipt_path.write_text('{"tampered":true}', encoding="utf-8")
+            with self.assertRaisesRegex(admin.DeploymentError, "does not match"):
+                admin.seo_receipt(
+                    RELEASE,
+                    binding,
+                    create=True,
+                    receipt_root=seo_root,
+                    require_protected=False,
+                )
+
+    def test_final_frontend_requires_manifest_hash_and_valid_hashed_assets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            dist = Path(temporary)
+            (dist / "assets").mkdir()
+            (dist / "assets" / "app-a1.js").write_text("app", encoding="utf-8")
+            (dist / "assets" / "app-b2.css").write_text("body{}", encoding="utf-8")
+            (dist / "index.html").write_text(
+                '<html><head><link rel="stylesheet" href="/assets/app-b2.css"></head>'
+                '<body><script type="module" src="/assets/app-a1.js"></script></body></html>',
+                encoding="utf-8",
+            )
+            (dist / "dynamic-ad-renderer-template.html").write_text(
+                '<html><head><meta name="robots" content="noindex,nofollow"/>'
+                '<link rel="stylesheet" href="/assets/app-b2.css"></head>'
+                '<body><div id="root"></div><script type="module" src="/assets/app-a1.js"></script></body></html>',
+                encoding="utf-8",
+            )
+            (dist / "prerender-manifest.json").write_text(json.dumps({
+                "version": 1,
+                "source": "local",
+                "siteBaseUrl": "https://souqak-yem.com",
+            }), encoding="utf-8")
+            for name in admin.REQUIRED_FRONTEND_FILES:
+                path = dist / name
+                if not path.exists():
+                    path.write_text("fixture", encoding="utf-8")
+            (dist / "souqak-release.txt").write_text(RELEASE + "\n", encoding="utf-8")
+            manifest = {
+                "schema": 2,
+                "frontend_sha256": admin.digest_tree(dist),
+                "renderer_template_sha256": sha256(
+                    (dist / "dynamic-ad-renderer-template.html").read_bytes()
+                ).hexdigest(),
+                "prerender_manifest_sha256": sha256(
+                    (dist / "prerender-manifest.json").read_bytes()
+                ).hexdigest(),
+            }
+            admin.validate_final_frontend(dist, RELEASE, manifest)
+            (dist / "assets" / "app-a1.js").write_text("tampered", encoding="utf-8")
+            with self.assertRaisesRegex(admin.DeploymentError, "differ from the prepared manifest"):
+                admin.validate_final_frontend(dist, RELEASE, manifest)
+
     def make_frontend_copy_fixture(self, root):
         build_root = root / "build"
         source = build_root / "release" / "frontend" / "dist"
@@ -135,6 +296,308 @@ class AdminDeploymentTests(unittest.TestCase):
         build_root.chmod(0o711)
         destination.chmod(0o700)
         return build_root, source, destination
+
+    def make_prepared_snapshot(self, root, *, include_shared=True):
+        snapshot = root / "snapshot"
+        dist = snapshot / "frontend" / "dist"
+        dist.mkdir(parents=True)
+        (dist / "assets").mkdir()
+        (dist / "assets" / "app-a1.js").write_text("app", encoding="utf-8")
+        (dist / "assets" / "app-b2.css").write_text("body{}", encoding="utf-8")
+        (dist / "index.html").write_text(
+            '<html><head><link rel="stylesheet" href="/assets/app-b2.css"></head>'
+            '<body><script type="module" src="/assets/app-a1.js"></script></body></html>',
+            encoding="utf-8",
+        )
+        (dist / "dynamic-ad-renderer-template.html").write_text(
+            '<html><head><meta name="robots" content="noindex,nofollow"/>'
+            '<link rel="stylesheet" href="/assets/app-b2.css"></head>'
+            '<body><div id="root"></div><script type="module" src="/assets/app-a1.js"></script></body></html>',
+            encoding="utf-8",
+        )
+        (dist / "prerender-manifest.json").write_text(json.dumps({
+            "version": 1,
+            "source": "local",
+            "siteBaseUrl": "https://souqak-yem.com",
+        }), encoding="utf-8")
+        (dist / "sitemap.xml").write_text("<urlset></urlset>", encoding="utf-8")
+        (dist / "robots.txt").write_text("User-agent: *", encoding="utf-8")
+        (dist / "souqak-release.txt").write_text(RELEASE + "\n", encoding="utf-8")
+        shared = snapshot / "shared"
+        shared.mkdir()
+        if include_shared:
+            (shared / "seoRules.mjs").write_text(
+                "export const fromRelease = true;\n",
+                encoding="utf-8",
+            )
+        exported_at = datetime.now(timezone.utc)
+        snapshot_file = snapshot / admin.SNAPSHOT_PATH
+        snapshot_file.write_text(json.dumps({"metadata": {
+            "schemaVersion": 2,
+            "siteBaseUrl": "https://souqak-yem.com",
+            "sourceCommit": RELEASE,
+            "source": "public-api",
+            "sourceDatabase": "not-accessed-public-api",
+            "maxAgeMs": admin.MAX_AGE_MS,
+            "exportedAt": exported_at.isoformat(),
+            "expiresAt": (exported_at + timedelta(milliseconds=admin.MAX_AGE_MS)).isoformat(),
+        }, "data": {}}), encoding="utf-8")
+        binding = admin.snapshot_info(snapshot_file, RELEASE, 2)
+        manifest = {
+            "schema": 2,
+            "repository": admin.REPOSITORY,
+            "branch": admin.BRANCH,
+            "release": RELEASE,
+            "prepared_at": datetime.now(timezone.utc).isoformat(),
+            "checks": {
+                "backend_tests": ["test/example.test.js"],
+                "backend_tests_passed": True,
+                "frontend_tests": True,
+                "frontend_build": True,
+            },
+            "frontend_sha256": admin.digest_tree(dist),
+            "shared_sha256": (
+                admin.digest_shared_runtime(shared) if include_shared else "0" * 64
+            ),
+            "renderer_template_sha256": sha256(
+                (dist / "dynamic-ad-renderer-template.html").read_bytes()
+            ).hexdigest(),
+            "prerender_manifest_sha256": sha256(
+                (dist / "prerender-manifest.json").read_bytes()
+            ).hexdigest(),
+            "seo_snapshot": binding,
+        }
+        (snapshot / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        (snapshot / "readiness.txt").write_text("READY\n", encoding="utf-8")
+        return snapshot, manifest
+
+    def test_prepared_release_requires_complete_shared_and_frontend_outputs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            snapshot, manifest = self.make_prepared_snapshot(root)
+            self.assertEqual(admin.validate_prepared_snapshot(snapshot, RELEASE), manifest)
+
+            (snapshot / "shared" / "seoRules.mjs").unlink()
+            with self.assertRaisesRegex(admin.DeploymentError, "shared/seoRules.mjs"):
+                admin.validate_prepared_snapshot(snapshot, RELEASE)
+
+            snapshot, _ = self.make_prepared_snapshot(root / "second")
+            (snapshot / "frontend" / "dist" / "robots.txt").unlink()
+            with self.assertRaisesRegex(admin.DeploymentError, "static or SEO files"):
+                admin.validate_prepared_snapshot(snapshot, RELEASE)
+
+    def test_legacy_frontend_remains_eligible_for_rollback_without_renderer_template(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            legacy = Path(temporary)
+            for name in admin.LEGACY_FRONTEND_FILES:
+                (legacy / name).write_text("legacy fixture", encoding="utf-8")
+
+            admin.verify_frontend_files(legacy, allow_legacy_renderer=True)
+            with self.assertRaisesRegex(admin.DeploymentError, "static or SEO files"):
+                admin.verify_frontend_files(legacy)
+
+    def test_prepared_manifest_requires_backend_test_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            snapshot, manifest = self.make_prepared_snapshot(Path(temporary))
+            manifest["checks"]["backend_tests_passed"] = False
+            (snapshot / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(admin.DeploymentError, "manifest is missing or invalid"):
+                admin.validate_prepared_snapshot(snapshot, RELEASE)
+
+    def test_snapshot_allowlist_includes_only_required_shared_runtime(self):
+        self.assertTrue(admin.is_allowed_bundle_path(("shared",)))
+        self.assertTrue(admin.is_allowed_bundle_path(("shared", "seoRules.mjs")))
+        self.assertFalse(admin.is_allowed_bundle_path(("shared", "seo-policy.md")))
+        self.assertFalse(
+            admin.is_allowed_bundle_path(("shared", "nested", "seoRules.mjs"))
+        )
+        self.assertFalse(admin.is_allowed_bundle_path(("backend", ".env")))
+
+    def test_prepared_shared_must_match_the_approved_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle, manifest = self.make_prepared_snapshot(root)
+            source = root / "source"
+            (source / "shared").mkdir(parents=True)
+            shutil.copy2(bundle / "shared" / "seoRules.mjs", source / "shared" / "seoRules.mjs")
+            admin.validate_shared_matches_source(bundle, source, manifest)
+
+            (source / "shared" / "seoRules.mjs").write_text(
+                "export const fromDifferentRelease = true;\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(admin.DeploymentError, "does not match the approved source"):
+                admin.validate_shared_matches_source(bundle, source, manifest)
+
+    def test_frontend_build_workspace_contains_only_release_shared_runtime_and_no_env_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            (source / "frontend" / "src").mkdir(parents=True)
+            (source / "shared").mkdir()
+            (source / "frontend" / "src" / "App.jsx").write_text("export default 1;", encoding="utf-8")
+            (source / "frontend" / ".env.production").write_text("SECRET=fixture", encoding="utf-8")
+            (source / "frontend" / ".npmrc").write_text("//registry/:_authToken=fixture", encoding="utf-8")
+            (source / "shared" / "seoRules.mjs").write_text("export const release = true;", encoding="utf-8")
+            (source / "shared" / "seo-policy.md").write_text("docs", encoding="utf-8")
+            workspace = root / "workspace"
+            workspace.mkdir()
+
+            frontend = admin.copy_frontend_sources(source, workspace)
+
+            self.assertTrue((workspace / "shared" / "seoRules.mjs").is_file())
+            self.assertFalse((workspace / "shared" / "seo-policy.md").exists())
+            self.assertFalse((frontend / ".env.production").exists())
+            self.assertFalse((frontend / ".npmrc").exists())
+
+    def test_backend_docker_context_copies_only_required_shared_runtime(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            (source / "backend" / "src").mkdir(parents=True)
+            (source / "shared").mkdir()
+            (source / "Dockerfile").write_text(
+                "FROM node:20-alpine\n"
+                "COPY backend/package.json ./backend/package.json\n"
+                "COPY backend/package-lock.json ./backend/package-lock.json\n"
+                "COPY backend/src ./backend/src\n"
+                "COPY shared/seoRules.mjs /shared/seoRules.mjs\n"
+                "COPY frontend/index.html ./frontend/index.html\n",
+                encoding="utf-8",
+            )
+            (source / "backend" / "package.json").write_text("{}", encoding="utf-8")
+            (source / "backend" / "package-lock.json").write_text("{}", encoding="utf-8")
+            (source / "backend" / "src" / "index.js").write_text("console.log('ok');", encoding="utf-8")
+            (source / "backend" / "src" / ".env").write_text("SECRET=fixture", encoding="utf-8")
+            (source / "backend" / ".env").write_text("SECRET=fixture", encoding="utf-8")
+            (source / "shared" / "seoRules.mjs").write_text("export const release = true;", encoding="utf-8")
+            (source / "shared" / "seo-policy.md").write_text("docs", encoding="utf-8")
+            frontend_dist = root / "frontend-dist"
+            (frontend_dist / "assets").mkdir(parents=True)
+            (frontend_dist / "dynamic-ad-renderer-template.html").write_text(
+                '<html><head><meta name="robots" content="noindex,nofollow"/>'
+                '<link rel="stylesheet" href="/assets/app-a1.css"></head>'
+                '<body><div id="root"></div><script type="module" src="/assets/app-b2.js"></script></body></html>',
+                encoding="utf-8",
+            )
+            (frontend_dist / "assets" / "app-a1.css").write_text("body{}", encoding="utf-8")
+            (frontend_dist / "assets" / "app-b2.js").write_text("console.log('release');", encoding="utf-8")
+            commands = []
+
+            def docker(*args, capture=False):
+                commands.append(args)
+                if args[:2] == ("image", "inspect"):
+                    if args[args.index("--format") + 1] == "{{.Config.User}}":
+                        return "node"
+                    return json.dumps({
+                        "com.souqak.release": RELEASE,
+                        "com.souqak.source-commit": RELEASE,
+                    })
+                return ""
+
+            ops = mock.Mock()
+            ops.docker.side_effect = docker
+            manifest = {
+                "schema": 2,
+                "renderer_template_sha256": sha256(
+                    (frontend_dist / "dynamic-ad-renderer-template.html").read_bytes()
+                ).hexdigest(),
+            }
+            admin.build_backend_image(ops, source, RELEASE, frontend_dist, manifest)
+            context = root / "backend-build-context"
+
+            self.assertTrue((context / "shared" / "seoRules.mjs").is_file())
+            self.assertEqual(
+                (context / "frontend" / "index.html").read_bytes(),
+                (frontend_dist / "dynamic-ad-renderer-template.html").read_bytes(),
+            )
+            self.assertFalse((context / "shared" / "seo-policy.md").exists())
+            self.assertEqual(
+                {path.relative_to(context).as_posix() for path in context.rglob("*") if path.is_file()},
+                {
+                    "Dockerfile",
+                    "backend/package.json",
+                    "backend/package-lock.json",
+                    "backend/src/index.js",
+                    "frontend/index.html",
+                    "shared/seoRules.mjs",
+                },
+            )
+            self.assertFalse((context / "backend" / "src" / ".env").exists())
+            self.assertFalse((context / "backend" / ".env").exists())
+            self.assertEqual(commands[0][0], "build")
+            self.assertEqual(commands[0][-1], str(context))
+
+    def test_backend_image_rejects_missing_or_incomplete_renderer_assets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            (source / "backend" / "src").mkdir(parents=True)
+            (source / "shared").mkdir()
+            (source / "Dockerfile").write_text(
+                "FROM node:20-alpine\n"
+                "COPY backend/package.json ./backend/package.json\n"
+                "COPY backend/package-lock.json ./backend/package-lock.json\n"
+                "COPY backend/src ./backend/src\n"
+                "COPY shared/seoRules.mjs /shared/seoRules.mjs\n"
+                "COPY frontend/index.html ./frontend/index.html\n",
+                encoding="utf-8",
+            )
+            (source / "backend" / "package.json").write_text("{}", encoding="utf-8")
+            (source / "backend" / "package-lock.json").write_text("{}", encoding="utf-8")
+            (source / "backend" / "src" / "index.js").write_text("console.log('ok');", encoding="utf-8")
+            (source / "shared" / "seoRules.mjs").write_text("export const release = true;", encoding="utf-8")
+            frontend_dist = root / "frontend-dist"
+            frontend_dist.mkdir()
+            (frontend_dist / "dynamic-ad-renderer-template.html").write_text(
+                '<html><head><meta name="robots" content="noindex,nofollow"/></head><body><div id="root"></div>'
+                '<script type="module" src="/assets/missing.js"></script></body></html>',
+                encoding="utf-8",
+            )
+            ops = mock.Mock()
+
+            with self.assertRaisesRegex(admin.DeploymentError, "asset is missing or invalid"):
+                admin.build_backend_image(
+                    ops,
+                    source,
+                    RELEASE,
+                    frontend_dist,
+                    {"schema": 2, "renderer_template_sha256": "0" * 64},
+                )
+            ops.docker.assert_not_called()
+
+    def test_approved_source_requires_shared_module_and_dockerfile_copy(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source"
+            (source / "backend" / "src" / "models").mkdir(parents=True)
+            (source / "backend" / "test").mkdir(parents=True)
+            (source / "frontend").mkdir()
+            (source / "shared").mkdir()
+            (source / "backend" / "src" / "models" / "DraftAction.js").write_text(
+                "one_incomplete_wallet_service_draft_per_service",
+                encoding="utf-8",
+            )
+            (source / "backend" / "test" / "draftActions.test.js").write_text(
+                "wallet service drafts are unique per service, not per user",
+                encoding="utf-8",
+            )
+            (source / "frontend" / "package-lock.json").write_text("{}", encoding="utf-8")
+            (source / "frontend" / "index.html").write_text(
+                "<!doctype html><html><head></head><body></body></html>",
+                encoding="utf-8",
+            )
+            (source / "Dockerfile").write_text(
+                "COPY shared/seoRules.mjs /shared/seoRules.mjs\n"
+                "COPY frontend/index.html ./frontend/index.html\n",
+                encoding="utf-8",
+            )
+            shared = source / "shared" / "seoRules.mjs"
+            shared.write_text("export const release = true;", encoding="utf-8")
+
+            admin.validate_manifest_in_source(source, RELEASE)
+            shared.unlink()
+            with self.assertRaisesRegex(admin.DeploymentError, "shared/seoRules.mjs"):
+                admin.validate_manifest_in_source(source, RELEASE)
 
     def run_activation(self, fail=None):
         temporary = tempfile.TemporaryDirectory()
@@ -152,6 +615,10 @@ class AdminDeploymentTests(unittest.TestCase):
                 raise admin.DeploymentError("simulated frontend switch failure")
             ops.frontend = (Path(target) / "souqak-release.txt").read_text(encoding="utf-8").strip()
 
+        def switch_previous(target):
+            ops.previous_frontend_switch = Path(target)
+            switch(target)
+
         def activate():
             return admin.activate_transaction(
                 ops,
@@ -162,6 +629,7 @@ class AdminDeploymentTests(unittest.TestCase):
                 previous_frontend=previous,
                 new_frontend=candidate,
                 switch_frontend=switch,
+                switch_previous_frontend=switch_previous,
             )
 
         return temporary, ops, activate
@@ -194,6 +662,10 @@ class AdminDeploymentTests(unittest.TestCase):
         with temporary, self.assertRaisesRegex(admin.DeploymentError, "previous application was restored"):
             activate()
         self.assertEqual(ops.frontend, "old-release")
+        self.assertEqual(
+            ops.previous_frontend_switch,
+            Path(temporary.name) / "previous" / "frontend" / "dist",
+        )
         self.assertEqual(ops.containers[admin.BACKEND]["id"], "old-id")
 
     def test_nginx_failure_attempts_application_rollback_and_reports_outcome(self):

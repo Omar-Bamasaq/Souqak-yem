@@ -9,7 +9,20 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 test("backend image is non-root and has no Docker socket or production data build inputs", () => {
   const dockerfile = fs.readFileSync(path.join(repositoryRoot, "Dockerfile"), "utf8");
   assert.match(dockerfile, /^USER node$/m);
+  assert.match(dockerfile, /^COPY backend\/package\.json backend\/package-lock\.json \.\/$/m);
+  assert.match(dockerfile, /^COPY backend\/src \.\/src$/m);
+  assert.match(dockerfile, /^COPY shared\/seoRules\.mjs \/shared\/seoRules\.mjs$/m);
+  assert.doesNotMatch(dockerfile, /^COPY .*backend\/ \.\/$/m);
+  assert.doesNotMatch(dockerfile, /^COPY shared\s+\/shared$/m);
   assert.doesNotMatch(dockerfile, /docker\.sock|privileged/i);
+});
+
+test("local Docker context allows only the required shared runtime file", () => {
+  const dockerignore = fs.readFileSync(path.join(repositoryRoot, ".dockerignore"), "utf8");
+  const compose = fs.readFileSync(path.join(repositoryRoot, "docker-compose.yml"), "utf8");
+  assert.match(dockerignore, /^shared\/\*$/m);
+  assert.match(dockerignore, /^!shared\/seoRules\.mjs$/m);
+  assert.match(compose, /context:\s*\./);
 });
 
 test("protected helper fixes production mounts and isolates its upload check", () => {

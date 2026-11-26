@@ -3,8 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isPublicAdIndexable } from "../src/lib/publicAdIndexing.js";
 import { resolveSiteBaseUrl } from "../src/lib/siteUrl.js";
+import { buildAdPath, getAdSlug } from "../../shared/seoRules.mjs";
 
-export const PRERENDER_SNAPSHOT_SCHEMA_VERSION = 1;
+export const PRERENDER_SNAPSHOT_SCHEMA_VERSION = 2;
 export const DEFAULT_PRERENDER_SNAPSHOT_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../data/seo-prerender-snapshot.json"
@@ -75,10 +76,18 @@ function validatePublicImages(images, label) {
   }
 }
 
-function validateCategory(category, label) {
+function validateCategory(category, label, expectedParentId = null) {
   if (!isRecord(category)) throw new Error(`${label} must be an object.`);
   if (!OBJECT_ID_PATTERN.test(String(category._id || ""))) {
     throw new Error(`${label}._id must be a valid 24-character ObjectId.`);
+  }
+  if (category.status !== "active") {
+    throw new Error(`${label}.status must be active for public snapshot data.`);
+  }
+  const actualParentId = category.parentId == null ? null : String(category.parentId).toLowerCase();
+  const expectedParent = expectedParentId == null ? null : String(expectedParentId).toLowerCase();
+  if (actualParentId !== expectedParent) {
+    throw new Error(`${label}.parentId does not match its public category parent.`);
   }
   requireString(category.slug, `${label}.slug`);
   if (category.slug.includes("/") || category.slug.includes("\\")) {
@@ -94,7 +103,7 @@ function validateCategory(category, label) {
     throw new Error(`${label}.children must be an array.`);
   }
   for (const [index, child] of category.children.entries()) {
-    validateCategory(child, `${label}.children[${index}]`);
+    validateCategory(child, `${label}.children[${index}]`, category._id);
   }
 }
 
@@ -106,6 +115,9 @@ function validateAd(ad, label, { now, requireIndexable }) {
   requireString(ad.slug, `${label}.slug`);
   if (/[\\/%?#\s]/u.test(ad.slug) || ad.slug === "." || ad.slug === "..") {
     throw new Error(`${label}.slug must be a single URL path segment.`);
+  }
+  if (ad.slug !== getAdSlug({ slug: ad.slug })) {
+    throw new Error(`${label}.slug must use the normalized public ad slug.`);
   }
   requireString(ad.title, `${label}.title`);
   requireString(ad.description ?? "", `${label}.description`, { allowEmpty: true });
@@ -146,6 +158,17 @@ function validateAd(ad, label, { now, requireIndexable }) {
       typeof ad.categoryId.slug !== "string" ||
       typeof ad.categoryId.name !== "string") {
     throw new Error(`${label}.categoryId must include a valid _id, slug, and name.`);
+  }
+  if (ad.subcategory != null) {
+    if (!isRecord(ad.subcategory) ||
+        !OBJECT_ID_PATTERN.test(String(ad.subcategory._id || "")) ||
+        String(ad.subcategory.parentId || "").toLowerCase() !== ad.categoryId._id.toLowerCase() ||
+        typeof ad.subcategory.slug !== "string" ||
+        typeof ad.subcategory.name !== "string" ||
+        ad.subcategory.status !== "active" ||
+        typeof ad.subcategory.description !== "string") {
+      throw new Error(`${label}.subcategory must be an active direct child of categoryId.`);
+    }
   }
   for (const locationKey of ["governorateId", "cityId"]) {
     const location = ad[locationKey];
@@ -247,6 +270,12 @@ export function validatePrerenderSnapshot(snapshot, {
         throw new Error(`categorySsgDataBySlug["${category.slug}"] is incomplete or mismatched.`);
       }
       validateCategory(ssg.category, `categorySsgDataBySlug["${category.slug}"].category`);
+      if (ssg.subcategories.length !== category.children.length ||
+          ssg.subcategories.some((subcategory, subcategoryIndex) => (
+            subcategory._id.toLowerCase() !== category.children[subcategoryIndex]._id.toLowerCase()
+          ))) {
+        throw new Error(`categorySsgDataBySlug["${category.slug}"].subcategories do not match the public category tree.`);
+      }
       for (const [crumbIndex, breadcrumb] of ssg.breadcrumbs.entries()) {
         if (!isRecord(breadcrumb) || typeof breadcrumb.name !== "string" ||
             typeof breadcrumb.slug !== "string") {
@@ -258,7 +287,8 @@ export function validatePrerenderSnapshot(snapshot, {
       for (const [subcategoryIndex, subcategory] of ssg.subcategories.entries()) {
         validateCategory(
           subcategory,
-          `categorySsgDataBySlug["${category.slug}"].subcategories[${subcategoryIndex}]`
+          `categorySsgDataBySlug["${category.slug}"].subcategories[${subcategoryIndex}]`,
+          category._id
         );
       }
       for (const [adIndex, ad] of ssg.ads.entries()) {
@@ -272,6 +302,14 @@ export function validatePrerenderSnapshot(snapshot, {
         ) {
           throw new Error(
             `categorySsgDataBySlug["${category.slug}"].ads[${adIndex}] references a different category.`
+          );
+        }
+        if (ad.subcategory && !category.children.some((child) => (
+          child._id.toLowerCase() === ad.subcategory._id.toLowerCase() &&
+          child.parentId.toLowerCase() === category._id.toLowerCase()
+        ))) {
+          throw new Error(
+            `categorySsgDataBySlug["${category.slug}"].ads[${adIndex}] references a non-public subcategory.`
           );
         }
       }
@@ -289,12 +327,18 @@ export function validatePrerenderSnapshot(snapshot, {
       const normalizedId = ad._id.toLowerCase();
       if (adIds.has(normalizedId)) throw new Error(`duplicate public ad id "${ad._id}".`);
       adIds.add(normalizedId);
-      const adUrl = `/ad/${encodeURIComponent(normalizedId)}/${encodeURIComponent(ad.slug)}`;
+      const adUrl = buildAdPath(ad);
       if (adUrls.has(adUrl)) throw new Error(`duplicate public ad URL "${adUrl}".`);
       adUrls.add(adUrl);
       const category = snapshot.categories.find((item) => item.slug === ad.categoryId.slug);
       if (!category || category._id.toLowerCase() !== ad.categoryId._id.toLowerCase()) {
         throw new Error(`ads[${index}].categoryId has no matching public category.`);
+      }
+      if (ad.subcategory && !category.children.some((child) => (
+        child._id.toLowerCase() === ad.subcategory._id.toLowerCase() &&
+        child.parentId.toLowerCase() === category._id.toLowerCase()
+      ))) {
+        throw new Error(`ads[${index}].subcategory has no matching active direct child.`);
       }
     }
 

@@ -94,7 +94,7 @@ function SsgAppTransition({ ssgData, app }) {
       kind={ssgData.kind}
       data={ssgData.data}
       siteBaseUrl={publicSiteBaseUrl}
-      apiOrigin={publicApiOrigin}
+      apiOrigin={ssgData.apiOrigin || publicApiOrigin}
     />
   ) : app;
 }

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { isPublicAdIndexable } from '../src/lib/publicAdIndexing.js';
 import { resolveSiteBaseUrl } from '../src/lib/siteUrl.js';
-import { slugify } from './prerenderRoutes.mjs';
+import { buildAdPath, getAdSlug } from '../../shared/seoRules.mjs';
 import { validatePrerenderSnapshot, loadPrerenderSnapshot, PRERENDER_SNAPSHOT_SCHEMA_VERSION } from './validatePrerenderSnapshot.mjs';
 import { sanitizeSeoAdDescription } from '../src/lib/seoAdDescription.js';
 
@@ -50,13 +50,30 @@ function categoryImage(value, mediaOrigins) {
 }
 function category(value, mediaOrigins, fieldPath, requireChildren = false, isChild = false) {
   requireValue(value && typeof value === 'object' && (!requireChildren || Array.isArray(value.children)), 'Incomplete category page children');
+  requireValue(value.status === 'active', 'Non-public category in public category tree');
   requireValue(
     typeof value.description === 'string' || (isChild && value.description == null),
     'Missing or invalid category description'
   );
   requireValue(value.children == null || Array.isArray(value.children), 'Invalid category children');
-  return { ...pick(value, ['name']), description: value.description ?? '', _id: id(value._id), slug: segment(value.slug),
-    image: categoryImage(value.image, mediaOrigins), children: (value.children ?? []).map((child, index) => category(child, mediaOrigins, `${fieldPath}.children[${index}]`, false, true)) };
+  const rawParentId = value.parentId && typeof value.parentId === 'object' && value.parentId._id != null
+    ? value.parentId._id
+    : value.parentId;
+  const parentId = rawParentId == null
+    ? null
+    : id(typeof rawParentId === 'string' ? rawParentId : String(rawParentId));
+  return {
+    ...pick(value, ['name']),
+    description: value.description ?? '',
+    _id: id(value._id),
+    parentId,
+    status: value.status,
+    slug: segment(value.slug),
+    image: categoryImage(value.image, mediaOrigins),
+    children: (value.children ?? [])
+      .filter((child) => child?.status === 'active')
+      .map((child, index) => category(child, mediaOrigins, `${fieldPath}.children[${index}]`, false, true))
+  };
 }
 function array(payload) {
   requireValue(Array.isArray(payload), 'Expected complete API array');
@@ -168,10 +185,9 @@ export async function createPrerenderSnapshot({
     requireValue(!(raw.inventoryEnabled === true && !(typeof raw.stockQuantity === 'number' && raw.stockQuantity > 0)), 'Ad inventory is not eligible for indexing');
     const ad = pick(raw, ['title', 'description', 'status', 'isDeleted', 'isVisible', 'isArchived', 'sold', 'isSold', 'expiresAt', 'adType', 'price', 'currency', 'priceOnContact', 'images', 'isAvailable', 'inventoryEnabled', 'stockQuantity']);
     requireValue(typeof raw.description === 'string', 'Missing ad description');
-    if (raw.slug !== undefined && raw.slug !== null) segment(raw.slug);
-    ad._id = key; ad.slug = segment(raw.slug || slugify(raw.title) || 'ad');
+    ad._id = key; ad.slug = segment(getAdSlug(raw));
     ad.description = sanitizeSeoAdDescription(raw.description);
-    const adUrl = `/ad/${encodeURIComponent(key)}/${encodeURIComponent(ad.slug)}`;
+    const adUrl = buildAdPath(ad);
     requireValue(!adUrls.has(adUrl), 'Duplicate public ad URL');
     adUrls.add(adUrl);
     // Resolve a leaf category through the authoritative category tree; never
@@ -182,6 +198,10 @@ export async function createPrerenderSnapshot({
     requireValue(matches.length === 1, 'Ad category is not in the exported public tree');
     const main = matches[0];
     ad.categoryId = pick(main, ['_id', 'slug', 'name']);
+    const subcategory = main.children.find(child => child._id === leafId && child.parentId === main._id);
+    if (subcategory) {
+      ad.subcategory = pick(subcategory, ['_id', 'parentId', 'slug', 'name', 'description', 'status']);
+    }
     for (const location of ['governorateId', 'cityId']) ad[location] = raw[location] == null ? null : pick(raw[location], ['name']);
     ads.push(ad);
   }

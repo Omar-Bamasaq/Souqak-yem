@@ -4,7 +4,7 @@ import { uploadsUrl } from "../lib/uploads";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { motion } from "framer-motion";
-import SEO from "../components/SEO";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
 import PlatformReviewModal from "../components/PlatformReviewModal";
 
 const PlatformReviews = () => {
@@ -48,11 +48,7 @@ const PlatformReviews = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 pb-20">
-      <SEO 
-        title="حائط الآراء - منصة سوقك" 
-        description="ماذا يقول مستخدمو سوقك عن تجربتهم؟ استكشف آراء وتقييمات مجتمعنا."
-        canonicalUrl="/platform-reviews"
-      />
+      <PublicPageSEO path="/platform-reviews" />
 
       {/* Hero Section */}
       <div className="relative bg-white dark:bg-slate-900 border-b dark:border-slate-800 pt-6 pb-8 sm:pt-16 sm:pb-20 overflow-hidden">
@@ -122,12 +118,12 @@ const PlatformReviews = () => {
           >
             <div className="text-[9px] sm:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1 sm:mb-2">متوسط التقييم</div>
             <div className="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
-              {stats?.avgRating?.toFixed(1) || "5.0"}
+              {Number(stats?.totalCount) > 0 && Number.isFinite(Number(stats.avgRating)) ? Number(stats.avgRating).toFixed(1) : "—"}
               <svg className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400 fill-current" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
             </div>
-            <div className="text-[10px] sm:text-xs font-bold text-gray-400 mt-1 sm:mt-2">من أصل {stats?.totalCount || 0} تقييم</div>
+            <div className="text-[10px] sm:text-xs font-bold text-gray-400 mt-1 sm:mt-2">من أصل {stats?.totalCount ?? "—"} تقييم</div>
           </motion.div>
 
           <motion.div 
@@ -147,13 +143,15 @@ const PlatformReviews = () => {
                   <div className="flex-1 h-2 sm:h-3 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: `${(stats?.stars?.[star] || 0) / (stats?.totalCount || 1) * 100}%` }}
+                      animate={{ width: `${Number(stats?.totalCount) > 0 ? (stats.stars?.[star] || 0) / Number(stats.totalCount) * 100 : 0}%` }}
                       transition={{ duration: 1, ease: "easeOut" }}
                       className="h-full bg-gradient-to-r from-amber-300 to-amber-500 rounded-full shadow-sm"
                     />
                   </div>
                   <div className="w-10 sm:w-12 text-[9px] sm:text-xs font-black text-gray-400 text-left">
-                    {Math.round((stats?.stars?.[star] || 0) / (stats?.totalCount || 1) * 100)}%
+                    {Number(stats?.totalCount) > 0
+                      ? `${Math.round((stats.stars?.[star] || 0) / Number(stats.totalCount) * 100)}%`
+                      : "—"}
                   </div>
                 </div>
               ))}

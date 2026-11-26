@@ -48,7 +48,9 @@ function response() {
     statusCode: 200,
     body: null,
     status(code) { this.statusCode = code; return this; },
-    json(body) { this.body = body; return this; }
+    json(body) { this.body = body; return this; },
+    send(body) { this.body = body; return this; },
+    type(contentType) { this.contentType = contentType; return this; }
   };
 }
 
@@ -101,6 +103,38 @@ test("public store eligibility requires active profile and active, unexpired sub
   assert.equal(isPublicStoreEligible(publicStore(), subscription({ endDate: new Date(Date.now() - 1) })), false);
   assert.equal(isPublicStoreEligible(publicStore(), subscription({ status: "expired" })), false);
   assert.equal(isPublicStoreEligible(publicStore({ status: "inactive" }), subscription()), false);
+});
+
+test("share previews reject store ads when the store is not publicly eligible", async () => {
+  const originals = {
+    adFindById: Ad.findById,
+    storeFindById: StoreProfile.findById,
+    subscriptionFindOne: StoreSubscription.findOne
+  };
+  Ad.findById = () => query({
+    _id: "64d3d93a1a2b3c4d5e6f7702",
+    title: "Public-looking item",
+    status: "approved",
+    expiresAt: new Date(Date.now() + 86_400_000),
+    storeProfileId: STORE_ID
+  });
+  StoreProfile.findById = () => query(publicStore());
+  StoreSubscription.findOne = () => ({
+    sort() { return this; },
+    lean: async () => subscription({ status: "expired" })
+  });
+  try {
+    const res = response();
+    await handler(adsRouter, "get", "/share/:id")(
+      { params: { id: "64d3d93a1a2b3c4d5e6f7702" } },
+      res
+    );
+    assert.equal(res.statusCode, 404);
+  } finally {
+    Ad.findById = originals.adFindById;
+    StoreProfile.findById = originals.storeFindById;
+    StoreSubscription.findOne = originals.subscriptionFindOne;
+  }
 });
 
 test("listing filter keeps ordinary ads and allows only eligible visible store products", () => {

@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+
+prepare=/usr/local/libexec/souqak/prepare-update.py
+check=/usr/local/libexec/souqak/check-update.py
+activate=/usr/local/libexec/souqak/activate-release.py
+
+usage() {
+  printf '%s\n' \
+    'Usage: souqak-update <full-release-sha>' \
+    '       souqak-update --dry-run <full-release-sha>' \
+    '       souqak-update --rollback <full-release-sha>' >&2
+  exit 2
+}
+
+if [ "$#" -eq 1 ]; then
+  release=$1
+  printf '%s\n' "$release" | grep -Eq '^[a-f0-9]{40}$' || usage
+  sudo -n "$prepare" --prepare "$release"
+  exec sudo -n "$activate" --release "$release" --bundle "/home/souqak/deploy/prepared/$release"
+fi
+
+if [ "$#" -eq 2 ] && [ "$1" = "--dry-run" ]; then
+  release=$2
+  printf '%s\n' "$release" | grep -Eq '^[a-f0-9]{40}$' || usage
+  exec sudo -n "$check" --release "$release"
+fi
+
+if [ "$#" -eq 2 ] && [ "$1" = "--rollback" ]; then
+  release=$2
+  printf '%s\n' "$release" | grep -Eq '^[a-f0-9]{40}$' || usage
+  exec sudo -n "$activate" --rollback --release "$release"
+fi
+
+usage

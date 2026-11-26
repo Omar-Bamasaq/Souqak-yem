@@ -4,15 +4,27 @@ import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PublicSsgContent } from '../src/ssg/PublicSsgContent.mjs';
-import { createAdStructuredData, createBreadcrumbList } from '../src/lib/structuredData.js';
+import {
+  createAdStructuredData,
+  createBreadcrumbList,
+  createCategoryStructuredData,
+  createPublicSiteStructuredData,
+  createWebPageStructuredData,
+  serializeJsonLd
+} from '../src/lib/structuredData.js';
 import { resolveCanonicalUrl, resolveSiteUrl } from '../src/lib/siteUrl.js';
 import { sanitizeSeoAdDescription } from '../src/lib/seoAdDescription.js';
 import { runAtomicPrerender } from './prerenderBuild.mjs';
 import { generateFromPrerenderData } from './prerenderData.mjs';
 import {
+  buildAdPath,
+  generateRobotsTxt,
+  getAdSlug,
+  resolveMinimumPublicAdsForSubcategory
+} from '../../shared/seoRules.mjs';
+import {
   createPublicPrerenderPlan,
-  resolveSiteBaseUrl,
-  slugify
+  resolveSiteBaseUrl
 } from './prerenderRoutes.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +32,9 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 let distDir = path.resolve(process.env.PRERENDER_DIST_DIR || path.join(rootDir, 'dist'));
 const siteBase = resolveSiteBaseUrl(process.env.PUBLIC_SITE_URL || process.env.VITE_PUBLIC_SITE_URL);
+const minimumPublicAdsForSubcategory = resolveMinimumPublicAdsForSubcategory(
+  process.env.SEO_MIN_PUBLIC_ADS_FOR_SUBCATEGORY
+);
 const apiBase = process.env.VITE_API_URL || 'https://api.souqak-yem.com/api';
 const apiOrigin = apiBase.replace(/\/api\/?$/, '');
 const maintenanceMode = (process.env.VITE_MAINTENANCE_MODE || process.env.MAINTENANCE_MODE || '').trim().toLowerCase();
@@ -81,11 +96,13 @@ const makePageHtml = ({
 }) => {
   const safeTitle = htmlEscape(title || 'سوقك - سوق اليمن للإعلانات والبيع والشراء');
   const safeDescription = htmlEscape(description || 'سوقك هو منصة يمنية موثوقة للبيع والشراء والإعلانات المبوبة.');
-  const safeCanonical = htmlEscape(resolveCanonicalUrl(canonical || url || siteBase, siteBase));
+  const canonicalUrl = resolveCanonicalUrl(canonical || url || siteBase, siteBase);
+  const safeCanonical = htmlEscape(canonicalUrl);
+  const prerenderedPath = htmlEscape(new URL(canonicalUrl).pathname);
   const safeUrl = htmlEscape(resolveSiteUrl(url || canonical || siteBase, siteBase));
   const safeImage = htmlEscape(image || `${siteBase}/logo-full.svg`);
   const robots = noIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
-  const structured = jsonLd ? JSON.stringify(jsonLd).replace(/</g, '\\u003c') : '';
+  const structured = jsonLd ? serializeJsonLd(jsonLd) : '';
   const serializedSsgData = ssgKind && ssgData
     ? JSON.stringify({ kind: ssgKind, data: ssgData }).replace(/</g, '\\u003c')
     : '';
@@ -115,6 +132,7 @@ const makePageHtml = ({
     <title>${safeTitle}</title>
     <meta name="description" content="${safeDescription}" />
     <meta name="robots" content="${robots}" />
+    <meta name="souqak-prerendered-path" content="${prerenderedPath}" />
     <link rel="canonical" href="${safeCanonical}" />
     <meta property="og:type" content="${type}" />
     <meta property="og:url" content="${safeUrl}" />
@@ -350,22 +368,47 @@ const publicImage = (value) => value ? String(value) : null;
 
 const sanitizeCategory = (category) => category && ({
   id: category.id || category._id || null,
+  _id: String(category._id || category.id || ''),
+  parentId: category.parentId == null
+    ? null
+    : String(category.parentId?._id || category.parentId),
+  status: category.status || '',
   name: category.name || '',
   slug: category.slug || '',
   description: category.description || '',
   image: publicImage(category.image),
-  children: Array.isArray(category.children) ? category.children.map(sanitizeCategory) : []
+  children: Array.isArray(category.children)
+    ? category.children.filter((child) => child?.status === 'active').map(sanitizeCategory)
+    : []
 });
 
-const sanitizeAd = (ad) => {
+const findCategoryContext = (categoryId, categories) => {
+  const normalizedId = String(categoryId || '').toLowerCase();
+  for (const root of categories) {
+    if (String(root?._id || root?.id || '').toLowerCase() === normalizedId) {
+      return { root, subcategory: null };
+    }
+    const subcategory = (root?.children || []).find((child) => (
+      String(child?._id || child?.id || '').toLowerCase() === normalizedId &&
+      String(child.parentId || '') === String(root._id || root.id || '')
+    ));
+    if (subcategory) return { root, subcategory };
+  }
+  return null;
+};
+
+const sanitizeAd = (ad, categories = []) => {
   if (!ad?._id) return null;
-  const category = ad.categoryId?.parentId && typeof ad.categoryId.parentId === 'object'
+  const context = findCategoryContext(ad.categoryId?._id || ad.categoryId?.id, categories);
+  const fallbackCategory = ad.categoryId?.parentId && typeof ad.categoryId.parentId === 'object'
     ? ad.categoryId.parentId
     : ad.categoryId;
+  const category = context?.root || fallbackCategory;
+  const subcategory = context?.subcategory || ad.subcategory || null;
   return {
     _id: String(ad._id),
     title: ad.title || '',
-    slug: slugify(ad.slug || ad.title) || 'ad',
+    slug: getAdSlug(ad),
     description: sanitizeSeoAdDescription(ad.description),
     images: Array.isArray(ad.images) ? ad.images.slice(0, 3).map(publicImage).filter(Boolean) : [],
     price: ad.price,
@@ -382,8 +425,23 @@ const sanitizeAd = (ad) => {
     adType: ad.adType,
     inventoryEnabled: ad.inventoryEnabled,
     stockQuantity: ad.stockQuantity,
+    scheduledPublishAt: ad.scheduledPublishAt || null,
     expiresAt: ad.expiresAt || null,
-    categoryId: category ? { name: category.name || '', slug: category.slug || '' } : null,
+    categoryId: category ? {
+      _id: String(category._id || category.id || ''),
+      id: String(category._id || category.id || ''),
+      name: category.name || '',
+      slug: category.slug || ''
+    } : null,
+    subcategory: subcategory ? {
+      _id: String(subcategory._id || subcategory.id || ''),
+      id: String(subcategory._id || subcategory.id || ''),
+      parentId: String(subcategory.parentId?._id || subcategory.parentId || ''),
+      name: subcategory.name || '',
+      slug: subcategory.slug || '',
+      description: subcategory.description || '',
+      status: subcategory.status || ''
+    } : null,
     governorateId: ad.governorateId?.name ? { name: ad.governorateId.name } : null,
     cityId: ad.cityId?.name ? { name: ad.cityId.name } : null
   };
@@ -396,7 +454,7 @@ const sanitizeBreadcrumbs = (items) => getItems(items).map((item) => ({
   url: `${siteBase}/category/${encodeURIComponent(item.slug || '')}`
 }));
 
-const sanitizeCategorySsgData = (categorySsgData) => ({
+const sanitizeCategorySsgData = (categorySsgData, categories) => ({
   category: sanitizeCategory(categorySsgData.category),
   breadcrumbs: (categorySsgData.breadcrumbs || []).map((item) => ({
     id: item.id || item._id || null,
@@ -404,8 +462,19 @@ const sanitizeCategorySsgData = (categorySsgData) => ({
     slug: item.slug || '',
     url: item.slug ? `${siteBase}/category/${encodeURIComponent(item.slug)}` : siteBase
   })),
-  subcategories: (categorySsgData.subcategories || []).map(sanitizeCategory).filter(Boolean),
-  ads: (categorySsgData.ads || []).map(sanitizeAd).filter(Boolean)
+  subcategories: (categorySsgData.subcategories || [])
+    .filter((subcategory) => subcategory?.status === 'active')
+    .map(sanitizeCategory).filter(Boolean),
+  subcategorySsgDataById: Object.fromEntries(
+    Object.entries(categorySsgData.subcategorySsgDataById || {}).map(([id, data]) => [
+      id,
+      {
+        total: data.total,
+        ads: (data.ads || []).map((ad) => sanitizeAd(ad, categories)).filter(Boolean)
+      }
+    ])
+  ),
+  ads: (categorySsgData.ads || []).map((ad) => sanitizeAd(ad, categories)).filter(Boolean)
 });
 
 const resolveUpload = (value) => {
@@ -419,8 +488,9 @@ const renderAdPage = (ad, ssgData = null, pageUrl) => {
   const imageUrl = resolveUpload(image);
   const title = ad.title || 'إعلان في سوقك';
   const description = (ad.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 160) || `إعلان ${title} في سوقك.`;
-  const slug = ad.slug || slugify(ad.title) || 'ad';
-  const url = pageUrl || `${siteBase}/ad/${ad._id}/${slug}`;
+  const adPath = buildAdPath(ad);
+  if (!adPath) throw new Error(`Cannot prerender ad with invalid id: ${String(ad?._id || '')}`);
+  const url = pageUrl || resolveSiteUrl(adPath, siteBase);
   const breadcrumbs = buildAdBreadcrumbs(ad, url);
   const jsonLd = createAdStructuredData({
     ad,
@@ -452,8 +522,9 @@ const buildAdBreadcrumbs = (ad, url) => {
 };
 
 const writeHtml = (routePath, html) => {
-  const targetDir = routePath === '/' ? distDir : path.join(distDir, routePath.replace(/^\//, '').replace(/\/$/, ''));
-  const targetFile = routePath === '/' ? path.join(distDir, 'index.html') : path.join(targetDir, 'index.html');
+  const decodedRoutePath = decodeURIComponent(routePath);
+  const targetDir = decodedRoutePath === '/' ? distDir : path.join(distDir, decodedRoutePath.replace(/^\//, '').replace(/\/$/, ''));
+  const targetFile = decodedRoutePath === '/' ? path.join(distDir, 'index.html') : path.join(targetDir, 'index.html');
   ensureDir(path.dirname(targetFile));
   fs.writeFileSync(targetFile, html, 'utf8');
 };
@@ -477,6 +548,21 @@ const loadApiPrerenderData = async () => {
       `${apiBase}/ads?limit=20&page=1&sort=new&categoryId=${encodeURIComponent(categoryId)}`
     );
     const breadcrumbsResponse = await fetchJson(`${apiBase}/categories/breadcrumbs/${categoryId}`);
+    const subcategorySsgDataById = Object.create(null);
+    for (const subcategory of (category.children || []).filter((child) => child?.status === 'active')) {
+      const subcategoryId = String(subcategory.id || subcategory._id || '');
+      if (!subcategoryId) throw new Error(`Public subcategory under ${category.slug} is missing its id`);
+      const subcategoryAdsResponse = await fetchJson(
+        `${apiBase}/ads?limit=20&page=1&sort=new&categoryId=${encodeURIComponent(subcategoryId)}`
+      );
+      const subcategoryAds = getItems(subcategoryAdsResponse);
+      subcategorySsgDataById[String(subcategory._id || subcategory.id)] = {
+        total: Number.isSafeInteger(subcategoryAdsResponse?.total)
+          ? subcategoryAdsResponse.total
+          : subcategoryAds.length,
+        ads: subcategoryAds
+      };
+    }
     categorySsgDataBySlug.set(category.slug, {
       category: sanitizeCategory(category),
       breadcrumbs: [
@@ -484,7 +570,8 @@ const loadApiPrerenderData = async () => {
         ...sanitizeBreadcrumbs(breadcrumbsResponse)
       ],
       subcategories: (category.children || []).map(sanitizeCategory).filter(Boolean),
-      ads: getItems(categoryAdsResponse).map(sanitizeAd).filter(Boolean)
+      subcategorySsgDataById,
+      ads: getItems(categoryAdsResponse)
     });
   }
 
@@ -500,14 +587,19 @@ const loadApiPrerenderData = async () => {
     ads.push(...getItems(nextPage));
   }
 
+  const categoryRoots = [...categorySsgDataBySlug.values()].map(({ category }) => category);
+  for (const data of categorySsgDataBySlug.values()) {
+    data.ads = data.ads.map((ad) => sanitizeAd(ad, categoryRoots)).filter(Boolean);
+  }
+
   return {
     source: 'api',
-    categories,
-    ads,
+    categories: categoryRoots,
+    ads: ads.map((ad) => sanitizeAd(ad, categoryRoots)).filter(Boolean),
     categorySsgDataBySlug,
     homeData: {
-      categories: categories.map(sanitizeCategory).filter(Boolean),
-      ads: homeAds.map(sanitizeAd).filter(Boolean),
+      categories: categoryRoots,
+      ads: homeAds.map((ad) => sanitizeAd(ad, categoryRoots)).filter(Boolean),
       total: Number(homeAdsResponse?.total) || homeAds.length,
       pages: Number(homeAdsResponse?.pages) || 1
     }
@@ -518,20 +610,53 @@ const generatePages = async (prerenderData) => {
   ensureDir(distDir);
   readViteAssets();
 
-  const ssgHomeData = {
-    ...prerenderData.homeData,
-    categories: prerenderData.homeData.categories.map(sanitizeCategory).filter(Boolean),
-    ads: prerenderData.homeData.ads.map(sanitizeAd).filter(Boolean)
-  };
   const categorySsgEntries = prerenderData.categorySsgDataBySlug instanceof Map
     ? [...prerenderData.categorySsgDataBySlug.entries()]
     : Object.entries(prerenderData.categorySsgDataBySlug);
+  const categoryRoots = categorySsgEntries
+    .map(([, data]) => sanitizeCategory(data.category))
+    .filter(Boolean);
   const ssgCategoryDataBySlug = new Map(
-    categorySsgEntries.map(([slug, data]) => [slug, sanitizeCategorySsgData(data)])
+    categorySsgEntries.map(([slug, data]) => [slug, sanitizeCategorySsgData(data, categoryRoots)])
   );
-
-  const staticPages = createPublicPrerenderPlan({ siteBase }).staticPages;
+  const publicPlan = createPublicPrerenderPlan({
+    siteBase,
+    categories: prerenderData.categories,
+    categorySsgDataBySlug: ssgCategoryDataBySlug,
+    ads: prerenderData.ads.map((ad) => sanitizeAd(ad, categoryRoots)).filter(Boolean),
+    minimumPublicAdsForSubcategory
+  });
+  const staticPages = publicPlan.staticPages;
+  const homeCategories = publicPlan.categoryPages.map(({ category, path: categoryPath }) => ({
+    id: String(category._id || category.id || category.slug),
+    name: category.name,
+    path: categoryPath
+  }));
+  const ssgHomeData = { categories: homeCategories, ads: [] };
+  const categoryDirectoryData = {
+    categories: homeCategories,
+    subcategories: publicPlan.subcategoryPages.map(({ category, subcategory, path: categoryPath }) => ({
+      id: String(subcategory._id || subcategory.id || categoryPath),
+      name: subcategory.name,
+      parentName: category.name,
+      path: categoryPath
+    }))
+  };
   for (const page of staticPages) {
+    const ssgKind = page.path === "/"
+      ? "home"
+      : page.path === "/categories"
+        ? "categories"
+        : page.path === "/refund-escrow"
+          ? "refund-escrow"
+          : "static-page";
+    const ssgData = page.path === "/"
+      ? ssgHomeData
+      : page.path === "/categories"
+        ? categoryDirectoryData
+        : page.path === "/terms" || page.path === "/privacy"
+          ? { path: page.path, lastUpdated: new Date().toLocaleDateString("ar-YE") }
+          : { path: page.path };
     const html = makePageHtml({
       title: page.title,
       description: page.description,
@@ -539,8 +664,17 @@ const generatePages = async (prerenderData) => {
       canonical: `${siteBase}${page.canonical}`,
       image: `${siteBase}/logo-full.svg`,
       type: 'website',
-      ...(page.path === '/' ? { ssgKind: 'home', ssgData: ssgHomeData } : {}),
-      ...(page.path === '/refund-escrow' ? { ssgKind: 'refund-escrow', ssgData: {} } : {})
+      jsonLd: page.path === '/'
+        ? createPublicSiteStructuredData({ siteBaseUrl: siteBase })
+        : createWebPageStructuredData({
+          name: page.title,
+          description: page.description,
+          url: page.url,
+          image: `${siteBase}/logo-full.svg`,
+          siteBaseUrl: siteBase
+        }),
+      ssgKind,
+      ssgData
     });
     writeHtml(page.path, html);
   }
@@ -558,22 +692,15 @@ const generatePages = async (prerenderData) => {
     writeHtml(page.path, html);
   }
 
-  const publicPlan = createPublicPrerenderPlan({
-    siteBase,
-    categories: prerenderData.categories,
-    categorySsgDataBySlug: ssgCategoryDataBySlug,
-    ads: prerenderData.ads
-  });
-
   for (const page of publicPlan.categoryPages) {
     const { category } = page;
-    const description = category.description || `تصفح إعلانات ${category.name} للبيع والشراء في اليمن عبر سوقك، منصة الإعلانات المبوبة اليمنية.`;
+    const description = category.description;
     const breadcrumbList = createBreadcrumbList(page.ssgData.breadcrumbs, siteBase);
     const collectionSchema = {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: `${category.name} للبيع في اليمن`,
-      description: category.description || `إعلانات ${category.name} للبيع والشراء في اليمن.`,
+      description,
       url: page.url,
       isPartOf: { '@type': 'WebSite', name: 'سوقك', url: siteBase }
     };
@@ -583,15 +710,52 @@ const generatePages = async (prerenderData) => {
       url: page.url,
       canonical: page.url,
       image: resolveUpload(category.image),
-      jsonLd: breadcrumbList
-        ? { '@context': 'https://schema.org', '@graph': [collectionSchema, breadcrumbList] }
-        : collectionSchema,
+      jsonLd: createCategoryStructuredData({
+        category,
+        url: page.url,
+        ads: page.ssgData.ads,
+        breadcrumbs: page.ssgData.breadcrumbs,
+        siteBaseUrl: siteBase
+      }),
       ssgKind: 'category',
       ssgData: page.ssgData
     }));
   }
 
-  const renderedAds = publicPlan.adPages.map(({ ad }) => sanitizeAd(ad));
+  for (const page of publicPlan.subcategoryPages) {
+    const { category, subcategory } = page;
+    const description = subcategory.description;
+    const breadcrumbList = createBreadcrumbList(page.ssgData.breadcrumbs, siteBase);
+    const collectionSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: `${subcategory.name} للبيع في اليمن`,
+      description,
+      url: page.url,
+      isPartOf: { '@type': 'WebSite', name: 'سوقك', url: siteBase }
+    };
+    writeHtml(page.path, makePageHtml({
+      title: `${subcategory.name} للبيع في اليمن | سوقك`,
+      description,
+      url: page.url,
+      canonical: page.url,
+      image: resolveUpload(category.image),
+      jsonLd: createCategoryStructuredData({
+        category: subcategory,
+        url: page.url,
+        ads: page.ssgData.ads,
+        breadcrumbs: page.ssgData.breadcrumbs,
+        siteBaseUrl: siteBase
+      }),
+      ssgKind: 'category',
+      ssgData: {
+        ...page.ssgData,
+        activeSubcategory: subcategory
+      }
+    }));
+  }
+
+  const renderedAds = publicPlan.adPages.map(({ ad }) => sanitizeAd(ad, categoryRoots));
   if (renderedAds.some((ad) => !ad)) {
     throw new Error('A planned public ad could not be sanitized for prerender.');
   }
@@ -612,25 +776,27 @@ const generatePages = async (prerenderData) => {
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemapUrls
-  .map((url) => `  <url><loc>${htmlEscape(url)}</loc><lastmod>${new Date().toISOString().slice(0, 10)}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`)
+  .map((url) => `  <url><loc>${htmlEscape(url)}</loc></url>`)
   .join('\n')}
 </urlset>
 `;
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
 
-  const robotsTxt = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /login\nDisallow: /register\nDisallow: /forgot-password\nDisallow: /phone-forgot-password\nDisallow: /set-new-password\nDisallow: /verify-email\nDisallow: /seller\nDisallow: /messages\nDisallow: /notifications\nDisallow: /favorites\nDisallow: /following\nDisallow: /wallet\nDisallow: /account-settings\nDisallow: /my-ads\nDisallow: /orders\nDisallow: /edit-ad\nDisallow: /chat\nDisallow: /add-product\nDisallow: /choose-add-type\nDisallow: /commission/pay\nDisallow: /brokerage\nDisallow: /referrals\nSitemap: ${siteBase}/sitemap.xml\n`;
-  fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
+  fs.writeFileSync(path.join(distDir, 'robots.txt'), generateRobotsTxt(siteBase), 'utf8');
   fs.writeFileSync(path.join(distDir, 'prerender-manifest.json'), JSON.stringify({
     version: 1,
     source: prerenderData.source,
     siteBaseUrl: siteBase,
     staticPaths: staticPages.map(({ path: routePath }) => routePath),
-    categoryPaths: publicPlan.categoryPages.map(({ path: routePath }) => routePath),
+    categoryPaths: [
+      ...publicPlan.categoryPages,
+      ...publicPlan.subcategoryPages
+    ].map(({ path: routePath }) => routePath),
     adPaths: publicPlan.adPages.map(({ path: routePath }) => routePath),
     sitemapUrls
   }, null, 2), 'utf8');
 
-  console.log(`Prerendered ${staticPages.length} static pages, ${publicPlan.categoryPages.length} category pages, and ${publicPlan.adPages.length} ad pages; sitemap contains ${sitemapUrls.length} URLs.`);
+  console.log(`Prerendered ${staticPages.length} static pages, ${publicPlan.categoryPages.length + publicPlan.subcategoryPages.length} category pages, and ${publicPlan.adPages.length} ad pages; sitemap contains ${sitemapUrls.length} URLs.`);
 };
 
 const main = async () => generateFromPrerenderData({

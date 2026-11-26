@@ -1,8 +1,10 @@
 import React from "react";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
 
 export default function RefundEscrow() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 rounded-lg border bg-white p-6 shadow-sm">
+      <PublicPageSEO path="/refund-escrow" />
       <div className="flex items-center gap-3">
         <img src="/Amana-Logo.svg" alt="أمانة" className="h-10 w-10 rounded-xl bg-white object-contain p-1" />
         <h1 className="text-2xl font-bold text-gray-900">الشراء الآمن عبر أمانة</h1>

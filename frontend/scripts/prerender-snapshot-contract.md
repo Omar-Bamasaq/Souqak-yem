@@ -14,7 +14,7 @@ The local snapshot source is a JSON export of public data only. No snapshot is c
 - `source`: export mechanism or authorized export identifier.
 - `sourceDatabase`: source database name, without connection details.
 - `exportedAt`: ISO date-time string.
-- `schemaVersion`: currently `1`.
+- `schemaVersion`: currently `2`.
 - `siteBaseUrl`: optional HTTPS site base; when supplied, it must match the configured public site URL.
 
 ## Public category fields
@@ -39,9 +39,11 @@ The validator rejects non-indexable ads, duplicate IDs/slugs, incomplete categor
 ## Source selection and freshness
 
 - `SEO_PRERENDER_DATA_SOURCE=local` selects the snapshot and never falls back to the API or seed data.
+- `SEO_PRERENDER_DATA_SOURCE=api` explicitly selects the public API source.
+- The source must be set explicitly; builds fail before Vite starts if it is missing or invalid.
 - `SEO_PRERENDER_SNAPSHOT_PATH` optionally selects its file; otherwise the expected path is `frontend/data/seo-prerender-snapshot.json`.
 - `SEO_PRERENDER_MAX_AGE_MS` optionally enables a maximum age in milliseconds. When unset, no freshness limit is claimed.
-- Without `SEO_PRERENDER_DATA_SOURCE=local`, the existing API source remains selected.
+- No source is selected implicitly.
 
 An absent, invalid, stale (when a maximum age is configured), or incomplete snapshot must fail before page generation. Generate and validate an authorized local export separately before selecting local mode.
 
@@ -49,7 +51,8 @@ An absent, invalid, stale (when a maximum age is configured), or incomplete snap
 
 Run on a connected preparation machine **before** entering the offline build.
 It does not access MongoDB, authenticated endpoints, production settings, or the
-VPS update system. The normal build scripts and default API source are unchanged.
+VPS update system. Release preparation continues to select the API source explicitly; offline builds
+must select the local snapshot explicitly.
 
 From `frontend/`, with Node.js 18+:
 
