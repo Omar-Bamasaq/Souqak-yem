@@ -10,12 +10,30 @@ function configuredMaxAge(env) {
   return maxAgeMs;
 }
 
+export function resolvePrerenderDataSource(env = process.env) {
+  const source = String(env.SEO_PRERENDER_DATA_SOURCE || "").trim();
+  if (source !== "api" && source !== "local") {
+    throw new Error(
+      'SEO_PRERENDER_DATA_SOURCE must be explicitly set to "local" or "api".'
+    );
+  }
+  const testMode = ["true", "1"].includes(
+    String(env.SEO_PRERENDER_TEST_MODE || "").trim().toLowerCase()
+  );
+  if (testMode && source !== "local") {
+    throw new Error(
+      "SEO prerender test mode requires a local snapshot; no external data request was made."
+    );
+  }
+  return source;
+}
+
 export async function getPrerenderData({
   env = process.env,
   loadApiData,
   readSnapshot = loadPrerenderSnapshot
 } = {}) {
-  const source = env.SEO_PRERENDER_DATA_SOURCE || "api";
+  const source = resolvePrerenderDataSource(env);
   if (source === "api") {
     if (typeof loadApiData !== "function") {
       throw new Error("API prerender data was selected, but no API data loader is configured.");

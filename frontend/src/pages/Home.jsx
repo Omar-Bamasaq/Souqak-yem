@@ -10,8 +10,8 @@ import SponsoredAdSlot from "../components/SponsoredAdSlot.jsx";
 import CategoryGrid from "../components/CategoryGrid.jsx";
 import AdvancedSearchModal from "../components/AdvancedSearchModal.jsx";
 import MobileSelect from "../components/MobileSelect.jsx";
-import SEO from "../components/SEO.jsx";
-import { useSsgData } from "../ssg/SsgDataContext.jsx";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
+import { isTrackingQueryParameter } from "../lib/siteUrl.js";
 import IncompleteActions from "../components/IncompleteActions.jsx";
 import ServiceFeatureCarousel from "../components/ServiceFeatureCarousel.jsx";
 import ExpiringAuctions from "../components/ExpiringAuctions.jsx";
@@ -46,8 +46,6 @@ function HomeServiceIcon({ name }) {
 
 export default function Home() {
   const { user } = useAuth();
-  const ssgData = useSsgData();
-  const initialHome = ssgData?.kind === "home" ? ssgData.data : null;
   const api = useApi();
   const { prefetchCategoryAds, prefetchNextPage } = useAdsQuery();
   const { data: governoratesData = EMPTY_GOVERNORATES } = useGovernorates();
@@ -62,15 +60,12 @@ export default function Home() {
   const page = parseInt(searchParams.get("page") || "1");
   const sort = searchParams.get("sort") || "new";
 
-  const [products, setProducts] = useState(initialHome?.ads || []);
+  const [products, setProducts] = useState([]);
   const [governorates, setGovernorates] = useState([]);
   const [cities, setCities] = useState([]);
   const [popularTags, setPopularTags] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pages, setPages] = useState(() => {
-    if (Number.isFinite(initialHome?.pages)) return initialHome.pages;
-    return 1;
-  });
+  const [pages, setPages] = useState(1);
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [platformStats, setPlatformStats] = useState({ avgRating: 0, totalCount: 0 });
@@ -159,10 +154,8 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Error loading ads:", err);
-      if (!initialHome?.ads?.length) {
-        setProducts([]);
-        setPages(1);
-      }
+      setProducts([]);
+      setPages(1);
     } finally {
       setLoading(false);
     }
@@ -170,7 +163,7 @@ export default function Home() {
 
   useEffect(() => {
     load();
-  }, [load, initialHome, q, governorateId, minPrice, maxPrice, page, sort]);
+  }, [load, q, governorateId, minPrice, maxPrice, page, sort]);
 
   useEffect(() => {
     setGovernorates(governoratesData);
@@ -204,10 +197,9 @@ export default function Home() {
 
   return (
     <>
-      <SEO
-        title="سوقك - سوق اليمن للإعلانات والبيع والشراء"
-        description="سوقك هو منصة يمنية موثوقة للبيع والشراء والإعلانات المبوبة مع ميزة الشراء الآمن، وتتيح لك عرض وشراء السيارات، العقارات، الإلكترونيات والمنتجات والخدمات بسهولة."
-        canonicalUrl="/"
+      <PublicPageSEO
+        path="/"
+        indexable={!Array.from(searchParams.keys()).some((key) => !isTrackingQueryParameter(key))}
         includeSearchAction
       />
       <div className="-mx-4 min-h-screen bg-[#f7faff] dark:bg-slate-950 dark:text-slate-100 font-sans leading-relaxed sm:mx-0 sm:bg-slate-50">
@@ -230,10 +222,10 @@ export default function Home() {
               أكبر تجمع تجاري في اليمن
             </div>
             
-            <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 sm:mb-3 leading-[1.35] sm:leading-[1.35] md:leading-[1.35] lg:leading-[1.35] tracking-tight">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 sm:mb-3 leading-[1.35] sm:leading-[1.35] md:leading-[1.35] lg:leading-[1.35] tracking-tight">
               بيع واشترِ <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">بكل سهولة وأمان</span>
-            </h2>
+            </h1>
 
             <p className="text-[11px] sm:text-lg text-white/70 mb-3 sm:mb-5 px-4 max-w-2xl mx-auto font-medium leading-relaxed">
               سوقك الموثوق لكل ما تحتاجه في اليمن
@@ -308,7 +300,7 @@ export default function Home() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="text-lg font-black text-blue-600 sm:text-xl">{platformStats.avgRating ? platformStats.avgRating.toFixed(1) : "0.0"}</span>
+            <span className="text-lg font-black text-blue-600 sm:text-xl">{platformStats.totalCount ? platformStats.avgRating.toFixed(1) : "—"}</span>
             <svg className="h-4 w-4 text-blue-500 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>

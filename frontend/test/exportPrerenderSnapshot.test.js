@@ -13,7 +13,7 @@ import { getPrerenderData } from '../scripts/prerenderData.mjs';
 import { SAFE_EMPTY_AD_DESCRIPTION, sanitizeSeoAdDescription } from '../src/lib/seoAdDescription.js';
 const execFileAsync=promisify(execFile), exporterPath=fileURLToPath(new URL('../scripts/exportPrerenderSnapshot.mjs',import.meta.url));
 const time = Date.parse('2026-11-11T10:00:00Z'), catId = 'a'.repeat(24);
-const category = { _id: catId, slug: 'cars', name: 'Cars', description: '', image: null, children: [] };
+const category = { _id: catId, slug: 'cars', name: 'Cars', description: '', parentId: null, status: 'active', image: null, children: [] };
 function ad(n=1) { return { _id:n.toString(16).padStart(24,'0'), slug:`car-${n}`, title:'Car', description:'Public description', status:'approved', isDeleted:false, isVisible:true, isArchived:false, sold:false, expiresAt:'2026-12-11T10:00:00Z', adType:'sell', price:100, currency:'YER', priceOnContact:false, images:['car.webp'], categoryId:category }; }
 async function mock(t, { ads=[ad()], mutate=(_u,d)=>d, fail=false }={}) {
   const calls=[];
@@ -37,7 +37,7 @@ test('exports complete paginated allowlisted JSON; reloads offline and rejects s
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'seo-export-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
   const file=path.join(dir,'snapshot.json');await exportPrerenderSnapshot(file,options);
   const result=await loadPrerenderSnapshot(file,{now:time,maxAgeMs:DEFAULT_MAX_AGE_MS});
-  assert.equal(result.categories[0]._id,catId);assert.equal(result.ads.length,3);assert.equal(result.ads[0].categoryId._id,catId);
+   assert.equal(result.categories[0]._id,catId);assert.equal(result.ads.length,3);assert.equal(result.ads[0].categoryId._id,catId);
   assert.equal(result.categorySsgDataBySlug.cars.ads.length,3);assert.equal(JSON.stringify(result).includes('private@example.org'),false);
   assert.equal(Date.parse(result.metadata.expiresAt)-time,DEFAULT_MAX_AGE_MS);
   assert.ok(calls.some(c=>c.path.includes('page=2')));assert.ok(calls.every(c=>c.method==='GET'&&!c.auth&&!c.cookie&&!c.path.includes('admin')));
@@ -74,7 +74,7 @@ test('CLI reads and rejects an invalid SEO_EXPORT_SOURCE_COMMIT before API acces
  assert.deepEqual(await fs.readdir(dir),[]);
 });
 test('omits safe SVG images from main and child category snapshots',async t=>{
- const child={...category,_id:'b'.repeat(24),slug:'child',name:'Child',image:'/uploads/categories/child.svg'};
+ const child={...category,_id:'b'.repeat(24),parentId:catId,slug:'child',name:'Child',image:'/uploads/categories/child.svg'};
  const {options}=await mock(t,{ads:[],mutate(u,d){
   if(u.pathname==='/api/categories/cars'){d.image='https://souqak-yem.com/uploads/categories/cars.svg';d.children=[child];}
   return d;
@@ -244,16 +244,23 @@ test('snapshot validator allows duplicate ad slugs but rejects duplicate ids and
  unsafeSlug.categorySsgDataBySlug.cars.ads[0].slug='unsafe slug';
  await assert.rejects(Promise.resolve().then(()=>validatePrerenderSnapshot(unsafeSlug,{now:time,maxAgeMs:DEFAULT_MAX_AGE_MS})),/slug must be a single URL path segment/);
 });
-test('rejects duplicate ad ids and unsafe ad slugs',async t=>{
+test('rejects duplicate ad ids and normalizes malformed ad slugs',async t=>{
  const {options}=await mock(t,{ads:[ad(1),ad(1)]});
  await assert.rejects(createPrerenderSnapshot(options),/Duplicate ad across pages|Duplicate public ad id/);
- for(const slug of ['same/title','same%20title','same title','same?title','..']) {
+ for(const [slug,expected] of [
+  ['same/title','sametitle'],
+  ['same%20title','same-title'],
+  ['same title','same-title'],
+  ['same?title','sametitle'],
+  ['..','car']
+ ]) {
   const {options}=await mock(t,{ads:[{...ad(1),slug}]});
-  await assert.rejects(createPrerenderSnapshot(options),/Unsafe or missing slug/);
+  const snapshot=await createPrerenderSnapshot(options);
+  assert.equal(snapshot.ads[0].slug,expected);
  }
 });
 test('recursively loads category pages and maps leaf ads to a real root ID',async t=>{
- const child={...category,_id:'b'.repeat(24),slug:'child',name:'Child'};
+ const child={...category,_id:'b'.repeat(24),parentId:catId,slug:'child',name:'Child'};
  const {options}=await mock(t,{ads:[{...ad(),categoryId:child}],mutate(u,d){
   if(u.pathname==='/api/categories/cars')d.children=[child];
   if(u.pathname==='/api/categories/child')return child;
@@ -266,9 +273,10 @@ test('recursively loads category pages and maps leaf ads to a real root ID',asyn
  const result=await createPrerenderSnapshot(options);
  assert.equal(result.categories[0].children[0]._id,child._id);
  assert.equal(result.ads[0].categoryId._id,catId);
+ assert.equal(result.ads[0].subcategory._id,child._id);
 });
 test('allows missing descriptions only on child categories',async t=>{
- const child={...category,_id:'b'.repeat(24),slug:'child',name:'Child'};
+ const child={...category,_id:'b'.repeat(24),parentId:catId,slug:'child',name:'Child'};
  delete child.description;
 
  const {options}=await mock(t,{ads:[],mutate(u,d){

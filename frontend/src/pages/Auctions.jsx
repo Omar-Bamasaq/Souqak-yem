@@ -4,6 +4,7 @@ import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import AuctionCard from "../components/AuctionCard.jsx";
 import { getAuctionError, unpackList } from "../utils/auctionFormat.js";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
 
 export default function Auctions() {
   const api = useApi();
@@ -79,6 +80,7 @@ export default function Auctions() {
 
   return (
     <section dir="rtl" className="space-y-5">
+      <PublicPageSEO path="/auctions" />
       <header className="flex flex-col justify-between gap-3 rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white">مزادات سوقك</h1>

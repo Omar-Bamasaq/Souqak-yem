@@ -119,6 +119,11 @@ import swaggerUi from "swagger-ui-express";
 import { verifyEmailAccounts } from "./utils/emailSender.js";
 import expireWelcomePromotions from "./scripts/expireWelcomePromotions.js";
 import { getBackendBaseUrl } from "./utils/siteUrl.js";
+import {
+  DEFAULT_SITE_BASE_URL,
+  generateRobotsTxt,
+  resolveMinimumPublicAdsForSubcategory
+} from "../../shared/seoRules.mjs";
 import { isAuthSessionActive, isLegacyAccessTokenActive } from "./services/authSessions.js";
 import {
   createSocketHandshakeAuth,
@@ -128,6 +133,23 @@ import {
   isConversationParticipant,
   syncSocketAdminRoom
 } from "./utils/socketAuthorization.js";
+import { createDynamicAdResource } from "./services/dynamicAdRenderer.js";
+import { createDynamicCategoryResource } from "./services/dynamicCategoryRenderer.js";
+import { createDynamicStoreResource } from "./services/dynamicStoreRenderer.js";
+import { createDynamicAuctionResource } from "./services/dynamicAuctionRenderer.js";
+import { createDynamicSeoRenderer } from "./services/dynamicSeoRenderer.js";
+import {
+  createDynamicSitemapService,
+  resolveSitemapCacheTtlMs
+} from "./services/dynamicSitemap.js";
+import {
+  seoRenderCache,
+  seoWorkLimiter
+} from "./services/seoCache.js";
+
+const sitemapCacheTtlMs = resolveSitemapCacheTtlMs(
+  process.env.SEO_SITEMAP_CACHE_TTL_MS
+);
 
 try {
   await connectLocal();
@@ -142,6 +164,9 @@ try {
 
 const app = express();
 app.set("trust proxy", 1);
+const minimumPublicAdsForSubcategory = resolveMinimumPublicAdsForSubcategory(
+  process.env.SEO_MIN_PUBLIC_ADS_FOR_SUBCATEGORY
+);
 
 app.use(addRequestId());
 app.use(requestIp.mw());
@@ -354,6 +379,20 @@ app.get("/api/health/readiness", async (req, res) => {
   }
 });
 
+let invalidateDynamicSitemapCache = () => {};
+app.use((req, res, next) => {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
+  res.once("finish", () => {
+    if (res.statusCode < 200 || res.statusCode >= 300) return;
+    const publicSeoMutation = /^(?:\/api\/(?:ads|admin\/ads|categories|stores|admin\/stores|auctions|admin\/auctions))(?:\/|$)/.test(req.path);
+    if (publicSeoMutation) {
+      seoRenderCache.invalidate();
+      invalidateDynamicSitemapCache();
+    }
+  });
+  return next();
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/message-attachments", privateMessageAttachmentsRouter);
 app.use("/api/admin/settings", adminSettingsRoutes);
@@ -375,7 +414,6 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/comments", commentAdminRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/stores", storesRoutes);
-app.use("/store", storePwaAppRoutes);
 app.use("/api/purchase-requests", purchaseRoutes);
 app.use("/api/bank-accounts", bankAccountRoutes);
 app.use("/api/user-bank-accounts", userBankAccountRoutes);
@@ -408,6 +446,22 @@ app.use("/api/brokerage", brokerageRoutes);
 app.use("/api/referrals", referralRoutes);
 app.use("/api/admin/referrals", adminReferralRoutes);
 
+app.use(createDynamicSeoRenderer({
+  resources: [
+    createDynamicAdResource(),
+    createDynamicCategoryResource({
+      minimumPublicAds: minimumPublicAdsForSubcategory
+    }),
+    createDynamicStoreResource(),
+    createDynamicAuctionResource()
+  ],
+  siteBaseUrl: DEFAULT_SITE_BASE_URL,
+  apiOrigin: getBackendBaseUrl(),
+  cache: seoRenderCache,
+  workLimiter: seoWorkLimiter
+}));
+app.use("/store", storePwaAppRoutes);
+
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);
@@ -420,81 +474,19 @@ app.use((err, req, res, next) => {
 });
 
 app.get("/robots.txt", (req, res) => {
-  const host = req.headers.host || "souqak-yem.com";
-  const baseUrl = `https://${host.replace(/^www\./i, "")}`;
-  const lines = [
-    "User-agent: *",
-    "Allow: /",
-    "Disallow: /admin",
-    "Disallow: /login",
-    "Disallow: /register",
-    "Disallow: /forgot-password",
-    "Disallow: /verify-email",
-    "Disallow: /seller",
-    "Disallow: /messages",
-    "Disallow: /notifications",
-    "Disallow: /favorites",
-    "Disallow: /following",
-    "Disallow: /wallet",
-    "Disallow: /account-settings",
-    "Disallow: /my-ads",
-    "Disallow: /orders",
-    `Sitemap: ${baseUrl}/sitemap.xml`
-  ];
-  res.type("text/plain").send(lines.join("\n"));
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.type("text/plain").send(generateRobotsTxt(DEFAULT_SITE_BASE_URL));
 });
 
-app.get("/sitemap.xml", async (req, res) => {
-  try {
-    const host = req.headers.host || "souqak-yem.com";
-    const siteUrl = `https://${host.replace(/^www\./i, "")}`;
-    const ads = await Ad.find({ status: "approved", isArchived: { $ne: true }, sold: { $ne: true } })
-      .select("title updatedAt")
-      .sort({ updatedAt: -1 })
-      .limit(1000)
-      .lean();
-    const slugify = (s) =>
-      String(s || "")
-        .toLowerCase()
-        .replace(/[\s_]+/g, "-")
-        .replace(/[^a-z0-9\u0600-\u06FF\-]+/g, "")
-        .replace(/\-+/g, "-")
-        .replace(/^\-+|\-+$/g, "");
-
-    const staticUrls = [
-      "",
-      "/categories",
-      "/how-it-works",
-      "/secure-deal-explanation",
-      "/terms",
-      "/privacy",
-      "/platform-reviews",
-      "/pricing"
-    ];
-
-    const urls = staticUrls
-      .map((path) => {
-        const loc = `${siteUrl}${path || "/"}`;
-        const lastmod = new Date().toISOString();
-        return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq><priority>${path ? "0.7" : "1.0"}</priority></url>`;
-      })
-      .concat(
-        ads.map((a) => {
-          const slug = slugify(a.title) || "ad";
-          const loc = `${siteUrl}/ad/${a._id}/${slug}`;
-          const lastmod = new Date(a.updatedAt || Date.now()).toISOString();
-          return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`;
-        })
-      )
-      .join("");
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`;
-    res.type("application/xml").send(xml);
-  } catch {
-    res.status(500).type("text/plain").send("error");
-  }
+const dynamicSitemapService = createDynamicSitemapService({
+  siteBaseUrl: DEFAULT_SITE_BASE_URL,
+  minimumPublicAdsForSubcategory,
+  cacheTtlMs: sitemapCacheTtlMs,
+  workLimiter: seoWorkLimiter,
+  logger
 });
+invalidateDynamicSitemapCache = () => dynamicSitemapService.invalidate();
+app.use(dynamicSitemapService.middleware);
 
 // Notification Retention Policy: Delete notifications older than 30 days every 24 hours
 setInterval(async () => {
@@ -720,6 +712,8 @@ setInterval(async () => {
         expiresAt: new Date(now.getTime() + 40 * 24 * 60 * 60 * 1000),
         scheduledPublishAt: null
       } });
+      seoRenderCache.invalidate();
+      invalidateDynamicSitemapCache();
       
       for (const a of toApprove) {
         try {
@@ -781,6 +775,8 @@ setInterval(async () => {
     if (toExpire.length > 0) {
       const ids = toExpire.map((a) => a._id);
       await Ad.updateMany({ _id: { $in: ids } }, { $set: { status: "expired", featured: false } });
+      seoRenderCache.invalidate();
+      invalidateDynamicSitemapCache();
       for (const a of toExpire) {
         try {
           await createNotification(app, {

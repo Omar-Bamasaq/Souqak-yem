@@ -15,8 +15,13 @@ import ReferralCommission from "../src/models/ReferralCommission.js";
 import ReferralEngine from "../src/engines/ReferralEngine.js";
 import { creditReferralReward, reserveReferralCommissions, reverseReferralCommission, createReferralWithdrawalFinancials } from "../src/services/referralService.js";
 import { signAccessToken } from "../src/config/jwt.js";
+import {
+  createReferralTestTarget,
+  dropReferralTestDatabase,
+  markReferralTestDatabaseOwned
+} from "./helpers/referralMongoSafety.js";
 
-const uri = process.env.REFERRAL_TEST_MONGO_URI;
+const target = createReferralTestTarget(process.env);
 const port = 5518;
 const baseUrl = `http://127.0.0.1:${port}`;
 const backendEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/index.js");
@@ -83,16 +88,28 @@ async function financialSnapshot(user) {
   };
 }
 
-test("Referral Engine integration on isolated Mongo Replica Set", { skip: !uri, timeout: 120000 }, async (t) => {
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
-  await mongoose.connection.dropDatabase();
-  const child = spawn(process.execPath, [backendEntry], {
-    cwd: os.tmpdir(),
-    windowsHide: true,
-    env: { ...process.env, MONGODB_URI: uri, PORT: String(port), FRONTEND_URL: "http://127.0.0.1:5173", NODE_ENV: "test" },
-    stdio: "inherit"
-  });
+test("Referral Engine integration on explicitly isolated local Mongo Replica Set", {
+  skip: target ? false : "Set both referral integration opt-ins in a dedicated local test environment.",
+  timeout: 120000
+}, async (t) => {
+  let child;
+  let databaseOwned = false;
   try {
+    await mongoose.connect(target.uri, { directConnection: true, serverSelectionTimeoutMS: 5000 });
+    await markReferralTestDatabaseOwned(mongoose.connection, target);
+    databaseOwned = true;
+    child = spawn(process.execPath, [backendEntry], {
+      cwd: os.tmpdir(),
+      windowsHide: true,
+      env: {
+        ...process.env,
+        MONGODB_URI: target.uri,
+        PORT: String(port),
+        FRONTEND_URL: "http://127.0.0.1:5173",
+        NODE_ENV: "test"
+      },
+      stdio: "inherit"
+    });
     await waitForServer(child);
     const ambassadorA = await createUser("integration-a");
     const ambassadorB = await createUser("integration-b");
@@ -320,8 +337,20 @@ test("Referral Engine integration on isolated Mongo Replica Set", { skip: !uri, 
 
     await t.diagnostic("Integration scenarios passed on isolated Mongo Replica Set");
   } finally {
-    child.kill();
-    await mongoose.connection.dropDatabase();
-    await mongoose.disconnect();
+    if (child && child.exitCode === null && child.signalCode === null) {
+      await new Promise((resolve) => {
+        child.once("exit", resolve);
+        child.kill();
+      });
+    }
+    try {
+      if (databaseOwned) {
+        await dropReferralTestDatabase(mongoose.connection, target);
+      }
+    } finally {
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.disconnect();
+      }
+    }
   }
 });

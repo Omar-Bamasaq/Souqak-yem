@@ -5,16 +5,25 @@ import {
   publicCategoryAuctionRequirements
 } from "../config/auctionCategoryRequirements.js";
 
-export async function resolveAuctionCategoryRequirements(categoryId) {
-  const category = await Category.findOne({ _id: categoryId, status: "active" })
-    .select("_id slug")
-    .lean();
-  if (!category) return null;
-
+export function getAuctionCategoryRequirementsForCategory(category) {
+  if (!category || category.status !== "active" || !category.slug) return null;
   return {
     category,
     requirements: getCategoryAuctionRequirements([category.slug])
   };
+}
+
+export async function resolveAuctionCategoryRequirements(categoryId, {
+  maxTimeMS
+} = {}) {
+  let query = Category.findOne({ _id: categoryId, status: "active" });
+  if (Number.isSafeInteger(maxTimeMS) && maxTimeMS > 0) {
+    query = query.setOptions({ maxTimeMS, timeoutMS: maxTimeMS });
+  }
+  const category = await query
+    .select("_id slug status")
+    .lean();
+  return getAuctionCategoryRequirementsForCategory(category);
 }
 
 export async function listAuctionCategories() {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { createBreadcrumbList } from '../lib/structuredData.js';
+import { createBreadcrumbList, serializeJsonLd } from '../lib/structuredData.js';
 import { resolveCanonicalUrl, resolveSiteBaseUrl, resolveSiteUrl } from '../lib/siteUrl.js';
 
 const SEO = ({ title, description, image, url, type = 'website', canonicalUrl, indexable = true, breadcrumbs = [], includeSearchAction = false, jsonLd }) => {
@@ -22,25 +22,13 @@ const SEO = ({ title, description, image, url, type = 'website', canonicalUrl, i
 
   const baseJsonLd = {
     '@context': 'https://schema.org',
-    '@type': type === 'collection' ? 'CollectionPage' : 'WebSite',
+    '@type': type === 'collection' ? 'CollectionPage' : type === 'product' ? 'WebPage' : 'WebPage',
     name: safeTitle,
     description: cleanDescription,
     url: currentUrl,
     image: metaImage,
-    alternateName: 'Souqak',
     inLanguage: 'ar-YE',
-    publisher: {
-      '@type': 'Organization',
-      name: 'سوقك',
-      alternateName: 'Souqak',
-      url: baseUrl,
-      logo: `${baseUrl}/logo.png`
-    },
-    ...(includeSearchAction ? { potentialAction: {
-      '@type': 'SearchAction',
-      target: `${baseUrl}/search?q={search_term_string}`,
-      'query-input': 'required name=search_term_string'
-    } } : {})
+    isPartOf: { '@id': `${baseUrl}/#website` }
   };
 
   const pageJsonLd = jsonLd !== undefined
@@ -77,7 +65,7 @@ const SEO = ({ title, description, image, url, type = 'website', canonicalUrl, i
       <meta name="twitter:description" content={cleanDescription} />
       <meta name="twitter:image" content={metaImage} />
 
-      {pageJsonLd && <script type="application/ld+json">{JSON.stringify(pageJsonLd).replace(/</g, '\\u003c')}</script>}
+      {pageJsonLd && <script type="application/ld+json">{serializeJsonLd(pageJsonLd)}</script>}
     </Helmet>
   );
 };

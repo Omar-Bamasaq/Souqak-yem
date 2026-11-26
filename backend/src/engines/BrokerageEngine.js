@@ -124,7 +124,7 @@ export default class BrokerageEngine {
         // Generate new referral code if needed
         if (!existingMembership.referralCode) {
           existingMembership.referralCode = nanoid();
-          existingMembership.referralLink = `${getFrontendBaseUrl()}/ads/${adId}?ref=${existingMembership.referralCode}`;
+          existingMembership.referralLink = `${getFrontendBaseUrl()}/ad/${adId}?ref=${existingMembership.referralCode}`;
         }
         
         await existingMembership.save();
@@ -168,7 +168,7 @@ export default class BrokerageEngine {
       campaignId: campaign._id,
       brokerProfileId: brokerProfile._id,
       referralCode,
-      referralLink: `${baseUrl}/ads/${adId}?ref=${referralCode}`,
+      referralLink: `${baseUrl}/ad/${adId}?ref=${referralCode}`,
       state: initialState
     });
 

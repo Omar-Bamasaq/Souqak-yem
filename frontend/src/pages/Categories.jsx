@@ -2,32 +2,41 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useMainCategories } from "../hooks/useMainCategories.js";
 import CategoryIcon from "../components/CategoryIcon.jsx";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
+import { PUBLIC_PAGE_METADATA } from "../lib/publicPageMetadata.mjs";
 
 export default function Categories() {
   const { data: categories = [], isLoading: loading } = useMainCategories();
+  const seo = <PublicPageSEO path="/categories" />;
 
   if (loading) {
     return (
-      <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
-        <div className="h-8 bg-gray-200 rounded w-48 mb-5 sm:mb-8 animate-pulse"></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-6">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="aspect-square bg-gray-200 rounded-3xl animate-pulse"></div>
-          ))}
+      <>
+        {seo}
+        <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-8">
+          <div className="h-8 bg-gray-200 rounded w-48 mb-5 sm:mb-8 animate-pulse"></div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-6">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="aspect-square bg-gray-200 rounded-3xl animate-pulse"></div>
+            ))}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="container mx-auto space-y-4 px-3 py-4 sm:space-y-8 sm:px-4 sm:py-8">
-      <div className="flex items-center gap-3">
-        <div className="h-8 w-1.5 bg-blue-600 rounded-full"></div>
-        <h1 className="text-2xl md:text-3xl font-black text-gray-900">تصفح جميع الفئات</h1>
-      </div>
+    <>
+      {seo}
+      <div className="container mx-auto space-y-4 px-3 py-4 sm:space-y-8 sm:px-4 sm:py-8">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-1.5 bg-blue-600 rounded-full"></div>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900">{PUBLIC_PAGE_METADATA["/categories"].heading}</h1>
+          <p className="text-sm font-bold text-gray-500">{PUBLIC_PAGE_METADATA["/categories"].intro}</p>
+        </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-6">
-        {categories.map((category) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-6">
+          {categories.map((category) => (
           <Link
             key={category.id}
             to={`/category/${category.slug}`}
@@ -56,19 +65,20 @@ export default function Categories() {
             {/* Decorative element */}
             <div className="absolute -bottom-4 -right-4 h-20 w-20 bg-blue-500/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
           </Link>
-        ))}
-      </div>
-
-      {categories.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 text-center sm:py-20">
-          <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-200">
-            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </div>
-          <p className="text-gray-500 font-bold">لا توجد فئات متاحة حالياً</p>
+          ))}
         </div>
-      )}
-    </div>
+
+        {categories.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center sm:py-20">
+            <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-200">
+              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </div>
+            <p className="text-gray-500 font-bold">لا توجد فئات متاحة حالياً</p>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

@@ -40,6 +40,7 @@ function versionServiceWorker() {
 }
 
 export default defineConfig({
+  envDir: process.env.SOUQAK_VITE_ENV_DIR || frontendRoot,
   plugins: [react(), versionServiceWorker()],
   define: {
     __SOUQAK_BUILD_ID__: JSON.stringify(buildId),
@@ -68,6 +69,9 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173
+    port: 5173,
+    fs: {
+      allow: [path.resolve(frontendRoot, "..")]
+    }
   }
 });

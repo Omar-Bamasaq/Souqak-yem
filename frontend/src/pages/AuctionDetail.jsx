@@ -1,9 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useChat } from "../store/ChatContext.jsx";
 import { uploadsUrl } from "../lib/uploads.js";
+import SEO from "../components/SEO.jsx";
+import { useSsgData } from "../ssg/SsgDataContext.jsx";
+import { sanitizeSeoAdDescription } from "../lib/seoAdDescription.js";
+import {
+  hasMeaningfulQueryParameters,
+  isPublicAuctionIndexable
+} from "../../../shared/seoRules.mjs";
+import { createAuctionStructuredData } from "../lib/structuredData.js";
+import { resolveSiteBaseUrl } from "../lib/siteUrl.js";
 import {
   auctionStatusLabel,
   auctionDeliveryMethodLabel,
@@ -25,12 +34,18 @@ function createIdempotencyKey() {
 export default function AuctionDetail() {
   const { id } = useParams();
   const api = useApi();
+  const ssgData = useSsgData();
+  const initialAuction = ssgData?.kind === "auction" &&
+    String(ssgData.data?.auction?.id || "") === String(id)
+    ? ssgData.data.auction
+    : null;
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const chatContext = useChat();
   const socket = chatContext?.socket;
-  const [auction, setAuction] = useState(null);
-  const [bids, setBids] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [auction, setAuction] = useState(initialAuction);
+  const [bids, setBids] = useState(initialAuction ? ssgData.data.bids || [] : []);
+  const [loading, setLoading] = useState(!initialAuction);
   const [submitting, setSubmitting] = useState(false);
   const [amount, setAmount] = useState("");
   const [selectedImage, setSelectedImage] = useState(0);
@@ -38,6 +53,7 @@ export default function AuctionDetail() {
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [socketConnected, setSocketConnected] = useState(Boolean(socket?.connected));
   const requestRef = useRef(null);
+  const canonicalPath = `/auctions/${encodeURIComponent(id || "")}`;
 
   const loadAuction = useCallback(async () => {
     try {
@@ -63,9 +79,15 @@ export default function AuctionDetail() {
   }, [api, id]);
 
   useEffect(() => {
-    setLoading(true);
+    if (initialAuction) {
+      setAuction(initialAuction);
+      setBids(ssgData.data.bids || []);
+    } else {
+      setAuction(null);
+      setLoading(true);
+    }
     loadAuction();
-  }, [loadAuction]);
+  }, [loadAuction, initialAuction, ssgData]);
 
   useEffect(() => {
     if (!socket) {
@@ -129,19 +151,51 @@ export default function AuctionDetail() {
   };
 
   if (loading) {
-    return <p dir="rtl" className="py-12 text-center text-sm text-slate-500">جارٍ تحميل المزاد…</p>;
+    return (
+      <>
+        <SEO title="تفاصيل المزاد | سوقك" canonicalUrl={canonicalPath} indexable={false} />
+        <p dir="rtl" className="py-12 text-center text-sm text-slate-500">جارٍ تحميل المزاد…</p>
+      </>
+    );
   }
   if (!auction) {
     return (
-      <div dir="rtl" role="alert" className="rounded-2xl bg-white p-6 text-center dark:bg-slate-900">
-        <p className="text-red-700">{error || "المزاد غير متاح."}</p>
-        <Link to="/auctions" className="mt-4 inline-block font-bold text-blue-700">العودة إلى المزادات</Link>
-      </div>
+      <>
+        <SEO
+          title="المزاد غير متاح | سوقك"
+          description="المزاد المطلوب غير متاح حاليًا."
+          canonicalUrl={canonicalPath}
+          indexable={false}
+        />
+        <div dir="rtl" role="alert" className="rounded-2xl bg-white p-6 text-center dark:bg-slate-900">
+          <p className="text-red-700">{error || "المزاد غير متاح."}</p>
+          <Link to="/auctions" className="mt-4 inline-block font-bold text-blue-700">العودة إلى المزادات</Link>
+        </div>
+      </>
     );
   }
 
   const activeImage = auction.images?.[selectedImage];
   return (
+    <>
+    <SEO
+      title={`${auction.title || "مزاد"} | سوقك`}
+      description={sanitizeSeoAdDescription(auction.description)}
+      canonicalUrl={canonicalPath}
+      jsonLd={isPublicAuctionIndexable(auction, Date.now(), { publiclyAccessible: true }) &&
+        !hasMeaningfulQueryParameters(searchParams)
+        ? createAuctionStructuredData({
+          auction,
+          url: canonicalPath,
+          image: activeImage ? uploadsUrl(activeImage) : null,
+          siteBaseUrl: resolveSiteBaseUrl(import.meta.env.PUBLIC_SITE_URL)
+        })
+        : null}
+      indexable={
+        isPublicAuctionIndexable(auction, Date.now(), { publiclyAccessible: true }) &&
+        !hasMeaningfulQueryParameters(searchParams)
+      }
+    />
     <section dir="rtl" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="space-y-5">
         <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -304,5 +358,6 @@ export default function AuctionDetail() {
         )}
       </aside>
     </section>
+    </>
   );
 }

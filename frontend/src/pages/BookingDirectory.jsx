@@ -5,6 +5,7 @@ import { useApi } from "../api/axios.js";
 import { useAuth } from "../store/AuthContext.jsx";
 import { useGovernorates } from "../hooks/useGovernorates.js";
 import BookingServiceForm from "../components/BookingServiceForm.jsx";
+import PublicPageSEO from "../components/PublicPageSEO.jsx";
 
 const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "").replace(/\/$/, "");
 const imageUrl = (value) => value?.startsWith("http") ? value : `${apiBase}${value || ""}`;
@@ -267,6 +268,7 @@ export default function BookingDirectory() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
+      <PublicPageSEO path="/bookings" />
       <motion.header
         initial={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}

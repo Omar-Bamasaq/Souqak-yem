@@ -80,6 +80,19 @@ export default function Footer() {
               <span>تطوير OSB</span>
             </a>
           </div>
+          <nav aria-label="روابط سوقك" className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
+            <Link to="/categories" className="hover:text-blue-700">التصنيفات</Link>
+            <Link to="/stores" className="hover:text-blue-700">المتاجر</Link>
+            <Link to="/family-production" className="hover:text-blue-700">الأسر المنتجة</Link>
+            <Link to="/auctions" className="hover:text-blue-700">المزادات</Link>
+            <Link to="/bookings" className="hover:text-blue-700">الخدمات</Link>
+            <Link to="/pricing" className="hover:text-blue-700">الخطط والأسعار</Link>
+            <Link to="/how-it-works" className="hover:text-blue-700">طريقة العمل</Link>
+            <Link to="/secure-deal-explanation" className="hover:text-blue-700">الشراء الآمن</Link>
+            <Link to="/platform-reviews" className="hover:text-blue-700">آراء المستخدمين</Link>
+            <Link to="/terms" className="hover:text-blue-700">الشروط</Link>
+            <Link to="/privacy" className="hover:text-blue-700">الخصوصية</Link>
+          </nav>
         </div>
       </div>
     </footer>
