@@ -657,6 +657,47 @@ class AdminDeploymentTests(unittest.TestCase):
             activate()
         self.assertEqual(ops.containers[admin.BACKEND]["id"], "old-id")
 
+    def test_backend_health_failure_saves_diagnostics_before_rollback(self):
+        temporary, ops, activate = self.run_activation(fail="health")
+        with temporary:
+            state_root = Path(temporary.name) / "protected-state"
+            state_root.mkdir(mode=0o700)
+            diagnostics_file = (
+                state_root / "failure-diagnostics"
+                / f"{RELEASE}.backend-readiness.log"
+            )
+
+            with (
+                mock.patch.object(admin, "STATE_ROOT", state_root),
+                mock.patch.object(
+                    admin,
+                    "capture_backend_logs",
+                    return_value="Error: simulated startup failure\\n",
+                ) as capture,
+                self.assertRaisesRegex(
+                    admin.DeploymentError,
+                    "previous application was restored",
+                ),
+            ):
+                activate()
+
+            capture.assert_called_once_with(admin.BACKEND)
+            self.assertTrue(diagnostics_file.is_file())
+            self.assertEqual(
+                diagnostics_file.read_text(encoding="utf-8"),
+                "Error: simulated startup failure\\n",
+            )
+            self.assertEqual(
+                diagnostics_file.stat().st_mode & 0o777,
+                0o600,
+            )
+            self.assertEqual(
+                (state_root / "failure-diagnostics").stat().st_mode & 0o777,
+                0o700,
+            )
+            self.assertEqual(ops.containers[admin.BACKEND]["id"], "old-id")
+            self.assertTrue(ops.containers[admin.BACKEND]["running"])
+
     def test_frontend_switch_failure_restores_old_backend_and_link(self):
         temporary, ops, activate = self.run_activation(fail="frontend-switch")
         with temporary, self.assertRaisesRegex(admin.DeploymentError, "previous application was restored"):
@@ -674,6 +715,25 @@ class AdminDeploymentTests(unittest.TestCase):
             activate()
         self.assertEqual(ops.containers[admin.BACKEND]["id"], "old-id")
         self.assertGreaterEqual(ops.reloads, 1)
+
+    def test_backend_logs_capture_stderr(self):
+        result = mock.Mock(
+            returncode=0,
+            stdout=b"Error: simulated backend startup failure\\n",
+        )
+        with mock.patch.object(
+            admin.subprocess, "run", return_value=result
+        ) as runner:
+            output = admin.capture_backend_logs(admin.BACKEND)
+
+        self.assertIn("simulated backend startup failure", output)
+        runner.assert_called_once_with(
+            ["docker", "logs", "--tail", "120", admin.BACKEND],
+            stdout=admin.subprocess.PIPE,
+            stderr=admin.subprocess.STDOUT,
+            timeout=15,
+            check=False,
+        )
 
     def test_failed_rollback_is_reported_as_manual_recovery(self):
         temporary, ops, activate = self.run_activation()
@@ -701,7 +761,20 @@ class AdminDeploymentTests(unittest.TestCase):
             state_path.chmod(0o600)
             fake = mock.Mock()
             fake.container_id.side_effect = ["wrong-active", "expected-previous"]
-            with mock.patch.object(admin, "STATE_FILE", state_path):
+            original_lstat = Path.lstat
+
+            def protected_state_lstat(path, *args, **kwargs):
+                result = original_lstat(path, *args, **kwargs)
+                if path == state_path:
+                    values = list(result)
+                    values[4] = 0  # Simulate root ownership.
+                    return os.stat_result(values)
+                return result
+
+            with (
+                mock.patch.object(admin, "STATE_FILE", state_path),
+                mock.patch.object(Path, "lstat", protected_state_lstat),
+            ):
                 with self.assertRaisesRegex(admin.DeploymentError, "Active backend identity"):
                     admin.validate_rollback_record(RELEASE, fake)
                 with self.assertRaisesRegex(admin.DeploymentError, "does not match"):
