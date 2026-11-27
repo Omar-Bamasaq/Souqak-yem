@@ -6,6 +6,9 @@ RUN npm ci --omit=dev
 
 COPY shared/seoRules.mjs /shared/seoRules.mjs
 COPY backend/src ./src
+
+# Allow the non-root node user to traverse and read source files.
+RUN chmod -R u=rwX,go=rX /app/src
 COPY frontend/index.html ./frontend/index.html
 
 # Writable application logs for the non-root runtime user.
