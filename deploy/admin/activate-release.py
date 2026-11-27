@@ -544,7 +544,13 @@ def _receipt_directory(path, *, create=False, require_protected=True):
             stat.S_ISLNK(metadata.st_mode)
             or not stat.S_ISDIR(metadata.st_mode)
             or (require_protected and (
-                metadata.st_uid != 0 or metadata.st_mode & 0o077
+                metadata.st_uid != 0 or metadata.st_mode & (
+                    0o077 if (
+                        item == path
+                        or item == STATE_ROOT
+                        or STATE_ROOT in item.parents
+                    ) else 0o022
+                )
             ))
         ):
             raise DeploymentError("Receipt directory is not protected.")
@@ -641,7 +647,7 @@ def seo_receipt(
     if not re.fullmatch(r"[a-f0-9]{40}", release):
         raise DeploymentError("Invalid SEO provenance release.")
     directory = Path(receipt_root or SEO_RECEIPT_ROOT)
-    _receipt_directory(directory, require_protected=require_protected)
+    _receipt_directory(directory, create=create, require_protected=require_protected)
     path = directory / f"{release}.json"
     if create:
         _write_receipt(path, expected, require_protected=require_protected)
@@ -684,7 +690,7 @@ def release_receipt(
         },
     }
     directory = Path(receipt_root or RELEASE_RECEIPT_ROOT)
-    _receipt_directory(directory, require_protected=require_protected)
+    _receipt_directory(directory, create=create, require_protected=require_protected)
     path = directory / f"{release}.json"
     if create:
         _write_receipt(path, expected, require_protected=require_protected)
@@ -739,7 +745,10 @@ def run(command, *, cwd=None, env=None, capture=False, input_data=None):
 
 class SystemOps:
     def command(self, *args, capture=False):
-        return run(list(args), capture=capture)
+        result = run(list(args), capture=capture)
+        if capture and isinstance(result, bytes):
+            return result.decode("utf-8", errors="strict")
+        return result
 
     def docker(self, *args, capture=False):
         return self.command("docker", *args, capture=capture)
@@ -777,6 +786,10 @@ class SystemOps:
                 "--resolve", f"{SITE_HOST}:443:127.0.0.1",
                 f"{SITE_HEALTH_URL}/souqak-release.txt",
             ], capture=True)
+            if isinstance(result, bytes):
+                result = result.decode("utf-8", errors="strict")
+            if not isinstance(result, str):
+                return False
             return result.strip() == release
         except DeploymentError:
             return False
@@ -784,6 +797,20 @@ class SystemOps:
     def reload_nginx(self):
         self.command("nginx", "-t")
         self.command("systemctl", "reload", "nginx")
+
+
+
+def capture_backend_logs(container):
+    result = subprocess.run(
+        ["docker", "logs", "--tail", "120", container],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=15,
+        check=False,
+    )
+    if result.returncode:
+        raise DeploymentError("Could not capture backend container logs.")
+    return result.stdout.decode("utf-8", errors="replace")
 
 
 def activate_transaction(
@@ -827,6 +854,27 @@ def activate_transaction(
             image,
         )
         if not ops.wait_backend(health_attempts):
+            try:
+                diagnostics_root = STATE_ROOT / "failure-diagnostics"
+                diagnostics_root.mkdir(mode=0o700, exist_ok=True)
+                os.chmod(diagnostics_root, 0o700)
+
+                diagnostic_file = diagnostics_root / f"{release}.backend-readiness.log"
+                if diagnostic_file.exists() or diagnostic_file.is_symlink():
+                    raise DeploymentError("Backend diagnostic file already exists.")
+
+                logs = capture_backend_logs(BACKEND)
+
+                fd = os.open(
+                    diagnostic_file,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                )
+                with os.fdopen(fd, "w", encoding="utf-8") as output:
+                    output.write(str(logs)[:50000])
+                print("Backend readiness diagnostics saved to protected state.")
+            except Exception:
+                print("Warning: Backend readiness diagnostics could not be saved.")
             raise DeploymentError("New backend failed its readiness check.")
         switched = True
         switch_frontend(new_frontend)
@@ -1314,6 +1362,10 @@ def validate_production_layout(ops, submitter_uid):
     for volume in (DATABASE_VOLUME, UPLOADS_VOLUME, PRIVATE_UPLOADS_VOLUME):
         ops.docker("volume", "inspect", volume)
     nginx_config = ops.command("nginx", "-T", capture=True)
+    if isinstance(nginx_config, bytes):
+        nginx_config = nginx_config.decode("utf-8", errors="strict")
+    if not isinstance(nginx_config, str):
+        raise DeploymentError("Nginx configuration output has an invalid type.")
     if f"root {FRONTEND_LINK};" not in nginx_config or f"127.0.0.1:{BACKEND_PORT}" not in nginx_config:
         raise DeploymentError("Nginx does not use the fixed frontend link and backend loopback port.")
     ops.command("systemctl", "is-active", "--quiet", "nginx")
@@ -1325,6 +1377,15 @@ def validate_production_layout(ops, submitter_uid):
     return backend, mongo, previous_frontend
 
 
+
+def decode_git_output(value):
+    if isinstance(value, bytes):
+        return value.decode("ascii", errors="strict")
+    if isinstance(value, str):
+        return value
+    raise DeploymentError("Git command returned an unexpected output type.")
+
+
 def fetch_approved_source(release, staging, *, schema_version=2, active_release=None):
     repository = staging / "repository"
     repository.mkdir(mode=0o700)
@@ -1332,7 +1393,7 @@ def fetch_approved_source(release, staging, *, schema_version=2, active_release=
     run(["git", "-C", str(repository), "remote", "add", "origin", REPOSITORY])
     run(["git", "-C", str(repository), "fetch", "--quiet", "--no-tags", "origin", "main"])
     commit = run(["git", "-C", str(repository), "rev-parse", "--verify", f"{release}^{{commit}}"], capture=True)
-    if commit != release:
+    if decode_git_output(commit) != release:
         raise DeploymentError("The requested SHA is not an exact commit in the approved repository.")
     run(["git", "-C", str(repository), "merge-base", "--is-ancestor", release, "FETCH_HEAD"])
     if active_release and re.fullmatch(r"[a-f0-9]{40}", active_release):
@@ -1342,7 +1403,7 @@ def fetch_approved_source(release, staging, *, schema_version=2, active_release=
             ["git", "-C", str(repository), "rev-parse", "--verify", f"{active_release}^{{commit}}"],
             capture=True,
         )
-        if active_commit != active_release:
+        if decode_git_output(active_commit) != active_release:
             raise DeploymentError("Active release is not present in the approved source history.")
         run([
             "git", "-C", str(repository), "merge-base", "--is-ancestor",
@@ -1492,6 +1553,18 @@ def build_backend_image(ops, source, release, frontend_dist, manifest):
         backend_context / "src",
         ignore=ignore_build_secrets,
     )
+    # Normalize permissions in the isolated Docker build context only.
+    # Runtime source files must be readable by the non-root node user.
+    copied_src = backend_context / "src"
+    for entry in (copied_src, *copied_src.rglob("*")):
+        if entry.is_symlink():
+            raise DeploymentError("Backend build context contains a symbolic link.")
+        if entry.is_dir():
+            entry.chmod(0o755)
+        elif entry.is_file():
+            entry.chmod(0o644)
+        else:
+            raise DeploymentError("Backend build context contains a special file.")
     if "shared/seoRules.mjs" in docker_sources:
         shared_context = context / "shared"
         shared_context.mkdir()
@@ -1650,6 +1723,7 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
             release_directory.mkdir(mode=0o755)
             frontend_target = release_directory / "frontend" / "dist"
             frontend_target.parent.mkdir(mode=0o755)
+            frontend_target.mkdir(mode=0o755)
             copy_frontend_build(frontend_dist, frontend_target)
             (frontend_target / "souqak-release.txt").write_text(release + "\n", encoding="utf-8")
             for path in [release_directory, *release_directory.rglob("*")]:
@@ -1865,7 +1939,7 @@ def dry_run_release(release, bundle, ops=None):
         run(["git", "init", "--quiet", str(repository)])
         run(["git", "-C", str(repository), "remote", "add", "origin", REPOSITORY])
         run(["git", "-C", str(repository), "fetch", "--quiet", "--no-tags", "origin", "main"])
-        if run(["git", "-C", str(repository), "rev-parse", "--verify", f"{release}^{{commit}}"], capture=True) != release:
+        if decode_git_output(run(["git", "-C", str(repository), "rev-parse", "--verify", f"{release}^{{commit}}"], capture=True)) != release:
             raise DeploymentError("The requested SHA is not present in the approved repository.")
         run(["git", "-C", str(repository), "merge-base", "--is-ancestor", release, "FETCH_HEAD"])
         archive = subprocess.Popen(

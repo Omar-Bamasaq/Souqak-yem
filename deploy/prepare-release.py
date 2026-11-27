@@ -14,10 +14,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DEPLOY_SOURCE_ROOT = Path(__file__).resolve().parent
-if not (DEPLOY_SOURCE_ROOT / "snapshot_contract.py").is_file():
+
+# Installed administrative tools use the protected shared contract.
+# Repository executions use the contract tracked beside this file.
+INSTALLED_TOOL_ROOT = Path("/usr/local/libexec/souqak")
+if DEPLOY_SOURCE_ROOT == INSTALLED_TOOL_ROOT:
     installed_contract_root = DEPLOY_SOURCE_ROOT.parent
-    if (installed_contract_root / "snapshot_contract.py").is_file():
-        DEPLOY_SOURCE_ROOT = installed_contract_root
+    if not (installed_contract_root / "snapshot_contract.py").is_file():
+        raise RuntimeError("Installed snapshot contract is missing.")
+    DEPLOY_SOURCE_ROOT = installed_contract_root
+elif not (DEPLOY_SOURCE_ROOT / "snapshot_contract.py").is_file():
+    raise RuntimeError("Repository snapshot contract is missing.")
 if str(DEPLOY_SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(DEPLOY_SOURCE_ROOT))
 from snapshot_contract import MAX_AGE_MS, snapshot_info

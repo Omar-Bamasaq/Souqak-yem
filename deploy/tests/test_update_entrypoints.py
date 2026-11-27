@@ -101,6 +101,17 @@ class UpdateEntrypointTests(unittest.TestCase):
             prepared_root.mkdir()
             build_root = Path(temporary) / "build"
             build_root.mkdir()
+            build_root.chmod(0o755)  # Match protected build-root access requirements.
+            original_stat = Path.stat
+
+            def protected_build_root_stat(path, *args, **kwargs):
+                result = original_stat(path, *args, **kwargs)
+                if path == build_root:
+                    values = list(result)
+                    values[4] = 0  # Simulate root ownership in this test only.
+                    return os.stat_result(values)
+                return result
+
             admin = mock.Mock(
                 PREPARED_ROOT=prepared_root,
                 BUILD_ROOT=build_root,
@@ -120,6 +131,7 @@ class UpdateEntrypointTests(unittest.TestCase):
                 mock.patch.object(prepare_update, "publish_validated_bundle", return_value={"release": RELEASE}) as publish,
                 mock.patch.object(prepare_update, "write_preparation_evidence") as write_evidence,
                 mock.patch.object(prepare_update.os, "chown", create=True),
+                mock.patch.object(Path, "stat", protected_build_root_stat),
             ):
                 prepare_update.prepare_or_resume(RELEASE, admin)
             self.assertEqual(run.call_args.args[:3], (RELEASE, "b" * 40, admin))
