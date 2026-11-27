@@ -1716,6 +1716,16 @@ def deploy_release(release, bundle, ops=None, confirm=confirm_release):
             ensure_release_marker(frontend_dist, release)
             validate_final_frontend(frontend_dist, release, manifest)
             image = build_backend_image(ops, source, release, frontend_dist, manifest)
+            # Fail before stopping production if the non-root runtime
+            # cannot read the backend configuration.
+            ops.docker(
+                "run", "--rm", "--network", "none", "--read-only",
+                "--user", "node", "--entrypoint", "node",
+                image, "-e",
+                "const fs=require('node:fs');"
+                "fs.readFileSync('/app/src/config/cors.js');"
+                "console.log('BACKEND_SOURCE_ACCESS_OK');",
+            )
             check_volume_access(ops, image)
             release_directory = MANAGED_RELEASES / release
             if release_directory.exists() or release_directory.is_symlink():
